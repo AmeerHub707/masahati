@@ -1,12 +1,24 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { isLoggedIn } from '../../lib/authStore';
 
 export default function Navbar() {
   const navigate = useNavigate();
+  const location = useLocation();
+
   const handleLogoClick = (e) => {
     e.preventDefault();
-    navigate(isLoggedIn() ? '/dashboard' : '/');
+    if (isLoggedIn()) {
+      navigate('/dashboard');
+      return;
+    }
+    // غير مسجّل: إن كنا على الصفحة الرئيسية نطلب التمرير لأعلى، وإلا ننتقل إليها
+    if (location.pathname === '/') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      navigate('/');
+    }
   };
+
   return (
     <nav className="nav">
       <div className="wrap nav__inner">
