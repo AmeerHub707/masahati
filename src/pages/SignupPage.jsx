@@ -16,6 +16,8 @@ export default function SignupPage() {
   // --- States ---
   const [step, setStep] = useState('register'); // 'register' | 'otp' | 'done' | 'pending'
   const [role, setRole] = useState('student'); // 'student' | 'owner'
+  const [otpChannel, setOtpChannel] = useState('email'); // 'email' | 'whatsapp'
+  const [showChannelModal, setShowChannelModal] = useState(false);
 
   // Form Fields
   const [formData, setFormData] = useState({
@@ -85,10 +87,19 @@ export default function SignupPage() {
       return;
     }
 
+    // عرض نافذة اختيار قناة استلام الرمز (بريد أو هاتف)
+    setShowChannelModal(true);
+  };
+
+  // اختيار القناة من النافذة المنبثقة ثم توليد الرمز
+  const confirmChannel = (channel) => {
+    setOtpChannel(channel);
+    setShowChannelModal(false);
+
     // توليد رمز تحقق تجريبي
     const generatedOtp = String(Math.floor(100000 + Math.random() * 900000));
     setExpectedOtp(generatedOtp);
-    console.log(`[DEMO OTP for ${formData.email}]:`, generatedOtp);
+    console.log(`[DEMO OTP via ${channel}]:`, generatedOtp);
 
     setTimerLeft(30);
     setStep('otp');
@@ -552,12 +563,13 @@ export default function SignupPage() {
             <form onSubmit={handleOtpSubmit} className="form-panel" noValidate>
               <h2>تحقق من <span style={{ color: 'var(--accent)' }}>بريدك</span></h2>
               <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-                أرسلنا رمزًا مكوّنًا من 6 أرقام إلى <b>{formData.email}</b>. أدخله أدناه لإتمام التسجيل.
+                أرسلنا رمزًا مكوّنًا من 6 أرقام عبر <b>{otpChannel === 'whatsapp' ? 'واتساب' : 'البريد الإلكتروني'}</b>
+                {otpChannel === 'email' ? <> إلى <b>{formData.email}</b></> : <> إلى رقم <b dir="ltr">{formData.phone}</b></>} . أدخله أدناه لإتمام التسجيل.
               </p>
 
               {/* Demo Notice */}
               <div className="dev-note" style={{ marginBottom: '1rem' }}>
-                <b>وضع تجريبي:</b> الرمز المولد للتجربة هو: <b>{expectedOtp}</b>
+                <b>وضع تجريبي:</b> الرمز المولد للتجربة ({otpChannel === 'whatsapp' ? 'واتساب' : 'بريد'}) هو: <b>{expectedOtp}</b>
               </div>
 
               <div className="otp-row">
@@ -647,6 +659,71 @@ export default function SignupPage() {
           <MessageCircle size={24} />
         </a>
       </main>
+
+      {/* نافذة اختيار قناة استلام رمز التحقق */}
+      {showChannelModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowChannelModal(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 100,
+            background: 'rgba(0,0,0,0.55)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', padding: '1rem'
+          }}
+        >
+          <div
+            className="modal-box"
+            onClick={(e) => e.stopPropagation()}
+            dir="rtl"
+            style={{
+              width: '100%', maxWidth: '24rem', background: '#fff',
+              borderRadius: '1.25rem', padding: '1.75rem', textAlign: 'center',
+              boxShadow: '0 30px 60px -20px rgba(0,0,0,0.5)'
+            }}
+          >
+            <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-strong)' }}>
+              كيف تريد استلام رمز التحقق؟
+            </h3>
+            <p style={{ margin: '0 0 1.25rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              اختر القناة المفضّلة لإرسال الرمز المكوّن من 6 أرقام.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => confirmChannel('email')}
+                style={{
+                  padding: '0.75rem', borderRadius: 'var(--radius-field)', border: '1.5px solid var(--accent)',
+                  background: 'var(--accent-soft)', color: 'var(--accent-hover)',
+                  fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer'
+                }}
+              >
+                البريد الإلكتروني ({formData.email})
+              </button>
+              <button
+                type="button"
+                onClick={() => confirmChannel('whatsapp')}
+                style={{
+                  padding: '0.75rem', borderRadius: 'var(--radius-field)', border: '1.5px solid var(--accent)',
+                  background: 'var(--accent-soft)', color: 'var(--accent-hover)',
+                  fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer'
+                }}
+              >
+                واتساب ({formData.phone})
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowChannelModal(false)}
+              style={{
+                marginTop: '1.25rem', background: 'none', border: 'none',
+                color: 'var(--text-muted)', fontSize: '0.85rem', cursor: 'pointer'
+              }}
+            >
+              إلغاء
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
