@@ -126,7 +126,7 @@ export default function LoginPage() {
                   id="login-identifier"
                   value={formData.identifier}
                   onChange={handleChange}
-                  placeholder="you@example.com  أو  +970 59 000 0000"
+                  placeholder="you@example.com , +970 59 000 0000"
                   dir="ltr"
                   autoComplete="username"
                   className={`w-full text-sm px-3 py-2.5 border rounded-[0.625rem] bg-white text-black transition-all duration-200 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 ${
