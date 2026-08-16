@@ -4,28 +4,38 @@ import { Link, useNavigate } from 'react-router-dom';
 export default function LoginPage() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    email: '',
+    identifier: '',
     password: '',
     remember: false
   });
-  const [errors, setErrors] = useState({ email: '', password: '' });
+  const [errors, setErrors] = useState({ identifier: '', password: '' });
 
   const handleChange = (e) => {
     const { id, value, type, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [id === 'login-email' ? 'email' : id === 'login-password' ? 'password' : 'remember']:
+      [id === 'login-password' ? 'password' : id === 'login-remember' ? 'remember' : 'identifier']:
         type === 'checkbox' ? checked : value
     }));
+    if (id === 'login-identifier') {
+      setErrors((prev) => ({ ...prev, identifier: '' }));
+    }
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     let valid = true;
-    const newErrors = { email: '', password: '' };
+    const newErrors = { identifier: '', password: '' };
 
-    if (!formData.email.trim()) {
-      newErrors.email = 'الرجاء إدخال البريد الإلكتروني';
+    const identifier = formData.identifier.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneRegex = /^[+]?[\d\s()-]{7,}$/;
+
+    if (!identifier) {
+      newErrors.identifier = 'الرجاء إدخال البريد الإلكتروني أو رقم الهاتف';
+      valid = false;
+    } else if (!emailRegex.test(identifier) && !phoneRegex.test(identifier)) {
+      newErrors.identifier = 'أدخل بريداً إلكترونياً أو رقم هاتف صحيحاً';
       valid = false;
     }
 
@@ -38,7 +48,8 @@ export default function LoginPage() {
 
     if (valid) {
       // هنا يتم وضع المنطق الخاص بالـ Authentication لاحقاً (مثلاً Supabase أو API)
-      console.log('مرحباً بعودتك:', formData);
+      const isEmail = emailRegex.test(identifier);
+      console.log('مرحباً بعودتك:', { type: isEmail ? 'email' : 'phone', identifier, password: formData.password });
       navigate('/');
     }
   };
@@ -105,20 +116,22 @@ export default function LoginPage() {
               <h2 className="m-0 mb-1.5 text-3xl font-medium tracking-tight">مرحباً بعودتك</h2>
               <p className="m-0 mb-7 text-sm opacity-80 text-zinc-600">سجّل الدخول إلى حسابك في مساحاتي.</p>
 
-              {/* البريد الإلكتروني */}
+              {/* المعرّف: بريد إلكتروني أو رقم هاتف ) */}
               <div className="mb-4">
-                <label htmlFor="login-email" className="block text-sm mb-2 font-medium">البريد الإلكتروني</label>
+                <label htmlFor="login-identifier" className="block text-sm mb-2 font-medium">البريد الإلكتروني أو رقم الهاتف</label>
                 <input
-                  type="email"
-                  id="login-email"
-                  value={formData.email}
+                  type="text"
+                  id="login-identifier"
+                  value={formData.identifier}
                   onChange={handleChange}
-                  placeholder="hi@hextastudio.in"
+                  placeholder="you@example.com "
+                  dir="rtl"
+                  autoComplete="username"
                   className={`w-full text-sm px-3 py-2.5 border rounded-[0.625rem] bg-white text-black transition-all duration-200 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 ${
-                    errors.email ? 'border-red-500' : 'border-zinc-300'
+                    errors.identifier ? 'border-red-500' : 'border-zinc-300'
                   }`}
                 />
-                {errors.email && <p className="text-red-500 text-xs mt-1.5 min-h-[1rem]">{errors.email}</p>}
+                {errors.identifier && <p className="text-red-500 text-xs mt-1.5 min-h-[1rem]">{errors.identifier}</p>}
               </div>
 
               {/* كلمة المرور */}
