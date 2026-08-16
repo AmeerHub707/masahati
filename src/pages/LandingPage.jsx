@@ -33,6 +33,21 @@ export default function LandingPage() {
         <CtaBand />
       </main>
       <Footer />
+
+      {/* زر العودة لأعلى أسفل الصفحة */}
+      <div className="flex justify-center pb-8 bg-white">
+        <button
+          type="button"
+          onClick={scrollTop}
+          className="inline-flex items-center gap-2 bg-orange-500 text-white font-medium text-sm py-2.5 px-5 rounded-full shadow-[0_10px_24px_-10px_rgba(249,115,22,0.6)] hover:-translate-y-0.5 hover:bg-orange-600 transition-all duration-200"
+        >
+          <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-[2.2] stroke-linecap-round stroke-linejoin-round">
+            <path d="M12 19V5M5 12l7-7 7 7" />
+          </svg>
+          العودة إلى الأعلى
+        </button>
+      </div>
+
       <WhatsAppBubble />
 
       {/* زر العودة لأعلى الصفحة */}
