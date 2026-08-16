@@ -1,12 +1,16 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { isLoggedIn } from '../../lib/authStore';
 
 export default function Navbar() {
-  const logoTo = isLoggedIn() ? '/dashboard' : '/';
+  const navigate = useNavigate();
+  const handleLogoClick = (e) => {
+    e.preventDefault();
+    navigate(isLoggedIn() ? '/dashboard' : '/');
+  };
   return (
     <nav className="nav">
       <div className="wrap nav__inner">
-        <Link className="brand" to={logoTo} aria-label="Masahati">
+        <Link className="brand" to={isLoggedIn() ? '/dashboard' : '/'} onClick={handleLogoClick} aria-label="Masahati">
           <img src="/masahati.jpeg" alt="مساحاتي" className="brand-logo" />
           <span className="brand-name">Masa<span>hati</span></span>
         </Link>
