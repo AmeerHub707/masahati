@@ -356,6 +356,7 @@ export default function ForgotPasswordPage() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="hi@hextastudio.in"
+                      dir="ltr"
                       className={`w-full text-sm px-3.5 py-2.5 border rounded-[0.625rem] bg-white text-black transition-all duration-200 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 ${
                         emailError ? 'border-red-500 ring-1 ring-red-500' : 'border-zinc-300'
                       }`}

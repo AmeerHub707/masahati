@@ -474,6 +474,7 @@ export default function SignupPage() {
                   type="email"
                   name="email"
                   placeholder="you@example.com"
+                  dir="ltr"
                   value={formData.email}
                   onChange={handleInputChange}
                 />
@@ -487,6 +488,7 @@ export default function SignupPage() {
                   type="tel"
                   name="phone"
                   placeholder="+970 59 000 0000"
+                  dir="ltr"
                   value={formData.phone}
                   onChange={handleInputChange}
                 />
