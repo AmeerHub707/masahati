@@ -15,6 +15,8 @@ export default function ForgotPasswordPage() {
   
   // الخطوة 1: البريد الإلكتروني
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [otpChannel, setOtpChannel] = useState('email'); // 'email' | 'whatsapp'
   const [emailError, setEmailError] = useState('');
   const [isSendingOtp, setIsSendingOtp] = useState(false);
 
@@ -81,25 +83,33 @@ export default function ForgotPasswordPage() {
   // ----- معالجة الخطوة الأولى (إرسال الرمز) -----
   const handleRequestOtp = (e) => {
     e.preventDefault();
-    const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-    if (!isValidEmail) {
-      setEmailError('الرجاء إدخال بريد إلكتروني صحيح.');
-      return;
-    }
     setEmailError('');
 
-    // التحقق من أن البريد مسجّل فعلاً قبل إرسال الرمز
-    if (!isEmailRegistered(email)) {
-      setEmailError('هذا البريد غير مسجّل لدينا. أنشئ حساباً أو تأكد من البريد.');
-      return;
+    if (otpChannel === 'email') {
+      const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+      if (!isValidEmail) {
+        setEmailError('الرجاء إدخال بريد إلكتروني صحيح.');
+        return;
+      }
+      // التحقق من أن البريد مسجّل فعلاً قبل إرسال الرمز
+      if (!isEmailRegistered(email)) {
+        setEmailError('هذا البريد غير مسجّل لدينا. أنشئ حساباً أو تأكد من البريد.');
+        return;
+      }
+    } else {
+      if (!/^[+]?[\d\s()-]{7,}$/.test(phone.trim())) {
+        setEmailError('الرجاء إدخال رقم هاتف صحيح لاستلام الرمز عبر واتساب.');
+        return;
+      }
     }
 
     setIsSendingOtp(true);
 
-    // محاكاة إرسال طلب للباك إند
+    // محاكاة إرسال طلب للباك إند (القناة: بريد أو واتساب)
     setTimeout(() => {
       const generated = generateOTP();
       setSentOtpCode(generated);
+      console.log(`[DEMO OTP via ${otpChannel}]:`, generated);
       setTimerRemain(OTP_TTL_SECONDS);
       setResendRemain(RESEND_WAIT_SECONDS);
       setResendTries(0);
@@ -312,23 +322,63 @@ export default function ForgotPasswordPage() {
                 </span>
                 <h2 className="m-0 mb-1.5 text-2xl font-medium tracking-tight">نسيت كلمة المرور؟</h2>
                 <p className="m-0 mb-6 text-sm text-zinc-500 leading-relaxed">
-                  أدخل بريدك الإلكتروني وسنرسل إليك رمز تحقق لمرة واحدة لإعادة تعيين كلمة المرور بأمان.
+                  اختر طريقة استلام رمز التحقق لمرة واحدة لإعادة تعيين كلمة المرور بأمان.
                 </p>
 
-                <div className="mb-4">
-                  <label htmlFor="email" className="block text-sm mb-2 font-medium">البريد الإلكتروني</label>
-                  <input
-                    type="email"
-                    id="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="hi@hextastudio.in"
-                    className={`w-full text-sm px-3.5 py-2.5 border rounded-[0.625rem] bg-white text-black transition-all duration-200 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 ${
-                      emailError ? 'border-red-500 ring-1 ring-red-500' : 'border-zinc-300'
+                {/* مبدّل قناة استلام الرمز: بريد / واتساب */}
+                <div className="flex gap-2 mb-4 p-1 bg-zinc-200/70 rounded-[0.75rem] w-full">
+                  <button
+                    type="button"
+                    onClick={() => { setOtpChannel('email'); setEmailError(''); }}
+                    className={`flex-1 text-sm font-semibold py-2 rounded-[0.625rem] transition-colors duration-200 ${
+                      otpChannel === 'email' ? 'bg-white text-orange-600 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
                     }`}
-                  />
-                  {emailError && <p className="text-red-500 text-xs mt-1.5">{emailError}</p>}
+                  >
+                    البريد الإلكتروني
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setOtpChannel('whatsapp'); setEmailError(''); }}
+                    className={`flex-1 text-sm font-semibold py-2 rounded-[0.625rem] transition-colors duration-200 ${
+                      otpChannel === 'whatsapp' ? 'bg-white text-orange-600 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
+                    }`}
+                  >
+                    واتساب
+                  </button>
                 </div>
+
+                {otpChannel === 'email' ? (
+                  <div className="mb-4">
+                    <label htmlFor="email" className="block text-sm mb-2 font-medium">البريد الإلكتروني</label>
+                    <input
+                      type="email"
+                      id="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="hi@hextastudio.in"
+                      className={`w-full text-sm px-3.5 py-2.5 border rounded-[0.625rem] bg-white text-black transition-all duration-200 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 ${
+                        emailError ? 'border-red-500 ring-1 ring-red-500' : 'border-zinc-300'
+                      }`}
+                    />
+                    {emailError && <p className="text-red-500 text-xs mt-1.5">{emailError}</p>}
+                  </div>
+                ) : (
+                  <div className="mb-4">
+                    <label htmlFor="phone" className="block text-sm mb-2 font-medium">رقم الهاتف (واتساب)</label>
+                    <input
+                      type="tel"
+                      id="phone"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+970 59 000 0000"
+                      dir="ltr"
+                      className={`w-full text-sm px-3.5 py-2.5 border rounded-[0.625rem] bg-white text-black transition-all duration-200 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 ${
+                        emailError ? 'border-red-500 ring-1 ring-red-500' : 'border-zinc-300'
+                      }`}
+                    />
+                    {emailError && <p className="text-red-500 text-xs mt-1.5">{emailError}</p>}
+                  </div>
+                )}
 
                 <button
                   type="submit"
@@ -359,7 +409,10 @@ export default function ForgotPasswordPage() {
                 </span>
                 <h2 className="m-0 mb-1.5 text-2xl font-medium tracking-tight">أدخل رمز التحقق</h2>
                 <p className="m-0 mb-4 text-sm text-zinc-500 leading-relaxed">
-                  لقد أرسلنا رمزاً مكوّناً من 6 أرقام إلى <b className="text-zinc-800">{maskEmail(email)}</b>.
+                  لقد أرسلنا رمزاً مكوّناً من 6 أرقام عبر <b className="text-zinc-800">{otpChannel === 'whatsapp' ? 'واتساب' : 'البريد الإلكتروني'}</b>
+                  {otpChannel === 'email'
+                    ? <> إلى <b className="text-zinc-800">{maskEmail(email)}</b></>
+                    : <> إلى رقمك <b className="text-zinc-800" dir="ltr">{phone}</b></>} .
                 </p>
 
                 {/* زر مشاهدة البريد التجريبي */}
