@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { 
+import { setLoggedIn } from '../lib/authStore';
+import {
   GraduationCap, 
   Building2, 
   Check, 
@@ -156,6 +157,7 @@ export default function SignupPage() {
     // الطالب -> تم التفعيل مباشرة ('done')
     // صاحب المساحة -> بانتظار موافقة الادارة على وثيقة الملكية والحساب ('pending')
     registerEmail(formData.email);
+    setLoggedIn(true); // وهمي حتى يجهز الـ API (Laravel/MySQL)
     if (role === 'owner') {
       setStep('pending');
     } else {

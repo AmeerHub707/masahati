@@ -1,7 +1,7 @@
-// تخزين وهمي للمستخدمين (لا يوجد باك إند حقيقى فى هذا المشروع).
+// تخزين وهمي للمستخدمين (لا يوجد باك إند حقيقى فى هذا المشروع بعد).
 // يُستخدم للتحقق مما إذا كان البريد مسجّلاً فعلاً قبل إرسال رمز إعادة التعيين.
-// فى النسخة الحقيقية يُستبدل بـ: await supabase.auth.resetPasswordForEmail(email)
-// مع العلم أن الخادم يجب ألا يكشف وجود البريد (يرجع 200 دائماً).
+// فى النسخة الحقيقية يُستبدل بطلب إلى API فريق Laravel/MySQL
+// (مثلاً: POST /api/forgot-password). يجب ألا يكشف الخادم وجود البريد.
 
 const STORAGE_KEY = 'masahati_users';
 const SEED = [
@@ -36,4 +36,25 @@ export function registerEmail(email) {
   const set = read();
   set.add(String(email).trim().toLowerCase());
   write(set);
+}
+
+// حالة الجلسة (وهمية حتى يصل مفتاح الـ API من الفريق).
+// فى النسخة الحقيقية تُستبدل بجلسة Supabase الحقيقية.
+const SESSION_KEY = 'masahati_session';
+
+export function isLoggedIn() {
+  try {
+    return localStorage.getItem(SESSION_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setLoggedIn(value) {
+  try {
+    if (value) localStorage.setItem(SESSION_KEY, '1');
+    else localStorage.removeItem(SESSION_KEY);
+  } catch {
+    /* التخزين غير متاح */
+  }
 }

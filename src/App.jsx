@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 
 // ملاحظة: قم بإنشاء ملفات وهمية/مؤقتة لهذه الصفحات لحين بنائها تفصيلياً
@@ -6,6 +6,13 @@ import SpacesPage from './pages/SpacesPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import DashboardPage from './pages/DashboardPage';
+import { isLoggedIn } from './lib/authStore';
+
+// حماية المسار: الزائر غير المسجّل يُحوَّل للصفحة الرئيسية
+function RequireAuth({ children }) {
+  return isLoggedIn() ? children : <Navigate to="/" replace />;
+}
 
 export default function App() {
   return (
@@ -18,6 +25,7 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/forgot" element={<ForgotPasswordPage />} />
+      <Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
       
       {/* مسار احتياطي للصفحات غير الموجودة 404 */}
       <Route path="*" element={<LandingPage />} />

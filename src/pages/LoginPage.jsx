@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { setLoggedIn } from '../lib/authStore';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -47,10 +48,11 @@ export default function LoginPage() {
     setErrors(newErrors);
 
     if (valid) {
-      // هنا يتم وضع المنطق الخاص بالـ Authentication لاحقاً (مثلاً Supabase أو API)
+      // هنا يتم وضع المنطق الخاص بالـ Authentication لاحقاً (API فريق Laravel/MySQL)
       const isEmail = emailRegex.test(identifier);
       console.log('مرحباً بعودتك:', { type: isEmail ? 'email' : 'phone', identifier, password: formData.password });
-      navigate('/');
+      setLoggedIn(true); // وهمي حتى يجهز الـ API
+      navigate('/dashboard');
     }
   };
 
