@@ -1,9 +1,18 @@
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import ThemeToggle from '../common/ThemeToggle';
 
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   const handleLogoClick = (e) => {
     e.preventDefault();
@@ -16,7 +25,7 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="nav">
+    <nav className={`nav${scrolled ? ' nav--scrolled' : ''}`}>
       <div className="wrap nav__inner">
         <Link className="brand" to="/" onClick={handleLogoClick} aria-label="Masahati">
           <img src="/masahati.jpeg" alt="مساحاتي" className="brand-logo" />

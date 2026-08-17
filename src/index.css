@@ -66,7 +66,12 @@ a{color:inherit;}
 
 /* ===== Navbar ===== */
 .nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);
-  background:rgba(255,255,255,.72);border-bottom:1px solid rgba(228,228,231,.7);}
+  background:rgba(255,255,255,.72);border-bottom:1px solid rgba(228,228,231,.7);
+  transition:background .25s var(--ease),box-shadow .25s,border-color .25s;}
+/* شفاف فوق الهيرو (في صفحة الهبوط)، يتحوّل لصلب ضبابي عند النزول */
+.landing .nav:not(.nav--scrolled){background:transparent;backdrop-filter:none;border-bottom-color:transparent;box-shadow:none;}
+.nav--scrolled{background:rgba(255,255,255,.82);box-shadow:0 8px 24px -16px rgba(0,0,0,.25);}
+.landing .nav--scrolled{background:rgba(255,255,255,.85);backdrop-filter:blur(14px);border-bottom:1px solid rgba(228,228,231,.7);}
 .nav__inner{display:flex;align-items:center;justify-content:space-between;height:4.2rem;}
 .brand{display:flex;align-items:center;gap:.6rem;}
 .brand .brand-logo{height:2.3rem;width:auto;object-fit:contain;filter:drop-shadow(0 6px 14px rgba(249,115,22,.3));}
