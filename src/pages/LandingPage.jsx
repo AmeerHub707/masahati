@@ -22,7 +22,7 @@ export default function LandingPage() {
   const scrollTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
   return (
-    <div className="min-h-screen bg-white font-['Cairo'] text-zinc-900 dir-rtl">
+    <div className="min-h-screen font-['Cairo'] text-zinc-900 dir-rtl landing">
       <Navbar />
       <main id="top">
         <Hero />
