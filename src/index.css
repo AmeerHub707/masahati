@@ -61,7 +61,7 @@ a{color:inherit;}
 
 /* ===== Decorative blobs ===== */
 .blob{position:absolute;border-radius:9999px;z-index:0;pointer-events:none;filter:blur(2px);}
-.blob--orange{width:18rem;height:18rem;background:linear-gradient(135deg,var(--accent),var(--accent-hover));opacity:.9;}
+.blob--orange{width:18rem;height:18rem;background:linear-gradient(135deg,#ffd0ad,var(--accent) 60%,var(--accent-hover));opacity:.65;}
 .blob--soft{width:10rem;height:10rem;background:#fff;opacity:.22;}
 
 /* ===== Navbar ===== */
