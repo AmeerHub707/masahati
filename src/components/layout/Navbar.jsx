@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import ThemeToggle from '../common/ThemeToggle';
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -41,7 +40,6 @@ export default function Navbar() {
         </div>
 
         <div className="nav__cta">
-          <ThemeToggle />
           <Link className="btn-ghost" to="/login">تسجيل الدخول</Link>
           <Link className="btn-primary" to="/signup">إنشاء حساب</Link>
         </div>
