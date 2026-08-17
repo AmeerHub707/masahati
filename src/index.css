@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 :root{
-  --accent:#ea580c;
-  --accent-hover:#c2410c;
-  --accent-soft:#fff1e7;
+  --accent:#f97316;
+  --accent-hover:#ea580c;
+  --accent-soft:#fff3e9;
   --ink:#0a0a0a;
   --surface:#ffffff;
   --text-strong:#18181b;
