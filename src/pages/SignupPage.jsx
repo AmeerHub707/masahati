@@ -2,16 +2,16 @@ import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { setLoggedIn } from '../lib/authStore';
 import {
-  GraduationCap, 
-  Building2, 
-  Check, 
-  Clock, 
-  ArrowLeft, 
-  Upload, 
-  FileCheck, 
-  MessageCircle 
+  GraduationCap,
+  Building2,
+  Check,
+  Clock,
+  ArrowLeft,
+  Upload,
+  FileCheck
 } from 'lucide-react';
 import { registerEmail } from '../lib/authStore';
+import WhatsAppBubble from '../components/common/WhatsAppBubble';
 
 export default function SignupPage() {
   // --- States ---
@@ -399,12 +399,6 @@ export default function SignupPage() {
           background: var(--accent-soft); border: 1px dashed rgba(249,115,22,0.5);
           font-size: 0.76rem; color: #9a3412;
         }
-
-        .wa-bubble {
-          position: fixed; bottom: 1.4rem; left: 1.4rem; z-index: 90; width: 3.4rem; height: 3.4rem;
-          border-radius: 50%; background: var(--accent); display: flex; align-items: center;
-          justify-content: center; color: white; box-shadow: 0 14px 30px -8px rgba(249,115,22,.6);
-        }
       `}</style>
 
       <main className="auth-card">
@@ -652,16 +646,8 @@ export default function SignupPage() {
           )}
         </section>
 
-        {/* WhatsApp Support Bubble */}
-        <a
-          className="wa-bubble"
-          href="https://wa.me/972567653009"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="تواصل عبر واتساب"
-        >
-          <MessageCircle size={24} />
-        </a>
+        {/* WhatsApp Support Bubble (same as landing) */}
+        <WhatsAppBubble />
       </main>
 
       {/* نافذة اختيار قناة استلام رمز التحقق */}
