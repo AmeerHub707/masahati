@@ -6,9 +6,15 @@ export default function Navbar() {
   const location = useLocation();
   const [scrolled, setScrolled] = useState(() => typeof window !== 'undefined' && window.scrollY > 40);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40);
+    const onScroll = () => {
+      setScrolled(window.scrollY > 40);
+      const h = document.documentElement;
+      const max = h.scrollHeight - h.clientHeight;
+      setProgress(max > 0 ? Math.min(100, (window.scrollY / max) * 100) : 0);
+    };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
@@ -26,6 +32,7 @@ export default function Navbar() {
 
   return (
     <nav className={`nav${scrolled ? ' nav--scrolled' : ''}`}>
+      <div className="nav__progress" style={{ transform: `scaleX(${progress / 100})` }} aria-hidden="true" />
       <div className="wrap nav__inner">
         <Link className="brand" to="/" onClick={handleLogoClick} aria-label="Masahati">
           <img src="/masahati.jpeg" alt="مساحاتي" className="brand-logo" />

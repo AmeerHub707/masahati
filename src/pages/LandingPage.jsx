@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import ReactPullToRefresh from 'react-pull-to-refresh';
 import Navbar from '../components/layout/Navbar';
 import Hero from '../components/landing/Hero';
 import Features from '../components/landing/Features';
@@ -11,6 +12,9 @@ import WhatsAppBubble from '../components/common/WhatsAppBubble';
 
 export default function LandingPage() {
   const [showTop, setShowTop] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  // مفتاح لإعادة تحميل الأقسام كما لو كانت طازجة (إعادة تشغيل أنيميشن الظهور)
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const onScroll = () => setShowTop(window.scrollY > 400);
@@ -21,17 +25,48 @@ export default function LandingPage() {
 
   const scrollTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
+  // اسحب للتحديث: محاكاة جلب بيانات جديدة من الخادم (Laravel لاحقًا)
+  // react-pull-to-refresh يُفعّل فقط عندما يكون التمرير في الأعلى (scrollY === 0)
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    return new Promise((resolve) => {
+      // هنا تستدعي API حقيقي لاحقًا، مثلاً: await fetch('/api/spaces')
+      setTimeout(() => {
+        setRefreshKey((k) => k + 1); // إعادة تركيب الأقسام = تحميل طازج
+        setRefreshing(false);
+        resolve();
+      }, 900);
+    });
+  }, []);
+
   return (
     <div className="min-h-screen font-['Cairo'] text-zinc-900 dir-rtl landing">
       <Navbar />
-      <main id="top">
-        <Hero />
-        <Features />
-        <HowItWorks />
-        <Roles />
-        <About />
-        <CtaBand />
-      </main>
+
+      <ReactPullToRefresh
+        onRefresh={handleRefresh}
+        direction="rtl"
+        resistance={2.5}
+        pullDownThreshold={70}
+        maxPullDownDistance={120}
+        refreshing={refreshing}
+        spinner={
+          <div className="ptr-spinner" role="status" aria-live="polite">
+            <span className="ptr-spinner__circle" />
+            <span className="sr-only">جارٍ التحديث…</span>
+          </div>
+        }
+      >
+        <main id="top" key={refreshKey}>
+          <Hero />
+          <Features />
+          <HowItWorks />
+          <Roles />
+          <About />
+          <CtaBand />
+        </main>
+      </ReactPullToRefresh>
+
       <Footer />
 
       <WhatsAppBubble />

@@ -93,15 +93,15 @@ a{color:inherit;}
 .landing .nav:not(.nav--scrolled){background:transparent;backdrop-filter:none;border-bottom-color:transparent;box-shadow:none;}
 .nav--scrolled{background:rgba(255,255,255,.82);box-shadow:0 8px 24px -16px rgba(0,0,0,.25);}
 .landing .nav--scrolled{background:rgba(255,255,255,.85);backdrop-filter:blur(14px);border-bottom:1px solid rgba(228,228,231,.7);}
-.nav__inner{display:flex;align-items:center;justify-content:space-between;height:4.2rem;}
-.brand{display:flex;align-items:center;gap:.6rem;}
+.nav__inner{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:nowrap;height:4.2rem;}
+.brand{display:flex;align-items:center;gap:.6rem;flex-shrink:0;}
 .brand .brand-logo{height:2.3rem;width:auto;object-fit:contain;filter:drop-shadow(0 6px 14px rgba(249,115,22,.3));}
 .brand .brand-name{font-size:1.35rem;font-weight:800;letter-spacing:-.03em;color:var(--text-strong);}
 .brand .brand-name span{color:var(--accent);}
-.nav__links{display:flex;gap:1.6rem;font-size:.92rem;font-weight:600;color:var(--text-muted);}
+.nav__links{display:flex;gap:1.6rem;font-size:.92rem;font-weight:600;color:var(--text-muted);flex-shrink:1;min-width:0;white-space:nowrap;}
 .nav__links a{text-decoration:none;transition:color .18s;}
 .nav__links a:hover{color:var(--accent);}
-.nav__cta{display:flex;align-items:center;gap:.75rem;}
+.nav__cta{display:flex;align-items:center;gap:.75rem;flex-shrink:0;}
 /* على سطح المكتب زر الهامبرغ غير مرئي (يظهر فقط في الجوال) */
 .nav__burger{display:none;}
 
@@ -191,6 +191,15 @@ a{color:inherit;}
 .placeholder-page h1{font-size:clamp(1.8rem,3.2vw,2.6rem);font-weight:800;letter-spacing:-.02em;margin:0 0 1rem;}
 .placeholder-page p{color:var(--text-muted);margin:0 auto 1.8rem;max-width:32rem;}
 
+
+/* ===== Pull-to-Refresh spinner (اسحب للتحديث) ===== */
+.ptr-spinner{display:flex;align-items:center;justify-content:center;padding:1rem 0;}
+.ptr-spinner__circle{width:2rem;height:2rem;border-radius:50%;
+  border:.28rem solid var(--accent-soft);border-top-color:var(--accent);
+  animation:ptr-spin .8s linear infinite;}
+@keyframes ptr-spin{to{transform:rotate(360deg);}}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+
 /* ===== Responsive ===== */
 .landing{overflow-x:clip;}
 img{max-width:100%;}
@@ -202,8 +211,8 @@ img{max-width:100%;}
 .nav__mobile a:hover{background:var(--accent-soft);color:var(--accent);}
 .nav__mobile .btn-ghost,.nav__mobile .btn-primary{justify-content:center;margin-top:.4rem;}
 
-/* ===== Navbar — MOBILE SETTINGS (≤900px) ===== */
-@media (max-width:900px){
+/* ===== Navbar — MOBILE SETTINGS (≤1024px) ===== */
+@media (max-width:1024px){
   .nav__links{display:none;}
   .nav__burger{display:flex;}
   .nav__mobile{display:flex;}
@@ -253,4 +262,18 @@ img{max-width:100%;}
 @media (max-width:380px){
   .stats{grid-template-columns:1fr 1fr;}
   .brand-name{font-size:1.15rem;}
+}
+
+/* ===== شريط تقدّم التمرير أسفل النافبار (يملأ من اليمين في RTL) ===== */
+.nav__progress{position:absolute;left:0;right:0;bottom:0;height:3px;
+  background:linear-gradient(90deg,var(--accent),var(--accent-hover));
+  transform-origin:right center;transform:scaleX(0);
+  transition:transform .1s linear;z-index:51;}
+
+/* ===== أنيميشن طفو للبقع المضيئة في الهيرو ===== */
+.blob{animation:blob-float 9s ease-in-out infinite;}
+.blob--soft{animation-duration:11s;animation-direction:reverse;}
+@keyframes blob-float{
+  0%,100%{transform:translate(0,0) scale(1);}
+  50%{transform:translate(0,-1.4rem) scale(1.05);}
 }
