@@ -1,6 +1,14 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 
+// صور المساحات الجديدة التى أضفتها فى public/ — خلفية متحركة بانتقال متقاطع (crossfade)
+const gallery = [
+  { src: '/Loginside.jpg', alt: 'مساحة عمل مشتركة مضيئة في غزة' },
+  { src: '/360-workspace-kita-e2-open-office.jpg', alt: 'مكتب مفتوح واسع للفرق' },
+  { src: '/images.jfif', alt: 'ركن دراسة هادئ بإضاءة دافئة' },
+  { src: '/m.jfif', alt: 'مساحة عمل مشتركة في غزة' },
+];
+
 const stats = [
   { value: '120+', label: 'مساحة موثّقة' },
   { value: '24/7', label: 'فلتر الكهرباء' },
@@ -57,11 +65,31 @@ function CountUp({ value, duration = 1400 }) {
 }
 
 export default function Hero() {
+  const [active, setActive] = useState(0);
+
+  // تنقّل تلقائى بين الصور مع انتقال متقاطع (crossfade) ناعم
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const id = setInterval(() => setActive((i) => (i + 1) % gallery.length), 10000);
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <>
       <header className="hero">
-        <span className="blob blob--orange" style={{ top: '-6rem', right: '-5rem' }}></span>
-        <span className="blob blob--soft" style={{ bottom: '-3rem', left: '8rem' }}></span>
+        {/* خلفية الصور المتحركة */}
+        <div className="hero__bg" aria-hidden="true">
+          {gallery.map((g, i) => (
+            <img
+              key={g.src}
+              src={g.src}
+              alt=""
+              className={`gallery__img${i === active ? ' is-active' : ''}`}
+              loading={i === 0 ? 'eager' : 'lazy'}
+            />
+          ))}
+          <span className="hero__scrim"></span>
+        </div>
 
         <div className="wrap hero__inner">
           <div className="hero__copy">
@@ -73,14 +101,8 @@ export default function Hero() {
               <Link className="btn-primary" to="/signup">ابدأ الآن</Link>
             </div>
           </div>
-
-          <div className="hero__aside">
-            <div className="hero__photo">
-              <img src="/Loginside.jpg" alt="مساحة عمل مشتركة مضيئة في غزة" />
-              <span className="photo-sheen"></span>
-            </div>
-          </div>
         </div>
+
       </header>
 
       <div className="wrap">
