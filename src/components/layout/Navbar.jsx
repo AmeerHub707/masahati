@@ -4,18 +4,19 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [scrolled, setScrolled] = useState(false);
+  const [scrolled, setScrolled] = useState(() => typeof window !== 'undefined' && window.scrollY > 40);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
     window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  const closeMenu = () => setMenuOpen(false);
+
   const handleLogoClick = (e) => {
     e.preventDefault();
-    // الشعار يعود دائماً إلى الصفحة الرئيسية؛ وإن كنا عليها نمرّر لأعلى
     if (location.pathname === '/') {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
@@ -42,8 +43,29 @@ export default function Navbar() {
         <div className="nav__cta">
           <Link className="btn-ghost" to="/login">تسجيل الدخول</Link>
           <Link className="btn-primary" to="/signup">إنشاء حساب</Link>
+          <button
+            type="button"
+            className="nav__burger"
+            aria-label="القائمة"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((o) => !o)}
+          >
+            <span /><span /><span />
+          </button>
         </div>
       </div>
+
+      {menuOpen && (
+        <div className="nav__mobile">
+          <a href="#features" onClick={closeMenu}>لماذا مساحاتي</a>
+          <a href="#how" onClick={closeMenu}>كيف يعمل</a>
+          <Link to="/spaces" onClick={closeMenu}>تصفح المساحات</Link>
+          <a href="#roles" onClick={closeMenu}>لكلٍّ كما يناسبه</a>
+          <a href="#about" onClick={closeMenu}>من نحن</a>
+          <Link className="btn-ghost" to="/login" onClick={closeMenu}>تسجيل الدخول</Link>
+          <Link className="btn-primary" to="/signup" onClick={closeMenu}>إنشاء حساب</Link>
+        </div>
+      )}
     </nav>
   );
 }

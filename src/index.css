@@ -64,7 +64,7 @@ a{color:inherit;}
 .blob--orange{width:18rem;height:18rem;background:linear-gradient(135deg,#ffd0ad,var(--accent) 60%,var(--accent-hover));opacity:.65;}
 .blob--soft{width:10rem;height:10rem;background:#fff;opacity:.22;}
 
-/* ===== Navbar ===== */
+/* ===== Navbar — DESKTOP SETTINGS ===== */
 .nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);
   background:rgba(255,255,255,.72);border-bottom:1px solid rgba(228,228,231,.7);
   transition:background .25s var(--ease),box-shadow .25s,border-color .25s;}
@@ -81,6 +81,8 @@ a{color:inherit;}
 .nav__links a{text-decoration:none;transition:color .18s;}
 .nav__links a:hover{color:var(--accent);}
 .nav__cta{display:flex;align-items:center;gap:.75rem;}
+/* على سطح المكتب زر الهامبرغ غير مرئي (يظهر فقط في الجوال) */
+.nav__burger{display:none;}
 
 /* ===== Hero ===== */
 .hero{position:relative;overflow:hidden;background:linear-gradient(160deg,#fff,#fff7f0);}
@@ -169,10 +171,52 @@ a{color:inherit;}
 .placeholder-page p{color:var(--text-muted);margin:0 auto 1.8rem;max-width:32rem;}
 
 /* ===== Responsive ===== */
+.landing{overflow-x:clip;}
+img{max-width:100%;}
+/* قواعد الهامبرغ والقائمة المنسدلة (تظهر فقط في الجوال — انظر أسفل) */
+.nav__burger{display:none;flex-direction:column;justify-content:center;gap:4px;width:2.6rem;height:2.6rem;border:none;background:transparent;cursor:pointer;padding:0;}
+.nav__burger span{display:block;width:22px;height:2px;border-radius:2px;background:var(--text-strong);transition:transform .2s var(--ease),opacity .2s;}
+.nav__mobile{display:none;flex-direction:column;gap:.2rem;padding:.5rem 1.25rem 1rem;background:rgba(255,255,255,.96);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);}
+.nav__mobile a{text-decoration:none;color:var(--text-strong);font-weight:700;font-size:.95rem;padding:.7rem .4rem;border-radius:.6rem;}
+.nav__mobile a:hover{background:var(--accent-soft);color:var(--accent);}
+.nav__mobile .btn-ghost,.nav__mobile .btn-primary{justify-content:center;margin-top:.4rem;}
+
+/* ===== Navbar — MOBILE SETTINGS (≤900px) ===== */
 @media (max-width:900px){
   .nav__links{display:none;}
-  .hero__inner{grid-template-columns:1fr;gap:2rem;padding:3rem 0 3.5rem;text-align:left;}
+  .nav__burger{display:flex;}
+  .nav__mobile{display:flex;}
+}
+
+/* ===== Layout — MOBILE SETTINGS (≤900px) ===== */
+@media (max-width:900px){
+  .hero__inner{grid-template-columns:1fr;gap:2rem;padding:3rem 0 3.5rem;text-align:right;}
   .hero__aside{order:-1;}
-  .stats{grid-template-columns:repeat(2,1fr);}
+  .stats{grid-template-columns:repeat(2,1fr);margin-top:-1.5rem;}
   .grid-3,.steps{grid-template-columns:1fr;}
+  .footer__inner{flex-direction:column;align-items:flex-start;gap:1rem;}
+}
+@media (max-width:600px){
+  .wrap{padding:0 1rem;}
+  .nav__inner{height:3.8rem;}
+  .nav__cta{gap:.5rem;}
+  .nav__cta .btn-ghost,.nav__cta .btn-primary{padding:.55rem 1rem;font-size:.85rem;}
+  .hero__inner{padding:2.2rem 0 2.8rem;}
+  .hero h1{font-size:clamp(1.8rem,7vw,2.4rem);}
+  .hero .lead{font-size:.98rem;}
+  .hero__cta{flex-direction:column;align-items:stretch;}
+  .hero__cta .btn-primary{width:100%;justify-content:center;}
+  .stats{grid-template-columns:repeat(2,1fr);gap:.7rem;margin-top:-1rem;}
+  .stat{padding:1rem .8rem;}
+  .stat b{font-size:1.4rem;}
+  .section{padding:3rem 0;}
+  .section__head{margin-bottom:1.8rem;}
+  .cta-band{padding:2.2rem 1.3rem;}
+  .cta-band h2{font-size:1.5rem;}
+  .footer__inner{font-size:.85rem;}
+  .wa-bubble{bottom:1rem;left:1rem;width:3rem;height:3rem;}
+}
+@media (max-width:380px){
+  .stats{grid-template-columns:1fr 1fr;}
+  .brand-name{font-size:1.15rem;}
 }
