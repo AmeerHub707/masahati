@@ -243,6 +243,13 @@ img{max-width:100%;}
   .wa-bubble{bottom:calc(1rem + env(safe-area-inset-bottom));left:1rem;width:3.25rem;height:3.25rem;min-height:48px;min-width:48px;}
   .bg-orange-500{bottom:calc(1.25rem + env(safe-area-inset-bottom)) !important;}
 }
+@media (max-width:480px){
+  /* إخفاء الشعار على الجوالات الضيقة (<478px) وإظهار الأزرار فقط */
+  .nav .brand{display:none;}
+  .nav__inner{justify-content:flex-end;gap:.6rem;}
+  .nav__cta{gap:.5rem;}
+  .nav__cta .btn-ghost,.nav__cta .btn-primary{font-size:.8rem;padding:.6rem .9rem;min-height:46px;}
+}
 @media (max-width:380px){
   .stats{grid-template-columns:1fr 1fr;}
   .brand-name{font-size:1.15rem;}
