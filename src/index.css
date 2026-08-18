@@ -13,6 +13,12 @@
   --radius-field:0.75rem;
   --shadow:0 30px 60px -20px rgba(0,0,0,.45);
   --ease:cubic-bezier(.22,1,.36,1);
+  /* ===== مقياس typography سائل (fluid) لكل الشاشات ===== */
+  --step--1:clamp(.8rem,.76rem + .2vw,.9rem);
+  --step-0:clamp(1rem,.95rem + .25vw,1.1rem);
+  --step-1:clamp(1.25rem,1.1rem + .7vw,1.6rem);
+  --step-2:clamp(1.6rem,1.3rem + 1.5vw,2.4rem);
+  --step-3:clamp(2.1rem,1.6rem + 2.5vw,3.3rem);
 }
 
 *,*::before,*::after{box-sizing:border-box;}
@@ -22,7 +28,22 @@ html{scroll-behavior:smooth;}
 body{
   margin:0;font-family:'Cairo',ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   color:var(--text-strong);background:#fff;line-height:1.7;-webkit-font-smoothing:antialiased;
+  font-size:var(--step-0);
 }
+
+/* ===== أهداف لمس لا تقل عن 44px (كل الشاشات) ===== */
+a,button,input,select,textarea,[role="button"],.nav__burger{
+  min-height:44px;
+}
+a.min-h-auto,button.min-h-auto{height:auto;}
+/* أمان الارتفاع على الجوال: استخدم dvh مع بديل vh */
+.auth-wrapper{height:100vh;height:100dvh;}
+
+/* ===== عناوين سائلة (fluid) ===== */
+h1{font-size:var(--step-3);line-height:1.12;}
+h2{font-size:var(--step-2);line-height:1.18;}
+h3{font-size:var(--step-1);line-height:1.25;}
+p{font-size:var(--step-0);}
 
 html[dir="ltr"] body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,"Noto Sans",sans-serif;}
 a{color:inherit;}
@@ -197,24 +218,30 @@ img{max-width:100%;}
   .footer__inner{flex-direction:column;align-items:flex-start;gap:1rem;}
 }
 @media (max-width:600px){
-  .wrap{padding:0 1rem;}
-  .nav__inner{height:3.8rem;}
+  /* ===== ضبط دقيق للهواتف ~6.7 بوصة (390-430px) ===== */
+  html{font-size:17px;}                 /* نص أساسي 17px (مريح للقراءة) */
+  .wrap{padding:0 1.1rem;max-width:100%;} /* عرض المحتوى ~88-90% */
+  .nav__inner{height:3.8rem;padding-top:env(safe-area-inset-top);}
   .nav__cta{gap:.5rem;}
-  .nav__cta .btn-ghost,.nav__cta .btn-primary{padding:.55rem 1rem;font-size:.85rem;}
-  .hero__inner{padding:2.2rem 0 2.8rem;}
-  .hero h1{font-size:clamp(1.8rem,7vw,2.4rem);}
-  .hero .lead{font-size:.98rem;}
-  .hero__cta{flex-direction:column;align-items:stretch;}
-  .hero__cta .btn-primary{width:100%;justify-content:center;}
+  .nav__cta .btn-ghost,.nav__cta .btn-primary{padding:.7rem 1.05rem;font-size:.82rem;min-height:48px;}
+  .nav__burger{width:48px;height:48px;}
+  a,button,input,select,textarea,[role="button"]{min-height:48px;} /* أهداف لمس 48px */
+  input,select,textarea{font-size:16px;} /* يمنع تكبير iOS عند التركيز */
+  .hero__inner{padding:2.2rem 0 3rem;text-align:right;}
+  .hero h1{font-size:clamp(1.8rem,8.5vw,2.3rem);}
+  .hero .lead{font-size:1.05rem;line-height:1.7;}
+  .hero__cta{flex-direction:column;align-items:stretch;gap:.75rem;}
+  .hero__cta .btn-primary{width:100%;justify-content:center;min-height:52px;font-size:1.05rem;}
   .stats{grid-template-columns:repeat(2,1fr);gap:.7rem;margin-top:-1rem;}
-  .stat{padding:1rem .8rem;}
-  .stat b{font-size:1.4rem;}
+  .stat{padding:1.05rem .8rem;}
+  .stat b{font-size:1.5rem;}
   .section{padding:3rem 0;}
-  .section__head{margin-bottom:1.8rem;}
-  .cta-band{padding:2.2rem 1.3rem;}
+  .section__head{margin-bottom:1.8rem;max-width:90%;}
+  .cta-band{padding:2.4rem 1.3rem;}
   .cta-band h2{font-size:1.5rem;}
-  .footer__inner{font-size:.85rem;}
-  .wa-bubble{bottom:1rem;left:1rem;width:3rem;height:3rem;}
+  .footer__inner{flex-direction:column;align-items:flex-start;gap:1rem;font-size:.9rem;padding-bottom:calc(2.5rem + env(safe-area-inset-bottom));}
+  .wa-bubble{bottom:calc(1rem + env(safe-area-inset-bottom));left:1rem;width:3.25rem;height:3.25rem;min-height:48px;min-width:48px;}
+  .bg-orange-500{bottom:calc(1.25rem + env(safe-area-inset-bottom)) !important;}
 }
 @media (max-width:380px){
   .stats{grid-template-columns:1fr 1fr;}

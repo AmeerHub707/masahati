@@ -399,6 +399,21 @@ export default function SignupPage() {
           background: var(--accent-soft); border: 1px dashed rgba(249,115,22,0.5);
           font-size: 0.76rem; color: #9a3412;
         }
+
+        /* ===== ضبط دقيق للهواتف ~6.7 بوصة (390-430px) ===== */
+        @media (max-width: 600px) {
+          .auth-card { border-radius: 1.25rem; }
+          .auth-form { padding: 1.5rem 1.2rem 1.6rem; }
+          .auth-visual { min-height: 11rem; }
+          .field input { font-size: 16px; padding: 0.7rem 0.85rem; } /* يمنع تكبير iOS */
+          .field label { font-size: 0.85rem; }
+          .btn { font-size: 1.05rem; padding: 0.85rem 1rem; min-height: 52px; }
+          .otp-box { font-size: 1.4rem; }
+          .segment__opt { padding: 0.7rem 0.5rem; font-size: 0.95rem; min-height: 48px; }
+          .file-upload-box { padding: 1rem; min-height: 48px; }
+          .back-home { padding: 0.6rem 1rem; min-height: 44px; }
+          .auth-wrapper { padding: calc(env(safe-area-inset-top) + 0.5rem) 0.75rem calc(env(safe-area-inset-bottom) + 0.5rem); }
+        }
       `}</style>
 
       <main className="auth-card">
