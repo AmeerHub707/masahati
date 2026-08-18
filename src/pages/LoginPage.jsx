@@ -10,6 +10,9 @@ export default function LoginPage() {
     remember: false
   });
   const [errors, setErrors] = useState({ identifier: '', password: '' });
+  const [showPassword, setShowPassword] = useState(false);
+
+  const toggleShowPassword = () => setShowPassword((s) => !s);
 
   const handleChange = (e) => {
     const { id, value, type, checked } = e.target;
@@ -139,33 +142,67 @@ export default function LoginPage() {
               {/* كلمة المرور */}
               <div className="mb-4">
                 <label htmlFor="login-password" className="block text-sm mb-2 font-medium">كلمة المرور</label>
-                <input
-                  type="password"
-                  id="login-password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="••••••••"
-                  className={`w-full text-sm px-3 py-2.5 border rounded-[0.625rem] bg-white text-black transition-all duration-200 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 ${
-                    errors.password ? 'border-red-500' : 'border-zinc-300'
-                  }`}
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    id="login-password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="••••••••"
+                    className={`w-full text-sm px-3 py-2.5 border rounded-[0.625rem] bg-white text-black transition-all duration-200 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 ${
+                      errors.password ? 'border-red-500' : 'border-zinc-300'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={toggleShowPassword}
+                    aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-8 h-8 text-zinc-400 hover:text-orange-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/35 rounded-md"
+                  >
+                    {showPassword ? (
+                      <svg viewBox="0 0 24 24" className="w-5 h-5 fill-none stroke-current stroke-[2] stroke-linecap-round stroke-linejoin-round">
+                        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+                        <circle cx="12" cy="12" r="3" />
+                        <line x1="4" y1="20" x2="20" y2="4" />
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" className="w-5 h-5 fill-none stroke-current stroke-[2] stroke-linecap-round stroke-linejoin-round">
+                        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
                 {errors.password && <p className="text-red-500 text-xs mt-1.5 min-h-[1rem]">{errors.password}</p>}
               </div>
 
-              {/* تذكرني + نسيت كلمة المرور */}
-              <div className="flex items-center justify-between my-2 mb-4 text-xs leading-none">
-                <label htmlFor="login-remember" className="inline-flex items-center gap-2 text-zinc-500 cursor-pointer select-none">
+              {/* تذكرني (يمين) + نسيت كلمة المرور (يسار) — منفصلان على نفس السطر */}
+              <div className="flex items-center justify-between gap-3 my-3 text-xs flex-nowrap">
+                <label className="group grid grid-flow-col auto-cols-max items-center gap-2.5 rounded-full py-1 pl-1 pr-3 cursor-pointer select-none whitespace-nowrap transition-colors hover:bg-orange-50">
+                  {/* خانة تذكّرني (checkbox) */}
                   <input
                     type="checkbox"
                     id="login-remember"
                     checked={formData.remember}
                     onChange={handleChange}
-                    className="w-4 h-4 border-[1.5px] border-zinc-300 rounded bg-white accent-orange-500 cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-orange-500/35"
+                    className="peer sr-only"
                   />
-                  تذكرني
+                  <span className="relative inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-[5px] border-[1.5px] border-zinc-300 bg-white text-white transition-colors peer-checked:bg-orange-500 peer-checked:border-orange-500">
+                    <svg viewBox="0 0 24 24" className="w-3 h-3 fill-none stroke-current stroke-[3] stroke-linecap-round stroke-linejoin-round opacity-0 peer-checked:opacity-100 transition-opacity" aria-hidden="true">
+                      <path d="M5 12l4 4 10-10" />
+                    </svg>
+                  </span>
+                  <span className="leading-none select-none text-zinc-600 group-hover:text-zinc-800 transition-colors">تذكرني</span>
                 </label>
-                <Link to="/forgot" className="text-zinc-500 text-xs hover:text-orange-500 transition-colors">
-                  هل نسيت كلمة المرور؟
+
+                <span className="hidden sm:block w-px h-4 bg-zinc-200" aria-hidden="true" />
+
+                <Link to="/forgot" className="group inline-flex items-center gap-1 text-zinc-500 text-xs hover:text-orange-600 transition-colors whitespace-nowrap">
+                  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-[2] stroke-linecap-round stroke-linejoin-round opacity-70 group-hover:opacity-100 transition-opacity" aria-hidden="true">
+                    <rect x="5" y="11" width="14" height="9" rx="2" />
+                    <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+                  </svg>
+                  <span className="border-b border-transparent group-hover:border-orange-500 transition-colors">هل نسيت كلمة المرور؟</span>
                 </Link>
               </div>
 
