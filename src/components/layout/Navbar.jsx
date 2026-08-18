@@ -47,20 +47,22 @@ export default function Navbar() {
           ))}
         </nav>
 
-        {/* الأزرار + زر القائمة (يسار في RTL) */}
+        {/* الأزرار (تسجيل الدخول + إضافة حساب) */}
         <div className="nav__cta">
           <Link className="btn-ghost" to="/login">تسجيل الدخول</Link>
           <Link className="btn-primary" to="/signup">إضافة حساب</Link>
-          <button
-            type="button"
-            className="nav__burger"
-            aria-label="القائمة"
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((o) => !o)}
-          >
-            <span /><span /><span />
-          </button>
         </div>
+
+        {/* زر القائمة — منفصل في الزاوية (يسار/يمين حسب الاتجاه) */}
+        <button
+          type="button"
+          className="nav__burger"
+          aria-label="القائمة"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((o) => !o)}
+        >
+          <span /><span /><span />
+        </button>
       </div>
 
       {/* القائمة المنسدلة للجوال */}

@@ -255,7 +255,7 @@ a{color:inherit;}
 .landing{overflow-x:clip;}
 img{max-width:100%;}
 /* قواعد الهامبرغ والقائمة المنسدلة (تظهر فقط في الجوال — انظر أسفل) */
-.nav__burger{display:none;flex-direction:column;justify-content:center;gap:4px;width:2.6rem;height:2.6rem;border:none;background:transparent;cursor:pointer;padding:0;}
+.nav__burger{display:none;flex-direction:column;justify-content:center;align-items:center;gap:4px;width:2.6rem;height:2.6rem;border:none;background:transparent;cursor:pointer;padding:0;}
 .nav__burger span{display:block;width:22px;height:2px;border-radius:2px;background:var(--text-strong);transition:transform .2s var(--ease),opacity .2s;}
 .nav__mobile{display:none;flex-direction:column;gap:.2rem;padding:.5rem 1.25rem 1rem;background:rgba(255,255,255,.96);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);}
 .nav__mobile a{text-decoration:none;color:var(--text-strong);font-weight:700;font-size:.95rem;padding:.7rem .4rem;border-radius:.6rem;}
@@ -279,30 +279,36 @@ img{max-width:100%;}
   .footer__inner{flex-direction:column;align-items:flex-start;gap:1rem;}
 }
 @media (max-width:600px){
-  /* ===== ضبط دقيق للهواتف ~6.7 بوصة (390-430px) ===== */
-  html{font-size:17px;}                 /* نص أساسي 17px (مريح للقراءة) */
-  .wrap{padding:0 1.1rem;max-width:100%;} /* عرض المحتوى ~88-90% */
-  .nav__inner{height:3.8rem;padding-top:env(safe-area-inset-top);}
-  .nav__cta{gap:.5rem;}
-  .nav__cta .btn-ghost,.nav__cta .btn-primary{padding:.6rem 1rem;font-size:.85rem;min-height:46px;}
-  .nav__burger{width:48px;height:48px;}
-  a,button,input,select,textarea,[role="button"]{min-height:48px;} /* أهداف لمس 48px */
-  input,select,textarea{font-size:16px;} /* يمنع تكبير iOS عند التركيز */
-  .hero__inner{padding:2.2rem 0 3rem;text-align:right;}
-  .hero h1{font-size:clamp(1.8rem,8.5vw,2.3rem);}
-  .hero .lead{font-size:1.05rem;line-height:1.7;}
-  .hero__cta{flex-direction:column;align-items:stretch;gap:.75rem;}
-  .hero__cta .btn-primary{width:100%;justify-content:center;min-height:52px;font-size:1.05rem;}
-  .stats{grid-template-columns:repeat(2,1fr);gap:.7rem;margin-top:-1rem;}
-  .stat{padding:1.05rem .8rem;}
-  .stat b{font-size:1.5rem;}
-  .section{padding:3rem 0;}
-  .section__head{margin-bottom:1.8rem;max-width:90%;}
-  .cta-band{padding:2.4rem 1.3rem;}
-  .cta-band h2{font-size:1.5rem;}
-  .footer__inner{flex-direction:column;align-items:flex-start;gap:1rem;font-size:.9rem;padding-bottom:calc(2.5rem + env(safe-area-inset-bottom));}
-  .wa-bubble{bottom:calc(1rem + env(safe-area-inset-bottom));left:1rem;width:3.25rem;height:3.25rem;min-height:48px;min-width:48px;}
-  .bg-orange-500{bottom:calc(1.25rem + env(safe-area-inset-bottom)) !important;}
+  /* ===== ضبط للهواتف (<612px): كل شيء مجمّع ومضغوط حتى لا ينكسر ===== */
+  html{font-size:15px;}                 /* نص أساسي أصغر ليناسب الشاشات الضيقة */
+  .wrap{padding:0 1rem;max-width:100%;}
+  .nav__inner{height:3.6rem;padding-top:env(safe-area-inset-top);gap:.5rem;}
+  .nav .brand{display:none;}               /* إخفاء الشعار على الجوال حتى لا يتعارض مع زر القائمة */
+  /* مجموعة الأزرار تذهب لليمين (RTL) لتكون منفصلة عن زر القائمة */
+  .nav__cta{display:flex;align-items:center;gap:.4rem;flex-shrink:0;margin-left:auto;}
+  .nav__cta .btn-ghost,.nav__cta .btn-primary{padding:.5rem .8rem;font-size:.8rem;min-height:42px;}
+  .nav__burger{width:44px;height:44px;flex-shrink:0;}
+  /* على الجوال: زر القائمة منفصل وحده في الزاوية العلوية اليسرى */
+  .nav__burger{position:fixed;top:calc(.6rem + env(safe-area-inset-top));left:.6rem;z-index:60;
+    background:rgba(255,255,255,.9);border-radius:12px;box-shadow:0 6px 18px -8px rgba(0,0,0,.3);}
+  a,button,input,select,textarea,[role="button"]{min-height:44px;}
+  input,select,textarea{font-size:16px;}
+  .hero__inner{padding:1.8rem 0 2.6rem;text-align:right;}
+  .hero h1{font-size:clamp(1.5rem,7vw,2rem);}
+  .hero .lead{font-size:.95rem;line-height:1.6;margin-bottom:1.3rem;}
+  /* زر البدء مجمّع مع باقي الأزرار — ليس بعرض كامل */
+  .hero__cta{flex-direction:row;flex-wrap:wrap;align-items:center;gap:.6rem;}
+  .hero__cta .btn-primary{width:auto;justify-content:center;min-height:46px;font-size:.95rem;padding:.65rem 1.3rem;}
+  .stats{grid-template-columns:repeat(2,1fr);gap:.6rem;margin-top:-.5rem;}
+  .stat{padding:.9rem .7rem;}
+  .stat b{font-size:1.4rem;}
+  .section{padding:2.6rem 0;}
+  .section__head{margin-bottom:1.6rem;max-width:92%;}
+  .cta-band{padding:2rem 1.2rem;}
+  .cta-band h2{font-size:1.35rem;}
+  .footer__inner{flex-direction:column;align-items:flex-start;gap:1rem;font-size:.85rem;padding-bottom:calc(2.5rem + env(safe-area-inset-bottom));}
+  .wa-bubble{bottom:calc(1rem + env(safe-area-inset-bottom));left:1rem;width:3.1rem;height:3.1rem;min-height:44px;min-width:44px;}
+  .bg-orange-500{bottom:calc(1.2rem + env(safe-area-inset-bottom)) !important;}
 }
 @media (max-width:480px){
   /* إخفاء الشعار على الجوالات الضيقة (<478px) وإظهار الأزرار فقط */
