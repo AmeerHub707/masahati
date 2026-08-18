@@ -44,6 +44,7 @@ export default function LandingPage() {
       <Navbar />
 
       <ReactPullToRefresh
+        disabled
         onRefresh={handleRefresh}
         direction="rtl"
         resistance={2.5}
