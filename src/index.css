@@ -111,9 +111,7 @@ a{color:inherit;}
 .blob--soft{width:10rem;height:10rem;background:#fff;opacity:.22;}
 
 /* ===== Navbar — DESKTOP SETTINGS ===== */
-.nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);
-  background:rgba(255,255,255,.72);border-bottom:1px solid rgba(228,228,231,.7);
-  transition:background .25s var(--ease),box-shadow .25s,border-color .25s;}
+.nav{position:sticky;top:0;z-index:50;background:transparent;backdrop-filter:none;border-bottom-color:transparent;box-shadow:none;transition:background .25s var(--ease),box-shadow .25s,border-color .25s;}
 /* شفاف فوق الهيرو (في صفحة الهبوط)، يتحوّل لصلب ضبابي عند النزول */
 .landing .nav:not(.nav--scrolled){background:transparent;backdrop-filter:none;border-bottom-color:transparent;box-shadow:none;}
 .nav--scrolled{background:rgba(255,255,255,.82);box-shadow:0 8px 24px -16px rgba(0,0,0,.25);}
