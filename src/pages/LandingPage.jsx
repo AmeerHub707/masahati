@@ -9,6 +9,7 @@ import About from '../components/landing/About';
 import CtaBand from '../components/landing/CtaBand';
 import Footer from '../components/layout/Footer';
 import WhatsAppBubble from '../components/common/WhatsAppBubble';
+import Reveal from '../components/common/Reveal';
 
 export default function LandingPage() {
   const [showTop, setShowTop] = useState(false);
@@ -60,11 +61,21 @@ export default function LandingPage() {
       >
         <main id="top" key={refreshKey}>
           <Hero />
-          <Features />
-          <HowItWorks />
-          <Roles />
-          <About />
-          <CtaBand />
+          <Reveal>
+            <Features />
+          </Reveal>
+          <Reveal delay={80}>
+            <HowItWorks />
+          </Reveal>
+          <Reveal delay={80}>
+            <Roles />
+          </Reveal>
+          <Reveal delay={80}>
+            <About />
+          </Reveal>
+          <Reveal delay={80}>
+            <CtaBand />
+          </Reveal>
         </main>
       </ReactPullToRefresh>
 

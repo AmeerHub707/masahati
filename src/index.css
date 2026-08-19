@@ -114,10 +114,23 @@ a{color:inherit;}
 
 /* ===== Navbar — DESKTOP SETTINGS ===== */
 .nav{position:sticky;top:0;z-index:50;background:transparent;backdrop-filter:none;border-bottom-color:transparent;box-shadow:none;transition:background .25s var(--ease),box-shadow .25s,border-color .25s;}
-/* شفاف فوق الهيرو (في صفحة الهبوط)، يتحوّل لصلب ضبابي عند النزول */
+/* شفاف فوق الهيرو (في صفحة الهبوط)، يتحوّل لزجاج سائل عند النزول (بدون كتلة بيضاء) */
 .landing .nav:not(.nav--scrolled){background:transparent;backdrop-filter:none;border-bottom-color:transparent;box-shadow:none;}
-.nav--scrolled{background:rgba(255,255,255,.82);box-shadow:0 8px 24px -16px rgba(0,0,0,.25);}
-.landing .nav--scrolled{background:rgba(255,255,255,.85);backdrop-filter:blur(14px);border-bottom:1px solid rgba(228,228,231,.7);}
+/* زجاج سائل (frosted glass) بدل الخلفية البيضاء الصلبة */
+.nav--scrolled{
+  background:rgba(255,255,255,.18);
+  backdrop-filter:blur(18px) saturate(160%);
+  -webkit-backdrop-filter:blur(18px) saturate(160%);
+  border-bottom:1px solid rgba(255,255,255,.35);
+  box-shadow:0 10px 30px -18px rgba(0,0,0,.45);
+}
+.landing .nav--scrolled{
+  background:rgba(255,255,255,.22);
+  backdrop-filter:blur(18px) saturate(160%);
+  -webkit-backdrop-filter:blur(18px) saturate(160%);
+  border-bottom:1px solid rgba(255,255,255,.30);
+  box-shadow:0 10px 30px -18px rgba(0,0,0,.45);
+}
 .nav__inner{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:nowrap;height:4.2rem;}
 .brand{display:flex;align-items:center;gap:.6rem;flex-shrink:0;}
 .brand .brand-logo{height:2.3rem;width:auto;object-fit:contain;filter:drop-shadow(0 6px 14px rgba(249,115,22,.3));}
@@ -334,4 +347,13 @@ img{max-width:100%;}
 @keyframes blob-float{
   0%,100%{transform:translate(0,0) scale(1);}
   50%{transform:translate(0,-1.4rem) scale(1.05);}
+}
+
+/* ===== Reveal on Scroll (Scroll-Trigger) ===== */
+.reveal{opacity:0;transform:translateY(var(--reveal-y,28px));
+  transition:opacity .7s var(--ease),transform .7s var(--ease);
+  transition-delay:var(--reveal-delay,0ms);will-change:opacity,transform;}
+.reveal--in{opacity:1;transform:translateY(0);}
+@media (prefers-reduced-motion:reduce){
+  .reveal{opacity:1;transform:none;transition:none;}
 }
