@@ -214,7 +214,17 @@ export default function LoginPage() {
           backdrop-filter: blur(18px) saturate(140%);
           -webkit-backdrop-filter: blur(18px) saturate(140%);
           border-top: 1px solid rgba(255,255,255,0.14);
+          overflow-y: auto;
+          scrollbar-width: thin;
+          scrollbar-color: var(--accent) transparent;
         }
+        .auth-form::-webkit-scrollbar { width: 6px; }
+        .auth-form::-webkit-scrollbar-track { background: transparent; }
+        .auth-form::-webkit-scrollbar-thumb {
+          background: var(--accent);
+          border-radius: 999px;
+        }
+        .auth-form::-webkit-scrollbar-thumb:hover { background: var(--accent-hover); }
         @media (min-width: 768px) {
           .auth-form {
             width: 54%; flex: none;
