@@ -4,10 +4,10 @@ import NavTab from './NavTab';
 
 const LINKS = [
   { label: 'تصفح المساحات', to: '/spaces' },
-  { label: 'كيف يعمل', href: '#how' },
-  { label: 'لماذا مساحاتي', href: '#features' },
-  { label: 'من نحن', href: '#about' },
-  { label: 'لكلٍ كما يناسبه', href: '#roles' },
+  { label: 'لماذا مساحاتي', href: '#features'  },
+  { label: 'كيف يعمل', href: '#how'},
+  { label: 'لكلٍ كما يناسبه', href: '#roles'  },
+  { label: 'من نحن', href: '#about'},
 ];
 
 export default function Navbar() {
