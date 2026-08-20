@@ -32,8 +32,8 @@ export default function LoginPage() {
     const newErrors = { identifier: '', password: '' };
 
     const identifier = formData.identifier.trim();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const phoneRegex = /^[+]?[\d\s()-]{7,}$/;
+    const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+    const phoneRegex = /^[+]?[\\d\\s()-]{7,}$/;
 
     if (!identifier) {
       newErrors.identifier = 'الرجاء إدخال البريد الإلكتروني أو رقم الهاتف';
@@ -52,61 +52,417 @@ export default function LoginPage() {
 
     if (valid) {
       // هنا يتم وضع المنطق الخاص بالـ Authentication لاحقاً (API فريق Laravel/MySQL)
-      const isEmail = emailRegex.test(identifier);
-      console.log('مرحباً بعودتك:', { type: isEmail ? 'email' : 'phone', identifier, password: formData.password });
       setLoggedIn(true); // وهمي حتى يجهز الـ API
       navigate('/dashboard');
     }
   };
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center p-5 bg-cover bg-center bg-no-repeat overflow-hidden font-['Cairo'] text-zinc-900 dir-rtl" style={{ backgroundImage: "url('/background.jpeg')" }}>
-      {/* طبقة التعتيم الخلفية */}
-      <div className="fixed inset-0 bg-gradient-to-br from-black/55 to-black/35 -z-10" />
+    <div className="auth-wrapper">
+      {/* Styles inject */}
+      <style>{`
+        :root {
+          --accent: #f97316;
+          --accent-hover: #ea580c;
+          --accent-soft: #fff3e9;
+          --surface: #fbfbfc;
+          --text-strong: #18181b;
+          --text-muted: #71717a;
+          --border: #e4e4e7;
+          --danger: #ef4444;
+          --radius-card: 1.75rem;
+          --radius-field: 0.75rem;
+          --shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.5);
+          --ease: cubic-bezier(0.22, 1, 0.36, 1);
+        }
 
-      {/* التوهج البرتقالي الخلفي */}
-      <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[46rem] h-[46rem] bg-[radial-gradient(circle,rgba(249,115,22,0.38)_0%,rgba(249,115,22,0.12)_40%,transparent_70%)] blur-2xl -z-10 pointer-events-none" />
+        .auth-wrapper {
+          min-height: 100vh;
+          min-height: 100dvh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: clamp(0.75rem, 4vh, 2.5rem) 1.25rem;
+          background-image: url("/background.jpeg");
+          background-size: cover;
+          background-position: center;
+          position: relative;
+          overflow: hidden;
+          font-family: 'Cairo', sans-serif;
+          direction: rtl;
+        }
+        .auth-wrapper::before {
+          content: "";
+          position: fixed;
+          inset: 0;
+          z-index: 0;
+          background: linear-gradient(160deg, rgba(0,0,0,0.58), rgba(0,0,0,0.40));
+        }
+        .auth-wrapper::after {
+          content: "";
+          position: fixed;
+          z-index: 0;
+          left: 50%; top: 50%;
+          width: 46rem; height: 46rem;
+          transform: translate(-50%, -50%);
+          background: radial-gradient(circle, rgba(249,115,22,0.38) 0%, rgba(249,115,22,0.12) 40%, transparent 70%);
+          filter: blur(20px);
+          pointer-events: none;
+        }
 
-      {/* الكارت الرئيسي (Auth Card) */}
-      <main className="relative w-full max-w-[52rem] my-auto max-h-full flex flex-col md:flex-row md:min-h-[34rem] rounded-3xl overflow-hidden shadow-[0_30px_60px_-20px_rgba(0,0,0,0.55),0_0_0_2px_rgba(249,115,22,0.22),0_40px_90px_-25px_rgba(249,115,22,0.55)] bg-zinc-100 border border-white/75 isolate">
-        
-        {/* تأثير اللمعان (Glass Sheen) */}
-        <div className="absolute inset-0 z-[2] pointer-events-none bg-[radial-gradient(130%_70%_at_0%_0%,rgba(249,115,22,0.20),transparent_50%),radial-gradient(130%_70%_at_100%_100%,rgba(249,115,22,0.14),transparent_50%)]" />
+        /* ===== البطاقة: خلفية الصورة تغطي البطاقة بالكامل (ليست نصفاً) ===== */
+        .auth-card {
+          position: relative;
+          z-index: 1;
+          width: 100%;
+          max-width: 50rem;
+          max-height: 100%;
+          display: flex;
+          flex-direction: column;
+          border-radius: var(--radius-card);
+          overflow: hidden;
+          box-shadow: var(--shadow), 0 0 0 1px rgba(249,115,22,0.10);
+          background: #0f0f14;
+          isolation: isolate;
+        }
+        @media (min-width: 768px) {
+          .auth-card { flex-direction: row; min-height: 35rem; }
+        }
 
-        {/* عناصر الديكور العائمة (Blobs & Streaks) */}
-        <div className="hidden md:block absolute inset-0 z-0 overflow-hidden pointer-events-none">
-          {[2, 8, 14, 20, 26, 32].map((left, idx) => (
-            <span key={idx} className="absolute top-0 bottom-0 w-16 bg-gradient-to-r from-transparent via-black to-white/20 opacity-30 blur-md translate-x-[36rem]" style={{ left: `${left}rem` }} />
-          ))}
-        </div>
-        <span className="absolute w-60 h-60 bg-orange-500 -bottom-24 -right-16 rounded-full opacity-90 blur-[2px] z-0 pointer-events-none" />
-        <span className="absolute w-32 h-20 bg-white bottom-6 right-8 rounded-full opacity-35 z-0 pointer-events-none" />
-        <span className="absolute w-32 h-20 bg-white bottom-12 right-40 rounded-full opacity-35 z-0 pointer-events-none" />
+        .auth-card__bg {
+          position: absolute;
+          inset: 0;
+          z-index: 0;
+          background-image: url("/Loginside.jpg");
+          background-size: cover;
+          background-position: center;
+        }
+        /* تظليل يضمن تباين النص: يسار (الترحيب) أغمق، يمين (النموذج) بلمسة برتقالية */
+        .auth-card__scrim {
+          position: absolute;
+          inset: 0;
+          z-index: 0;
+          background: linear-gradient(90deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.46) 44%, rgba(234,88,12,0.42) 100%);
+        }
+        .auth-card__glow {
+          position: absolute;
+          z-index: 0;
+          right: -6rem; top: -6rem;
+          width: 24rem; height: 24rem;
+          background: radial-gradient(circle, rgba(249,115,22,0.45), transparent 70%);
+          filter: blur(30px);
+          pointer-events: none;
+        }
 
-        {/* الصورة الجانبية الهوية */}
-        <aside className="relative z-[1] min-h-[14rem] md:w-[48%] md:flex-none bg-cover bg-center flex items-end p-7 text-white" style={{ backgroundImage: "url('/Loginside.jpg')" }}>
-          <div className="absolute inset-0 z-0 bg-gradient-to-br from-orange-500/45 via-orange-600/22 to-transparent mix-blend-multiply" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-transparent" />
+        /* ===== الجانب الترحيبي (يسار على سطح المكتب) ===== */
+        .auth-welcome {
+          position: relative;
+          z-index: 1;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          gap: 1.5rem;
+          padding: 2rem 2rem;
+          color: #fff;
+        }
+        @media (min-width: 768px) {
+          .auth-welcome { width: 46%; flex: none; }
+        }
+        .auth-welcome__copy h1 {
+          font-size: clamp(1.8rem, 3.4vw, 2.6rem);
+          font-weight: 800;
+          margin: 0 0 0.6rem;
+          line-height: 1.15;
+        }
+        .auth-welcome__copy p {
+          margin: 0;
+          font-size: 0.95rem;
+          line-height: 1.7;
+          color: rgba(255,255,255,0.82);
+        }
+        .auth-welcome__list {
+          list-style: none;
+          margin: 1.4rem 0 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.7rem;
+        }
+        .auth-welcome__list li {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          font-size: 0.9rem;
+          color: rgba(255,255,255,0.9);
+        }
+        .auth-welcome__list svg {
+          width: 1.25rem; height: 1.25rem;
+          color: var(--accent);
+          flex: none;
+        }
+
+        /* ===== لوحة النموذج (زجاجية) ===== */
+        .auth-form {
+          position: relative;
+          z-index: 1;
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          padding: 2rem 2rem 1.6rem;
+          background: rgba(18,16,14,0.55);
+          backdrop-filter: blur(18px) saturate(140%);
+          -webkit-backdrop-filter: blur(18px) saturate(140%);
+          border-top: 1px solid rgba(255,255,255,0.14);
+        }
+        @media (min-width: 768px) {
+          .auth-form {
+            width: 54%; flex: none;
+            padding: 2.2rem 2.4rem 1.8rem;
+            border-top: none;
+            border-inline-start: 1.5px solid rgba(255,255,255,0.55);
+          }
+        }
+
+        .form-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          width: 100%;
+          margin-bottom: 1.4rem;
+        }
+        .brand { display: flex; align-items: center; gap: 0.6rem; }
+        .brand-logo { height: 2.4rem; width: auto; object-fit: contain; filter: drop-shadow(0 6px 14px rgba(249,115,22,0.3)); }
+        .brand-name { font-size: 1.4rem; font-weight: 800; color: #fff; direction: ltr; }
+        .brand-name span { color: var(--accent); }
+
+        .back-home {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.45rem;
+          font-weight: 700;
+          font-size: 0.82rem;
+          color: #fff;
+          text-decoration: none;
+          padding: 0.5rem 0.9rem;
+          border: 1.5px solid rgba(255,255,255,0.35);
+          border-radius: 999px;
+          transition: all 0.2s var(--ease);
+        }
+        .back-home:hover {
+          border-color: var(--accent);
+          color: #fff;
+          background: rgba(249,115,22,0.18);
+        }
+
+        .auth-form h2 {
+          margin: 0 0 0.35rem;
+          font-size: clamp(1.5rem, 2.6vw, 2rem);
+          font-weight: 800;
+          color: #fff;
+        }
+        .form-sub {
+          margin: 0 0 1.5rem;
+          font-size: 0.92rem;
+          color: rgba(255,255,255,0.72);
+        }
+
+        /* الحقول */
+        .field { margin-bottom: 0.5rem; }
+        .field label {
+          display: block;
+          font-size: 0.82rem;
+          margin-bottom: 0.35rem;
+          font-weight: 600;
+          color: rgba(255,255,255,0.9);
+        }
+        .field input {
+          width: 100%;
+          font-size: 0.92rem;
+          padding: 0.7rem 0.9rem;
+          border: 1.5px solid rgba(255,255,255,0.85);
+          border-radius: var(--radius-field);
+          background: rgba(255,255,255,0.06);
+          color: #fff;
+          outline: none;
+          transition: all 0.2s;
+        }
+        .field input::placeholder { color: rgba(255,255,255,0.6); }
+        .field input:focus {
+          border-color: var(--accent);
+          box-shadow: 0 0 0 4px rgba(249,115,22,0.22);
+          background: rgba(255,255,255,0.12);
+        }
+        .field.has-error input {
+          border-color: #f87171;
+          box-shadow: 0 0 0 4px rgba(248,113,113,0.18);
+        }
+        /* فتحة ثابتة لرسائل الخطأ لتفادي اهتزاز التخطيط */
+        .error {
+          color: #fca5a5;
+          font-size: 0.74rem;
+          margin-top: 0.3rem;
+          min-height: 1.1rem;
+        }
+
+        /* زر إظهار/إخفاء كلمة المرور */
+        .pw-wrap { position: relative; }
+        .pw-toggle {
+          position: absolute;
+          left: 8px; top: 50%;
+          transform: translateY(-50%);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 2rem; height: 2rem;
+          color: rgba(255,255,255,0.85);
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          border-radius: 0.5rem;
+          transition: color 0.2s;
+        }
+        .pw-toggle:hover { color: var(--accent); }
+
+        /* تذكرني + نسيت كلمة المرور */
+        .form-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+          margin: 0.6rem 0 1.1rem;
+          flex-wrap: wrap;
+        }
+        .remember {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.55rem;
+          cursor: pointer;
+          user-select: none;
+          color: rgba(255,255,255,0.85);
+          font-size: 0.82rem;
+        }
+        .remember input { position: absolute; opacity: 0; width: 0; height: 0; }
+        .remember .box {
+          width: 1.05rem; height: 1.05rem;
+          border-radius: 5px;
+          border: 1.5px solid rgba(255,255,255,0.75);
+          background: rgba(255,255,255,0.06);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s;
+        }
+        .remember input:checked + .box {
+          background: var(--accent);
+          border-color: var(--accent);
+        }
+        .remember .box svg {
+          width: 0.7rem; height: 0.7rem;
+          color: #fff;
+          opacity: 0;
+          transition: opacity 0.2s;
+        }
+        .remember input:checked + .box svg { opacity: 1; }
+        .forgot {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.3rem;
+          color: rgba(255,255,255,0.7);
+          font-size: 0.8rem;
+          text-decoration: none;
+          transition: color 0.2s;
+        }
+        .forgot:hover { color: var(--accent); }
+
+        .btn {
+          width: 100%;
+          background: linear-gradient(180deg, #fb923c, var(--accent) 60%, var(--accent-hover));
+          color: #fff;
+          font-weight: 700;
+          font-size: 1rem;
+          padding: 0.8rem 1rem;
+          border: none;
+          border-radius: var(--radius-field);
+          cursor: pointer;
+          box-shadow: 0 12px 26px -10px rgba(249,115,22,0.6);
+          transition: all 0.18s var(--ease);
+          margin-top: 0.4rem;
+        }
+        .btn:hover { transform: translateY(-2px); filter: brightness(1.04); }
+
+        .switch {
+          text-align: center;
+          font-size: 0.9rem;
+          color: rgba(255,255,255,0.72);
+          margin-top: 1.2rem;
+        }
+        .switch a {
+          color: #fff;
+          font-weight: 700;
+          text-decoration: underline;
+        }
+        .switch a:hover { color: var(--accent); }
+
+        /* ===== ضبط دقيق للهواتف ===== */
+        @media (max-width: 600px) {
+          .auth-welcome { display: none; }
+          .auth-form {
+            background: rgba(18,16,14,0.78);
+            padding: 1.8rem 1.3rem 1.6rem;
+          }
+          .field input { font-size: 16px; padding: 0.8rem 0.9rem; }
+          .btn { font-size: 1.02rem; padding: 0.9rem 1rem; min-height: 52px; }
+          .back-home { padding: 0.55rem 0.85rem; }
+          .auth-wrapper {
+            padding: calc(env(safe-area-inset-top) + 0.5rem) 0.75rem calc(env(safe-area-inset-bottom) + 0.5rem);
+          }
+        }
+      `}</style>
+
+      <main className="auth-card">
+        {/* خلفية الصورة تغطي البطاقة بالكامل */}
+        <div className="auth-card__bg" aria-hidden="true" />
+        <div className="auth-card__scrim" aria-hidden="true" />
+        <div className="auth-card__glow" aria-hidden="true" />
+
+        {/* الجانب الترحيبي */}
+        <aside className="auth-welcome">
+          <div className="auth-welcome__copy">
+            <h1>مرحباً بعودتك</h1>
+            <p>سجّل الدخول إلى حسابك في مساحاتي، واستكشف أفضل المساحات المتاحة لك في مكان واحد.</p>
+            <ul className="auth-welcome__list">
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+                إدارة حجوزاتك ومساحاتك بسهولة
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+                تتبّع مدفوعاتك وتقاريرك لحظياً
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+                دعم فوري عبر الواتساب على مدار الساعة
+              </li>
+            </ul>
+          </div>
         </aside>
 
-        {/* لوحة النموذج (Form Panel) */}
-        <section className="relative z-[1] flex-1 p-8 md:p-11 flex flex-col bg-zinc-100">
-          
-          {/* الهيدر العلوي (الشعار وزر الرجوع) */}
-          <div className="flex items-center justify-between gap-4 flex-nowrap w-full mb-5">
-            <div className="flex items-center gap-2.5 flex-none m-0">
-              <img src="/masahati.jpeg" alt="Masahati" className="h-9 w-auto object-contain drop-shadow-[0_6px_14px_rgba(249,115,22,0.30)]" />
-              <span className="text-2xl font-extrabold tracking-tight leading-none text-zinc-900 dir-ltr inline-flex items-baseline">
-                Masa<span className="text-orange-500">hati</span>
-              </span>
+        {/* لوحة النموذج الزجاجية */}
+        <section className="auth-form">
+          <div className="form-head">
+            <div className="brand">
+              <img src="/masahati.jpeg" alt="Masahati" className="brand-logo" />
+              <span className="brand-name">Masa<span>hati</span></span>
             </div>
 
             <Link
               to="/"
               aria-label="العودة إلى الصفحة الرئيسية"
-              className="flex-none inline-flex items-center gap-2 font-bold text-sm text-orange-400 whitespace-nowrap px-4 py-2 bg-transparent border-[1.5px] border-orange-200 rounded-full transition-all duration-200 hover:border-orange-300 hover:text-orange-600 hover:bg-orange-300/12 hover:-translate-y-0.5 hover:shadow-[0_6px_16px_-8px_rgba(249,115,22,0.4)] active:translate-y-0.5 active:bg-orange-200 active:border-orange-300 active:text-orange-900 active:shadow-inner focus-visible:outline-none focus-visible:border-orange-500 focus-visible:ring-2 focus-visible:ring-orange-500/35"
+              className="back-home"
             >
-              <span className="inline-flex transition-transform duration-250 hover:-translate-x-1">
+              <span className="inline-flex">
                 <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-[2.2] stroke-linecap-round stroke-linejoin-round">
                   <path d="M14 6l-6 6 6 6" />
                 </svg>
@@ -115,114 +471,96 @@ export default function LoginPage() {
             </Link>
           </div>
 
-          {/* محتوى نموذج الدخول */}
-          <div className="relative flex-1">
-            <form onSubmit={handleSubmit} noValidate>
-              <h2 className="m-0 mb-1.5 text-3xl font-medium tracking-tight">مرحباً بعودتك</h2>
-              <p className="m-0 mb-7 text-sm opacity-80 text-zinc-600">سجّل الدخول إلى حسابك في مساحاتي.</p>
+          <form onSubmit={handleSubmit} noValidate>
+            <h2>سجّل الدخول</h2>
+            <p className="form-sub">أدخل بياناتك للوصول إلى حسابك.</p>
 
-              {/* المعرّف: بريد إلكتروني أو رقم هاتف ) */}
-              <div className="mb-4">
-                <label htmlFor="login-identifier" className="block text-sm mb-2 font-medium">البريد الإلكتروني أو رقم الهاتف</label>
+            {/* المعرّف: بريد إلكتروني أو رقم هاتف */}
+            <div className={`field ${errors.identifier ? 'has-error' : ''}`}>
+              <label htmlFor="login-identifier">البريد الإلكتروني أو رقم الهاتف</label>
+              <input
+                type="text"
+                id="login-identifier"
+                value={formData.identifier}
+                onChange={handleChange}
+                placeholder="you@example.com , +970 59 000 0000"
+                dir="ltr"
+                autoComplete="username"
+              />
+              <p className="error" aria-live="polite">{errors.identifier}</p>
+            </div>
+
+            {/* كلمة المرور */}
+            <div className={`field ${errors.password ? 'has-error' : ''}`}>
+              <label htmlFor="login-password">كلمة المرور</label>
+              <div className="pw-wrap">
                 <input
-                  type="text"
-                  id="login-identifier"
-                  value={formData.identifier}
+                  type={showPassword ? 'text' : 'password'}
+                  id="login-password"
+                  value={formData.password}
                   onChange={handleChange}
-                  placeholder="you@example.com , +970 59 000 0000"
-                  dir="ltr"
-                  autoComplete="username"
-                  className={`w-full text-sm px-3 py-2.5 border rounded-[0.625rem] bg-white text-black transition-all duration-200 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 ${
-                    errors.identifier ? 'border-red-500' : 'border-zinc-300'
-                  }`}
+                  placeholder="••••••••"
+                  dir="rtl"
+                  autoComplete="current-password"
                 />
-                {errors.identifier && <p className="text-red-500 text-xs mt-1.5 min-h-[1rem]">{errors.identifier}</p>}
-              </div>
-
-              {/* كلمة المرور */}
-              <div className="mb-4">
-                <label htmlFor="login-password" className="block text-sm mb-2 font-medium">كلمة المرور</label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    id="login-password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    placeholder="••••••••"
-                    className={`w-full text-sm px-3 py-2.5 border rounded-[0.625rem] bg-white text-black transition-all duration-200 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 ${
-                      errors.password ? 'border-red-500' : 'border-zinc-300'
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={toggleShowPassword}
-                    aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-8 h-8 text-zinc-400 hover:text-orange-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/35 rounded-md"
-                  >
-                    {showPassword ? (
-                      <svg viewBox="0 0 24 24" className="w-5 h-5 fill-none stroke-current stroke-[2] stroke-linecap-round stroke-linejoin-round">
-                        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
-                        <circle cx="12" cy="12" r="3" />
-                        <line x1="4" y1="20" x2="20" y2="4" />
-                      </svg>
-                    ) : (
-                      <svg viewBox="0 0 24 24" className="w-5 h-5 fill-none stroke-current stroke-[2] stroke-linecap-round stroke-linejoin-round">
-                        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
-                        <circle cx="12" cy="12" r="3" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-                {errors.password && <p className="text-red-500 text-xs mt-1.5 min-h-[1rem]">{errors.password}</p>}
-              </div>
-
-              {/* تذكرني (يمين) + نسيت كلمة المرور (يسار) — منفصلان على نفس السطر */}
-              <div className="flex items-center justify-between gap-3 my-3 text-xs flex-nowrap">
-                <label className="group grid grid-flow-col auto-cols-max items-center gap-2.5 rounded-full py-1 pl-1 pr-3 cursor-pointer select-none whitespace-nowrap transition-colors hover:bg-orange-50">
-                  {/* خانة تذكّرني (checkbox) */}
-                  <input
-                    type="checkbox"
-                    id="login-remember"
-                    checked={formData.remember}
-                    onChange={handleChange}
-                    className="peer sr-only"
-                  />
-                  <span className="relative inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-[5px] border-[1.5px] border-zinc-300 bg-white text-white transition-colors peer-checked:bg-orange-500 peer-checked:border-orange-500">
-                    <svg viewBox="0 0 24 24" className="w-3 h-3 fill-none stroke-current stroke-[3] stroke-linecap-round stroke-linejoin-round opacity-0 peer-checked:opacity-100 transition-opacity" aria-hidden="true">
-                      <path d="M5 12l4 4 10-10" />
+                <button
+                  type="button"
+                  onClick={toggleShowPassword}
+                  aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                  className="pw-toggle"
+                >
+                  {showPassword ? (
+                    <svg viewBox="0 0 24 24" className="w-5 h-5 fill-none stroke-current stroke-[2] stroke-linecap-round stroke-linejoin-round">
+                      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+                      <circle cx="12" cy="12" r="3" />
+                      <line x1="4" y1="20" x2="20" y2="4" />
                     </svg>
-                  </span>
-                  <span className="leading-none select-none text-zinc-600 group-hover:text-zinc-800 transition-colors">تذكرني</span>
-                </label>
-
-                <span className="hidden sm:block w-px h-4 bg-zinc-200" aria-hidden="true" />
-
-                <Link to="/forgot" className="group inline-flex items-center gap-1 text-zinc-500 text-xs hover:text-orange-600 transition-colors whitespace-nowrap">
-                  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-[2] stroke-linecap-round stroke-linejoin-round opacity-70 group-hover:opacity-100 transition-opacity" aria-hidden="true">
-                    <rect x="5" y="11" width="14" height="9" rx="2" />
-                    <path d="M8 11V8a4 4 0 0 1 8 0v3" />
-                  </svg>
-                  <span className="border-b border-transparent group-hover:border-orange-500 transition-colors">هل نسيت كلمة المرور؟</span>
-                </Link>
+                  ) : (
+                    <svg viewBox="0 0 24 24" className="w-5 h-5 fill-none stroke-current stroke-[2] stroke-linecap-round stroke-linejoin-round">
+                      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
+                </button>
               </div>
+              <p className="error" aria-live="polite">{errors.password}</p>
+            </div>
 
-              {/* زر التسجيل */}
-              <button
-                type="submit"
-                className="w-full bg-orange-500 text-white font-medium text-base py-2.5 px-4 rounded-[0.625rem] hover:bg-orange-600 transition-colors cursor-pointer mt-2"
-              >
-                تسجيل الدخول
-              </button>
+            {/* تذكرني + نسيت كلمة المرور */}
+            <div className="form-row">
+              <label className="remember">
+                <input
+                  type="checkbox"
+                  id="login-remember"
+                  checked={formData.remember}
+                  onChange={handleChange}
+                />
+                <span className="box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l4 4 10-10" /></svg>
+                </span>
+                <span>تذكرني</span>
+              </label>
 
-              {/* التحويل إلى إنشاء حساب */}
-              <p className="text-center text-sm text-zinc-500 mt-5">
-                ليس لديك حساب؟{' '}
-                <Link to="/signup" className="text-zinc-900 font-semibold underline cursor-pointer hover:text-orange-500">
-                  إنشاء حساب
-                </Link>
-              </p>
-            </form>
-          </div>
+              <Link to="/forgot" className="forgot">
+                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-none stroke-current stroke-[2] stroke-linecap-round stroke-linejoin-round" aria-hidden="true">
+                  <rect x="5" y="11" width="14" height="9" rx="2" />
+                  <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+                </svg>
+                <span>هل نسيت كلمة المرور؟</span>
+              </Link>
+            </div>
+
+            {/* زر الدخول */}
+            <button type="submit" className="btn">
+              تسجيل الدخول
+            </button>
+
+            {/* التحويل إلى إنشاء حساب */}
+            <p className="switch">
+              ليس لديك حساب؟{' '}
+              <Link to="/signup">إنشاء حساب</Link>
+            </p>
+          </form>
         </section>
 
         {/* زر الواتساب العائم */}

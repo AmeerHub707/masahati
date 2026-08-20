@@ -200,7 +200,7 @@ export default function SignupPage() {
           align-items: center;
           justify-content: center;
           padding: clamp(0.75rem, 4vh, 2.5rem) 1.25rem;
-          background-image: url("background.jpeg");
+          background-image: url("/background.jpeg");
           background-size: cover;
           background-position: center;
           position: relative;
@@ -240,7 +240,7 @@ export default function SignupPage() {
           position: relative;
           z-index: 1;
           min-height: 14rem;
-          background-image: url("Loginside.jpg");
+          background-image: url("/Loginside.jpg");
           background-size: cover;
           background-position: center;
           display: flex;
@@ -426,7 +426,7 @@ export default function SignupPage() {
         <section className="auth-form">
           <div className="form-head">
             <div className="brand">
-              <img src="masahati.jpeg" alt="Masahati" className="brand-logo" />
+              <img src="/masahati.jpeg" alt="Masahati" className="brand-logo" />
               <span className="brand-name">Masa<span>hati</span></span>
             </div>
 
