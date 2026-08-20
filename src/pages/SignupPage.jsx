@@ -182,11 +182,8 @@ export default function SignupPage() {
           --accent: #f97316;
           --accent-hover: #ea580c;
           --accent-soft: #fff3e9;
-          --surface: #fbfbfc;
           --text-strong: #18181b;
           --text-muted: #71717a;
-          --border: #e4e4e7;
-          --danger: #ef4444;
           --radius-card: 1.75rem;
           --radius-field: 0.75rem;
           --shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.5);
@@ -194,8 +191,8 @@ export default function SignupPage() {
         }
 
         .auth-wrapper {
-          height: 100vh;
-          height: 100dvh;
+          min-height: 100vh;
+          min-height: 100dvh;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -208,62 +205,143 @@ export default function SignupPage() {
           font-family: 'Cairo', sans-serif;
           direction: rtl;
         }
-
         .auth-wrapper::before {
           content: "";
           position: fixed;
           inset: 0;
-          background: linear-gradient(160deg, rgba(0,0,0,0.58), rgba(0,0,0,0.38));
           z-index: 0;
+          background: linear-gradient(160deg, rgba(0,0,0,0.58), rgba(0,0,0,0.40));
+        }
+        .auth-wrapper::after {
+          content: "";
+          position: fixed;
+          z-index: 0;
+          left: 50%; top: 50%;
+          width: 46rem; height: 46rem;
+          transform: translate(-50%, -50%);
+          background: radial-gradient(circle, rgba(249,115,22,0.38) 0%, rgba(249,115,22,0.12) 40%, transparent 70%);
+          filter: blur(20px);
+          pointer-events: none;
         }
 
+        /* ===== البطاقة: خلفية الصورة تغطي البطاقة بالكامل ===== */
         .auth-card {
           position: relative;
           z-index: 1;
           width: 100%;
-          max-width: 54rem;
+          max-width: 50rem;
           max-height: 100%;
           display: flex;
           flex-direction: column;
           border-radius: var(--radius-card);
           overflow: hidden;
-          box-shadow: var(--shadow), 0 0 0 1px rgba(249,115,22,0.08);
-          background: var(--surface);
-          border: 1px solid rgba(255,255,255,0.6);
+          box-shadow: var(--shadow), 0 0 0 1px rgba(249,115,22,0.10);
+          background: #0f0f14;
+          isolation: isolate;
         }
-
         @media (min-width: 768px) {
-          .auth-card { flex-direction: row; min-height: 32rem; }
+          .auth-card { flex-direction: row; min-height: 35rem; }
         }
 
-        .auth-visual {
-          position: relative;
-          z-index: 1;
-          min-height: 14rem;
+        .auth-card__bg {
+          position: absolute;
+          inset: 0;
+          z-index: 0;
           background-image: url("/Loginside.jpg");
           background-size: cover;
           background-position: center;
+        }
+        .auth-card__scrim {
+          position: absolute;
+          inset: 0;
+          z-index: 0;
+          background: linear-gradient(90deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.46) 44%, rgba(234,88,12,0.42) 100%);
+        }
+        .auth-card__glow {
+          position: absolute;
+          z-index: 0;
+          right: -6rem; top: -6rem;
+          width: 24rem; height: 24rem;
+          background: radial-gradient(circle, rgba(249,115,22,0.45), transparent 70%);
+          filter: blur(30px);
+          pointer-events: none;
+        }
+
+        /* ===== الجانب الترحيبي ===== */
+        .auth-welcome {
+          position: relative;
+          z-index: 1;
           display: flex;
-          align-items: flex-end;
-          padding: 1.9rem;
+          flex-direction: column;
+          justify-content: space-between;
+          gap: 1.5rem;
+          padding: 2rem 2rem;
           color: #fff;
         }
         @media (min-width: 768px) {
-          .auth-visual { width: 46%; flex: none; }
+          .auth-welcome { width: 46%; flex: none; }
         }
+        .auth-welcome__copy h1 {
+          font-size: clamp(1.8rem, 3.4vw, 2.6rem);
+          font-weight: 800;
+          margin: 0 0 0.6rem;
+          line-height: 1.15;
+        }
+        .auth-welcome__copy p {
+          margin: 0;
+          font-size: 0.95rem;
+          line-height: 1.7;
+          color: rgba(255,255,255,0.82);
+        }
+        .auth-welcome__list {
+          list-style: none;
+          margin: 1.4rem 0 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.7rem;
+        }
+        .auth-welcome__list li {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          font-size: 0.9rem;
+          color: rgba(255,255,255,0.9);
+        }
+        .auth-welcome__list svg { width: 1.25rem; height: 1.25rem; color: var(--accent); flex: none; }
 
+        /* ===== لوحة النموذج (زجاجية) ===== */
         .auth-form {
           position: relative;
           z-index: 1;
           flex: 1;
           min-height: 0;
-          padding: 1.9rem 2.1rem 1.6rem;
           display: flex;
           flex-direction: column;
-          background: var(--surface);
+          padding: 2rem 2rem 1.6rem;
+          background: rgba(18,16,14,0.55);
+          backdrop-filter: blur(18px) saturate(140%);
+          -webkit-backdrop-filter: blur(18px) saturate(140%);
+          border-top: 1px solid rgba(255,255,255,0.14);
           overflow-y: auto;
+          scrollbar-width: thin;
+          scrollbar-color: var(--accent) transparent;
         }
-        @media (min-width: 768px) { .auth-form { width: 54%; padding: 2.1rem 2.6rem 1.9rem; } }
+        .auth-form::-webkit-scrollbar { width: 6px; }
+        .auth-form::-webkit-scrollbar-track { background: transparent; }
+        .auth-form::-webkit-scrollbar-thumb {
+          background: var(--accent);
+          border-radius: 999px;
+        }
+        .auth-form::-webkit-scrollbar-thumb:hover { background: var(--accent-hover); }
+        @media (min-width: 768px) {
+          .auth-form {
+            width: 54%; flex: none;
+            padding: 2.2rem 2.4rem 1.8rem;
+            border-top: none;
+            border-inline-start: 1.5px solid rgba(255,255,255,0.55);
+          }
+        }
 
         .form-head {
           display: flex;
@@ -271,31 +349,42 @@ export default function SignupPage() {
           justify-content: space-between;
           gap: 1rem;
           width: 100%;
-          margin-bottom: 1.25rem;
+          margin-bottom: 1.2rem;
         }
-
-        .brand { display: flex; align-items: center; gap: .6rem; }
-        .brand-logo { height: 2.4rem; width: auto; object-fit: contain; }
-        .brand-name { font-size: 1.4rem; font-weight: 800; color: var(--text-strong); direction: ltr; }
+        .brand { display: flex; align-items: center; gap: 0.6rem; }
+        .brand-logo { height: 2.4rem; width: auto; object-fit: contain; filter: drop-shadow(0 6px 14px rgba(249,115,22,0.3)); }
+        .brand-name { font-size: 1.4rem; font-weight: 800; color: #fff; direction: ltr; }
         .brand-name span { color: var(--accent); }
 
         .back-home {
           display: inline-flex;
           align-items: center;
-          gap: .45rem;
+          gap: 0.45rem;
           font-weight: 700;
-          font-size: .85rem;
-          color: #fb923c;
+          font-size: 0.82rem;
+          color: #fff;
           text-decoration: none;
-          padding: .5rem .95rem;
-          border: 1.5px solid #fed7aa;
+          padding: 0.5rem 0.9rem;
+          border: 1.5px solid rgba(255,255,255,0.35);
           border-radius: 999px;
-          transition: all .2s var(--ease);
+          transition: all 0.2s var(--ease);
         }
         .back-home:hover {
-          border-color: #fdba74;
-          color: #ea580c;
-          background: rgba(253,186,116,.12);
+          border-color: var(--accent);
+          background: rgba(249,115,22,0.18);
+        }
+
+        .auth-form h2 {
+          margin: 0 0 0.35rem;
+          font-size: clamp(1.5rem, 2.6vw, 2rem);
+          font-weight: 800;
+          color: #fff;
+        }
+        .form-sub {
+          margin: 0 0 1.4rem;
+          font-size: 0.92rem;
+          line-height: 1.6;
+          color: rgba(255,255,255,0.72);
         }
 
         /* Segmented Control */
@@ -304,8 +393,8 @@ export default function SignupPage() {
           display: grid;
           grid-template-columns: 1fr 1fr;
           direction: rtl;
-          background: #fff;
-          border: 1.5px solid var(--border);
+          background: rgba(255,255,255,0.08);
+          border: 1.5px solid rgba(255,255,255,0.18);
           border-radius: 999px;
           padding: 0.3rem;
           margin-bottom: 1.05rem;
@@ -320,7 +409,6 @@ export default function SignupPage() {
           z-index: 0;
         }
         .segment.owner .segment__thumb { transform: translateX(-100%); }
-
         .segment__opt {
           position: relative;
           z-index: 1;
@@ -334,59 +422,63 @@ export default function SignupPage() {
           cursor: pointer;
           font-size: 0.9rem;
           font-weight: 600;
-          color: var(--text-muted);
+          color: rgba(255,255,255,0.7);
           transition: color .2s var(--ease);
         }
         .segment__opt.active { color: #fff; }
 
         /* Fields */
-        .field { margin-bottom: 0.6rem; }
-        .field label { display: block; font-size: 0.8rem; margin-bottom: 0.3rem; font-weight: 600; }
+        .field { margin-bottom: 0.5rem; }
+        .field label { display: block; font-size: 0.82rem; margin-bottom: 0.35rem; font-weight: 600; color: rgba(255,255,255,0.9); }
         .field input {
-          width: 100%; font-size: 0.92rem; padding: 0.55rem 0.8rem;
-          border: 1.5px solid var(--border); border-radius: var(--radius-field);
-          background: #fff; color: #000; outline: none; transition: all .2s;
+          width: 100%; font-size: 0.92rem; padding: 0.7rem 0.9rem;
+          border: 1.5px solid rgba(255,255,255,0.85); border-radius: var(--radius-field);
+          background: rgba(255,255,255,0.06); color: #fff; outline: none; transition: all .2s;
         }
-        .field input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(249,115,22,0.15); }
-        .field.has-error input { border-color: var(--danger); box-shadow: 0 0 0 4px rgba(239,68,68,0.12); }
-        .error { color: var(--danger); font-size: 0.72rem; margin-top: 0.25rem; min-height: 0.85rem; }
+        .field input::placeholder { color: rgba(255,255,255,0.6); }
+        .field input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(249,115,22,0.22); background: rgba(255,255,255,0.12); }
+        .field.has-error input { border-color: #f87171; box-shadow: 0 0 0 4px rgba(248,113,113,0.18); }
+        .error { color: #fca5a5; font-size: 0.74rem; margin-top: 0.3rem; min-height: 1.1rem; }
 
         /* Document Upload Field */
         .file-upload-box {
-          border: 1.5px dashed var(--border);
+          border: 1.5px dashed rgba(255,255,255,0.5);
           border-radius: var(--radius-field);
-          padding: 0.75rem;
+          padding: 0.9rem;
           text-align: center;
-          background: #fff;
+          background: rgba(255,255,255,0.06);
+          color: rgba(255,255,255,0.75);
           cursor: pointer;
           transition: all 0.2s;
         }
-        .file-upload-box:hover { border-color: var(--accent); background: var(--accent-soft); }
-        .file-upload-box.has-file { border-color: #22c55e; background: #f0fdf4; }
+        .file-upload-box:hover { border-color: var(--accent); background: rgba(249,115,22,0.14); }
+        .file-upload-box.has-file { border-color: #4ade80; border-style: solid; background: rgba(74,222,128,0.12); color: #bbf7d0; }
 
         /* Buttons */
         .btn {
           width: 100%; background: linear-gradient(180deg, #fb923c, var(--accent) 60%, var(--accent-hover));
-          color: #fff; font-weight: 600; font-size: 0.98rem; padding: 0.7rem 1rem;
+          color: #fff; font-weight: 700; font-size: 1rem; padding: 0.8rem 1rem;
           border: none; border-radius: var(--radius-field); cursor: pointer;
-          box-shadow: 0 10px 24px -8px rgba(249,115,22,0.6);
+          box-shadow: 0 12px 26px -10px rgba(249,115,22,0.6);
           transition: all .18s var(--ease);
           margin-top: 0.5rem;
         }
         .btn:hover { transform: translateY(-2px); filter: brightness(1.04); }
 
         /* OTP Input */
-        .otp-row { display: flex; direction: ltr; gap: 0.5rem; margin: 0.5rem 0; }
+        .otp-row { display: flex; direction: ltr; gap: 0.5rem; margin: 0.4rem 0 0.3rem; justify-content: center; }
         .otp-box {
-          width: 100%; flex: 1; aspect-ratio: 1 / 1.1;
+          width: 100%; flex: 1; max-width: 3.2rem; aspect-ratio: 1 / 1.1;
           text-align: center; font-size: 1.3rem; font-weight: 700;
-          border: 1.5px solid var(--border); border-radius: var(--radius-field);
-          outline: none;
+          border: 1.5px solid rgba(255,255,255,0.85); border-radius: var(--radius-field);
+          background: rgba(255,255,255,0.06); color: #fff; outline: none; transition: all .2s;
         }
-        .otp-box:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(249,115,22,0.15); }
+        .otp-box:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(249,115,22,0.22); background: rgba(255,255,255,0.12); }
 
         /* State Badges */
         .state-wrap { text-align: center; padding: 1rem 0; }
+        .state-wrap h2 { color: #fff; font-size: 1.6rem; margin: 0 0 0.5rem; }
+        .state-wrap p { color: rgba(255,255,255,0.75); margin: 0.5rem 0 1.5rem; line-height: 1.6; }
         .state-badge {
           width: 4rem; height: 4rem; margin: 0 auto 0.9rem; border-radius: 50%;
           display: flex; align-items: center; justify-content: center;
@@ -396,18 +488,18 @@ export default function SignupPage() {
 
         .dev-note {
           margin-top: 0.8rem; padding: 0.55rem 0.75rem; border-radius: var(--radius-field);
-          background: var(--accent-soft); border: 1px dashed rgba(249,115,22,0.5);
-          font-size: 0.76rem; color: #9a3412;
+          background: rgba(249,115,22,0.14); border: 1px dashed rgba(249,115,22,0.6);
+          font-size: 0.76rem; color: #fed7aa;
         }
 
-        /* ===== ضبط دقيق للهواتف ~6.7 بوصة (390-430px) ===== */
+        /* ===== ضبط دقيق للهواتف ===== */
         @media (max-width: 600px) {
+          .auth-welcome { display: none; }
           .auth-card { border-radius: 1.25rem; }
-          .auth-form { padding: 1.5rem 1.2rem 1.6rem; }
-          .auth-visual { min-height: 11rem; }
-          .field input { font-size: 16px; padding: 0.7rem 0.85rem; } /* يمنع تكبير iOS */
+          .auth-form { background: rgba(18,16,14,0.78); padding: 1.8rem 1.3rem 1.6rem; }
+          .field input { font-size: 16px; padding: 0.8rem 0.9rem; }
           .field label { font-size: 0.85rem; }
-          .btn { font-size: 1.05rem; padding: 0.85rem 1rem; min-height: 52px; }
+          .btn { font-size: 1.02rem; padding: 0.9rem 1rem; min-height: 52px; }
           .otp-box { font-size: 1.4rem; }
           .segment__opt { padding: 0.7rem 0.5rem; font-size: 0.95rem; min-height: 48px; }
           .file-upload-box { padding: 1rem; min-height: 48px; }
@@ -417,12 +509,33 @@ export default function SignupPage() {
       `}</style>
 
       <main className="auth-card">
-        {/* Visual Side */}
-        <aside className="auth-visual">
-          <div className="auth-visual__copy"></div>
+        {/* خلفية الصورة تغطي البطاقة بالكامل */}
+        <div className="auth-card__bg" aria-hidden="true" />
+        <div className="auth-card__scrim" aria-hidden="true" />
+        <div className="auth-card__glow" aria-hidden="true" />
+
+        {/* الجانب الترحيبي */}
+        <aside className="auth-welcome">
+          <div className="auth-welcome__copy">
+            <h1>أنشئ حسابك</h1>
+            <p>انضم إلى مساحاتي وابدأ بإدارة أو حجز أفضل المساحات المتاحة لك في مكان واحد.</p>
+            <ul className="auth-welcome__list">
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+                تسجيل سريع بخطوات بسيطة
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+                خيار لصاحب المساحة مع توثيق الوثائق
+              </li>
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+                دعم فوري عبر الواتساب على مدار الساعة
+              </li>
+            </ul>
+          </div>
         </aside>
 
-        {/* Form Panel */}
         <section className="auth-form">
           <div className="form-head">
             <div className="brand">
@@ -440,7 +553,7 @@ export default function SignupPage() {
           {step === 'register' && (
             <form onSubmit={handleRegisterSubmit} className="form-panel" noValidate>
               <h2>أنشئ <span style={{ color: 'var(--accent)' }}>حسابك</span></h2>
-              <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+              <p className="form-sub">
                 سجّل في مساحاتي — سنتحقق من بريدك الإلكتروني.
               </p>
 
@@ -520,7 +633,7 @@ export default function SignupPage() {
                         <span>{formData.ownershipDocument.name}</span>
                       </div>
                     ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: 'rgba(255,255,255,0.75)', fontSize: '0.85rem' }}>
                         <Upload size={18} />
                         <span>ارفاق وثيقة تثبت امتلاكك لمساحة (سند ملكية / عقد إيجار / ترخيص)</span>
                       </div>
@@ -565,7 +678,7 @@ export default function SignupPage() {
 
               <button type="submit" className="btn">إنشاء حساب</button>
 
-              <p style={{ textAlign: 'center', fontSize: '0.85rem', marginTop: '1rem', color: 'var(--text-muted)' }}>
+              <p style={{ textAlign: 'center', fontSize: '0.85rem', marginTop: '1rem', color: 'rgba(255,255,255,0.72)' }}>
                 هل لديك حساب؟ <Link to="/login" style={{ color: 'var(--accent)', fontWeight: 'bold', textDecoration: 'none' }}>تسجيل الدخول</Link>
               </p>
             </form>
@@ -575,7 +688,7 @@ export default function SignupPage() {
           {step === 'otp' && (
             <form onSubmit={handleOtpSubmit} className="form-panel" noValidate>
               <h2>تحقق من <span style={{ color: 'var(--accent)' }}>بريدك</span></h2>
-              <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+              <p className="form-sub">
                 أرسلنا رمزًا مكوّنًا من 6 أرقام عبر <b>{otpChannel === 'whatsapp' ? 'واتساب' : 'البريد الإلكتروني'}</b>
                 {otpChannel === 'email' ? <> إلى <b>{formData.email}</b></> : <> إلى رقم <b dir="ltr">{formData.phone}</b></>} . أدخله أدناه لإتمام التسجيل.
               </p>
@@ -604,7 +717,7 @@ export default function SignupPage() {
 
               <button type="submit" className="btn">تحقق من البريد</button>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginTop: '1rem', color: 'var(--text-muted)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginTop: '1rem', color: 'rgba(255,255,255,0.8)' }}>
                 <span>لم تستلمه؟</span>
                 <button
                   type="button"
@@ -635,7 +748,7 @@ export default function SignupPage() {
                 <Check size={36} />
               </div>
               <h2>تم الأمر</h2>
-              <p style={{ color: 'var(--text-muted)', margin: '0.5rem 0 1.5rem' }}>
+              <p>
                 تم التحقق من بريدك وحسابك كـ (طالب) في مساحاتي جاهز للاستخدام.
               </p>
               <Link to="/login" className="btn" style={{ display: 'block', textDecoration: 'none' }}>
@@ -651,7 +764,7 @@ export default function SignupPage() {
                 <Clock size={36} />
               </div>
               <h2>بانتظار موافقة الإدارة</h2>
-              <p style={{ color: 'var(--text-muted)', margin: '0.5rem 0 1.5rem', lineHeight: '1.6' }}>
+              <p>
                 شكرًا لانضمامك كصاحب مساحة! تم استلام بياناتك ووثيقة الملكية بنجاح. سيقوم فريق الإدارة بمراجعة الوثائق وتفعيل حسابك قريبًا، وسنحيطك علمًا عبر البريد الإلكتروني.
               </p>
               <Link to="/" className="btn" style={{ display: 'block', textDecoration: 'none' }}>

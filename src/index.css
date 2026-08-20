@@ -134,7 +134,7 @@ a{color:inherit;}
 .nav__inner{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:nowrap;height:4.2rem;}
 .brand{display:flex;align-items:center;gap:.6rem;flex-shrink:0;}
 .brand .brand-logo{height:2.3rem;width:auto;object-fit:contain;filter:drop-shadow(0 6px 14px rgba(249,115,22,.3));}
-.brand .brand-name{font-size:1.35rem;font-weight:800;letter-spacing:-.03em;color: #FFFFFF;}
+.brand .brand-name{font-size:1.35rem;font-weight:800;letter-spacing:-.03em;color:rgba(249,115,22);}
 .brand .brand-name span{color:var(--accent);}
 .nav__links{display:flex;gap:1.1rem;font-size:.95rem;font-weight:600;color:var(--text-muted);
   flex:0 1 auto;justify-content:center;align-items:center;white-space:nowrap;flex-wrap:nowrap;

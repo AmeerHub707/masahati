@@ -245,40 +245,439 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div
-      className="relative min-h-screen w-full flex items-center justify-center p-5 bg-cover bg-center bg-no-repeat overflow-hidden font-['Cairo'] text-zinc-900 dir-rtl"
-      style={{ backgroundImage: "url('/background.jpeg')" }}
-    >
-      {/* طبقة التعتيم والتوهج الخلفية */}
-      <div className="fixed inset-0 bg-gradient-to-br from-black/55 to-black/35 -z-10" />
-      <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[46rem] h-[46rem] bg-[radial-gradient(circle,rgba(249,115,22,0.38)_0%,rgba(249,115,22,0.12)_40%,transparent_70%)] blur-2xl -z-10 pointer-events-none" />
+    <div className="auth-wrapper">
+      {/* Styles inject */}
+      <style>{`
+        :root {
+          --accent: #f97316;
+          --accent-hover: #ea580c;
+          --accent-soft: #fff3e9;
+          --radius-card: 1.75rem;
+          --radius-field: 0.75rem;
+          --shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.5);
+          --ease: cubic-bezier(0.22, 1, 0.36, 1);
+        }
 
-      {/* الكارت الرئيسي (Auth Card) */}
-      <main className="relative w-full max-w-[52rem] my-auto max-h-full flex flex-col md:flex-row md:min-h-[34rem] rounded-3xl overflow-hidden shadow-[0_30px_60px_-20px_rgba(0,0,0,0.55),0_0_0_2px_rgba(249,115,22,0.22),0_40px_90px_-25px_rgba(249,115,22,0.55)] bg-zinc-100 border border-white/75 isolate">
-        
-        {/* تأثير اللمعان الجانبي والشرائط */}
-        <div className="absolute inset-0 z-[2] pointer-events-none bg-[radial-gradient(130%_70%_at_0%_0%,rgba(249,115,22,0.20),transparent_50%),radial-gradient(130%_70%_at_100%_100%,rgba(249,115,22,0.14),transparent_50%)]" />
-        <div className="hidden md:block absolute inset-0 z-0 overflow-hidden pointer-events-none">
-          {[2, 8, 14, 20, 26, 32].map((left, idx) => (
-            <span key={idx} className="absolute top-0 bottom-0 w-16 bg-gradient-to-r from-transparent via-black to-white/20 opacity-30 blur-md translate-x-[36rem]" style={{ left: `${left}rem` }} />
-          ))}
-        </div>
-        <span className="absolute w-60 h-60 bg-orange-500 -bottom-24 -right-16 rounded-full opacity-90 blur-[2px] z-0 pointer-events-none" />
-        <span className="absolute w-32 h-20 bg-white bottom-6 right-8 rounded-full opacity-35 z-0 pointer-events-none" />
-        <span className="absolute w-32 h-20 bg-white bottom-12 right-40 rounded-full opacity-35 z-0 pointer-events-none" />
+        .auth-wrapper {
+          min-height: 100vh;
+          min-height: 100dvh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: clamp(0.75rem, 4vh, 2.5rem) 1.25rem;
+          background-image: url("/background.jpeg");
+          background-size: cover;
+          background-position: center;
+          position: relative;
+          overflow: hidden;
+          font-family: 'Cairo', sans-serif;
+          direction: rtl;
+        }
+        .auth-wrapper::before {
+          content: "";
+          position: fixed;
+          inset: 0;
+          z-index: 0;
+          background: linear-gradient(160deg, rgba(0,0,0,0.58), rgba(0,0,0,0.40));
+        }
+        .auth-wrapper::after {
+          content: "";
+          position: fixed;
+          z-index: 0;
+          left: 50%; top: 50%;
+          width: 46rem; height: 46rem;
+          transform: translate(-50%, -50%);
+          background: radial-gradient(circle, rgba(249,115,22,0.38) 0%, rgba(249,115,22,0.12) 40%, transparent 70%);
+          filter: blur(20px);
+          pointer-events: none;
+        }
 
-        {/* الجانب البصري والتوعوي */}
-        <aside className="relative z-[1] min-h-[14rem] md:w-[48%] md:flex-none bg-cover bg-center flex items-end p-7 text-white" style={{ backgroundImage: "url('/Loginside.jpg')" }}>
-          <div className="absolute inset-0 z-0 bg-gradient-to-br from-orange-500/45 via-orange-600/22 to-transparent mix-blend-multiply" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-transparent" />
-          
-          <div className="relative z-10 max-w-[22rem]">
-            <h1 className="m-0 text-2xl md:text-3xl font-medium tracking-tight leading-tight">أمان حسابك أولاً</h1>
-            <p className="mt-2 text-sm opacity-90 leading-relaxed">
+        /* ===== البطاقة: خلفية الصورة تغطي البطاقة بالكامل ===== */
+        .auth-card {
+          position: relative;
+          z-index: 1;
+          width: 100%;
+          max-width: 50rem;
+          max-height: 100%;
+          display: flex;
+          flex-direction: column;
+          border-radius: var(--radius-card);
+          overflow: hidden;
+          box-shadow: var(--shadow), 0 0 0 1px rgba(249,115,22,0.10);
+          background: #0f0f14;
+          isolation: isolate;
+        }
+        @media (min-width: 768px) {
+          .auth-card { flex-direction: row; min-height: 35rem; }
+        }
+
+        .auth-card__bg {
+          position: absolute;
+          inset: 0;
+          z-index: 0;
+          background-image: url("/Loginside.jpg");
+          background-size: cover;
+          background-position: center;
+        }
+        .auth-card__scrim {
+          position: absolute;
+          inset: 0;
+          z-index: 0;
+          background: linear-gradient(90deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.46) 44%, rgba(234,88,12,0.42) 100%);
+        }
+        .auth-card__glow {
+          position: absolute;
+          z-index: 0;
+          right: -6rem; top: -6rem;
+          width: 24rem; height: 24rem;
+          background: radial-gradient(circle, rgba(249,115,22,0.45), transparent 70%);
+          filter: blur(30px);
+          pointer-events: none;
+        }
+
+        /* ===== الجانب الترحيبي ===== */
+        .auth-welcome {
+          position: relative;
+          z-index: 1;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          gap: 1.5rem;
+          padding: 2rem 2rem;
+          color: #fff;
+        }
+        @media (min-width: 768px) {
+          .auth-welcome { width: 46%; flex: none; }
+        }
+        .auth-welcome__copy h1 {
+          font-size: clamp(1.8rem, 3.4vw, 2.6rem);
+          font-weight: 800;
+          margin: 0 0 0.6rem;
+          line-height: 1.15;
+        }
+        .auth-welcome__copy p {
+          margin: 0;
+          font-size: 0.95rem;
+          line-height: 1.7;
+          color: rgba(255,255,255,0.82);
+        }
+        .auth-welcome__badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          margin-top: 1.4rem;
+          font-size: 0.78rem;
+          font-weight: 700;
+          background: rgba(255,255,255,0.16);
+          border: 1px solid rgba(255,255,255,0.3);
+          padding: 0.4rem 0.9rem;
+          border-radius: 999px;
+          backdrop-filter: blur(6px);
+          width: fit-content;
+        }
+        .auth-welcome__badge svg { width: 1rem; height: 1rem; color: #fff; }
+
+        /* ===== لوحة النموذج (زجاجية) ===== */
+        .auth-form {
+          position: relative;
+          z-index: 1;
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          padding: 2rem 2rem 1.6rem;
+          background: rgba(18,16,14,0.55);
+          backdrop-filter: blur(18px) saturate(140%);
+          -webkit-backdrop-filter: blur(18px) saturate(140%);
+          border-top: 1px solid rgba(255,255,255,0.14);
+        }
+        @media (min-width: 768px) {
+          .auth-form {
+            width: 54%; flex: none;
+            padding: 2.2rem 2.4rem 1.8rem;
+            border-top: none;
+            border-inline-start: 1.5px solid rgba(255,255,255,0.55);
+          }
+        }
+
+        .form-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          width: 100%;
+          margin-bottom: 1.2rem;
+        }
+        .brand { display: flex; align-items: center; gap: 0.6rem; }
+        .brand-logo { height: 2.4rem; width: auto; object-fit: contain; filter: drop-shadow(0 6px 14px rgba(249,115,22,0.3)); }
+        .brand-name { font-size: 1.4rem; font-weight: 800; color: #fff; direction: ltr; }
+        .brand-name span { color: var(--accent); }
+
+        .back-home {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.45rem;
+          font-weight: 700;
+          font-size: 0.82rem;
+          color: #fff;
+          text-decoration: none;
+          padding: 0.5rem 0.9rem;
+          border: 1.5px solid rgba(255,255,255,0.35);
+          border-radius: 999px;
+          transition: all 0.2s var(--ease);
+        }
+        .back-home:hover {
+          border-color: var(--accent);
+          background: rgba(249,115,22,0.18);
+        }
+
+        .auth-form h2 {
+          margin: 0 0 0.35rem;
+          font-size: clamp(1.5rem, 2.6vw, 2rem);
+          font-weight: 800;
+          color: #fff;
+        }
+        .form-sub {
+          margin: 0 0 1.4rem;
+          font-size: 0.92rem;
+          line-height: 1.6;
+          color: rgba(255,255,255,0.72);
+        }
+
+        /* الحقول */
+        .field { margin-bottom: 0.5rem; }
+        .field label {
+          display: block;
+          font-size: 0.82rem;
+          margin-bottom: 0.35rem;
+          font-weight: 600;
+          color: rgba(255,255,255,0.9);
+        }
+        .field input {
+          width: 100%;
+          font-size: 0.92rem;
+          padding: 0.7rem 0.9rem;
+          border: 1.5px solid rgba(255,255,255,0.85);
+          border-radius: var(--radius-field);
+          background: rgba(255,255,255,0.06);
+          color: #fff;
+          outline: none;
+          transition: all 0.2s;
+        }
+        .field input::placeholder { color: rgba(255,255,255,0.6); }
+        .field input:focus {
+          border-color: var(--accent);
+          box-shadow: 0 0 0 4px rgba(249,115,22,0.22);
+          background: rgba(255,255,255,0.12);
+        }
+        .field.has-error input {
+          border-color: #f87171;
+          box-shadow: 0 0 0 4px rgba(248,113,113,0.18);
+        }
+        .error {
+          color: #fca5a5;
+          font-size: 0.74rem;
+          margin-top: 0.3rem;
+          min-height: 1.1rem;
+        }
+
+        /* أزرار مبدّل القناة (بريد/واتساب) */
+        .channel-toggle {
+          display: flex;
+          gap: 0.5rem;
+          padding: 0.3rem;
+          background: rgba(255,255,255,0.08);
+          border: 1.5px solid rgba(255,255,255,0.18);
+          border-radius: 999px;
+          margin-bottom: 1rem;
+        }
+        .channel-toggle button {
+          flex: 1;
+          font-size: 0.85rem;
+          font-weight: 600;
+          padding: 0.55rem 0.5rem;
+          border: none;
+          border-radius: 999px;
+          background: transparent;
+          color: rgba(255,255,255,0.7);
+          cursor: pointer;
+          transition: all 0.2s var(--ease);
+        }
+        .channel-toggle button.active {
+          background: linear-gradient(180deg, #fb923c, var(--accent) 60%, var(--accent-hover));
+          color: #fff;
+        }
+
+        /* زر إظهار/إخفاء كلمة المرور */
+        .pw-wrap { position: relative; }
+        .pw-toggle {
+          position: absolute;
+          left: 8px; top: 50%;
+          transform: translateY(-50%);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 2rem; height: 2rem;
+          color: rgba(255,255,255,0.85);
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          border-radius: 0.5rem;
+          transition: color 0.2s;
+        }
+        .pw-toggle:hover { color: var(--accent); }
+
+        /* صناديق OTP */
+        .otp-row {
+          display: flex;
+          direction: ltr;
+          gap: 0.5rem;
+          justify-content: center;
+          margin: 0.4rem 0 0.3rem;
+        }
+        .otp-box {
+          width: 100%; flex: 1; max-width: 3.2rem; aspect-ratio: 1 / 1.1;
+          text-align: center; font-size: 1.3rem; font-weight: 700;
+          border: 1.5px solid rgba(255,255,255,0.85);
+          border-radius: var(--radius-field);
+          background: rgba(255,255,255,0.06);
+          color: #fff;
+          outline: none;
+          transition: all 0.2s;
+        }
+        .otp-box:focus {
+          border-color: var(--accent);
+          box-shadow: 0 0 0 4px rgba(249,115,22,0.22);
+          background: rgba(255,255,255,0.12);
+        }
+
+        .btn {
+          width: 100%;
+          background: linear-gradient(180deg, #fb923c, var(--accent) 60%, var(--accent-hover));
+          color: #fff;
+          font-weight: 700;
+          font-size: 1rem;
+          padding: 0.8rem 1rem;
+          border: none;
+          border-radius: var(--radius-field);
+          cursor: pointer;
+          box-shadow: 0 12px 26px -10px rgba(249,115,22,0.6);
+          transition: all 0.18s var(--ease);
+          margin-top: 0.4rem;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .btn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.04); }
+        .btn:disabled { opacity: 0.55; cursor: default; }
+
+        .switch {
+          text-align: center;
+          font-size: 0.9rem;
+          color: rgba(255,255,255,0.72);
+          margin-top: 1.2rem;
+        }
+        .switch a {
+          color: #fff;
+          font-weight: 700;
+          text-decoration: underline;
+        }
+        .switch a:hover { color: var(--accent); }
+
+        .step-pill {
+          display: inline-block;
+          font-size: 0.72rem;
+          font-weight: 800;
+          color: var(--accent);
+          background: rgba(249,115,22,0.14);
+          border: 1px solid rgba(249,115,22,0.45);
+          padding: 0.25rem 0.75rem;
+          border-radius: 999px;
+          margin-bottom: 0.8rem;
+        }
+
+        .row-between {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+          font-size: 0.8rem;
+          color: rgba(255,255,255,0.8);
+          margin: 0.6rem 0 0.6rem;
+        }
+        .link-btn {
+          background: none;
+          border: none;
+          color: var(--accent);
+          font-weight: 700;
+          font-size: 0.8rem;
+          cursor: pointer;
+          padding: 0;
+        }
+        .link-btn:disabled { color: rgba(255,255,255,0.4); cursor: default; }
+
+        .strength { margin: 0.4rem 0 1rem; }
+        .strength__bars { display: flex; gap: 0.4rem; height: 0.4rem; margin-bottom: 0.4rem; }
+        .strength__bars span { flex: 1; border-radius: 999px; background: rgba(255,255,255,0.2); transition: background 0.3s; }
+        .strength__bars span.on-1 { background: #ef4444; }
+        .strength__bars span.on-2 { background: var(--accent); }
+        .strength__bars span.on-3 { background: #2563eb; }
+        .strength__bars span.on-4 { background: #16a34a; }
+        .strength__label { font-size: 0.75rem; color: rgba(255,255,255,0.75); }
+        .strength__label b { color: #fff; }
+
+        /* نافذة البريد التجريبي */
+        .mail-overlay { position: fixed; inset: 0; z-index: 120; display: flex; align-items: center; justify-content: center; padding: 1rem; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); }
+        .mail-modal { width: 100%; max-width: 26rem; background: #fff; border-radius: 1.25rem; overflow: hidden; box-shadow: 0 30px 60px -20px rgba(0,0,0,0.5); display: flex; flex-direction: column; color: #18181b; }
+        .mail-modal__head { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; border-bottom: 1px solid #e4e4e7; }
+        .mail-modal__head b { font-size: 0.85rem; font-weight: 800; }
+        .mail-modal__close { background: none; border: none; font-size: 1.25rem; line-height: 1; color: #a1a1aa; cursor: pointer; }
+        .mail-modal__body { padding: 1rem; overflow-y: auto; }
+        .mail-card { display: flex; gap: 0.75rem; padding: 0.875rem; border-radius: 0.75rem; background: linear-gradient(135deg, #fff7ed, #fff); border: 1px solid #fed7aa; }
+        .mail-card__ico { width: 2.5rem; height: 2.5rem; border-radius: 999px; background: linear-gradient(180deg, #fb923c, #f97316); color: #fff; display: flex; align-items: center; justify-content: center; flex: none; }
+        .mail-card__from { font-size: 0.72rem; color: #71717a; }
+        .mail-card__title { font-size: 0.9rem; font-weight: 800; margin: 0.1rem 0; }
+        .mail-card__text { font-size: 0.72rem; color: #71717a; line-height: 1.6; margin: 0; }
+        .mail-card__code { display: inline-flex; align-items: center; gap: 0.5rem; margin-top: 0.75rem; background: #fff; border: 1.5px dashed #f97316; color: #ea580c; font-weight: 800; font-size: 1.1rem; letter-spacing: 0.25em; padding: 0.25rem 0.75rem; border-radius: 0.75rem; }
+        .mail-card__copy { margin: 0.5rem 0.5rem 0 0; background: #ffedd5; color: #ea580c; border: none; font-weight: 700; font-size: 0.75rem; padding: 0.375rem 0.75rem; border-radius: 0.5rem; cursor: pointer; }
+        .mail-modal__foot { padding: 0.75rem 1rem; border-top: 1px solid #e4e4e7; font-size: 0.72rem; color: #71717a; text-align: center; }
+
+        /* شاشة النجاح */
+        .success-screen { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: rgba(15,15,20,0.92); border-radius: var(--radius-card); padding: 1.5rem; }
+        .success-screen__ico { width: 5rem; height: 5rem; margin-bottom: 1rem; border-radius: 999px; background: rgba(34,197,94,0.16); display: flex; align-items: center; justify-content: center; color: #22c55e; }
+        .success-screen h2 { color: #fff; font-size: 1.5rem; margin: 0 0 0.5rem; }
+        .success-screen p { color: rgba(255,255,255,0.75); font-size: 0.9rem; margin: 0; }
+
+        @media (max-width: 600px) {
+          .auth-welcome { display: none; }
+          .auth-form {
+            background: rgba(18,16,14,0.78);
+            padding: 1.8rem 1.3rem 1.6rem;
+          }
+          .field input { font-size: 16px; padding: 0.8rem 0.9rem; }
+          .btn { font-size: 1.02rem; padding: 0.9rem 1rem; min-height: 52px; }
+          .back-home { padding: 0.55rem 0.85rem; }
+          .auth-wrapper {
+            padding: calc(env(safe-area-inset-top) + 0.5rem) 0.75rem calc(env(safe-area-inset-bottom) + 0.5rem);
+          }
+        }
+      `}</style>
+
+      <main className="auth-card">
+        {/* خلفية الصورة تغطي البطاقة بالكامل */}
+        <div className="auth-card__bg" aria-hidden="true" />
+        <div className="auth-card__scrim" aria-hidden="true" />
+        <div className="auth-card__glow" aria-hidden="true" />
+
+        {/* الجانب الترحيبي */}
+        <aside className="auth-welcome">
+          <div className="auth-welcome__copy">
+            <h1>أمان حسابك أولاً</h1>
+            <p>
               نستخدم رمز تحقق لمرة واحدة (OTP) لحماية بياناتك. حتى لو عرف أحد بريدك، لا يمكنه تغيير كلمتك دون الرمز.
             </p>
-            <span className="inline-flex items-center gap-1.5 mt-4 text-xs font-bold bg-white/16 border border-white/30 px-3 py-1.5 rounded-full backdrop-blur-sm">
-              <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
+            <span className="auth-welcome__badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="4" y="11" width="16" height="9" rx="2" />
                 <path d="M8 11V7a4 4 0 0 1 8 0v4" />
               </svg>
@@ -287,23 +686,22 @@ export default function ForgotPasswordPage() {
           </div>
         </aside>
 
-        {/* قسم النماذج والخطوات */}
-        <section className="relative z-[1] flex-1 p-8 md:p-11 flex flex-col bg-zinc-100">
+        {/* لوحة النموذج الزجاجية */}
+        <section className="auth-form">
           
           {/* الهيدر العلوي */}
-          <div className="flex items-center justify-between gap-4 flex-nowrap w-full mb-5">
-            <div className="flex items-center gap-2.5 flex-none m-0">
-              <img src="/masahati.jpeg" alt="Masahati" className="h-9 w-auto object-contain drop-shadow-[0_6px_14px_rgba(249,115,22,0.30)]" />
-              <span className="text-2xl font-extrabold tracking-tight leading-none text-zinc-900 dir-ltr inline-flex items-baseline">
-                Masa<span className="text-orange-500">hati</span>
-              </span>
+          <div className="form-head">
+            <div className="brand">
+              <img src="/masahati.jpeg" alt="Masahati" className="brand-logo" />
+              <span className="brand-name">Masa<span>hati</span></span>
             </div>
 
             <Link
               to="/"
-              className="flex-none inline-flex items-center gap-2 font-bold text-sm text-orange-400 whitespace-nowrap px-4 py-2 bg-transparent border-[1.5px] border-orange-200 rounded-full transition-all duration-200 hover:border-orange-300 hover:text-orange-600 hover:bg-orange-300/12 hover:-translate-y-0.5 active:translate-y-0.5"
+              aria-label="العودة إلى الصفحة الرئيسية"
+              className="back-home"
             >
-              <span className="inline-flex transition-transform duration-250 hover:-translate-x-1">
+              <span className="inline-flex">
                 <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-[2.2] stroke-linecap-round stroke-linejoin-round">
                   <path d="M14 6l-6 6 6 6" />
                 </svg>
@@ -317,39 +715,33 @@ export default function ForgotPasswordPage() {
             {/* ================= STEP 1: طلب الرمز ================= */}
             {step === 1 && (
               <form onSubmit={handleRequestOtp} noValidate className="animate-fadeIn">
-                <span className="inline-block text-[0.72rem] font-extrabold text-orange-500 bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-full mb-3">
-                  الخطوة 1 من 3
-                </span>
-                <h2 className="m-0 mb-1.5 text-2xl font-medium tracking-tight">نسيت كلمة المرور؟</h2>
-                <p className="m-0 mb-6 text-sm text-zinc-500 leading-relaxed">
+                <span className="step-pill">الخطوة 1 من 3</span>
+                <h2>نسيت كلمة المرور؟</h2>
+                <p className="form-sub">
                   اختر طريقة استلام رمز التحقق لمرة واحدة لإعادة تعيين كلمة المرور بأمان.
                 </p>
 
                 {/* مبدّل قناة استلام الرمز: بريد / واتساب */}
-                <div className="flex gap-2 mb-4 p-1 bg-zinc-200/70 rounded-[0.75rem] w-full">
+                <div className="channel-toggle">
                   <button
                     type="button"
                     onClick={() => { setOtpChannel('email'); setEmailError(''); }}
-                    className={`flex-1 text-sm font-semibold py-2 rounded-[0.625rem] transition-colors duration-200 ${
-                      otpChannel === 'email' ? 'bg-white text-orange-600 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
-                    }`}
+                    className={otpChannel === 'email' ? 'active' : ''}
                   >
                     البريد الإلكتروني
                   </button>
                   <button
                     type="button"
                     onClick={() => { setOtpChannel('whatsapp'); setEmailError(''); }}
-                    className={`flex-1 text-sm font-semibold py-2 rounded-[0.625rem] transition-colors duration-200 ${
-                      otpChannel === 'whatsapp' ? 'bg-white text-orange-600 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
-                    }`}
+                    className={otpChannel === 'whatsapp' ? 'active' : ''}
                   >
                     واتساب
                   </button>
                 </div>
 
                 {otpChannel === 'email' ? (
-                  <div className="mb-4">
-                    <label htmlFor="email" className="block text-sm mb-2 font-medium">البريد الإلكتروني</label>
+                  <div className={`field ${emailError ? 'has-error' : ''}`}>
+                    <label htmlFor="email">البريد الإلكتروني</label>
                     <input
                       type="email"
                       id="email"
@@ -357,15 +749,12 @@ export default function ForgotPasswordPage() {
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="hi@hextastudio.in"
                       dir="ltr"
-                      className={`w-full text-sm px-3.5 py-2.5 border rounded-[0.625rem] bg-white text-black transition-all duration-200 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 ${
-                        emailError ? 'border-red-500 ring-1 ring-red-500' : 'border-zinc-300'
-                      }`}
                     />
-                    {emailError && <p className="text-red-500 text-xs mt-1.5">{emailError}</p>}
+                    {emailError && <p className="error">{emailError}</p>}
                   </div>
                 ) : (
-                  <div className="mb-4">
-                    <label htmlFor="phone" className="block text-sm mb-2 font-medium">رقم الهاتف (واتساب)</label>
+                  <div className={`field ${emailError ? 'has-error' : ''}`}>
+                    <label htmlFor="phone">رقم الهاتف (واتساب)</label>
                     <input
                       type="tel"
                       id="phone"
@@ -373,18 +762,15 @@ export default function ForgotPasswordPage() {
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="+970 59 000 0000"
                       dir="ltr"
-                      className={`w-full text-sm px-3.5 py-2.5 border rounded-[0.625rem] bg-white text-black transition-all duration-200 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 ${
-                        emailError ? 'border-red-500 ring-1 ring-red-500' : 'border-zinc-300'
-                      }`}
                     />
-                    {emailError && <p className="text-red-500 text-xs mt-1.5">{emailError}</p>}
+                    {emailError && <p className="error">{emailError}</p>}
                   </div>
                 )}
 
                 <button
                   type="submit"
                   disabled={isSendingOtp}
-                  className="w-full bg-orange-500 text-white font-semibold text-base py-2.5 px-4 rounded-[0.625rem] hover:bg-orange-600 transition-colors disabled:opacity-55 cursor-pointer mt-2 flex items-center justify-center"
+                  className="btn"
                 >
                   {isSendingOtp ? (
                     <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
@@ -393,11 +779,9 @@ export default function ForgotPasswordPage() {
                   )}
                 </button>
 
-                <p className="text-center text-sm text-zinc-500 mt-5">
+                <p className="switch">
                   تذكّرت كلمتك؟{' '}
-                  <Link to="/login" className="text-zinc-900 font-bold underline hover:text-orange-500">
-                    العودة لتسجيل الدخول
-                  </Link>
+                  <Link to="/login">العودة لتسجيل الدخول</Link>
                 </p>
               </form>
             )}
@@ -405,41 +789,40 @@ export default function ForgotPasswordPage() {
             {/* ================= STEP 2: إدخال الرمز OTP ================= */}
             {step === 2 && (
               <form onSubmit={handleVerifyOtp} noValidate className="animate-fadeIn">
-                <span className="inline-block text-[0.72rem] font-extrabold text-orange-500 bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-full mb-3">
-                  الخطوة 2 من 3
-                </span>
-                <h2 className="m-0 mb-1.5 text-2xl font-medium tracking-tight">أدخل رمز التحقق</h2>
-                <p className="m-0 mb-4 text-sm text-zinc-500 leading-relaxed">
-                  لقد أرسلنا رمزاً مكوّناً من 6 أرقام عبر <b className="text-zinc-800">{otpChannel === 'whatsapp' ? 'واتساب' : 'البريد الإلكتروني'}</b>
+                <span className="step-pill">الخطوة 2 من 3</span>
+                <h2>أدخل رمز التحقق</h2>
+                <p className="form-sub">
+                  لقد أرسلنا رمزاً مكوّناً من 6 أرقام عبر <b>{otpChannel === 'whatsapp' ? 'واتساب' : 'البريد الإلكتروني'}</b>
                   {otpChannel === 'email'
-                    ? <> إلى <b className="text-zinc-800">{maskEmail(email)}</b></>
-                    : <> إلى رقمك <b className="text-zinc-800" dir="ltr">{phone}</b></>} .
+                    ? <> إلى <b>{maskEmail(email)}</b></>
+                    : <> إلى رقمك <b dir="ltr">{phone}</b></>} .
                 </p>
 
                 {/* زر مشاهدة البريد التجريبي */}
                 <button
                   type="button"
                   onClick={() => setShowMailOverlay(true)}
-                  className="inline-flex items-center gap-2 mb-4 bg-orange-50 border border-orange-200 text-orange-900 font-bold text-xs px-3.5 py-2 rounded-full hover:bg-orange-100 transition-colors"
+                  className="link-btn"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1rem', fontSize: '0.8rem' }}
                 >
                   <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
                     <rect x="3" y="5" width="18" height="14" rx="2" />
                     <path d="m3 7 9 6 9-6" />
                   </svg>
                   <span>عرض بريدي التجريبي</span>
-                  <span className="bg-orange-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-[0.7rem]">1</span>
+                  <span style={{ background: 'var(--accent)', color: '#fff', width: '1.25rem', height: '1.25rem', borderRadius: '999px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem' }}>1</span>
                 </button>
 
                 {/* العداد التنازلي وإعادة الإرسال */}
-                <div className="flex justify-between items-center text-xs text-zinc-500 mb-2">
-                  <span className={`font-bold tabular-nums ${timerRemain <= 0 ? 'text-red-500' : 'text-orange-500'}`}>
+                <div className="row-between">
+                  <span className={`font-bold tabular-nums ${timerRemain <= 0 ? 'text-red-500' : 'text-orange-500'}`} style={{ color: timerRemain <= 0 ? '#f87171' : 'var(--accent)' }}>
                     {formatTime(timerRemain)}
                   </span>
                   <button
                     type="button"
                     onClick={handleResend}
                     disabled={resendRemain > 0 || resendTries >= MAX_RESEND_TRIES}
-                    className="bg-transparent border-none text-orange-500 font-bold text-xs disabled:text-zinc-400 cursor-pointer disabled:cursor-not-allowed"
+                    className="link-btn"
                   >
                     {resendTries >= MAX_RESEND_TRIES
                       ? 'وصلت الحد الأقصى'
@@ -450,12 +833,7 @@ export default function ForgotPasswordPage() {
                 </div>
 
                 {/* صناديق الـ OTP */}
-                <div
-                  dir="ltr"
-                  className={`dir-ltr flex gap-2 justify-between my-2 mb-3 ${
-                    isShake ? 'animate-bounce' : ''
-                  }`}
-                >
+                <div className={`otp-row ${isShake ? 'animate-bounce' : ''}`}>
                   {otp.map((digit, idx) => (
                     <input
                       key={idx}
@@ -467,19 +845,17 @@ export default function ForgotPasswordPage() {
                       onChange={(e) => handleOtpChange(idx, e.target.value)}
                       onKeyDown={(e) => handleOtpKeyDown(idx, e)}
                       onPaste={handleOtpPaste}
-                      className={`flex-1 min-w-0 max-w-[3.2rem] aspect-square text-center text-2xl font-bold rounded-2xl border transition-all duration-200 bg-white text-zinc-900 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 ${
-                        digit ? 'border-orange-500 bg-orange-50/50' : 'border-zinc-300'
-                      }`}
+                      className="otp-box"
                     />
                   ))}
                 </div>
 
-                {otpError && <p className="text-red-500 text-xs mb-3">{otpError}</p>}
+                {otpError && <p className="error">{otpError}</p>}
 
                 <button
                   type="submit"
                   disabled={otp.join('').length < OTP_LEN || timerRemain <= 0 || isVerifyingOtp}
-                  className="w-full bg-orange-500 text-white font-semibold text-base py-2.5 px-4 rounded-[0.625rem] hover:bg-orange-600 transition-colors disabled:opacity-55 cursor-pointer mt-2 flex items-center justify-center"
+                  className="btn"
                 >
                   {isVerifyingOtp ? (
                     <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
@@ -488,14 +864,15 @@ export default function ForgotPasswordPage() {
                   )}
                 </button>
 
-                <p className="text-center text-sm text-zinc-500 mt-4">
+                <p className="switch">
                   <button
                     type="button"
                     onClick={() => {
                       setStep(1);
                       setOtp(Array(OTP_LEN).fill(''));
                     }}
-                    className="text-zinc-900 font-semibold underline hover:text-orange-500 bg-transparent border-none cursor-pointer"
+                    className="link-btn"
+                    style={{ textDecoration: 'underline' }}
                   >
                     تغيير البريد الإلكتروني
                   </button>
@@ -506,32 +883,28 @@ export default function ForgotPasswordPage() {
             {/* ================= STEP 3: تعيين كلمة المرور الجديدة ================= */}
             {step === 3 && (
               <form onSubmit={handleResetPassword} noValidate className="animate-fadeIn">
-                <span className="inline-block text-[0.72rem] font-extrabold text-orange-500 bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-full mb-3">
-                  الخطوة 3 من 3
-                </span>
-                <h2 className="m-0 mb-1.5 text-2xl font-medium tracking-tight">تعيين كلمة مرور جديدة</h2>
-                <p className="m-0 mb-6 text-sm text-zinc-500 leading-relaxed">
+                <span className="step-pill">الخطوة 3 من 3</span>
+                <h2>تعيين كلمة مرور جديدة</h2>
+                <p className="form-sub">
                   اختر كلمة مرور قوية لم تستخدمها من قبل.
                 </p>
 
                 {/* كلمة المرور */}
-                <div className="mb-3 relative">
-                  <label htmlFor="pw" className="block text-sm mb-2 font-medium">كلمة المرور الجديدة</label>
-                  <div className="relative">
+                <div className={`field ${passwordError ? 'has-error' : ''}`}>
+                  <label htmlFor="pw">كلمة المرور الجديدة</label>
+                  <div className="pw-wrap">
                     <input
                       type={showPassword ? 'text' : 'password'}
                       id="pw"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      className={`w-full text-sm pl-10 pr-3.5 py-2.5 border rounded-[0.625rem] bg-white text-black transition-all duration-200 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 ${
-                        passwordError ? 'border-red-500 ring-1 ring-red-500' : 'border-zinc-300'
-                      }`}
+                      dir="ltr"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 bg-transparent border-none cursor-pointer"
+                      className="pw-toggle"
                     >
                       <svg className="w-5 h-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
                         <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
@@ -539,52 +912,37 @@ export default function ForgotPasswordPage() {
                       </svg>
                     </button>
                   </div>
-                  {passwordError && <p className="text-red-500 text-xs mt-1.5">{passwordError}</p>}
+                  {passwordError && <p className="error">{passwordError}</p>}
                 </div>
 
                 {/* مؤشر قوة كلمة المرور */}
-                <div className="mb-4">
-                  <div className="flex gap-1.5 h-1.5 mb-1.5">
+                <div className="strength">
+                  <div className="strength__bars">
                     {[1, 2, 3, 4].map((barIndex) => (
-                      <span
-                        key={barIndex}
-                        className={`flex-1 rounded-full transition-colors duration-300 ${
-                          barIndex <= passwordScore
-                            ? passwordScore === 1
-                              ? 'bg-red-500'
-                              : passwordScore === 2
-                              ? 'bg-orange-500'
-                              : passwordScore === 3
-                              ? 'bg-blue-600'
-                              : 'bg-green-600'
-                            : 'bg-zinc-200'
-                        }`}
-                      />
+                      <span key={barIndex} className={barIndex <= passwordScore ? `on-${passwordScore}` : ''} />
                     ))}
                   </div>
-                  <div className="text-xs text-zinc-500 font-medium">
-                    قوة كلمة المرور: <b className="text-zinc-800">{strengthLabels[passwordScore]}</b>
+                  <div className="strength__label">
+                    قوة كلمة المرور: <b>{strengthLabels[passwordScore]}</b>
                   </div>
                 </div>
 
                 {/* تأكيد كلمة المرور */}
-                <div className="mb-5 relative">
-                  <label htmlFor="pw2" className="block text-sm mb-2 font-medium">تأكيد كلمة المرور</label>
-                  <div className="relative">
+                <div className={`field ${confirmPasswordError ? 'has-error' : ''}`}>
+                  <label htmlFor="pw2">تأكيد كلمة المرور</label>
+                  <div className="pw-wrap">
                     <input
                       type={showConfirmPassword ? 'text' : 'password'}
                       id="pw2"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="••••••••"
-                      className={`w-full text-sm pl-10 pr-3.5 py-2.5 border rounded-[0.625rem] bg-white text-black transition-all duration-200 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 ${
-                        confirmPasswordError ? 'border-red-500 ring-1 ring-red-500' : 'border-zinc-300'
-                      }`}
+                      dir="ltr"
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 bg-transparent border-none cursor-pointer"
+                      className="pw-toggle"
                     >
                       <svg className="w-5 h-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
                         <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
@@ -592,13 +950,13 @@ export default function ForgotPasswordPage() {
                       </svg>
                     </button>
                   </div>
-                  {confirmPasswordError && <p className="text-red-500 text-xs mt-1.5">{confirmPasswordError}</p>}
+                  {confirmPasswordError && <p className="error">{confirmPasswordError}</p>}
                 </div>
 
                 <button
                   type="submit"
                   disabled={isResetting}
-                  className="w-full bg-orange-500 text-white font-semibold text-base py-2.5 px-4 rounded-[0.625rem] hover:bg-orange-600 transition-colors disabled:opacity-55 cursor-pointer flex items-center justify-center"
+                  className="btn"
                 >
                   {isResetting ? (
                     <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
@@ -611,14 +969,14 @@ export default function ForgotPasswordPage() {
 
             {/* ================= SUCCESS OVERLAY ================= */}
             {step === 'done' && (
-              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center bg-zinc-100 p-6 rounded-2xl animate-fadeIn">
-                <div className="w-20 h-20 mb-4 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+              <div className="success-screen">
+                <div className="success-screen__ico">
                   <svg className="w-10 h-10 fill-none stroke-current stroke-[3] stroke-linecap-round stroke-linejoin-round" viewBox="0 0 24 24">
                     <path d="M20 6L9 17l-5-5" />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-bold m-0 mb-2">تم التغيير بنجاح</h2>
-                <p className="text-zinc-500 text-sm m-0">تم تحديث كلمة المرور الخاصة بك. سيتم توجيهك لتسجيل الدخول…</p>
+                <h2>تم التغيير بنجاح</h2>
+                <p>تم تحديث كلمة المرور الخاصة بك. سيتم توجيهك لتسجيل الدخول…</p>
               </div>
             )}
 
@@ -627,42 +985,42 @@ export default function ForgotPasswordPage() {
 
         {/* ================= EXPERIMENTAL INBOX OVERLAY ================= */}
         {showMailOverlay && (
-          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
-            <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200">
-                <b className="text-sm font-bold">صندوق البريد التجريبي</b>
+          <div className="mail-overlay">
+            <div className="mail-modal">
+              <div className="mail-modal__head">
+                <b>صندوق البريد التجريبي</b>
                 <button
                   type="button"
                   onClick={() => setShowMailOverlay(false)}
-                  className="text-xl leading-none text-zinc-400 hover:text-zinc-700 bg-transparent border-none cursor-pointer"
+                  className="mail-modal__close"
                 >
                   ×
                 </button>
               </div>
 
-              <div className="p-4 overflow-y-auto">
-                <div className="flex gap-3 p-3.5 rounded-xl bg-gradient-to-br from-orange-50 to-white border border-orange-200">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 text-white flex items-center justify-center flex-none">
+              <div className="mail-modal__body">
+                <div className="mail-card">
+                  <div className="mail-card__ico">
                     <svg className="w-5 h-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
                       <path d="M12 21s-7-6.3-7-11a7 7 0 0 1 14 0c0 4.7-7 11-7 11z" />
                       <circle cx="12" cy="10" r="2.5" />
                     </svg>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs text-zinc-500">من: أمان مساحاتي · no-reply@masahati.ps</div>
-                    <div className="font-extrabold text-sm my-0.5">رمز التحقق لإعادة تعيين كلمة المرور</div>
-                    <p className="text-xs text-zinc-500 leading-relaxed m-0">
+                    <div className="mail-card__from">من: أمان مساحاتي · no-reply@masahati.ps</div>
+                    <div className="mail-card__title">رمز التحقق لإعادة تعيين كلمة المرور</div>
+                    <p className="mail-card__text">
                       مرحباً، لقد طلبت إعادة تعيين كلمة المرور. استخدم الرمز أدناه (صالح لمدة 5 دقائق):
                     </p>
                     
-                    <div className="inline-flex items-center gap-2 mt-3 bg-white border border-dashed border-orange-500 text-orange-600 font-extrabold text-lg tracking-[0.25em] px-3 py-1 rounded-xl">
+                    <div className="mail-card__code">
                       <span>{sentOtpCode || '------'}</span>
                     </div>
 
                     <button
                       type="button"
                       onClick={copyToClipboard}
-                      className="mt-2 mr-2 bg-orange-100 text-orange-600 border-none font-bold text-xs px-3 py-1.5 rounded-lg cursor-pointer hover:bg-orange-200 transition-colors"
+                      className="mail-card__copy"
                     >
                       {copiedOtp ? 'تم النسخ ✓' : 'نسخ الرمز'}
                     </button>
@@ -670,7 +1028,7 @@ export default function ForgotPasswordPage() {
                 </div>
               </div>
 
-              <div className="px-4 py-3 border-t border-zinc-200 text-[0.72rem] text-zinc-500 text-center">
+              <div className="mail-modal__foot">
                 هذا صندوق بريد وهمي للتجربة فقط — في الإصدار الحقيقي يصلك الرمز عبر بريدك الفعلي.
               </div>
             </div>
