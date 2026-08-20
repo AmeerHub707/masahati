@@ -137,12 +137,12 @@ a{color:inherit;}
 .brand .brand-name{font-size:1.35rem;font-weight:800;letter-spacing:-.03em;color:rgba(249,115,22);}
 .brand .brand-name span{color:var(--accent);}
 .nav__links{display:flex;gap:1.1rem;font-size:.95rem;font-weight:600;color:var(--text-muted);
-  flex:0 1 auto;justify-content:center;align-items:center;white-space:nowrap;flex-wrap:nowrap;
-  /* حاوية زجاجية سائلة في المنتصف */
+  flex:1 1 auto;justify-content:center;align-items:center;white-space:nowrap;flex-wrap:nowrap;
+  /* حاوية زجاجية سائلة في المنتصف — الأزرار الخمسة موسّطة تماماً */
   padding:.45rem 1.1rem;border-radius:999px;
   background:rgba(255,255,255,.55);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
   border:1px solid rgba(255,255,255,.65);box-shadow:0 8px 24px -16px rgba(0,0,0,.25);}
-.nav__links a,.nav__links .nav-tab{text-decoration:none;transition:color .18s,background .18s;padding:.3rem .7rem;border-radius:999px;}
+.nav__links a,.nav__links .nav-tab{text-decoration:none;transition:color .18s,background .18s;padding:.4rem .7rem;border-radius:999px;}
 .nav__links a:hover,.nav__links .nav-tab:hover{color:var(--accent);background:var(--accent-soft);}
 .nav__cta{display:flex;align-items:center;gap:.75rem;flex-shrink:0;}
 /* على سطح المكتب زر الهامبرغ غير مرئي (يظهر فقط في الجوال) */
@@ -153,7 +153,7 @@ a{color:inherit;}
 .hero__inner{position:relative;z-index:1;display:grid;grid-template-columns:1.05fr .95fr;gap:2.5rem;
   align-items:center;padding:4.5rem 0 5rem;}
 .eyebrow{display:inline-flex;align-items:center;gap:.5rem;background:var(--accent-soft);color:#9a3412;
-  font-size:.82rem;font-weight:700;padding:.4rem .9rem;border-radius:999px;margin-bottom:1.2rem;}
+  font-size:.82rem;font-weight:700;padding:.4rem .9rem;border-radius:999px;margin-bottom:1.2rem; margin-right: 1.5rem;}
 .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
 .hero h1{margin:0 0 1.1rem;font-size:clamp(2.1rem,4.4vw,3.3rem);line-height:1.12;font-weight:800;letter-spacing:-.03em;}
 .hero h1 .hl{background:linear-gradient(120deg,var(--accent),#fb923c);-webkit-background-clip:text;background-clip:text;color:transparent;}
@@ -275,12 +275,19 @@ img{max-width:100%;}
 .nav__mobile a:hover{background:var(--accent-soft);color:var(--accent);}
 .nav__mobile .btn-ghost,.nav__mobile .btn-primary{justify-content:center;margin-top:.4rem;}
 
-/* ===== Navbar — MOBILE SETTINGS (≤1024px) =====
-   على الجوال: إخفاء الروابط وإظهار شريط الهامبرغ (الروابط داخل القائمة المنسدلة) */
-@media (max-width:1024px){
+/* ===== Navbar — MOBILE SETTINGS (≤768px) =====
+   على الجوال فقط: إخفاء الروابط وإظهار شريط الهامبرغ (الروابط داخل القائمة المنسدلة).
+   على اللوحي/سطح المكتب تبقى الأزرار الخمسة موسّطة ظاهرة. */
+@media (max-width:768px){
   .nav__links{display:none;}
   .nav__burger{display:flex;}
   .nav__mobile{display:flex;}
+}
+/* ===== شاشات متوسطة (769px–1024px): الأزرار الخمسة تبقى موسّطة مع تصغير طفيف ===== */
+@media (min-width:769px) and (max-width:1024px){
+  .nav__links{gap:.6rem;font-size:.82rem;padding:.4rem .7rem;}
+  .nav__links a,.nav__links .nav-tab{padding:.25rem .45rem;}
+  .nav__cta .btn-ghost,.nav__cta .btn-primary{padding:.5rem .8rem;font-size:.82rem;min-height:42px;}
 }
 
 /* ===== Layout — MOBILE SETTINGS (≤900px) ===== */
@@ -354,6 +361,22 @@ img{max-width:100%;}
   transition:opacity .7s var(--ease),transform .7s var(--ease);
   transition-delay:var(--reveal-delay,0ms);will-change:opacity,transform;}
 .reveal--in{opacity:1;transform:translateY(0);}
+/* ===== شاشات كبيرة (≥1440px): توسيع المحتوى ليملأ الشاشة بانسجام في العرض التقديمي ===== */
+@media (min-width:1440px){
+  .wrap{max-width:84rem;}
+  .hero__inner{gap:3.5rem;padding:5.5rem 0 6rem;}
+  .hero h1{font-size:clamp(2.6rem,3.6vw,3.8rem);}
+  .hero .lead{font-size:1.15rem;max-width:36rem;}
+  .section{padding:5rem 0;}
+  .section__head{max-width:46rem;margin-left:auto;margin-right:auto;}
+  .grid-3{grid-template-columns:repeat(3,1fr);max-width:82rem;margin:0 auto;}
+  .nav__links{gap:1.4rem;font-size:1rem;padding:.5rem 1.4rem;}
+}
+/* ===== شاشات عريضة جداً (≥1920px): الحفاظ على إحساس متماسك دون تمدّد مفرط ===== */
+@media (min-width:1920px){
+  .wrap{max-width:92rem;}
+  .grid-3{max-width:90rem;}
+}
 @media (prefers-reduced-motion:reduce){
   .reveal{opacity:1;transform:none;transition:none;}
 }
