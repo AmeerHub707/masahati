@@ -1,0 +1,99 @@
+import { useState, useEffect, useCallback } from 'react';
+import ReactPullToRefresh from 'react-pull-to-refresh';
+import Navbar from '../components/layout/Navbar';
+import Hero from '../components/landing/Hero';
+import Features from '../components/landing/Features';
+import HowItWorks from '../components/landing/HowItWorks';
+import Roles from '../components/landing/Roles';
+import About from '../components/landing/About';
+import CtaBand from '../components/landing/CtaBand';
+import Footer from '../components/layout/Footer';
+import WhatsAppBubble from '../components/common/WhatsAppBubble';
+import Reveal from '../components/common/Reveal';
+
+export default function LandingPage() {
+  const [showTop, setShowTop] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  // مفتاح لإعادة تحميل الأقسام كما لو كانت طازجة (إعادة تشغيل أنيميشن الظهور)
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    const onScroll = () => setShowTop(window.scrollY > 400);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const scrollTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // اسحب للتحديث: محاكاة جلب بيانات جديدة من الخادم (Laravel لاحقًا)
+  // react-pull-to-refresh يُفعّل فقط عندما يكون التمرير في الأعلى (scrollY === 0)
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    return new Promise((resolve) => {
+      // هنا تستدعي API حقيقي لاحقًا، مثلاً: await fetch('/api/spaces')
+      setTimeout(() => {
+        setRefreshKey((k) => k + 1); // إعادة تركيب الأقسام = تحميل طازج
+        setRefreshing(false);
+        resolve();
+      }, 900);
+    });
+  }, []);
+
+  return (
+    <div className="min-h-screen font-['Cairo'] text-zinc-900 dir-rtl landing">
+      <Navbar />
+
+      <ReactPullToRefresh
+        disabled
+        onRefresh={handleRefresh}
+        direction="rtl"
+        resistance={2.5}
+        pullDownThreshold={70}
+        maxPullDownDistance={120}
+        refreshing={refreshing}
+        spinner={
+          <div className="ptr-spinner" role="status" aria-live="polite">
+            <span className="ptr-spinner__circle" />
+            <span className="sr-only">جارٍ التحديث…</span>
+          </div>
+        }
+      >
+        <main id="top" key={refreshKey}>
+          <Hero />
+          <Reveal>
+            <Features />
+          </Reveal>
+          <Reveal delay={80}>
+            <HowItWorks />
+          </Reveal>
+          <Reveal delay={80}>
+            <Roles />
+          </Reveal>
+          <Reveal delay={80}>
+            <About />
+          </Reveal>
+          <Reveal delay={80}>
+            <CtaBand />
+          </Reveal>
+        </main>
+      </ReactPullToRefresh>
+
+      <Footer />
+
+      <WhatsAppBubble />
+
+      {/* زر العودة لأعلى الصفحة */}
+      <button
+        type="button"
+        onClick={scrollTop}
+        aria-label="العودة إلى الأعلى"
+        className={`fixed bottom-5 right-5 z-50 w-12 h-12 rounded-full bg-orange-500 text-white flex items-center justify-center shadow-[0_14px_30px_-8px_rgba(249,115,22,0.6)] hover:-translate-y-1 hover:scale-105 transition-all duration-200 ${showTop ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+      >
+        <svg viewBox="0 0 24 24" className="w-6 h-6 fill-none stroke-current stroke-[2.2] stroke-linecap-round stroke-linejoin-round">
+          <path d="M12 19V5M5 12l7-7 7 7" />
+        </svg>
+      </button>
+    </div>
+  );
+}

@@ -1,0 +1,20 @@
+# Dependencies
+/node_modules
+/.pnpm-store
+
+# Production / Build outputs
+/dist
+/build
+
+# Local environment & Temp files
+.env
+.env.local
+.env.*.local
+.vscode/
+.idea/
+.ds_store
+Thumbs.db
+
+# Vite / Bundler caches
+/.vite
+/.vite-temp
