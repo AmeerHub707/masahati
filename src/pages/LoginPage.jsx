@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { setLoggedIn } from '../lib/authStore';
+import { setLoggedIn, isEmailRegistered } from '../lib/authStore';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -32,14 +32,22 @@ export default function LoginPage() {
     const newErrors = { identifier: '', password: '' };
 
     const identifier = formData.identifier.trim();
-    const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
-    const phoneRegex = /^[+]?[\\d\\s()-]{7,}$/;
+    const emailRegex = /^[^@ ]+@[^@ ]+\.[^@ ]+$/;
+    const phoneDigits = identifier.replace(/\D/g, '');
+    const phoneRegex = /^(?:970)?05\d{8}$/;
+
 
     if (!identifier) {
       newErrors.identifier = 'الرجاء إدخال البريد الإلكتروني أو رقم الهاتف';
       valid = false;
-    } else if (!emailRegex.test(identifier) && !phoneRegex.test(identifier)) {
+    } else if (!emailRegex.test(identifier) && !phoneRegex.test(phoneDigits)) {
       newErrors.identifier = 'أدخل بريداً إلكترونياً أو رقم هاتف صحيحاً';
+      valid = false;
+    }
+
+    // قبول البريد المسجّل فقط (وهمي حتى يجهز الـ API الخاص بفريق Laravel/MySQL)
+    if (valid && emailRegex.test(identifier) && !isEmailRegistered(identifier)) {
+      newErrors.identifier = 'هذا البريد غير مسجّل لدينا. أنشئ حساباً أو تأكد من البريد.';
       valid = false;
     }
 
@@ -493,7 +501,7 @@ export default function LoginPage() {
                 id="login-identifier"
                 value={formData.identifier}
                 onChange={handleChange}
-                placeholder="you@example.com , +970 59 000 0000"
+                placeholder="you@example.com , 059 000 0000"
                 dir="ltr"
                 autoComplete="username"
               />

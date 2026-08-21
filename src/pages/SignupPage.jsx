@@ -69,8 +69,8 @@ export default function SignupPage() {
     e.preventDefault();
     const newErrors = {};
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const phoneRegex = /^[+]?[\d\s()-]{7,}$/;
+    const emailRegex = /^[^@ ]+@[^@ ]+\.[^@ ]+$/;
+    const phoneRegex = /^(?:970)?05\d{8}$/;
 
     if (!formData.name.trim()) newErrors.name = 'الرجاء إدخال الاسم الكامل.';
     if (!emailRegex.test(formData.email.trim())) newErrors.email = 'البريد الإلكتروني غير صحيح.';
@@ -611,7 +611,7 @@ export default function SignupPage() {
                 <input
                   type="tel"
                   name="phone"
-                  placeholder="+970 59 000 0000"
+                  placeholder="059 000 0000"
                   dir="ltr"
                   value={formData.phone}
                   onChange={handleInputChange}

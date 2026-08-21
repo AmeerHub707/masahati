@@ -97,7 +97,7 @@ export default function ForgotPasswordPage() {
         return;
       }
     } else {
-      if (!/^[+]?[\d\s()-]{7,}$/.test(phone.trim())) {
+      if (!/^(?:970)?05\d{8}$/.test(phone.replace(/\D/g, ''))) {
         setEmailError('الرجاء إدخال رقم هاتف صحيح لاستلام الرمز عبر واتساب.');
         return;
       }
@@ -760,7 +760,7 @@ export default function ForgotPasswordPage() {
                       id="phone"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+970 59 000 0000"
+                      placeholder="059 000 0000"
                       dir="ltr"
                     />
                     {emailError && <p className="error">{emailError}</p>}
