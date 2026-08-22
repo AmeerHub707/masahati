@@ -33,13 +33,12 @@ export default function LoginPage() {
 
     const identifier = formData.identifier.trim();
     const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
-    const phoneRegex = /^[+]?[\\d\\s()-]{7,}$/;
 
     if (!identifier) {
-      newErrors.identifier = 'الرجاء إدخال البريد الإلكتروني أو رقم الهاتف';
+      newErrors.identifier = 'الرجاء إدخال البريد الإلكتروني';
       valid = false;
-    } else if (!emailRegex.test(identifier) && !phoneRegex.test(identifier)) {
-      newErrors.identifier = 'أدخل بريداً إلكترونياً أو رقم هاتف صحيحاً';
+    } else if (!emailRegex.test(identifier)) {
+      newErrors.identifier = 'أدخل بريداً إلكترونياً صحيحاً';
       valid = false;
     }
 
@@ -487,7 +486,7 @@ export default function LoginPage() {
 
             {/* المعرّف: بريد إلكتروني أو رقم هاتف */}
             <div className={`field ${errors.identifier ? 'has-error' : ''}`}>
-              <label htmlFor="login-identifier">البريد الإلكتروني أو رقم الهاتف</label>
+              <label htmlFor="login-identifier">البريد الإلكتروني</label>
               <input
                 type="text"
                 id="login-identifier"

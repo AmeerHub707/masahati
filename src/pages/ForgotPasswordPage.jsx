@@ -15,8 +15,6 @@ export default function ForgotPasswordPage() {
   
   // الخطوة 1: البريد الإلكتروني
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [otpChannel, setOtpChannel] = useState('email'); // 'email' | 'whatsapp'
   const [emailError, setEmailError] = useState('');
   const [isSendingOtp, setIsSendingOtp] = useState(false);
 
@@ -85,22 +83,15 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setEmailError('');
 
-    if (otpChannel === 'email') {
-      const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-      if (!isValidEmail) {
-        setEmailError('الرجاء إدخال بريد إلكتروني صحيح.');
-        return;
-      }
-      // التحقق من أن البريد مسجّل فعلاً قبل إرسال الرمز
-      if (!isEmailRegistered(email)) {
-        setEmailError('هذا البريد غير مسجّل لدينا. أنشئ حساباً أو تأكد من البريد.');
-        return;
-      }
-    } else {
-      if (!/^[+]?[\d\s()-]{7,}$/.test(phone.trim())) {
-        setEmailError('الرجاء إدخال رقم هاتف صحيح لاستلام الرمز عبر واتساب.');
-        return;
-      }
+    const isValidEmail = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim());
+    if (!isValidEmail) {
+      setEmailError('الرجاء إدخال بريد إلكتروني صحيح.');
+      return;
+    }
+    // التحقق من أن البريد مسجّل فعلاً قبل إرسال الرمز
+    if (!isEmailRegistered(email)) {
+      setEmailError('هذا البريد غير مسجّل لدينا. أنشئ حساباً أو تأكد من البريد.');
+      return;
     }
 
     setIsSendingOtp(true);
@@ -109,7 +100,7 @@ export default function ForgotPasswordPage() {
     setTimeout(() => {
       const generated = generateOTP();
       setSentOtpCode(generated);
-      console.log(`[DEMO OTP via ${otpChannel}]:`, generated);
+      console.log(`[DEMO OTP via email]:`, generated);
       setTimerRemain(OTP_TTL_SECONDS);
       setResendRemain(RESEND_WAIT_SECONDS);
       setResendTries(0);
@@ -718,54 +709,21 @@ export default function ForgotPasswordPage() {
                 <span className="step-pill">الخطوة 1 من 3</span>
                 <h2>نسيت كلمة المرور؟</h2>
                 <p className="form-sub">
-                  اختر طريقة استلام رمز التحقق لمرة واحدة لإعادة تعيين كلمة المرور بأمان.
+                  أدخل بريدك الإلكتروني لاستلام رمز التحقق لمرة واحدة لإعادة تعيين كلمة المرور بأمان.
                 </p>
 
-                {/* مبدّل قناة استلام الرمز: بريد / واتساب */}
-                <div className="channel-toggle">
-                  <button
-                    type="button"
-                    onClick={() => { setOtpChannel('email'); setEmailError(''); }}
-                    className={otpChannel === 'email' ? 'active' : ''}
-                  >
-                    البريد الإلكتروني
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setOtpChannel('whatsapp'); setEmailError(''); }}
-                    className={otpChannel === 'whatsapp' ? 'active' : ''}
-                  >
-                    واتساب
-                  </button>
+                <div className={`field ${emailError ? 'has-error' : ''}`}>
+                  <label htmlFor="email">البريد الإلكتروني</label>
+                  <input
+                    type="email"
+                    id="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="hi@hextastudio.in"
+                    dir="ltr"
+                  />
+                  {emailError && <p className="error">{emailError}</p>}
                 </div>
-
-                {otpChannel === 'email' ? (
-                  <div className={`field ${emailError ? 'has-error' : ''}`}>
-                    <label htmlFor="email">البريد الإلكتروني</label>
-                    <input
-                      type="email"
-                      id="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="hi@hextastudio.in"
-                      dir="ltr"
-                    />
-                    {emailError && <p className="error">{emailError}</p>}
-                  </div>
-                ) : (
-                  <div className={`field ${emailError ? 'has-error' : ''}`}>
-                    <label htmlFor="phone">رقم الهاتف (واتساب)</label>
-                    <input
-                      type="tel"
-                      id="phone"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+970 59 000 0000"
-                      dir="ltr"
-                    />
-                    {emailError && <p className="error">{emailError}</p>}
-                  </div>
-                )}
 
                 <button
                   type="submit"
@@ -792,10 +750,8 @@ export default function ForgotPasswordPage() {
                 <span className="step-pill">الخطوة 2 من 3</span>
                 <h2>أدخل رمز التحقق</h2>
                 <p className="form-sub">
-                  لقد أرسلنا رمزاً مكوّناً من 6 أرقام عبر <b>{otpChannel === 'whatsapp' ? 'واتساب' : 'البريد الإلكتروني'}</b>
-                  {otpChannel === 'email'
-                    ? <> إلى <b>{maskEmail(email)}</b></>
-                    : <> إلى رقمك <b dir="ltr">{phone}</b></>} .
+                  لقد أرسلنا رمزاً مكوّناً من 6 أرقام إلى بريدك الإلكتروني
+                  <> إلى <b>{maskEmail(email)}</b></> .
                 </p>
 
                 {/* زر مشاهدة البريد التجريبي */}
