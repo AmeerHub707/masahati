@@ -492,7 +492,7 @@ export default function LoginPage() {
                 id="login-identifier"
                 value={formData.identifier}
                 onChange={handleChange}
-                placeholder="you@example.com , +970 59 000 0000"
+                placeholder="you@example.com"
                 dir="ltr"
                 autoComplete="username"
               />
