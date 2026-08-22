@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { setLoggedIn, isEmailRegistered } from '../lib/authStore';
+import { setLoggedIn } from '../lib/authStore';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -32,22 +32,13 @@ export default function LoginPage() {
     const newErrors = { identifier: '', password: '' };
 
     const identifier = formData.identifier.trim();
-    const emailRegex = /^[^@ ]+@[^@ ]+\.[^@ ]+$/;
-    const phoneDigits = identifier.replace(/\D/g, '');
-    const phoneRegex = /^(?:970)?05\d{8}$/;
-
+    const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
 
     if (!identifier) {
-      newErrors.identifier = 'الرجاء إدخال البريد الإلكتروني أو رقم الهاتف';
+      newErrors.identifier = 'الرجاء إدخال البريد الإلكتروني';
       valid = false;
-    } else if (!emailRegex.test(identifier) && !phoneRegex.test(phoneDigits)) {
-      newErrors.identifier = 'أدخل بريداً إلكترونياً أو رقم هاتف صحيحاً';
-      valid = false;
-    }
-
-    // قبول البريد المسجّل فقط (وهمي حتى يجهز الـ API الخاص بفريق Laravel/MySQL)
-    if (valid && emailRegex.test(identifier) && !isEmailRegistered(identifier)) {
-      newErrors.identifier = 'هذا البريد غير مسجّل لدينا. أنشئ حساباً أو تأكد من البريد.';
+    } else if (!emailRegex.test(identifier)) {
+      newErrors.identifier = 'أدخل بريداً إلكترونياً صحيحاً';
       valid = false;
     }
 
@@ -495,13 +486,13 @@ export default function LoginPage() {
 
             {/* المعرّف: بريد إلكتروني أو رقم هاتف */}
             <div className={`field ${errors.identifier ? 'has-error' : ''}`}>
-              <label htmlFor="login-identifier">البريد الإلكتروني أو رقم الهاتف</label>
+              <label htmlFor="login-identifier">البريد الإلكتروني</label>
               <input
                 type="text"
                 id="login-identifier"
                 value={formData.identifier}
                 onChange={handleChange}
-                placeholder="you@example.com , 059 000 0000"
+                placeholder="you@example.com , +970 59 000 0000"
                 dir="ltr"
                 autoComplete="username"
               />
