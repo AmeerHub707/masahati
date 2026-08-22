@@ -5,16 +5,19 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'node_modules']),
   {
-    files: ['**/*.{js,jsx}'],
+    // تغطية تلقائية لكل امتدادات عائلة JS (js/jsx/mjs/cjs) مع ESM افتراضى.
+    files: ['**/*.{js,jsx,mjs,cjs}'],
     extends: [
       js.configs.recommended,
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
     languageOptions: {
-      globals: globals.browser,
+      globals: { ...globals.browser, ...globals.node },
+      sourceType: 'module',
+      ecmaVersion: 'latest',
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
