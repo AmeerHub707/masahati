@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { setLoggedIn } from '../lib/authStore';
+import { login, ApiError } from '../lib/authStore';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -10,6 +10,8 @@ export default function LoginPage() {
     remember: false
   });
   const [errors, setErrors] = useState({ identifier: '', password: '' });
+  const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   const toggleShowPassword = () => setShowPassword((s) => !s);
@@ -26,18 +28,18 @@ export default function LoginPage() {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     let valid = true;
     const newErrors = { identifier: '', password: '' };
 
     const identifier = formData.identifier.trim();
-    const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+    const emailOk = identifier.includes('@') && identifier.includes('.') && !identifier.includes(' ');
 
     if (!identifier) {
       newErrors.identifier = 'الرجاء إدخال البريد الإلكتروني';
       valid = false;
-    } else if (!emailRegex.test(identifier)) {
+    } else if (!emailOk) {
       newErrors.identifier = 'أدخل بريداً إلكترونياً صحيحاً';
       valid = false;
     }
@@ -48,16 +50,27 @@ export default function LoginPage() {
     }
 
     setErrors(newErrors);
+    setFormError('');
+    if (!valid) return;
 
-    if (valid) {
-      // هنا يتم وضع المنطق الخاص بالـ Authentication لاحقاً (API فريق Laravel/MySQL)
-      setLoggedIn(true); // وهمي حتى يجهز الـ API
+    setLoading(true);
+    try {
+      await login(identifier, formData.password);
       navigate('/dashboard');
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 401 || err.status === 422)) {
+        setFormError('البريد الإلكتروني أو كلمة المرور غير صحيحة.');
+      } else {
+        setFormError(err.message || 'تعذر تسجيل الدخول. حاول مرة أخرى.');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="auth-wrapper">
+      <div className="auth-bg" aria-hidden="true" />
       {/* Styles inject */}
       <style>{`
         :root {
@@ -86,6 +99,7 @@ export default function LoginPage() {
           background-size: cover;
           background-position: center;
           position: relative;
+          isolation: isolate;
           overflow: hidden;
           font-family: 'Cairo', sans-serif;
           direction: rtl;
@@ -107,6 +121,31 @@ export default function LoginPage() {
           background: radial-gradient(circle, rgba(249,115,22,0.38) 0%, rgba(249,115,22,0.12) 40%, transparent 70%);
           filter: blur(20px);
           pointer-events: none;
+        }
+
+        /* ===== طبقة الخلفية المتحركة (تكبير/تصغير) ===== */
+        .auth-bg {
+          position: absolute;
+          inset: 0;
+          z-index: -1;
+          background-image: url("/background.jpeg");
+          background-size: cover;
+          background-position: center;
+          transform: scale(1.06);
+          animation: authZoom 9s ease-in-out infinite;
+          will-change: transform;
+        }
+        @keyframes authZoom {
+          0%   { transform: scale(1.05); }
+          50%  { transform: scale(1.18); }
+          100% { transform: scale(1.05); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .auth-bg,
+          .auth-card__bg {
+            animation: none;
+            transform: scale(1.06);
+          }
         }
 
         /* ===== البطاقة: خلفية الصورة تغطي البطاقة بالكامل (ليست نصفاً) ===== */
@@ -135,6 +174,9 @@ export default function LoginPage() {
           background-image: url("/Loginside.jpg");
           background-size: cover;
           background-position: center;
+          transform: scale(1.04);
+          animation: authZoom 11s ease-in-out infinite;
+          will-change: transform;
         }
         /* تظليل يضمن تباين النص: يسار (الترحيب) أغمق، يمين (النموذج) بلمسة برتقالية */
         .auth-card__scrim {
@@ -484,6 +526,12 @@ export default function LoginPage() {
             <h2>سجّل الدخول</h2>
             <p className="form-sub">أدخل بياناتك للوصول إلى حسابك.</p>
 
+            {formError && (
+              <p className="error" aria-live="polite" style={{ color: '#fca5a5', marginBottom: '0.8rem' }}>
+                {formError}
+              </p>
+            )}
+
             {/* المعرّف: بريد إلكتروني أو رقم هاتف */}
             <div className={`field ${errors.identifier ? 'has-error' : ''}`}>
               <label htmlFor="login-identifier">البريد الإلكتروني</label>
@@ -560,8 +608,8 @@ export default function LoginPage() {
             </div>
 
             {/* زر الدخول */}
-            <button type="submit" className="btn">
-              تسجيل الدخول
+            <button type="submit" className="btn" disabled={loading}>
+              {loading ? 'جارٍ تسجيل الدخول…' : 'تسجيل الدخول'}
             </button>
 
             {/* التحويل إلى إنشاء حساب */}

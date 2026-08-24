@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { isEmailRegistered } from '../lib/authStore';
+import { request, ApiError } from '../lib/authStore';
 
 const OTP_LEN = 6;
 const OTP_TTL_SECONDS = 300; // 5 دقائق
@@ -20,16 +20,13 @@ export default function ForgotPasswordPage() {
 
   // الخطوة 2: الـ OTP والعدادات
   const [otp, setOtp] = useState(Array(OTP_LEN).fill(''));
-  const [sentOtpCode, setSentOtpCode] = useState('');
+  const [verifiedCode, setVerifiedCode] = useState(''); // الرمز الذي تم التحقق منه للتمرير إلى reset-password
   const [otpError, setOtpError] = useState('');
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [timerRemain, setTimerRemain] = useState(OTP_TTL_SECONDS);
   const [resendRemain, setResendRemain] = useState(RESEND_WAIT_SECONDS);
   const [resendTries, setResendTries] = useState(0);
   const [isShake, setIsShake] = useState(false);
-  const [showMailOverlay, setShowMailOverlay] = useState(false);
-  const [copiedOtp, setCopiedOtp] = useState(false);
-
   // الخطوة 3: كلمة المرور الجديدة
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -41,15 +38,6 @@ export default function ForgotPasswordPage() {
 
   // مراجع عناصر الإدخال
   const otpInputsRef = useRef([]);
-
-  // توليد OTP عشوائي
-  const generateOTP = () => {
-    let code = '';
-    for (let i = 0; i < OTP_LEN; i++) {
-      code += Math.floor(Math.random() * 10);
-    }
-    return code;
-  };
 
   // إخفاء جزء من البريد الإلكتروني لدواعي الأمان
   const maskEmail = (e) => {
@@ -79,35 +67,41 @@ export default function ForgotPasswordPage() {
   };
 
   // ----- معالجة الخطوة الأولى (إرسال الرمز) -----
-  const handleRequestOtp = (e) => {
+  const handleRequestOtp = async (e) => {
     e.preventDefault();
     setEmailError('');
 
-    const isValidEmail = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim());
+    const isValidEmail = email.trim().includes('@') && email.trim().includes('.') && !email.trim().includes(' ');
     if (!isValidEmail) {
       setEmailError('الرجاء إدخال بريد إلكتروني صحيح.');
       return;
     }
-    // التحقق من أن البريد مسجّل فعلاً قبل إرسال الرمز
-    if (!isEmailRegistered(email)) {
-      setEmailError('هذا البريد غير مسجّل لدينا. أنشئ حساباً أو تأكد من البريد.');
-      return;
-    }
 
     setIsSendingOtp(true);
-
-    // محاكاة إرسال طلب للباك إند (القناة: بريد أو واتساب)
-    setTimeout(() => {
-      const generated = generateOTP();
-      setSentOtpCode(generated);
-      console.log(`[DEMO OTP via email]:`, generated);
+    try {
+      // يتحقق الباك إند من وجود البريد ويرسل رمز OTP عبر /api/send-otp
+      await request('/api/forgot-password', {
+        method: 'POST',
+        body: { email: email.trim() },
+      });
+      await request('/api/send-otp', {
+        method: 'POST',
+        body: { email: email.trim() },
+      });
+      setStep(2);
       setTimerRemain(OTP_TTL_SECONDS);
       setResendRemain(RESEND_WAIT_SECONDS);
       setResendTries(0);
-      setIsSendingOtp(false);
-      setStep(2);
       setTimeout(() => otpInputsRef.current[0]?.focus(), 100);
-    }, 1000);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 422) {
+        setEmailError('هذا البريد غير مسجّل لدينا. أنشئ حساباً أو تأكد من البريد.');
+      } else {
+        setEmailError(err.message || 'تعذر إرسال الرمز. حاول مرة أخرى.');
+      }
+    } finally {
+      setIsSendingOtp(false);
+    }
   };
 
   // ----- معالجة إدخال وحقول الـ OTP -----
@@ -148,21 +142,27 @@ export default function ForgotPasswordPage() {
   };
 
   // إعادة إرسال الـ OTP
-  const handleResend = () => {
+  const handleResend = async () => {
     if (resendRemain > 0 || resendTries >= MAX_RESEND_TRIES) return;
 
     setResendTries((prev) => prev + 1);
-    const generated = generateOTP();
-    setSentOtpCode(generated);
-    setOtp(Array(OTP_LEN).fill(''));
-    setOtpError('');
-    setTimerRemain(OTP_TTL_SECONDS);
-    setResendRemain(RESEND_WAIT_SECONDS);
-    setTimeout(() => otpInputsRef.current[0]?.focus(), 100);
+    try {
+      await request('/api/send-otp', {
+        method: 'POST',
+        body: { email: email.trim() },
+      });
+      setOtp(Array(OTP_LEN).fill(''));
+      setOtpError('');
+      setTimerRemain(OTP_TTL_SECONDS);
+      setResendRemain(RESEND_WAIT_SECONDS);
+      setTimeout(() => otpInputsRef.current[0]?.focus(), 100);
+    } catch (err) {
+      setOtpError(err.message || 'تعذر إعادة إرسال الرمز.');
+    }
   };
 
   // معالجة الخطوة الثانية (التحقق من الرمز)
-  const handleVerifyOtp = (e) => {
+  const handleVerifyOtp = async (e) => {
     e.preventDefault();
     if (timerRemain <= 0) {
       setOtpError('انتهت صلاحية الرمز. اطلب رمزاً جديداً.');
@@ -170,18 +170,32 @@ export default function ForgotPasswordPage() {
     }
 
     const enteredCode = otp.join('');
-    if (enteredCode !== sentOtpCode) {
-      setOtpError('الرمز غير صحيح. حاول مرة أخرى.');
+    if (enteredCode.length < OTP_LEN) {
+      setOtpError('الرجاء إدخال الأرقام الستة كاملة.');
       setIsShake(true);
       setTimeout(() => setIsShake(false), 450);
       return;
     }
 
     setIsVerifyingOtp(true);
-    setTimeout(() => {
-      setIsVerifyingOtp(false);
+    try {
+      await request('/api/verify-otp', {
+        method: 'POST',
+        body: { email: email.trim(), code: enteredCode },
+      });
+      setVerifiedCode(enteredCode);
       setStep(3);
-    }, 600);
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 422 || err.status === 401)) {
+        setOtpError('الرمز غير صحيح. حاول مرة أخرى.');
+        setIsShake(true);
+        setTimeout(() => setIsShake(false), 450);
+      } else {
+        setOtpError(err.message || 'تعذر التحقق. حاول مرة أخرى.');
+      }
+    } finally {
+      setIsVerifyingOtp(false);
+    }
   };
 
   // ----- حساب قوة كلمة المرور -----
@@ -199,7 +213,7 @@ export default function ForgotPasswordPage() {
   const strengthLabels = ['—', 'ضعيف', 'متوسط', 'جيد', 'ممتاز'];
 
   // ----- معالجة الخطوة الثالثة (تغيير كلمة المرور) -----
-  const handleResetPassword = (e) => {
+  const handleResetPassword = async (e) => {
     e.preventDefault();
     let valid = true;
 
@@ -220,23 +234,37 @@ export default function ForgotPasswordPage() {
     if (!valid) return;
 
     setIsResetting(true);
-    setTimeout(() => {
-      setIsResetting(false);
+    try {
+      await request('/api/reset-password', {
+        method: 'POST',
+        body: {
+          email: email.trim(),
+          token: verifiedCode,
+          password,
+          password_confirmation: confirmPassword,
+        },
+      });
       setStep('done');
-      setTimeout(() => {
-        navigate('/login');
-      }, 2200);
-    }, 1000);
-  };
-
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(sentOtpCode);
-    setCopiedOtp(true);
-    setTimeout(() => setCopiedOtp(false), 1500);
+      setTimeout(() => navigate('/login'), 2200);
+    } catch (err) {
+      if (err instanceof ApiError && err.data?.errors) {
+        const e = err.data.errors;
+        if (e.password) setPasswordError(Array.isArray(e.password) ? e.password[0] : e.password);
+        if (e.email) setEmailError(Array.isArray(e.email) ? e.email[0] : e.email);
+        if (!e.password && !e.email) {
+          setPasswordError(err.message || 'تعذر تغيير كلمة المرور.');
+        }
+      } else {
+        setPasswordError(err.message || 'تعذر تغيير كلمة المرور.');
+      }
+    } finally {
+      setIsResetting(false);
+    }
   };
 
   return (
     <div className="auth-wrapper">
+      <div className="auth-bg" aria-hidden="true" />
       {/* Styles inject */}
       <style>{`
         :root {
@@ -260,6 +288,7 @@ export default function ForgotPasswordPage() {
           background-size: cover;
           background-position: center;
           position: relative;
+          isolation: isolate;
           overflow: hidden;
           font-family: 'Cairo', sans-serif;
           direction: rtl;
@@ -281,6 +310,31 @@ export default function ForgotPasswordPage() {
           background: radial-gradient(circle, rgba(249,115,22,0.38) 0%, rgba(249,115,22,0.12) 40%, transparent 70%);
           filter: blur(20px);
           pointer-events: none;
+        }
+
+        /* ===== طبقة الخلفية المتحركة (تكبير/تصغير) ===== */
+        .auth-bg {
+          position: absolute;
+          inset: 0;
+          z-index: -1;
+          background-image: url("/background.jpeg");
+          background-size: cover;
+          background-position: center;
+          transform: scale(1.06);
+          animation: authZoom 9s ease-in-out infinite;
+          will-change: transform;
+        }
+        @keyframes authZoom {
+          0%   { transform: scale(1.05); }
+          50%  { transform: scale(1.18); }
+          100% { transform: scale(1.05); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .auth-bg,
+          .auth-card__bg {
+            animation: none;
+            transform: scale(1.06);
+          }
         }
 
         /* ===== البطاقة: خلفية الصورة تغطي البطاقة بالكامل ===== */
@@ -309,6 +363,9 @@ export default function ForgotPasswordPage() {
           background-image: url("/Loginside.jpg");
           background-size: cover;
           background-position: center;
+          transform: scale(1.04);
+          animation: authZoom 11s ease-in-out infinite;
+          will-change: transform;
         }
         .auth-card__scrim {
           position: absolute;
@@ -754,21 +811,6 @@ export default function ForgotPasswordPage() {
                   <> إلى <b>{maskEmail(email)}</b></> .
                 </p>
 
-                {/* زر مشاهدة البريد التجريبي */}
-                <button
-                  type="button"
-                  onClick={() => setShowMailOverlay(true)}
-                  className="link-btn"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1rem', fontSize: '0.8rem' }}
-                >
-                  <svg className="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
-                    <rect x="3" y="5" width="18" height="14" rx="2" />
-                    <path d="m3 7 9 6 9-6" />
-                  </svg>
-                  <span>عرض بريدي التجريبي</span>
-                  <span style={{ background: 'var(--accent)', color: '#fff', width: '1.25rem', height: '1.25rem', borderRadius: '999px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem' }}>1</span>
-                </button>
-
                 {/* العداد التنازلي وإعادة الإرسال */}
                 <div className="row-between">
                   <span className={`font-bold tabular-nums ${timerRemain <= 0 ? 'text-red-500' : 'text-orange-500'}`} style={{ color: timerRemain <= 0 ? '#f87171' : 'var(--accent)' }}>
@@ -938,58 +980,6 @@ export default function ForgotPasswordPage() {
 
           </div>
         </section>
-
-        {/* ================= EXPERIMENTAL INBOX OVERLAY ================= */}
-        {showMailOverlay && (
-          <div className="mail-overlay">
-            <div className="mail-modal">
-              <div className="mail-modal__head">
-                <b>صندوق البريد التجريبي</b>
-                <button
-                  type="button"
-                  onClick={() => setShowMailOverlay(false)}
-                  className="mail-modal__close"
-                >
-                  ×
-                </button>
-              </div>
-
-              <div className="mail-modal__body">
-                <div className="mail-card">
-                  <div className="mail-card__ico">
-                    <svg className="w-5 h-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
-                      <path d="M12 21s-7-6.3-7-11a7 7 0 0 1 14 0c0 4.7-7 11-7 11z" />
-                      <circle cx="12" cy="10" r="2.5" />
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="mail-card__from">من: أمان مساحاتي · no-reply@masahati.ps</div>
-                    <div className="mail-card__title">رمز التحقق لإعادة تعيين كلمة المرور</div>
-                    <p className="mail-card__text">
-                      مرحباً، لقد طلبت إعادة تعيين كلمة المرور. استخدم الرمز أدناه (صالح لمدة 5 دقائق):
-                    </p>
-                    
-                    <div className="mail-card__code">
-                      <span>{sentOtpCode || '------'}</span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={copyToClipboard}
-                      className="mail-card__copy"
-                    >
-                      {copiedOtp ? 'تم النسخ ✓' : 'نسخ الرمز'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mail-modal__foot">
-                هذا صندوق بريد وهمي للتجربة فقط — في الإصدار الحقيقي يصلك الرمز عبر بريدك الفعلي.
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* زر الواتساب العائم */}
         <a
