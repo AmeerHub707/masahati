@@ -3,7 +3,10 @@
 // ملاحظة: Laravel Sanctum + Bearer token لا يتطلب إرسال Origin في الطلب؛
 // ولذلك لا نضع أي ترويسة Origin هنا (متروكة للمتصفح تلقائياً).
 
-const BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const BASE_URL = (
+  import.meta.env.VITE_API_URL ||
+  'https://back-end-kwba.onrender.com'
+).replace(/\/$/, '');
 
 const TOKEN_KEY = '***';
 
