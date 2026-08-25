@@ -93,7 +93,6 @@ export default function Hero() {
 
         <div className="wrap hero__inner">
           <div className="hero__copy">
-            <span className="live-chip"><span className="live-dot"></span>متصل الآن في غزة — جاهز للحجز</span>
             <span className="eyebrow"><span className="dot"></span>أول منصة لمساحات العمل المشتركة في غزة</span>
             <h1>اعثر على <span className="hl">مساحتك — بكهرباء ونت ومقعد، بنقرة واحدة.</span></h1>
             <p className="lead">تجمع مساحاتي كل مساحات العمل المشتركة وقاعات الدراسة في مكان واحد. قارن الأسعار وسرعة الإنترنت وتوفّر الكهرباء، ثم احجز مقعدك مباشرةً — دون اتصال ولا رسالة.</p>

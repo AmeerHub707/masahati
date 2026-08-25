@@ -335,7 +335,7 @@ export default function SignupPage() {
           border-radius: var(--radius-card);
           overflow: hidden;
           box-shadow: var(--shadow), 0 0 0 1px rgba(249,115,22,0.10);
-          background: #0f0f14;
+          background: rgba(0,0,0,0.6);
           isolation: isolate;
         }
         @media (min-width: 768px) {
@@ -346,27 +346,18 @@ export default function SignupPage() {
           position: absolute;
           inset: 0;
           z-index: 0;
-          background-image: url("/Loginside.jpg");
+          background: transparent;
           background-size: cover;
           background-position: center;
-          transform: scale(1.04);
-          animation: authZoom 11s ease-in-out infinite;
-          will-change: transform;
         }
         .auth-card__scrim {
           position: absolute;
           inset: 0;
           z-index: 0;
-          background: linear-gradient(90deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.46) 44%, rgba(234,88,12,0.42) 100%);
+          background: transparent;
         }
         .auth-card__glow {
-          position: absolute;
-          z-index: 0;
-          right: -6rem; top: -6rem;
-          width: 24rem; height: 24rem;
-          background: radial-gradient(circle, rgba(249,115,22,0.45), transparent 70%);
-          filter: blur(30px);
-          pointer-events: none;
+          display: none;
         }
 
         /* ===== الجانب الترحيبي ===== */
@@ -421,10 +412,8 @@ export default function SignupPage() {
           display: flex;
           flex-direction: column;
           padding: 2rem 2rem 1.6rem;
-          background: rgba(18,16,14,0.55);
-          backdrop-filter: blur(18px) saturate(140%);
-          -webkit-backdrop-filter: blur(18px) saturate(140%);
-          border-top: 1px solid rgba(255,255,255,0.14);
+          background: rgba(0,0,0,0.6);
+          border-top: none;
           overflow-y: auto;
           scrollbar-width: thin;
           scrollbar-color: var(--accent) transparent;
@@ -441,7 +430,7 @@ export default function SignupPage() {
             width: 54%; flex: none;
             padding: 2.2rem 2.4rem 1.8rem;
             border-top: none;
-            border-inline-start: 1.5px solid rgba(255,255,255,0.55);
+            border-inline-start: 1px solid rgba(255,255,255,0.12);
           }
         }
 
