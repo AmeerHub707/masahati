@@ -10,6 +10,8 @@ import CtaBand from '../components/landing/CtaBand';
 import Footer from '../components/layout/Footer';
 import WhatsAppBubble from '../components/common/WhatsAppBubble';
 import Reveal from '../components/common/Reveal';
+import ScrollProgress from '../components/common/ScrollProgress';
+import SectionDivider from '../components/common/SectionDivider';
 
 export default function LandingPage() {
   const [showTop, setShowTop] = useState(false);
@@ -42,6 +44,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen font-['Cairo'] text-zinc-900 dir-rtl landing">
+      <ScrollProgress />
       <Navbar />
 
       <ReactPullToRefresh
@@ -64,15 +67,19 @@ export default function LandingPage() {
           <Reveal>
             <Features />
           </Reveal>
+          <SectionDivider />
           <Reveal delay={80}>
             <HowItWorks />
           </Reveal>
+          <SectionDivider flip />
           <Reveal delay={80}>
             <Roles />
           </Reveal>
+          <SectionDivider />
           <Reveal delay={80}>
             <About />
           </Reveal>
+          <SectionDivider flip />
           <Reveal delay={80}>
             <CtaBand />
           </Reveal>

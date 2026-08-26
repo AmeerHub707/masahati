@@ -1,3 +1,5 @@
+import TiltCard from '../common/TiltCard';
+
 const check = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
     <path d="M20 6 9 17l-5-5" />
@@ -63,21 +65,23 @@ export default function Roles() {
 
       <div className="wrap grid-3">
         {roles.map((r) => (
-          <div className="role-card" key={r.title}>
-            <div className="ico">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{r.icon}</svg>
+          <TiltCard key={r.title}>
+            <div className="role-card glow-border glow-box">
+              <div className="ico">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{r.icon}</svg>
+              </div>
+              <span className="tag">{r.tag}</span>
+              <h3>{r.title}</h3>
+              <ul>
+                {r.items.map((li) => (
+                  <li key={li}>
+                    {check}
+                    {li}
+                  </li>
+                ))}
+              </ul>
             </div>
-            <span className="tag">{r.tag}</span>
-            <h3>{r.title}</h3>
-            <ul>
-              {r.items.map((li) => (
-                <li key={li}>
-                  {check}
-                  {li}
-                </li>
-              ))}
-            </ul>
-          </div>
+          </TiltCard>
         ))}
       </div>
     </section>

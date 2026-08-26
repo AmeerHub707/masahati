@@ -279,7 +279,80 @@ a{color:inherit;}
 @keyframes ptr-spin{to{transform:rotate(360deg);}}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
 
-/* ===== Responsive ===== */
+/* ═══════════════════════════════════════════
+   SCROLL PROGRESS BAR
+   ═══════════════════════════════════════════ */
+.scroll-progress{position:fixed;inset-x:0;top:0;z-index:100;height:3px;pointer-events:none;}
+.scroll-progress__bar{height:100%;border-radius:999px;
+  background:linear-gradient(90deg,var(--accent),var(--accent-2),var(--accent-hover));
+  transition:width .15s ease-out;}
+
+/* ═══════════════════════════════════════════
+   ANIMATED ORBS
+   ═══════════════════════════════════════════ */
+.orb{position:absolute;border-radius:9999px;filter:blur(60px);pointer-events:none;}
+.orb-1{width:500px;height:500px;background:rgba(249,115,22,.10);top:-10%;right:-5%;animation:orb-float1 18s ease-in-out infinite;}
+.orb-2{width:420px;height:420px;background:rgba(251,146,60,.08);bottom:5%;left:-8%;animation:orb-float2 22s ease-in-out infinite;}
+.orb-3{width:300px;height:300px;background:rgba(234,88,12,.06);top:40%;left:30%;animation:orb-float3 15s ease-in-out infinite;}
+.orb-grid{position:absolute;inset:0;
+  background-image:radial-gradient(circle,rgba(249,115,22,.12) 1px,transparent 1px);
+  background-size:40px 40px;opacity:.3;}
+@keyframes orb-float1{
+  0%,100%{transform:translate(0,0) scale(1);}
+  25%{transform:translate(-30px,40px) scale(1.05);}
+  50%{transform:translate(20px,-30px) scale(.95);}
+  75%{transform:translate(-15px,-20px) scale(1.02);}
+}
+@keyframes orb-float2{
+  0%,100%{transform:translate(0,0) scale(1);}
+  33%{transform:translate(40px,-25px) scale(1.08);}
+  66%{transform:translate(-20px,30px) scale(.92);}
+}
+@keyframes orb-float3{
+  0%,100%{transform:translate(0,0) scale(1);}
+  50%{transform:translate(25px,25px) scale(1.1);}
+}
+
+/* ═══════════════════════════════════════════
+   TILT CARD
+   ═══════════════════════════════════════════ */
+.tilt-card{position:relative;transform-style:preserve-3d;will-change:transform;}
+.tilt-glare{position:absolute;inset:0;border-radius:inherit;pointer-events:none;transition:opacity .5s ease;}
+
+/* ═══════════════════════════════════════════
+   GLOW BORDER
+   ═══════════════════════════════════════════ */
+.glow-border{position:relative;}
+.glow-border::before{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1px;
+  background:linear-gradient(135deg,var(--accent),transparent,var(--accent-2));
+  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;
+  opacity:0;transition:opacity .4s ease;pointer-events:none;}
+.glow-border:hover::before{opacity:1;}
+.glow-box{transition:box-shadow .4s ease;}
+.glow-box:hover{box-shadow:0 0 30px -5px rgba(249,115,22,.35),0 0 60px -15px rgba(249,115,22,.2);}
+
+/* ═══════════════════════════════════════════
+   MAGNETIC BUTTON
+   ═══════════════════════════════════════════ */
+.magnetic-btn{display:inline-block;}
+
+/* ═══════════════════════════════════════════
+   SECTION DIVIDER (Wave)
+   ═══════════════════════════════════════════ */
+.section-divider{position:relative;width:100%;overflow:hidden;line-height:0;margin:-1px 0;}
+.section-divider-flip{transform:rotate(180deg);}
+.divider-fill-1{fill:var(--accent-soft);opacity:.5;animation:wave-drift 8s ease-in-out infinite;}
+.divider-fill-2{fill:#fff;opacity:.8;animation:wave-drift 12s ease-in-out infinite reverse;}
+@keyframes wave-drift{
+  0%,100%{transform:translateX(0);}
+  50%{transform:translateX(-2%);}
+}
+
+/* ═══════════════════════════════════════════
+   Responsive
+   ═══════════════════════════════════════════ */
 .landing{overflow-x:clip;}
 img{max-width:100%;}
 /* قواعد الهامبرغ والقائمة المنسدلة (تظهر فقط في الجوال — انظر أسفل) */
@@ -394,4 +467,6 @@ img{max-width:100%;}
 }
 @media (prefers-reduced-motion:reduce){
   .reveal{opacity:1;transform:none;transition:none;}
+  .orb{animation:none!important;}
+  .divider-fill-1,.divider-fill-2{animation:none!important;}
 }

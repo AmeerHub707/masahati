@@ -1,3 +1,5 @@
+import TiltCard from '../common/TiltCard';
+
 const features = [
   {
     title: 'أسعار شفافة',
@@ -27,13 +29,15 @@ export default function Features() {
 
       <div className="wrap grid-3">
         {features.map((f) => (
-          <div className="feature" key={f.title}>
-            <div className="ico">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{f.icon}</svg>
+          <TiltCard key={f.title}>
+            <div className="feature glow-border glow-box">
+              <div className="ico">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{f.icon}</svg>
+              </div>
+              <h3>{f.title}</h3>
+              <p>{f.desc}</p>
             </div>
-            <h3>{f.title}</h3>
-            <p>{f.desc}</p>
-          </div>
+          </TiltCard>
         ))}
       </div>
     </section>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import NavTab from './NavTab';
+import MagneticButton from '../common/MagneticButton';
 
 const LINKS = [
   { label: 'تصفح المساحات', to: '/spaces' },
@@ -50,7 +51,9 @@ export default function Navbar() {
         {/* الأزرار (تسجيل الدخول + إضافة حساب) */}
         <div className="nav__cta">
           <Link className="btn-ghost" to="/login">تسجيل الدخول</Link>
-          <Link className="btn-primary" to="/signup">إضافة حساب</Link>
+          <MagneticButton>
+            <Link className="btn-primary" to="/signup">إضافة حساب</Link>
+          </MagneticButton>
         </div>
 
         {/* زر القائمة — منفصل في الزاوية (يسار/يمين حسب الاتجاه) */}
@@ -72,7 +75,9 @@ export default function Navbar() {
             <NavTab key={l.label} label={l.label} to={l.to} href={l.href} onClick={closeMenu} />
           ))}
           <Link className="btn-ghost" to="/login" onClick={closeMenu}>تسجيل الدخول</Link>
-          <Link className="btn-primary" to="/signup" onClick={closeMenu}>إضافة حساب</Link>
+          <MagneticButton>
+            <Link className="btn-primary" to="/signup" onClick={closeMenu}>إضافة حساب</Link>
+          </MagneticButton>
         </div>
       )}
     </nav>

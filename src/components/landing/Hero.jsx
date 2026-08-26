@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
+import AnimatedOrbs from '../common/AnimatedOrbs';
+import MagneticButton from '../common/MagneticButton';
 
 // صور المساحات الجديدة التى أضفتها فى public/ — خلفية متحركة بانتقال متقاطع (crossfade)
 const gallery = [
@@ -88,6 +90,7 @@ export default function Hero() {
               loading={i === 0 ? 'eager' : 'lazy'}
             />
           ))}
+          <AnimatedOrbs />
           <span className="hero__scrim"></span>
         </div>
 
@@ -97,7 +100,9 @@ export default function Hero() {
             <h1>اعثر على <span className="hl">مساحتك — بكهرباء ونت ومقعد، بنقرة واحدة.</span></h1>
             <p className="lead">تجمع مساحاتي كل مساحات العمل المشتركة وقاعات الدراسة في مكان واحد. قارن الأسعار وسرعة الإنترنت وتوفّر الكهرباء، ثم احجز مقعدك مباشرةً — دون اتصال ولا رسالة.</p>
             <div className="hero__cta">
-              <Link className="btn-primary" to="/signup">ابدأ الآن</Link>
+              <MagneticButton>
+                <Link className="btn-primary" to="/signup">ابدأ الآن</Link>
+              </MagneticButton>
             </div>
           </div>
         </div>
