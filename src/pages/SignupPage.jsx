@@ -44,6 +44,8 @@ export default function SignupPage() {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [otpError, setOtpError] = useState('');
   const [timerLeft, setTimerLeft] = useState(0);
+  // رمز التسجيل الذي يُرجعه الباك إند عند إنشاء الحساب، ويُستخدم في verify/resend-otp
+  const [registrationToken, setRegistrationToken] = useState('');
   const otpInputsRef = useRef([]);
 
   // Timer logic for Resend OTP
@@ -113,17 +115,20 @@ export default function SignupPage() {
         password_confirmation: formData.confirmPassword,
       };
 
+      // الباك إند يُرسل رمز OTP عبر البريد تلقائياً عند التسجيل،
+      // ويرجع registration_token (UUID) اللازم لاحقاً لـ verify/resend-otp.
+      let regToken = '';
       if (role === 'owner') {
         const fd = new FormData();
         Object.entries(payload).forEach(([k, v]) => fd.append(k, v));
         if (formData.ownershipDocument) {
           fd.append('proof_document', formData.ownershipDocument);
         }
-        // إصلاح: كان الكود السابق يستدعي registerCustomer بعد registerOwner
-        // بدون التقاط أخطاء رفع الوثيقة. الآن: نتأكد من نجاح تسجيل المالك أولاً،
-        // ونُعلم المستخدم بوضوح، ثم نكمل إلى OTP فقط عند النجاح.
+        // نتأكد من نجاح تسجيل المالك أولاً ونلتقط registration_token،
+        // ثم نكمل إلى OTP فقط عند النجاح.
         try {
-          await registerOwner(fd);
+          const res = await registerOwner(fd);
+          regToken = res?.registration_token || '';
         } catch (ownerErr) {
           if (ownerErr instanceof ApiError && ownerErr.status === 422 && ownerErr.data?.errors) {
             setErrors(ownerErr.data.errors);
@@ -135,15 +140,18 @@ export default function SignupPage() {
           throw ownerErr; // نُعيد الرمي ليُلتقط في الـ catch الخارجي
         }
       } else {
-        await registerCustomer(payload);
+        const res = await registerCustomer(payload);
+        regToken = res?.registration_token || '';
       }
 
-      // إرسال رمز التحقق عبر البريد (الباك إند يرسله فعلياً)
-      await request('/api/send-otp', {
-        method: 'POST',
-        body: { email: formData.email.trim() },
-      });
-
+      // إصلاح: كان الكود السابق يستدعي /api/send-otp (غير موجود، يرجع 404).
+      // الباك إند أرسل الرمز بالفعل أثناء التسجيل، فقط نحتاج registration_token.
+      if (!regToken) {
+        setFormError('تعذر بدء التحقق: لم يُرجع الخادم رمز التسجيل.');
+        setStep('register');
+        return;
+      }
+      setRegistrationToken(regToken);
       setTimerLeft(30);
       setStep('otp');
     } catch (err) {
@@ -204,10 +212,10 @@ export default function SignupPage() {
     setOtpError('');
     setLoading(true);
     try {
-      // التحقق الفعلي من الرمز عبر الباك إند
+      // التحقق الفعلي من الرمز عبر الباك إند (يتطلب registration_token + code)
       await request('/api/verify-otp', {
         method: 'POST',
-        body: { email: formData.email.trim(), code },
+        body: { registration_token: registrationToken, code },
       });
 
       // تسجيل الدخول تلقائياً بعد التحقق
@@ -219,7 +227,7 @@ export default function SignupPage() {
         setStep('done');
       }
     } catch (err) {
-      if (err instanceof ApiError && (err.status === 422 || err.status === 401)) {
+      if (err instanceof ApiError && (err.status === 422 || err.status === 401 || err.status === 400)) {
         setOtpError('الرمز غير صحيح. حاول مرة أخرى.');
       } else {
         setOtpError(err.message || 'تعذر التحقق. حاول مرة أخرى.');
@@ -230,12 +238,12 @@ export default function SignupPage() {
   };
 
   const handleResendOtp = async () => {
-    if (timerLeft > 0) return;
+    if (timerLeft > 0 || !registrationToken) return;
     setLoading(true);
     try {
-      await request('/api/send-otp', {
+      await request('/api/resend-otp', {
         method: 'POST',
-        body: { email: formData.email.trim() },
+        body: { registration_token: registrationToken },
       });
       setOtp(['', '', '', '', '', '']);
       setTimerLeft(30);
@@ -829,7 +837,7 @@ export default function SignupPage() {
               <p style={{ textAlign: 'center', marginTop: '1rem' }}>
                 <button
                   type="button"
-                  onClick={() => setStep('register')}
+                  onClick={() => { setRegistrationToken(''); setStep('register'); }}
                   style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '0.85rem' }}
                 >
                   ← تغيير البريد

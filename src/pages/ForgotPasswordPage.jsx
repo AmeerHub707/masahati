@@ -79,15 +79,14 @@ export default function ForgotPasswordPage() {
 
     setIsSendingOtp(true);
     try {
-      // يتحقق الباك إند من وجود البريد ويرسل رمز OTP عبر /api/send-otp
-      await request('/api/forgot-password', {
+      // الباك إند يتحقق من وجود البريد ويرسل رمز التحقق عبر /api/forgot-password
+      // (لا يوجد /api/send-otp — كان يرجع 404). نلتقط التوكن الذي يرجعه الخادم
+      // ليُستخدم لاحقاً في reset-password.
+      const res = await request('/api/forgot-password', {
         method: 'POST',
         body: { email: email.trim() },
       });
-      await request('/api/send-otp', {
-        method: 'POST',
-        body: { email: email.trim() },
-      });
+      setVerifiedCode(res?.token || '');
       setStep(2);
       setTimerRemain(OTP_TTL_SECONDS);
       setResendRemain(RESEND_WAIT_SECONDS);
@@ -141,16 +140,17 @@ export default function ForgotPasswordPage() {
     otpInputsRef.current[focusIndex]?.focus();
   };
 
-  // إعادة إرسال الـ OTP
+  // إعادة إرسال الـ OTP: نعيد استدعاء forgot-password (وهو الذي يرسل الرمز فعلياً)
   const handleResend = async () => {
     if (resendRemain > 0 || resendTries >= MAX_RESEND_TRIES) return;
 
     setResendTries((prev) => prev + 1);
     try {
-      await request('/api/send-otp', {
+      const res = await request('/api/forgot-password', {
         method: 'POST',
         body: { email: email.trim() },
       });
+      setVerifiedCode(res?.token || '');
       setOtp(Array(OTP_LEN).fill(''));
       setOtpError('');
       setTimerRemain(OTP_TTL_SECONDS);
@@ -179,10 +179,9 @@ export default function ForgotPasswordPage() {
 
     setIsVerifyingOtp(true);
     try {
-      await request('/api/verify-otp', {
-        method: 'POST',
-        body: { email: email.trim(), code: enteredCode },
-      });
+      // للباك إند: رمز التحقق الذي أرسله forgot-password هو ذاته التوكن المطلوب
+      // في reset-password. لذا نعتبر إدخال الرمز الستّي صحيح الشكل كافياً للمرور
+      // إلى خطوة تغيير كلمة المرور (يتولى reset-password التحقق النهائي).
       setVerifiedCode(enteredCode);
       setStep(3);
     } catch (err) {
