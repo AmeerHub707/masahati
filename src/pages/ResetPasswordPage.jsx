@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { request, ApiError } from '../lib/authStore';
 
 // ترجمة رسائل الخطأ الإنجليزية القادمة من Laravel إلى العربية.
@@ -23,9 +23,11 @@ const EMAIL_REGEX = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const params = useParams();
 
-  // الباك إند يمرّر التوكن والبريد في رابط الإعادة (قد يمرّر التوكن فقط).
-  const token = searchParams.get('token') || '';
+  // الباك إند قد يمرّر التوكن عبر المسار (/password-reset/:token أو /api/reset-password/:token)
+  // أو عبر الاستعلام (?token=...). نقبل الاثنين.
+  const token = searchParams.get('token') || params.token || '';
   const emailFromUrl = searchParams.get('email') || '';
 
   // رابط بلا توكن = غير صالح (نحسب الحالة من الدعائم بدل setState داخل effect).
