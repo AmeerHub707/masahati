@@ -1,64 +1,113 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { request, ApiError } from '../lib/authStore';
 
 // ترجمة رسائل الخطأ الإنجليزية القادمة من Laravel إلى العربية.
-function translate(msg) {
+function translateError(msg) {
   if (!msg) return 'حدث خطأ غير متوقع. حاول مرة أخرى.';
   const m = String(msg).toLowerCase();
-  if (m.includes('selected email is invalid')) return 'هذا البريد غير مسجّل لدينا أو غير صحيح.';
-  if (m.includes('email') && m.includes('required')) return 'البريد الإلكتروني مطلوب.';
-  if (m.includes('throttled') || m.includes('too many')) return 'طلبات كثيرة جداً. انتظر قليلاً وحاول مجدداً.';
+  if (m.includes('token')) return 'رابط إعادة التعيين غير صالح أو منتهٍ. اطلب رابطاً جديداً.';
+  if (m.includes('password') && (m.includes('reset') || m.includes('short') || m.includes('min') || m.includes('at least') || m.includes('characters')))
+    return 'كلمة المرور يجب ألا تقل عن 8 أحرف.';
+  if (m.includes('mismatch') || m.includes('confirmation'))
+    return 'كلمتا المرور غير متطابقتين.';
+  if (m.includes('selected email is invalid')) return 'هذا البريد غير صحيح. اطلب رابطاً جديداً.';
   return msg;
 }
 
-export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState('');
-  const [emailError, setEmailError] = useState('');
+const EMAIL_REGEX = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+
+export default function ResetPasswordPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // الباك إند يمرّر التوكن والبريد في رابط الإعادة.
+  const token = searchParams.get('token') || '';
+  const email = searchParams.get('email') || '';
+
+  // رابط بلا توكن = غير صالح (نحسب الحالة من الدعائم بدل setState داخل effect).
+  const [isInvalidLink] = useState(!token);
+
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const [passwordError, setPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [formError, setFormError] = useState('');
-  const [status, setStatus] = useState('idle'); // 'idle' | 'sending' | 'sent'
-  const [isSending, setIsSending] = useState(false);
+  const [status, setStatus] = useState('idle'); // 'idle' | 'submitting' | 'done'
+  const [isResetting, setIsResetting] = useState(false);
 
-  const maskEmail = (e) => {
-    const [u, d] = e.split('@');
-    if (!d) return e;
-    const head = u.length > 2 ? u[0] + '•••' + u.slice(-1) : u[0] + '••';
-    return head + '@' + d;
+  const getPasswordStrength = (p) => {
+    let score = 0;
+    if (p.length >= 8) score++;
+    if (p.length >= 12) score++;
+    if (/[a-z]/.test(p) && /[A-Z]/.test(p)) score++;
+    if (/\d/.test(p)) score++;
+    if (/[^A-Za-z0-9]/.test(p)) score++;
+    return Math.min(score, 4);
   };
+  const passwordScore = getPasswordStrength(password);
+  const strengthLabels = ['—', 'ضعيف', 'متوسط', 'جيد', 'ممتاز'];
 
-  const isValidEmail = (v) => v.trim().includes('@') && v.trim().includes('.') && !v.trim().includes(' ');
+  const validate = () => {
+    let valid = true;
+    setPasswordError('');
+    setConfirmPasswordError('');
+    setFormError('');
+
+    if (!EMAIL_REGEX.test(email)) {
+      setFormError('رابط إعادة التعيين غير مكتمل (البريد مفقود). اطلب رابطاً جديداً.');
+      valid = false;
+    }
+    if (password.length < 8) {
+      setPasswordError('كلمة المرور يجب ألا تقل عن 8 أحرف.');
+      valid = false;
+    }
+    if (password !== confirmPassword) {
+      setConfirmPasswordError('كلمتا المرور غير متطابقتين.');
+      valid = false;
+    }
+    return valid;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setEmailError('');
-    setFormError('');
+    if (!validate()) return;
 
-    const value = email.trim();
-    if (!isValidEmail(value)) {
-      setEmailError('الرجاء إدخال بريد إلكتروني صحيح.');
-      return;
-    }
-
-    setIsSending(true);
-    setStatus('sending');
+    setIsResetting(true);
+    setStatus('submitting');
     try {
-      // الباك إند يرسل رابط إعادة التعيين إلى البريد (نموذج الرابط، لا OTP).
-      await request('/api/forgot-password', {
+      // الباك إند يتحقق من التوكن والبريد ويعيّن كلمة المرور الجديدة.
+      await request('/api/reset-password', {
         method: 'POST',
-        body: { email: value },
+        body: {
+          email: email.trim(),
+          token,
+          password,
+          password_confirmation: confirmPassword,
+        },
       });
-      setStatus('sent');
+      setStatus('done');
+      setTimeout(() => navigate('/login'), 2200);
     } catch (err) {
-      if (err instanceof ApiError && err.status === 422 && err.data?.errors?.email) {
-        setEmailError(translate(err.data.errors.email[0]));
+      if (err instanceof ApiError && err.data?.errors) {
+        const e = err.data.errors;
+        if (e.password) setPasswordError(translateError(Array.isArray(e.password) ? e.password[0] : e.password));
+        if (e.token) setFormError(translateError(Array.isArray(e.token) ? e.token[0] : e.token));
+        if (e.email) setFormError(translateError(Array.isArray(e.email) ? e.email[0] : e.email));
+        if (!e.password && !e.token && !e.email) {
+          setFormError(translateError(err.message));
+        }
       } else if (err instanceof ApiError) {
-        setFormError(translate(err.message));
+        setFormError(translateError(err.message));
       } else {
         setFormError('تعذر الاتصال بالخادم. تحقق من اتصالك وحاول مجدداً.');
       }
       setStatus('idle');
     } finally {
-      setIsSending(false);
+      setIsResetting(false);
     }
   };
 
@@ -112,7 +161,6 @@ export default function ForgotPasswordPage() {
           pointer-events: none;
         }
 
-        /* ===== طبقة الخلفية المتحركة (تكبير/تصغير) ===== */
         .auth-bg {
           position: absolute;
           inset: 0;
@@ -130,14 +178,9 @@ export default function ForgotPasswordPage() {
           100% { transform: scale(1.05); }
         }
         @media (prefers-reduced-motion: reduce) {
-          .auth-bg,
-          .auth-card__bg {
-            animation: none;
-            transform: scale(1.06);
-          }
+          .auth-bg { animation: none; transform: scale(1.06); }
         }
 
-        /* ===== البطاقة ===== */
         .auth-card {
           position: relative;
           z-index: 1;
@@ -156,25 +199,10 @@ export default function ForgotPasswordPage() {
           .auth-card { flex-direction: row; min-height: 35rem; }
         }
 
-        .auth-card__bg {
-          position: absolute;
-          inset: 0;
-          z-index: 0;
-          background: transparent;
-          background-size: cover;
-          background-position: center;
-        }
-        .auth-card__scrim {
-          position: absolute;
-          inset: 0;
-          z-index: 0;
-          background: transparent;
-        }
-        .auth-card__glow {
-          display: none;
-        }
+        .auth-card__bg { position: absolute; inset: 0; z-index: 0; background: transparent; }
+        .auth-card__scrim { position: absolute; inset: 0; z-index: 0; background: transparent; }
+        .auth-card__glow { display: none; }
 
-        /* ===== الجانب الترحيبي ===== */
         .auth-welcome {
           position: relative;
           z-index: 1;
@@ -216,7 +244,6 @@ export default function ForgotPasswordPage() {
         }
         .auth-welcome__badge svg { width: 1rem; height: 1rem; color: #fff; }
 
-        /* ===== لوحة النموذج (زجاجية) ===== */
         .auth-form {
           position: relative;
           z-index: 1;
@@ -263,10 +290,7 @@ export default function ForgotPasswordPage() {
           border-radius: 999px;
           transition: all 0.2s var(--ease);
         }
-        .back-home:hover {
-          border-color: var(--accent);
-          background: rgba(249,115,22,0.18);
-        }
+        .back-home:hover { border-color: var(--accent); background: rgba(249,115,22,0.18); }
 
         .auth-form h2 {
           margin: 0 0 0.35rem;
@@ -281,7 +305,6 @@ export default function ForgotPasswordPage() {
           color: rgba(255,255,255,0.72);
         }
 
-        /* الحقول */
         .field { margin-bottom: 0.5rem; }
         .field label {
           display: block;
@@ -318,6 +341,34 @@ export default function ForgotPasswordPage() {
           min-height: 1.1rem;
         }
 
+        .pw-wrap { position: relative; }
+        .pw-toggle {
+          position: absolute;
+          left: 8px; top: 50%;
+          transform: translateY(-50%);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 2rem; height: 2rem;
+          color: rgba(255,255,255,0.85);
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          border-radius: 0.5rem;
+          transition: color 0.2s;
+        }
+        .pw-toggle:hover { color: var(--accent); }
+
+        .strength { margin: 0.4rem 0 1rem; }
+        .strength__bars { display: flex; gap: 0.4rem; height: 0.4rem; margin-bottom: 0.4rem; }
+        .strength__bars span { flex: 1; border-radius: 999px; background: rgba(255,255,255,0.2); transition: background 0.3s; }
+        .strength__bars span.on-1 { background: #ef4444; }
+        .strength__bars span.on-2 { background: var(--accent); }
+        .strength__bars span.on-3 { background: #2563eb; }
+        .strength__bars span.on-4 { background: #16a34a; }
+        .strength-label { font-size: 0.75rem; color: rgba(255,255,255,0.75); }
+        .strength-label b { color: #fff; }
+
         .btn {
           width: 100%;
           background: linear-gradient(180deg, #fb923c, var(--accent) 60%, var(--accent-hover));
@@ -344,25 +395,17 @@ export default function ForgotPasswordPage() {
           color: rgba(255,255,255,0.72);
           margin-top: 1.2rem;
         }
-        .switch a {
-          color: #fff;
-          font-weight: 700;
-          text-decoration: underline;
-        }
+        .switch a { color: #fff; font-weight: 700; text-decoration: underline; }
         .switch a:hover { color: var(--accent); }
 
-        /* شاشة النجاح */
         .success-screen { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: rgba(15,15,20,0.92); border-radius: var(--radius-card); padding: 1.5rem; }
         .success-screen__ico { width: 5rem; height: 5rem; margin-bottom: 1rem; border-radius: 999px; background: rgba(34,197,94,0.16); display: flex; align-items: center; justify-content: center; color: #22c55e; }
         .success-screen h2 { color: #fff; font-size: 1.5rem; margin: 0 0 0.5rem; }
-        .success-screen p { color: rgba(255,255,255,0.75); font-size: 0.9rem; margin: 0 0 1.2rem; }
+        .success-screen p { color: rgba(255,255,255,0.75); font-size: 0.9rem; margin: 0; }
 
         @media (max-width: 600px) {
           .auth-welcome { display: none; }
-          .auth-form {
-            background: rgba(0,0,0,0.6);
-            padding: 1.8rem 1.3rem 1.6rem;
-          }
+          .auth-form { background: rgba(0,0,0,0.6); padding: 1.8rem 1.3rem 1.6rem; }
           .field input { font-size: 16px; padding: 0.8rem 0.9rem; }
           .btn { font-size: 1.02rem; padding: 0.9rem 1rem; min-height: 52px; }
           .back-home { padding: 0.55rem 0.85rem; }
@@ -377,13 +420,11 @@ export default function ForgotPasswordPage() {
         <div className="auth-card__scrim" aria-hidden="true" />
         <div className="auth-card__glow" aria-hidden="true" />
 
-        {/* الجانب الترحيبي */}
         <aside className="auth-welcome">
           <div className="auth-welcome__copy">
-            <h1>استرجاع كلمة المرور</h1>
+            <h1>كلمة مرور جديدة</h1>
             <p>
-              أدخل بريدك الإلكتروني وسنرسل لك رابطاً آمناً لإعادة تعيين كلمة المرور.
-              افتح الرابط من رسالتك لإنشاء كلمة مرور جديدة.
+              أنشئ كلمة مرور قوية لحسابك في مساحاتي. تأكد من تطابق الحقلين قبل الحفظ.
             </p>
             <span className="auth-welcome__badge">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -395,7 +436,6 @@ export default function ForgotPasswordPage() {
           </div>
         </aside>
 
-        {/* لوحة النموذج الزجاجية */}
         <section className="auth-form">
           <div className="form-head">
             <div className="brand">
@@ -403,11 +443,7 @@ export default function ForgotPasswordPage() {
               <span className="brand-name">Masa<span>hati</span></span>
             </div>
 
-            <Link
-              to="/"
-              aria-label="العودة إلى الصفحة الرئيسية"
-              className="back-home"
-            >
+            <Link to="/" aria-label="العودة إلى الصفحة الرئيسية" className="back-home">
               <span className="inline-flex">
                 <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-[2.2] stroke-linecap-round stroke-linejoin-round">
                   <path d="M14 6l-6 6 6 6" />
@@ -418,55 +454,93 @@ export default function ForgotPasswordPage() {
           </div>
 
           <div className="relative flex-1">
-            {status === 'sent' ? (
+            {status === 'done' ? (
               <div className="success-screen">
                 <div className="success-screen__ico">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="42" height="42">
-                    <path d="M22 2 11 13" />
-                    <path d="M22 2 15 22 11 13 2 9 22 2z" />
+                    <path d="M20 6 9 17l-5-5" />
                   </svg>
                 </div>
-                <h2>تم إرسال الرابط</h2>
-                <p>
-                  أرسلنا رابط إعادة تعيين كلمة المرور إلى{' '}
-                  <b dir="ltr">{maskEmail(email)}</b>. تحقق من بريدك (ورسائل غير المرغوبة) وافتح الرابط.
-                </p>
-                <Link to="/login" className="btn" style={{ display: 'block', textDecoration: 'none', maxWidth: '16rem' }}>
-                  الذهاب إلى تسجيل الدخول
+                <h2>تم تغيير كلمة المرور</h2>
+                <p>سيتم توجيهك إلى تسجيل الدخول الآن…</p>
+              </div>
+            ) : isInvalidLink ? (
+              <div className="success-screen">
+                <div className="success-screen__ico" style={{ background: 'rgba(248,113,113,0.16)', color: '#f87171' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="42" height="42">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 8v4" />
+                    <path d="M12 16h.01" />
+                  </svg>
+                </div>
+                <h2>الرابط غير صالح</h2>
+                <p>رابط إعادة التعيين مفقود أو منتهٍ. اطلب رابطاً جديداً من صفحة نسيت كلمة المرور.</p>
+                <Link to="/forgot" className="btn" style={{ display: 'block', textDecoration: 'none', maxWidth: '16rem' }}>
+                  طلب رابط جديد
                 </Link>
               </div>
             ) : (
               <form onSubmit={handleSubmit} noValidate className="animate-fadeIn">
-                <h2>نسيت كلمة المرور؟</h2>
+                <h2>تعيين كلمة مرور جديدة</h2>
                 <p className="form-sub">
-                  أدخل بريدك الإلكتروني لاستلام رابط آمن لإعادة تعيين كلمة المرور.
+                  {email ? (
+                    <>أدخل كلمة المرور الجديدة لحساب <b dir="ltr">{email}</b>.</>
+                  ) : (
+                    <>أدخل كلمة المرور الجديدة لحسابك.</>
+                  )}
                 </p>
 
-                <div className={`field ${emailError ? 'has-error' : ''}`}>
-                  <label htmlFor="email">البريد الإلكتروني</label>
-                  <input
-                    type="email"
-                    id="email"
-                    value={email}
-                    onChange={(e) => { setEmail(e.target.value); if (emailError) setEmailError(''); if (formError) setFormError(''); }}
-                    placeholder="hi@hextastudio.in"
-                    dir="ltr"
-                    autoComplete="email"
-                  />
-                  {emailError && <p className="error">{emailError}</p>}
+                <div className={`field ${passwordError ? 'has-error' : ''}`}>
+                  <label htmlFor="password">كلمة المرور الجديدة</label>
+                  <div className="pw-wrap">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      id="password"
+                      value={password}
+                      onChange={(e) => { setPassword(e.target.value); if (passwordError) setPasswordError(''); if (formError) setFormError(''); }}
+                      placeholder="٨ أحرف على الأقل"
+                      autoComplete="new-password"
+                    />
+                    <button type="button" className="pw-toggle" onClick={() => setShowPassword((s) => !s)} aria-label="إظهار/إخفاء">
+                      {showPassword ? '🙈' : '👁'}
+                    </button>
+                  </div>
+                  <div className="strength">
+                    <div className="strength__bars">
+                      {[0,1,2,3].map((i) => (
+                        <span key={i} className={passwordScore > i ? `on-${passwordScore}` : ''} />
+                      ))}
+                    </div>
+                    <div className="strength-label">قوة كلمة المرور: <b>{strengthLabels[passwordScore]}</b></div>
+                  </div>
+                  {passwordError && <p className="error">{passwordError}</p>}
+                </div>
+
+                <div className={`field ${confirmPasswordError ? 'has-error' : ''}`}>
+                  <label htmlFor="confirmPassword">تأكيد كلمة المرور</label>
+                  <div className="pw-wrap">
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      id="confirmPassword"
+                      value={confirmPassword}
+                      onChange={(e) => { setConfirmPassword(e.target.value); if (confirmPasswordError) setConfirmPasswordError(''); if (formError) setFormError(''); }}
+                      placeholder="أعد إدخال كلمة المرور"
+                      autoComplete="new-password"
+                    />
+                    <button type="button" className="pw-toggle" onClick={() => setShowConfirmPassword((s) => !s)} aria-label="إظهار/إخفاء">
+                      {showConfirmPassword ? '🙈' : '👁'}
+                    </button>
+                  </div>
+                  {confirmPasswordError && <p className="error">{confirmPasswordError}</p>}
                 </div>
 
                 {formError && <p className="error" style={{ textAlign: 'center' }}>{formError}</p>}
 
-                <button
-                  type="submit"
-                  disabled={isSending}
-                  className="btn"
-                >
-                  {isSending ? (
+                <button type="submit" disabled={isResetting} className="btn">
+                  {isResetting ? (
                     <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                   ) : (
-                    'إرسال رابط إعادة التعيين'
+                    'تعيين كلمة المرور'
                   )}
                 </button>
 
