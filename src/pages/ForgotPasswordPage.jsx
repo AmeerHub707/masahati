@@ -354,7 +354,8 @@ export default function ForgotPasswordPage() {
         .switch a:hover { color: var(--accent); }
 
         /* شاشة النجاح */
-        .success-screen { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: rgba(15,15,20,0.92); border-radius: var(--radius-card); padding: 1.5rem; }
+        .success-screen { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: rgba(15,15,20,0.96); padding: 1.5rem; overflow-y: auto; }
+        .success-screen > * { flex-shrink: 0; }
         .success-screen__ico { width: 5rem; height: 5rem; margin-bottom: 1rem; border-radius: 999px; background: rgba(34,197,94,0.16); display: flex; align-items: center; justify-content: center; color: #22c55e; }
         .success-screen h2 { color: #fff; font-size: 1.5rem; margin: 0 0 0.5rem; }
         .success-screen p { color: rgba(255,255,255,0.75); font-size: 0.9rem; margin: 0 0 1.2rem; }
@@ -381,10 +382,11 @@ export default function ForgotPasswordPage() {
           .auth-form { padding: 1.5rem 1.1rem 1.4rem; }
           .brand-logo { height: 2.1rem; }
           .auth-form h2 { font-size: 1.3rem; }
-          .success-screen__ico { width: 4rem; height: 4rem; }
-          .success-screen__ico svg { width: 34px; height: 34px; }
-          .success-screen h2 { font-size: 1.3rem; }
-          .success-screen p { font-size: 0.85rem; }
+          .success-screen { padding: 1.25rem; }
+          .success-screen__ico { width: 3.4rem; height: 3.4rem; }
+          .success-screen__ico svg { width: 30px; height: 30px; }
+          .success-screen h2 { font-size: 1.2rem; margin: 0 0 0.35rem; }
+          .success-screen p { font-size: 0.82rem; margin: 0 0 1rem; }
           .success-screen .btn { max-width: 100%; }
         }
         @media (max-width: 400px) {
@@ -407,6 +409,14 @@ export default function ForgotPasswordPage() {
           .auth-form { padding: 1rem 0.75rem; }
           .auth-form h2 { font-size: 1.1rem; }
           .btn { font-size: 0.95rem; }
+        }
+        @media (max-height: 680px) {
+          .success-screen { padding: 1rem; }
+          .success-screen__ico { width: 3rem; height: 3rem; margin-bottom: 0.5rem; }
+          .success-screen__ico svg { width: 26px; height: 26px; }
+          .success-screen h2 { font-size: 1.15rem; margin: 0 0 0.3rem; }
+          .success-screen p { font-size: 0.8rem; }
+          .success-screen .btn { max-width: 100%; }
         }
       `}</style>
 
