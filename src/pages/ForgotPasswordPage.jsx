@@ -142,8 +142,9 @@ export default function ForgotPasswordPage() {
           position: relative;
           z-index: 1;
           width: 100%;
-          max-width: 50rem;
-          max-height: 100%;
+          max-width: min(50rem, 100%);
+          max-height: min(92vh, 44rem);
+          margin: auto;
           display: flex;
           flex-direction: column;
           border-radius: var(--radius-card);
@@ -227,6 +228,7 @@ export default function ForgotPasswordPage() {
           padding: 2rem 2rem 1.6rem;
           background: rgba(0,0,0,0.6);
           border-top: none;
+          overflow-y: auto;
         }
         @media (min-width: 768px) {
           .auth-form {
@@ -359,7 +361,7 @@ export default function ForgotPasswordPage() {
 
         @media (max-width: 600px) {
           .auth-welcome { display: none; }
-          .auth-card { min-height: 0; max-width: 100%; }
+          .auth-card { min-height: 0; max-width: 100%; max-height: none; width: 100%; }
           .auth-form {
             background: rgba(0,0,0,0.6);
             padding: 1.8rem 1.3rem 1.6rem;
@@ -369,8 +371,8 @@ export default function ForgotPasswordPage() {
           .btn { font-size: 1.02rem; padding: 0.9rem 1rem; min-height: 52px; }
           .back-home { padding: 0.55rem 0.85rem; }
           .auth-wrapper {
-            padding: calc(env(safe-area-inset-top) + 0.5rem) 0.75rem calc(env(safe-area-inset-bottom) + 0.5rem);
-            align-items: flex-start;
+            padding: calc(env(safe-area-inset-top) + 0.75rem) 0.75rem calc(env(safe-area-inset-bottom) + 0.75rem);
+            align-items: center;
           }
         }
         @media (max-width: 380px) {
