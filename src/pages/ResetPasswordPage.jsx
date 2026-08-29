@@ -421,23 +421,55 @@ export default function ResetPasswordPage() {
         .btn--ghost { background: transparent; border: 1.5px solid rgba(255,255,255,0.5); box-shadow: none; color: #fff; }
         .btn--ghost:hover { background: rgba(255,255,255,0.12); }
 
-        @media (max-width: 600px) {
+        @media (max-width: 768px) {
           .auth-welcome { display: none; }
-          .auth-card { min-height: 0; max-width: 100%; max-height: none; width: 100%; }
-          .auth-form { background: rgba(0,0,0,0.6); padding: 1.8rem 1.3rem 1.6rem; width: 100%; }
-          .field input { font-size: 16px; padding: 0.8rem 0.9rem; }
-          .btn { font-size: 1.02rem; padding: 0.9rem 1rem; min-height: 52px; }
-          .back-home { padding: 0.55rem 0.85rem; }
+          .auth-card { max-width: 100%; max-height: none; width: 100%; min-height: 0; }
+          .auth-form { width: 100%; }
+        }
+        @media (max-width: 600px) {
           .auth-wrapper {
             padding: calc(env(safe-area-inset-top) + 0.75rem) 0.75rem calc(env(safe-area-inset-bottom) + 0.75rem);
             align-items: center;
           }
+          .auth-card { max-width: 100%; }
+          .auth-form { background: rgba(0,0,0,0.6); padding: 1.8rem 1.3rem 1.6rem; }
+          .field input { font-size: 16px; padding: 0.8rem 0.9rem; }
+          .btn { font-size: 1.02rem; padding: 0.9rem 1rem; min-height: 52px; }
+          .back-home { padding: 0.55rem 0.85rem; }
+          .auth-form h2 { font-size: 1.4rem; }
+          .form-sub { font-size: 0.88rem; margin-bottom: 1.1rem; }
         }
-        @media (max-width: 380px) {
-          .auth-form { padding: 1.4rem 1rem 1.4rem; }
+        @media (max-width: 480px) {
+          .auth-form { padding: 1.5rem 1.1rem 1.4rem; }
+          .brand-logo { height: 2.1rem; }
+          .auth-form h2 { font-size: 1.3rem; }
+          .success-screen__ico { width: 4rem; height: 4rem; }
+          .success-screen__ico svg { width: 34px; height: 34px; }
+          .success-screen h2 { font-size: 1.3rem; }
+          .success-screen p { font-size: 0.85rem; }
+          .success-screen__actions { max-width: 100%; }
+          .success-screen .btn { max-width: 100%; }
+        }
+        @media (max-width: 400px) {
+          .auth-form { padding: 1.3rem 1rem 1.3rem; }
+          .field input { padding: 0.7rem 0.8rem; }
+          .btn { padding: 0.8rem 0.9rem; min-height: 48px; }
           .auth-card { border-radius: 1.25rem; }
-          .success-screen { padding: 1.1rem; }
-          .brand-logo { height: 2rem; }
+          .back-home { font-size: 0.78rem; padding: 0.5rem 0.75rem; }
+        }
+        @media (max-width: 360px) {
+          .auth-form { padding: 1.1rem 0.85rem 1.1rem; }
+          .auth-form h2 { font-size: 1.18rem; }
+          .form-sub { font-size: 0.82rem; }
+          .field label { font-size: 0.78rem; }
+          .brand-logo { height: 1.9rem; }
+          .success-screen { padding: 1rem; }
+          .success-screen__ico { width: 3.4rem; height: 3.4rem; }
+        }
+        @media (max-width: 320px) {
+          .auth-form { padding: 1rem 0.75rem; }
+          .auth-form h2 { font-size: 1.1rem; }
+          .btn { font-size: 0.95rem; }
         }
       `}</style>
 
