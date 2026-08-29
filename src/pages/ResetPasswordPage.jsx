@@ -24,12 +24,16 @@ export default function ResetPasswordPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // الباك إند يمرّر التوكن والبريد في رابط الإعادة.
+  // الباك إند يمرّر التوكن والبريد في رابط الإعادة (قد يمرّر التوكن فقط).
   const token = searchParams.get('token') || '';
-  const email = searchParams.get('email') || '';
+  const emailFromUrl = searchParams.get('email') || '';
 
   // رابط بلا توكن = غير صالح (نحسب الحالة من الدعائم بدل setState داخل effect).
   const [isInvalidLink] = useState(!token);
+
+  // إذا غاب البريد من الرابط نسمح للمستخدم بإدخاله يدوياً حتى لا يتعطّل التدفق.
+  const [email, setEmail] = useState(emailFromUrl);
+  const emailEditable = !emailFromUrl;
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -38,6 +42,7 @@ export default function ResetPasswordPage() {
 
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [emailError, setEmailError] = useState('');
   const [formError, setFormError] = useState('');
   const [status, setStatus] = useState('idle'); // 'idle' | 'submitting' | 'done'
   const [isResetting, setIsResetting] = useState(false);
@@ -58,10 +63,11 @@ export default function ResetPasswordPage() {
     let valid = true;
     setPasswordError('');
     setConfirmPasswordError('');
+    setEmailError('');
     setFormError('');
 
-    if (!EMAIL_REGEX.test(email)) {
-      setFormError('رابط إعادة التعيين غير مكتمل (البريد مفقود). اطلب رابطاً جديداً.');
+    if (emailEditable && !EMAIL_REGEX.test(email)) {
+      setEmailError('الرجاء إدخال بريدك الإلكتروني.');
       valid = false;
     }
     if (password.length < 8) {
@@ -489,9 +495,25 @@ export default function ResetPasswordPage() {
                   {email ? (
                     <>أدخل كلمة المرور الجديدة لحساب <b dir="ltr">{email}</b>.</>
                   ) : (
-                    <>أدخل كلمة المرور الجديدة لحسابك.</>
+                    <>أدخل بريدك وكلمة المرور الجديدة لحسابك.</>
                   )}
                 </p>
+
+                {emailEditable && (
+                  <div className={`field ${emailError ? 'has-error' : ''}`}>
+                    <label htmlFor="email">البريد الإلكتروني</label>
+                    <input
+                      type="email"
+                      id="email"
+                      value={email}
+                      onChange={(e) => { setEmail(e.target.value); if (emailError) setEmailError(''); }}
+                      placeholder="hi@masahati.com"
+                      dir="ltr"
+                      autoComplete="email"
+                    />
+                    {emailError && <p className="error">{emailError}</p>}
+                  </div>
+                )}
 
                 <div className={`field ${passwordError ? 'has-error' : ''}`}>
                   <label htmlFor="password">كلمة المرور الجديدة</label>
