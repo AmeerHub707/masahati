@@ -46,7 +46,8 @@ export default function ResetPasswordPage() {
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [emailError, setEmailError] = useState('');
   const [formError, setFormError] = useState('');
-  const [status, setStatus] = useState('idle'); // 'idle' | 'submitting' | 'done'
+  const [submitError, setSubmitError] = useState('');
+  const [status, setStatus] = useState('idle'); // 'idle' | 'submitting' | 'done' | 'error'
   const [isResetting, setIsResetting] = useState(false);
 
   const getPasswordStrength = (p) => {
@@ -116,7 +117,8 @@ export default function ResetPasswordPage() {
       } else {
         setFormError('تعذر الاتصال بالخادم. تحقق من اتصالك وحاول مجدداً.');
       }
-      setStatus('idle');
+      setSubmitError(translateError(err.message, err.status));
+      setStatus('error');
     } finally {
       setIsResetting(false);
     }
@@ -413,16 +415,27 @@ export default function ResetPasswordPage() {
         .success-screen__ico { width: 5rem; height: 5rem; margin-bottom: 1rem; border-radius: 999px; background: rgba(34,197,94,0.16); display: flex; align-items: center; justify-content: center; color: #22c55e; }
         .success-screen h2 { color: #fff; font-size: 1.5rem; margin: 0 0 0.5rem; }
         .success-screen p { color: rgba(255,255,255,0.75); font-size: 0.9rem; margin: 0; }
+        .success-screen__actions { display: flex; flex-direction: column; gap: 0.6rem; width: 100%; max-width: 16rem; margin-top: 1.2rem; }
+        .btn--ghost { background: transparent; border: 1.5px solid rgba(255,255,255,0.5); box-shadow: none; color: #fff; }
+        .btn--ghost:hover { background: rgba(255,255,255,0.12); }
 
         @media (max-width: 600px) {
           .auth-welcome { display: none; }
-          .auth-form { background: rgba(0,0,0,0.6); padding: 1.8rem 1.3rem 1.6rem; }
+          .auth-card { min-height: 0; max-width: 100%; }
+          .auth-form { background: rgba(0,0,0,0.6); padding: 1.8rem 1.3rem 1.6rem; width: 100%; }
           .field input { font-size: 16px; padding: 0.8rem 0.9rem; }
           .btn { font-size: 1.02rem; padding: 0.9rem 1rem; min-height: 52px; }
           .back-home { padding: 0.55rem 0.85rem; }
           .auth-wrapper {
             padding: calc(env(safe-area-inset-top) + 0.5rem) 0.75rem calc(env(safe-area-inset-bottom) + 0.5rem);
+            align-items: flex-start;
           }
+        }
+        @media (max-width: 380px) {
+          .auth-form { padding: 1.4rem 1rem 1.4rem; }
+          .auth-card { border-radius: 1.25rem; }
+          .success-screen { padding: 1.1rem; }
+          .brand-logo { height: 2rem; }
         }
       `}</style>
 
@@ -474,6 +487,26 @@ export default function ResetPasswordPage() {
                 </div>
                 <h2>تم تغيير كلمة المرور</h2>
                 <p>سيتم توجيهك إلى تسجيل الدخول الآن…</p>
+              </div>
+            ) : status === 'error' ? (
+              <div className="success-screen error-screen">
+                <div className="success-screen__ico" style={{ background: 'rgba(248,113,113,0.16)', color: '#f87171' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="42" height="42">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 8v4" />
+                    <path d="M12 16h.01" />
+                  </svg>
+                </div>
+                <h2>تعذّر تغيير كلمة المرور</h2>
+                <p>{submitError || 'حدث خطأ غير متوقع. حاول مرة أخرى.'}</p>
+                <div className="success-screen__actions">
+                  <button type="button" className="btn" onClick={() => { setSubmitError(''); setStatus('idle'); }}>
+                    المحاولة مجدداً
+                  </button>
+                  <Link to="/login" className="btn btn--ghost" style={{ display: 'block', textDecoration: 'none', maxWidth: '16rem' }}>
+                    تسجيل الدخول
+                  </Link>
+                </div>
               </div>
             ) : isInvalidLink ? (
               <div className="success-screen">
