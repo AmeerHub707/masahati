@@ -359,16 +359,24 @@ export default function ForgotPasswordPage() {
 
         @media (max-width: 600px) {
           .auth-welcome { display: none; }
+          .auth-card { min-height: 0; max-width: 100%; }
           .auth-form {
             background: rgba(0,0,0,0.6);
             padding: 1.8rem 1.3rem 1.6rem;
+            width: 100%;
           }
           .field input { font-size: 16px; padding: 0.8rem 0.9rem; }
           .btn { font-size: 1.02rem; padding: 0.9rem 1rem; min-height: 52px; }
           .back-home { padding: 0.55rem 0.85rem; }
           .auth-wrapper {
             padding: calc(env(safe-area-inset-top) + 0.5rem) 0.75rem calc(env(safe-area-inset-bottom) + 0.5rem);
+            align-items: flex-start;
           }
+        }
+        @media (max-width: 380px) {
+          .auth-form { padding: 1.4rem 1rem 1.4rem; }
+          .auth-card { border-radius: 1.25rem; }
+          .brand-logo { height: 2rem; }
         }
       `}</style>
 
