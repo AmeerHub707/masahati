@@ -142,7 +142,7 @@ export default function ForgotPasswordPage() {
           position: relative;
           z-index: 1;
           width: 100%;
-          max-width: min(30rem, 100%);
+          max-width: min(50rem, 100%);
           max-height: min(92vh, 44rem);
           margin: auto;
           display: flex;
@@ -177,7 +177,7 @@ export default function ForgotPasswordPage() {
 
         /* ===== الجانب الترحيبي ===== */
         .auth-welcome {
-          display: none;
+          display: flex;
           position: relative;
           z-index: 1;
           flex-direction: column;
