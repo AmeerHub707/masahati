@@ -3,7 +3,10 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { request, ApiError } from '../lib/authStore';
 
 // ترجمة رسائل الخطأ الإنجليزية القادمة من Laravel إلى العربية.
-function translateError(msg) {
+function translateError(msg, status) {
+  if (status === 405) {
+    return 'رابط إعادة التعيين مفتوح بطريقة غير صحيحة. انسخ الرابط وافتحه في المتصفح، أو اطلب رابطاً جديداً.';
+  }
   if (!msg) return 'حدث خطأ غير متوقع. حاول مرة أخرى.';
   const m = String(msg).toLowerCase();
   if (m.includes('token')) return 'رابط إعادة التعيين غير صالح أو منتهٍ. اطلب رابطاً جديداً.';
@@ -94,14 +97,14 @@ export default function ResetPasswordPage() {
     } catch (err) {
       if (err instanceof ApiError && err.data?.errors) {
         const e = err.data.errors;
-        if (e.password) setPasswordError(translateError(Array.isArray(e.password) ? e.password[0] : e.password));
-        if (e.token) setFormError(translateError(Array.isArray(e.token) ? e.token[0] : e.token));
-        if (e.email) setFormError(translateError(Array.isArray(e.email) ? e.email[0] : e.email));
+        if (e.password) setPasswordError(translateError(Array.isArray(e.password) ? e.password[0] : e.password, err.status));
+        if (e.token) setFormError(translateError(Array.isArray(e.token) ? e.token[0] : e.token, err.status));
+        if (e.email) setFormError(translateError(Array.isArray(e.email) ? e.email[0] : e.email, err.status));
         if (!e.password && !e.token && !e.email) {
-          setFormError(translateError(err.message));
+          setFormError(translateError(err.message, err.status));
         }
       } else if (err instanceof ApiError) {
-        setFormError(translateError(err.message));
+        setFormError(translateError(err.message, err.status));
       } else {
         setFormError('تعذر الاتصال بالخادم. تحقق من اتصالك وحاول مجدداً.');
       }
