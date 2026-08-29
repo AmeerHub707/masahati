@@ -26,7 +26,8 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/forgot" element={<ForgotPasswordPage />} />
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/password-reset" element={<ResetPasswordPage />} />
+      <Route path="/reset-password" element={<Navigate to="/password-reset" replace />} />
       <Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
       
       {/* مسار احتياطي للصفحات غير الموجودة 404 */}
