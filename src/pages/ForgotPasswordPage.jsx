@@ -354,11 +354,39 @@ export default function ForgotPasswordPage() {
         .switch a:hover { color: var(--accent); }
 
         /* شاشة النجاح */
-        .success-screen { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: rgba(15,15,20,0.96); padding: 1.5rem; overflow-y: auto; }
-        .success-screen > * { flex-shrink: 0; }
-        .success-screen__ico { width: 5rem; height: 5rem; margin-bottom: 1rem; border-radius: 999px; background: rgba(34,197,94,0.16); display: flex; align-items: center; justify-content: center; color: #22c55e; }
+        /* شاشة النجاح: بطاقة زجاجية متمركزة تحفظ هوية التصميم */
+        .success-screen {
+          position: fixed;
+          inset: 0;
+          z-index: 50;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 1.25rem;
+          background: rgba(10,10,14,0.55);
+          backdrop-filter: blur(4px);
+        }
+        .success-card {
+          width: 100%;
+          max-width: min(26rem, 90vw);
+          max-height: min(90vh, 34rem);
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          padding: 2.2rem 1.8rem 2rem;
+          border-radius: var(--radius-card);
+          background: rgba(0,0,0,0.72);
+          border: 1px solid rgba(249,115,22,0.18);
+          box-shadow: 0 30px 60px -20px rgba(0,0,0,0.6);
+        }
+        .success-card__logo { height: 2.4rem; width: auto; margin-bottom: 1rem; filter: drop-shadow(0 6px 14px rgba(249,115,22,0.3)); }
+        .success-screen__ico { width: 4.5rem; height: 4.5rem; margin-bottom: 0.9rem; border-radius: 999px; background: rgba(34,197,94,0.16); display: flex; align-items: center; justify-content: center; color: #22c55e; }
+        .success-screen__ico svg { width: 38px; height: 38px; }
         .success-screen h2 { color: #fff; font-size: 1.5rem; margin: 0 0 0.5rem; }
-        .success-screen p { color: rgba(255,255,255,0.75); font-size: 0.9rem; margin: 0 0 1.2rem; }
+        .success-screen p { color: rgba(255,255,255,0.78); font-size: 0.92rem; line-height: 1.6; margin: 0 0 1.4rem; }
+        .success-screen .btn { width: 100%; max-width: 16rem; }
 
         @media (max-width: 768px) {
           .auth-welcome { display: none; }
@@ -382,12 +410,13 @@ export default function ForgotPasswordPage() {
           .auth-form { padding: 1.5rem 1.1rem 1.4rem; }
           .brand-logo { height: 2.1rem; }
           .auth-form h2 { font-size: 1.3rem; }
-          .success-screen { padding: 1.25rem; }
-          .success-screen__ico { width: 3.4rem; height: 3.4rem; }
+          .success-screen { padding: 1rem; }
+          .success-card { padding: 1.8rem 1.3rem 1.6rem; max-width: 92vw; }
+          .success-card__logo { height: 2.1rem; margin-bottom: 0.7rem; }
+          .success-screen__ico { width: 3.6rem; height: 3.6rem; margin-bottom: 0.7rem; }
           .success-screen__ico svg { width: 30px; height: 30px; }
-          .success-screen h2 { font-size: 1.2rem; margin: 0 0 0.35rem; }
-          .success-screen p { font-size: 0.82rem; margin: 0 0 1rem; }
-          .success-screen .btn { max-width: 100%; }
+          .success-screen h2 { font-size: 1.25rem; margin: 0 0 0.35rem; }
+          .success-screen p { font-size: 0.85rem; margin: 0 0 1.1rem; }
         }
         @media (max-width: 400px) {
           .auth-form { padding: 1.3rem 1rem 1.3rem; }
@@ -402,8 +431,8 @@ export default function ForgotPasswordPage() {
           .form-sub { font-size: 0.82rem; }
           .field label { font-size: 0.78rem; }
           .brand-logo { height: 1.9rem; }
-          .success-screen { padding: 1rem; }
-          .success-screen__ico { width: 3.4rem; height: 3.4rem; }
+          .success-card { padding: 1.5rem 1.1rem 1.4rem; }
+          .success-screen__ico { width: 3.2rem; height: 3.2rem; }
         }
         @media (max-width: 320px) {
           .auth-form { padding: 1rem 0.75rem; }
@@ -411,12 +440,13 @@ export default function ForgotPasswordPage() {
           .btn { font-size: 0.95rem; }
         }
         @media (max-height: 680px) {
-          .success-screen { padding: 1rem; }
+          .success-screen { padding: 0.75rem; }
+          .success-card { padding: 1.4rem 1.2rem 1.3rem; max-height: 92vh; }
+          .success-card__logo { height: 2rem; margin-bottom: 0.5rem; }
           .success-screen__ico { width: 3rem; height: 3rem; margin-bottom: 0.5rem; }
           .success-screen__ico svg { width: 26px; height: 26px; }
           .success-screen h2 { font-size: 1.15rem; margin: 0 0 0.3rem; }
-          .success-screen p { font-size: 0.8rem; }
-          .success-screen .btn { max-width: 100%; }
+          .success-screen p { font-size: 0.82rem; margin: 0 0 1rem; }
         }
       `}</style>
 
@@ -468,20 +498,23 @@ export default function ForgotPasswordPage() {
           <div className="relative flex-1">
             {status === 'sent' ? (
               <div className="success-screen">
-                <div className="success-screen__ico">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="42" height="42">
-                    <path d="M22 2 11 13" />
-                    <path d="M22 2 15 22 11 13 2 9 22 2z" />
-                  </svg>
+                <div className="success-card">
+                  <img src="/masahati.jpeg" alt="Masahati" className="success-card__logo" />
+                  <div className="success-screen__ico">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="42" height="42">
+                      <path d="M22 2 11 13" />
+                      <path d="M22 2 15 22 11 13 2 9 22 2z" />
+                    </svg>
+                  </div>
+                  <h2>تم إرسال الرابط</h2>
+                  <p>
+                    أرسلنا رابط إعادة تعيين كلمة المرور إلى{' '}
+                    <b dir="ltr">{maskEmail(email)}</b>. تحقق من بريدك (ورسائل غير المرغوبة) وافتح الرابط.
+                  </p>
+                  <Link to="/login" className="btn" style={{ display: 'block', textDecoration: 'none', marginTop: '0.4rem' }}>
+                    الذهاب إلى تسجيل الدخول
+                  </Link>
                 </div>
-                <h2>تم إرسال الرابط</h2>
-                <p>
-                  أرسلنا رابط إعادة تعيين كلمة المرور إلى{' '}
-                  <b dir="ltr">{maskEmail(email)}</b>. تحقق من بريدك (ورسائل غير المرغوبة) وافتح الرابط.
-                </p>
-                <Link to="/login" className="btn" style={{ display: 'block', textDecoration: 'none', maxWidth: '16rem' }}>
-                  الذهاب إلى تسجيل الدخول
-                </Link>
               </div>
             ) : (
               <form onSubmit={handleSubmit} noValidate className="animate-fadeIn">
