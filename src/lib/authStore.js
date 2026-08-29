@@ -1,60 +1,89 @@
-// تخزين وهمي للمستخدمين (لا يوجد باك إند حقيقى فى هذا المشروع بعد).
-// يُستخدم للتحقق مما إذا كان البريد مسجّلاً فعلاً قبل إرسال رمز إعادة التعيين.
-// فى النسخة الحقيقية يُستبدل بطلب إلى API فريق Laravel/MySQL
-// (مثلاً: POST /api/forgot-password). يجب ألا يكشف الخادم وجود البريد.
+// تخزين المصادقة الحقيقي — يتواصل مع باك إند Laravel على Render.
+// المصادقة عبر Bearer token (Sanctum) يُحفظ في localStorage.
+// التوكن هو المرجع الوحيد لكون الجلسة نشطة؛ لا نعتمد على أي علم إضافي.
 
-const STORAGE_KEY = 'masahati_users';
-const SEED = [
-  'student@masahati.ps',
-  'owner@masahati.ps',
-  'admin@masahati.ps',
-];
+import { request, getToken, setToken, clearToken, ApiError } from './api';
 
-function read() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return new Set([...JSON.parse(raw), ...SEED]);
-  } catch {
-    /* تجاهل أخطاء القراءة */
-  }
-  return new Set(SEED);
-}
+// إعادة التصدير لتسهيل الاستيراد من صفحات المصادقة
+export { request, ApiError };
 
-function write(set) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([...set]));
-  } catch {
-    /* التخزين غير متاح */
-  }
-}
-
-export function isEmailRegistered(email) {
-  return read().has(String(email).trim().toLowerCase());
-}
-
-export function registerEmail(email) {
-  const set = read();
-  set.add(String(email).trim().toLowerCase());
-  write(set);
-}
-
-// حالة الجلسة (وهمية حتى يصل مفتاح الـ API من الفريق).
-// فى النسخة الحقيقية تُستبدل بجلسة Supabase الحقيقية.
-const SESSION_KEY = 'masahati_session';
-
+// ----- حالة الجلسة: مبنية على وجود التوكن فقط -----
+// إصلاح: كان الكود السابق يعتمد على SESSION_KEY بالإضافة إلى التوكن،
+// ما يسمح بإظهار واجهة المسجّل بعد انتهاء صلاحية التوكن في السيرفر.
+// الآن: التوكن هو المرجع الوحيد.
 export function isLoggedIn() {
+  return !!getToken();
+}
+
+// ----- تسجيل الدخول -----
+export async function login(email, password) {
+  const data = await request('/api/login', {
+    method: 'POST',
+    body: { login: email, password },
+  });
+  if (data && data.token) {
+    setToken(data.token);
+    return data;
+  }
+  // إصلاح: كان الكود السابق يتجاهل غياب التوكن ويعود بنجاح صامت.
+  // الآن: نرمي خطأ واضح إذا لم يُرجع السيرفر توكناً.
+  throw new ApiError('استجابة الخادم غير متوقعة (لا يوجد توكن).', 500, data);
+}
+
+// ----- تسجيل عميل -----
+export async function registerCustomer(payload) {
+  return request('/api/register/customer', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+// ----- تسجيل صاحب مساحة (يتضمن ملف الوثيقة) -----
+export async function registerOwner(formData) {
+  return request('/api/register/space-owner', {
+    method: 'POST',
+    body: formData,
+    isForm: true,
+  });
+}
+
+// ----- بيانات المستخدم الحالي (محمي) -----
+export async function userDetails() {
+  return request('/api/user-details', { method: 'GET', auth: true });
+}
+
+// ----- تسجيل الخروج -----
+export async function logout() {
   try {
-    return localStorage.getItem(SESSION_KEY) === '1';
+    await request('/api/logout', { method: 'POST', auth: true });
   } catch {
-    return false;
+    /* نمسح التوكن محلياً على أي حال */
+  } finally {
+    clearToken();
   }
 }
 
-export function setLoggedIn(value) {
+// ----- حذف المستخدم (محمي) -----
+export async function deleteUser() {
+  return request('/api/delete-user', { method: 'DELETE', auth: true });
+}
+
+// ----- التحقق من وجود البريد (يُستخدم في نسيت كلمة المرور) -----
+// إصلاح: كان الكود السابق يعامل أي 422 كـ"البريد غير مسجّل"،
+// لكن Laravel يرجع 422 أيضاً لأخطاء صيغة البريد. نفرّق الآن:
+//   - 4xx => نعتبره "غير مسجّل" بأمان.
+//   - 5xx أو خطأ شبكة => نفترض مسجّلاً كي لا نمنع المستخدم.
+export async function isEmailRegistered(email) {
   try {
-    if (value) localStorage.setItem(SESSION_KEY, '1');
-    else localStorage.removeItem(SESSION_KEY);
-  } catch {
-    /* التخزين غير متاح */
+    await request('/api/forgot-password', {
+      method: 'POST',
+      body: { email },
+    });
+    return true;
+  } catch (err) {
+    if (err && err.status >= 400 && err.status < 500) {
+      return false;
+    }
+    return true;
   }
 }

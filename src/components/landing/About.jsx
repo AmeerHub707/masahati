@@ -1,3 +1,5 @@
+import TiltCard from '../common/TiltCard';
+
 const cards = [
   {
     title: 'رسالتنا',
@@ -27,13 +29,15 @@ export default function About() {
 
       <div className="wrap grid-3">
         {cards.map((c) => (
-          <div className="feature" key={c.title}>
-            <div className="ico">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{c.icon}</svg>
+          <TiltCard key={c.title}>
+            <div className="feature glow-border glow-box">
+              <div className="ico">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{c.icon}</svg>
+              </div>
+              <h3>{c.title}</h3>
+              <p>{c.desc}</p>
             </div>
-            <h3>{c.title}</h3>
-            <p>{c.desc}</p>
-          </div>
+          </TiltCard>
         ))}
       </div>
     </section>

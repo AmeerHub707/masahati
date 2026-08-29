@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { setLoggedIn } from '../lib/authStore';
+import { login, ApiError } from '../lib/authStore';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -10,6 +10,8 @@ export default function LoginPage() {
     remember: false
   });
   const [errors, setErrors] = useState({ identifier: '', password: '' });
+  const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   const toggleShowPassword = () => setShowPassword((s) => !s);
@@ -26,18 +28,18 @@ export default function LoginPage() {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     let valid = true;
     const newErrors = { identifier: '', password: '' };
 
     const identifier = formData.identifier.trim();
-    const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+    const emailOk = identifier.includes('@') && identifier.includes('.') && !identifier.includes(' ');
 
     if (!identifier) {
       newErrors.identifier = 'الرجاء إدخال البريد الإلكتروني';
       valid = false;
-    } else if (!emailRegex.test(identifier)) {
+    } else if (!emailOk) {
       newErrors.identifier = 'أدخل بريداً إلكترونياً صحيحاً';
       valid = false;
     }
@@ -48,16 +50,27 @@ export default function LoginPage() {
     }
 
     setErrors(newErrors);
+    setFormError('');
+    if (!valid) return;
 
-    if (valid) {
-      // هنا يتم وضع المنطق الخاص بالـ Authentication لاحقاً (API فريق Laravel/MySQL)
-      setLoggedIn(true); // وهمي حتى يجهز الـ API
+    setLoading(true);
+    try {
+      await login(identifier, formData.password);
       navigate('/dashboard');
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 401 || err.status === 422)) {
+        setFormError('البريد الإلكتروني أو كلمة المرور غير صحيحة.');
+      } else {
+        setFormError(err.message || 'تعذر تسجيل الدخول. حاول مرة أخرى.');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="auth-wrapper">
+      <div className="auth-bg" aria-hidden="true" />
       {/* Styles inject */}
       <style>{`
         :root {
@@ -86,6 +99,7 @@ export default function LoginPage() {
           background-size: cover;
           background-position: center;
           position: relative;
+          isolation: isolate;
           overflow: hidden;
           font-family: 'Cairo', sans-serif;
           direction: rtl;
@@ -109,6 +123,31 @@ export default function LoginPage() {
           pointer-events: none;
         }
 
+        /* ===== طبقة الخلفية المتحركة (تكبير/تصغير) ===== */
+        .auth-bg {
+          position: absolute;
+          inset: 0;
+          z-index: -1;
+          background-image: url("/background.jpeg");
+          background-size: cover;
+          background-position: center;
+          transform: scale(1.06);
+          animation: authZoom 9s ease-in-out infinite;
+          will-change: transform;
+        }
+        @keyframes authZoom {
+          0%   { transform: scale(1.05); }
+          50%  { transform: scale(1.18); }
+          100% { transform: scale(1.05); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .auth-bg,
+          .auth-card__bg {
+            animation: none;
+            transform: scale(1.06);
+          }
+        }
+
         /* ===== البطاقة: خلفية الصورة تغطي البطاقة بالكامل (ليست نصفاً) ===== */
         .auth-card {
           position: relative;
@@ -121,7 +160,7 @@ export default function LoginPage() {
           border-radius: var(--radius-card);
           overflow: hidden;
           box-shadow: var(--shadow), 0 0 0 1px rgba(249,115,22,0.10);
-          background: #0f0f14;
+          background: rgba(0,0,0,0.6);
           isolation: isolate;
         }
         @media (min-width: 768px) {
@@ -132,7 +171,7 @@ export default function LoginPage() {
           position: absolute;
           inset: 0;
           z-index: 0;
-          background-image: url("/Loginside.jpg");
+          background: transparent;
           background-size: cover;
           background-position: center;
         }
@@ -141,16 +180,10 @@ export default function LoginPage() {
           position: absolute;
           inset: 0;
           z-index: 0;
-          background: linear-gradient(90deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.46) 44%, rgba(234,88,12,0.42) 100%);
+          background: transparent;
         }
         .auth-card__glow {
-          position: absolute;
-          z-index: 0;
-          right: -6rem; top: -6rem;
-          width: 24rem; height: 24rem;
-          background: radial-gradient(circle, rgba(249,115,22,0.45), transparent 70%);
-          filter: blur(30px);
-          pointer-events: none;
+          display: none;
         }
 
         /* ===== الجانب الترحيبي (يسار على سطح المكتب) ===== */
@@ -209,10 +242,8 @@ export default function LoginPage() {
           display: flex;
           flex-direction: column;
           padding: 2rem 2rem 1.6rem;
-          background: rgba(18,16,14,0.55);
-          backdrop-filter: blur(18px) saturate(140%);
-          -webkit-backdrop-filter: blur(18px) saturate(140%);
-          border-top: 1px solid rgba(255,255,255,0.14);
+          background: rgba(0,0,0,0.6);
+          border-top: none;
           overflow-y: auto;
           scrollbar-width: thin;
           scrollbar-color: var(--accent) transparent;
@@ -229,7 +260,7 @@ export default function LoginPage() {
             width: 54%; flex: none;
             padding: 2.2rem 2.4rem 1.8rem;
             border-top: none;
-            border-inline-start: 1.5px solid rgba(255,255,255,0.55);
+            border-inline-start: 1px solid rgba(255,255,255,0.12);
           }
         }
 
@@ -418,7 +449,7 @@ export default function LoginPage() {
         @media (max-width: 600px) {
           .auth-welcome { display: none; }
           .auth-form {
-            background: rgba(18,16,14,0.78);
+            background: rgba(0,0,0,0.6);
             padding: 1.8rem 1.3rem 1.6rem;
           }
           .field input { font-size: 16px; padding: 0.8rem 0.9rem; }
@@ -483,6 +514,12 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} noValidate>
             <h2>سجّل الدخول</h2>
             <p className="form-sub">أدخل بياناتك للوصول إلى حسابك.</p>
+
+            {formError && (
+              <p className="error" aria-live="polite" style={{ color: '#fca5a5', marginBottom: '0.8rem' }}>
+                {formError}
+              </p>
+            )}
 
             {/* المعرّف: بريد إلكتروني أو رقم هاتف */}
             <div className={`field ${errors.identifier ? 'has-error' : ''}`}>
@@ -560,8 +597,8 @@ export default function LoginPage() {
             </div>
 
             {/* زر الدخول */}
-            <button type="submit" className="btn">
-              تسجيل الدخول
+            <button type="submit" className="btn" disabled={loading}>
+              {loading ? 'جارٍ تسجيل الدخول…' : 'تسجيل الدخول'}
             </button>
 
             {/* التحويل إلى إنشاء حساب */}

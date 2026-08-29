@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { setLoggedIn } from '../lib/authStore';
 import {
   GraduationCap,
   Building2,
@@ -10,7 +9,13 @@ import {
   Upload,
   FileCheck
 } from 'lucide-react';
-import { registerEmail } from '../lib/authStore';
+import {
+  registerCustomer,
+  registerOwner,
+  login,
+  ApiError,
+  request,
+} from '../lib/authStore';
 import WhatsAppBubble from '../components/common/WhatsAppBubble';
 
 export default function SignupPage() {
@@ -32,12 +37,15 @@ export default function SignupPage() {
 
   // Errors State
   const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState('');
 
   // OTP State
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [otpError, setOtpError] = useState('');
-  const [expectedOtp, setExpectedOtp] = useState('');
   const [timerLeft, setTimerLeft] = useState(0);
+  // رمز التسجيل الذي يُرجعه الباك إند عند إنشاء الحساب، ويُستخدم في verify/resend-otp
+  const [registrationToken, setRegistrationToken] = useState('');
   const otpInputsRef = useRef([]);
 
   // Timer logic for Resend OTP
@@ -92,18 +100,71 @@ export default function SignupPage() {
     setShowChannelModal(true);
   };
 
-  // اختيار القناة من النافذة المنبثقة ثم توليد الرمز
-  const confirmChannel = (channel) => {
+  // اختيار القناة من النافذة المنبثقة ثم إنشاء الحساب فعلياً + إرسال الرمز
+  const confirmChannel = async (channel) => {
     setOtpChannel(channel);
     setShowChannelModal(false);
+    setFormError('');
+    setLoading(true);
+    try {
+      const payload = {
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        password: formData.password,
+        password_confirmation: formData.confirmPassword,
+      };
 
-    // توليد رمز تحقق تجريبي
-    const generatedOtp = String(Math.floor(100000 + Math.random() * 900000));
-    setExpectedOtp(generatedOtp);
-    console.log(`[DEMO OTP via ${channel}]:`, generatedOtp);
+      // الباك إند يُرسل رمز OTP عبر البريد تلقائياً عند التسجيل،
+      // ويرجع registration_token (UUID) اللازم لاحقاً لـ verify/resend-otp.
+      let regToken = '';
+      if (role === 'owner') {
+        const fd = new FormData();
+        Object.entries(payload).forEach(([k, v]) => fd.append(k, v));
+        if (formData.ownershipDocument) {
+          fd.append('proof_document', formData.ownershipDocument);
+        }
+        // نتأكد من نجاح تسجيل المالك أولاً ونلتقط registration_token،
+        // ثم نكمل إلى OTP فقط عند النجاح.
+        try {
+          const res = await registerOwner(fd);
+          regToken = res?.registration_token || '';
+        } catch (ownerErr) {
+          if (ownerErr instanceof ApiError && ownerErr.status === 422 && ownerErr.data?.errors) {
+            setErrors(ownerErr.data.errors);
+            setFormError('فشل رفع وثيقة الملكية. تحقق من الملف وحاول مجدداً.');
+          } else {
+            setFormError(ownerErr.message || 'تعذر إكمال تسجيل المالك. حاول مرة أخرى.');
+          }
+          setStep('register');
+          throw ownerErr; // نُعيد الرمي ليُلتقط في الـ catch الخارجي
+        }
+      } else {
+        const res = await registerCustomer(payload);
+        regToken = res?.registration_token || '';
+      }
 
-    setTimerLeft(30);
-    setStep('otp');
+      // إصلاح: كان الكود السابق يستدعي /api/send-otp (غير موجود، يرجع 404).
+      // الباك إند أرسل الرمز بالفعل أثناء التسجيل، فقط نحتاج registration_token.
+      if (!regToken) {
+        setFormError('تعذر بدء التحقق: لم يُرجع الخادم رمز التسجيل.');
+        setStep('register');
+        return;
+      }
+      setRegistrationToken(regToken);
+      setTimerLeft(30);
+      setStep('otp');
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 422 && err.data?.errors) {
+        setErrors(err.data.errors);
+        setFormError('يرجى تصحيح الحقول المعلّمة أدناه.');
+        setStep('register');
+      } else {
+        setFormError(err.message || 'تعذر إنشاء الحساب. حاول مرة أخرى.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   // OTP Handlers
@@ -140,7 +201,7 @@ export default function SignupPage() {
   };
 
   // Step 2: Verify OTP & Branching based on Role
-  const handleOtpSubmit = (e) => {
+  const handleOtpSubmit = async (e) => {
     e.preventDefault();
     const code = otp.join('');
     if (code.length < 6) {
@@ -148,34 +209,54 @@ export default function SignupPage() {
       return;
     }
 
-    if (code !== expectedOtp) {
-      setOtpError('الرمز غير صحيح. حاول مرة أخرى.');
-      return;
-    }
+    setOtpError('');
+    setLoading(true);
+    try {
+      // التحقق الفعلي من الرمز عبر الباك إند (يتطلب registration_token + code)
+      await request('/api/verify-otp', {
+        method: 'POST',
+        body: { registration_token: registrationToken, code },
+      });
 
-    // توجيه المستخدم حسب الصلاحيات:
-    // الطالب -> تم التفعيل مباشرة ('done')
-    // صاحب المساحة -> بانتظار موافقة الادارة على وثيقة الملكية والحساب ('pending')
-    registerEmail(formData.email);
-    setLoggedIn(true); // وهمي حتى يجهز الـ API (Laravel/MySQL)
-    if (role === 'owner') {
-      setStep('pending');
-    } else {
-      setStep('done');
+      // تسجيل الدخول تلقائياً بعد التحقق
+      await login(formData.email.trim(), formData.password);
+
+      if (role === 'owner') {
+        setStep('pending');
+      } else {
+        setStep('done');
+      }
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 422 || err.status === 401 || err.status === 400)) {
+        setOtpError('الرمز غير صحيح. حاول مرة أخرى.');
+      } else {
+        setOtpError(err.message || 'تعذر التحقق. حاول مرة أخرى.');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleResendOtp = () => {
-    if (timerLeft > 0) return;
-    const newCode = String(Math.floor(100000 + Math.random() * 900000));
-    setExpectedOtp(newCode);
-    console.log(`[RESENT DEMO OTP]:`, newCode);
-    setOtp(['', '', '', '', '', '']);
-    setTimerLeft(30);
+  const handleResendOtp = async () => {
+    if (timerLeft > 0 || !registrationToken) return;
+    setLoading(true);
+    try {
+      await request('/api/resend-otp', {
+        method: 'POST',
+        body: { registration_token: registrationToken },
+      });
+      setOtp(['', '', '', '', '', '']);
+      setTimerLeft(30);
+    } catch (err) {
+      setOtpError(err.message || 'تعذر إعادة إرسال الرمز.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="auth-wrapper">
+      <div className="auth-bg" aria-hidden="true" />
       {/* Styles inject */}
       <style>{`
         :root {
@@ -201,6 +282,7 @@ export default function SignupPage() {
           background-size: cover;
           background-position: center;
           position: relative;
+          isolation: isolate;
           overflow: hidden;
           font-family: 'Cairo', sans-serif;
           direction: rtl;
@@ -224,6 +306,31 @@ export default function SignupPage() {
           pointer-events: none;
         }
 
+        /* ===== طبقة الخلفية المتحركة (تكبير/تصغير) ===== */
+        .auth-bg {
+          position: absolute;
+          inset: 0;
+          z-index: -1;
+          background-image: url("/background.jpeg");
+          background-size: cover;
+          background-position: center;
+          transform: scale(1.06);
+          animation: authZoom 9s ease-in-out infinite;
+          will-change: transform;
+        }
+        @keyframes authZoom {
+          0%   { transform: scale(1.05); }
+          50%  { transform: scale(1.18); }
+          100% { transform: scale(1.05); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .auth-bg,
+          .auth-card__bg {
+            animation: none;
+            transform: scale(1.06);
+          }
+        }
+
         /* ===== البطاقة: خلفية الصورة تغطي البطاقة بالكامل ===== */
         .auth-card {
           position: relative;
@@ -236,7 +343,7 @@ export default function SignupPage() {
           border-radius: var(--radius-card);
           overflow: hidden;
           box-shadow: var(--shadow), 0 0 0 1px rgba(249,115,22,0.10);
-          background: #0f0f14;
+          background: rgba(0,0,0,0.6);
           isolation: isolate;
         }
         @media (min-width: 768px) {
@@ -247,7 +354,7 @@ export default function SignupPage() {
           position: absolute;
           inset: 0;
           z-index: 0;
-          background-image: url("/Loginside.jpg");
+          background: transparent;
           background-size: cover;
           background-position: center;
         }
@@ -255,16 +362,10 @@ export default function SignupPage() {
           position: absolute;
           inset: 0;
           z-index: 0;
-          background: linear-gradient(90deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.46) 44%, rgba(234,88,12,0.42) 100%);
+          background: transparent;
         }
         .auth-card__glow {
-          position: absolute;
-          z-index: 0;
-          right: -6rem; top: -6rem;
-          width: 24rem; height: 24rem;
-          background: radial-gradient(circle, rgba(249,115,22,0.45), transparent 70%);
-          filter: blur(30px);
-          pointer-events: none;
+          display: none;
         }
 
         /* ===== الجانب الترحيبي ===== */
@@ -319,10 +420,8 @@ export default function SignupPage() {
           display: flex;
           flex-direction: column;
           padding: 2rem 2rem 1.6rem;
-          background: rgba(18,16,14,0.55);
-          backdrop-filter: blur(18px) saturate(140%);
-          -webkit-backdrop-filter: blur(18px) saturate(140%);
-          border-top: 1px solid rgba(255,255,255,0.14);
+          background: rgba(0,0,0,0.6);
+          border-top: none;
           overflow-y: auto;
           scrollbar-width: thin;
           scrollbar-color: var(--accent) transparent;
@@ -339,7 +438,7 @@ export default function SignupPage() {
             width: 54%; flex: none;
             padding: 2.2rem 2.4rem 1.8rem;
             border-top: none;
-            border-inline-start: 1.5px solid rgba(255,255,255,0.55);
+            border-inline-start: 1px solid rgba(255,255,255,0.12);
           }
         }
 
@@ -557,6 +656,12 @@ export default function SignupPage() {
                 سجّل في مساحاتي — سنتحقق من بريدك الإلكتروني.
               </p>
 
+              {formError && (
+                <p className="error" aria-live="polite" style={{ color: '#fca5a5', marginBottom: '0.8rem' }}>
+                  {formError}
+                </p>
+              )}
+
               {/* Segmented Role Selector */}
               <div className={`segment ${role === 'owner' ? 'owner' : ''}`}>
                 <span className="segment__thumb" aria-hidden="true"></span>
@@ -693,9 +798,9 @@ export default function SignupPage() {
                 {otpChannel === 'email' ? <> إلى <b>{formData.email}</b></> : <> إلى رقم <b dir="ltr">{formData.phone}</b></>} . أدخله أدناه لإتمام التسجيل.
               </p>
 
-              {/* Demo Notice */}
+              {/* Real OTP notice */}
               <div className="dev-note" style={{ marginBottom: '1rem' }}>
-                <b>وضع تجريبي:</b> الرمز المولد للتجربة ({otpChannel === 'whatsapp' ? 'واتساب' : 'بريد'}) هو: <b>{expectedOtp}</b>
+                تم إرسال رمز التحقق المكوّن من 6 أرقام إلى <b>{otpChannel === 'email' ? formData.email : formData.phone}</b>. تحقق من بريدك (أو مجلد الرسائل غير المرغوبة) وأدخله أدناه.
               </div>
 
               <div className="otp-row">
@@ -732,7 +837,7 @@ export default function SignupPage() {
               <p style={{ textAlign: 'center', marginTop: '1rem' }}>
                 <button
                   type="button"
-                  onClick={() => setStep('register')}
+                  onClick={() => { setRegistrationToken(''); setStep('register'); }}
                   style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '0.85rem' }}
                 >
                   ← تغيير البريد
@@ -809,17 +914,19 @@ export default function SignupPage() {
               <button
                 type="button"
                 onClick={() => confirmChannel('email')}
+                disabled={loading}
                 style={{
                   padding: '0.75rem', borderRadius: 'var(--radius-field)', border: '1.5px solid var(--accent)',
                   background: 'var(--accent-soft)', color: 'var(--accent-hover)',
-                  fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer'
+                  fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', opacity: loading ? 0.6 : 1
                 }}
               >
-                البريد الإلكتروني ({formData.email})
+                {loading ? 'جارٍ إنشاء الحساب…' : `البريد الإلكتروني (${formData.email})`}
               </button>
               <button
                 type="button"
                 onClick={() => confirmChannel('whatsapp')}
+                disabled={loading}
                 style={{
                   padding: '0.75rem', borderRadius: 'var(--radius-field)', border: '1.5px solid var(--accent)',
                   background: 'var(--accent-soft)', color: 'var(--accent-hover)',
