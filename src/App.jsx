@@ -29,7 +29,9 @@ export default function App() {
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
       <Route path="/password-reset" element={<Navigate to="/reset-password" replace />} />
-      <Route path="/password-reset/:token" element={<Navigate to="/reset-password" replace />} />
+      <Route path="/password-reset/:token" element={<Nav
+      
+      igate to="/reset-password" replace />} />
       <Route path="/api/reset-password/:token" element={<ResetPasswordPage />} />
       <Route path="/dashboard" element={<RequireAuth><DashboardPage /></RequireAuth>} />
       

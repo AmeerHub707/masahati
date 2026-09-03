@@ -429,10 +429,10 @@ export default function SignupPage() {
         .auth-form::-webkit-scrollbar { width: 1px; }
         .auth-form::-webkit-scrollbar-track { background: transparent; }
         .auth-form::-webkit-scrollbar-thumb {
-          background: var(--accent);
-          border-radius: 999px;
+          background: rgba(249,115,22,0.4);
+          border-radius: 0;
         }
-        .auth-form::-webkit-scrollbar-thumb:hover { background: var(--accent-hover); }
+        .auth-form::-webkit-scrollbar-thumb:hover { background: rgba(234,88,12,0.6); }
         @media (min-width: 768px) {
           .auth-form {
             width: 54%; flex: none;
@@ -538,6 +538,18 @@ export default function SignupPage() {
         .field input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(249,115,22,0.22); background: rgba(255,255,255,0.12); }
         .field.has-error input { border-color: #f87171; box-shadow: 0 0 0 4px rgba(248,113,113,0.18); }
         .error { color: #fca5a5; font-size: 0.74rem; margin-top: 0.3rem; min-height: 1.1rem; }
+        .form-error-slot { min-height: 2.2rem; margin-top: 0.2rem; }
+        .form-error-toast {
+          margin: 0;
+          min-height: auto;
+          padding: 0.45rem 0.6rem;
+          border-radius: 0.5rem;
+          background: rgba(248,113,113,0.12);
+          border: 1px solid rgba(248,113,113,0.35);
+          color: #fca5a5;
+          font-weight: 700;
+          font-size: 0.8rem;
+        }
 
         /* Document Upload Field */
         .file-upload-box {
@@ -656,12 +668,6 @@ export default function SignupPage() {
                 سجّل في مساحاتي — سنتحقق من بريدك الإلكتروني.
               </p>
 
-              {formError && (
-                <p className="error" aria-live="polite" style={{ color: '#fca5a5', marginBottom: '0.8rem' }}>
-                  {formError}
-                </p>
-              )}
-
               {/* Segmented Role Selector */}
               <div className={`segment ${role === 'owner' ? 'owner' : ''}`}>
                 <span className="segment__thumb" aria-hidden="true"></span>
@@ -779,6 +785,10 @@ export default function SignupPage() {
                   onChange={handleInputChange}
                 />
                 <p className="error">{errors.confirmPassword}</p>
+              </div>
+
+              <div className="form-error-slot" aria-live="polite">
+                {formError && <p className="error form-error-toast">{formError}</p>}
               </div>
 
               <button type="submit" className="btn" disabled={loading}>

@@ -251,10 +251,10 @@ export default function LoginPage() {
         .auth-form::-webkit-scrollbar { width: 1px; }
         .auth-form::-webkit-scrollbar-track { background: transparent; }
         .auth-form::-webkit-scrollbar-thumb {
-          background: var(--accent);
-          border-radius: 999px;
+          background: rgba(249,115,22,0.4);
+          border-radius: 0;
         }
-        .auth-form::-webkit-scrollbar-thumb:hover { background: var(--accent-hover); }
+        .auth-form::-webkit-scrollbar-thumb:hover { background: rgba(234,88,12,0.6); }
         @media (min-width: 768px) {
           .auth-form {
             width: 54%; flex: none;
@@ -344,6 +344,18 @@ export default function LoginPage() {
           font-size: 0.74rem;
           margin-top: 0.3rem;
           min-height: 1.1rem;
+        }
+        .form-error-slot { min-height: 2.2rem; margin-top: 0.2rem; }
+        .form-error-toast {
+          margin: 0;
+          min-height: auto;
+          padding: 0.45rem 0.6rem;
+          border-radius: 0.5rem;
+          background: rgba(248,113,113,0.12);
+          border: 1px solid rgba(248,113,113,0.35);
+          color: #fca5a5;
+          font-weight: 700;
+          font-size: 0.8rem;
         }
 
         /* زر إظهار/إخفاء كلمة المرور */
@@ -515,12 +527,6 @@ export default function LoginPage() {
             <h2>سجّل الدخول</h2>
             <p className="form-sub">أدخل بياناتك للوصول إلى حسابك.</p>
 
-            {formError && (
-              <p className="error" aria-live="polite" style={{ color: '#fca5a5', marginBottom: '0.8rem' }}>
-                {formError}
-              </p>
-            )}
-
             {/* المعرّف: بريد إلكتروني أو رقم هاتف */}
             <div className={`field ${errors.identifier ? 'has-error' : ''}`}>
               <label htmlFor="login-identifier">البريد الإلكتروني</label>
@@ -594,6 +600,10 @@ export default function LoginPage() {
                 </svg>
                 <span>هل نسيت كلمة المرور؟</span>
               </Link>
+            </div>
+
+            <div className="form-error-slot" aria-live="polite">
+              {formError && <p className="error form-error-toast">{formError}</p>}
             </div>
 
             {/* زر الدخول */}

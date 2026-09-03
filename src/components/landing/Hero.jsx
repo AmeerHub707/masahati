@@ -106,7 +106,6 @@ export default function Hero() {
             </div>
           </div>
         </div>
-
       </header>
 
       <div className="wrap">
