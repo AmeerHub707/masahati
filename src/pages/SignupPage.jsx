@@ -783,9 +783,8 @@ export default function SignupPage() {
 
               <button type="submit" className="btn" disabled={loading}>
                 {loading ? (
-                  <span className="flex items-center justify-center gap-2">
+                  <span className="flex items-center justify-center">
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    جارٍ إنشاء حساب...
                   </span>
                 ) : 'إنشاء حساب'}
               </button>
@@ -829,9 +828,8 @@ export default function SignupPage() {
 
               <button type="submit" className="btn" disabled={loading}>
                 {loading ? (
-                  <span className="flex items-center justify-center gap-2">
+                  <span className="flex items-center justify-center">
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    جارٍ التحقق...
                   </span>
                 ) : 'تحقق من البريد'}
               </button>
@@ -935,7 +933,11 @@ export default function SignupPage() {
                   fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', opacity: loading ? 0.6 : 1
                 }}
               >
-                {loading ? 'جارٍ إنشاء الحساب…' : `البريد الإلكتروني (${formData.email})`}
+                {loading ? (
+                  <span className="flex items-center justify-center">
+                    <span className="w-4 h-4 border-2 border-[var(--accent)]/30 border-t-[var(--accent)] rounded-full animate-spin" />
+                  </span>
+                ) : `البريد الإلكتروني (${formData.email})`}
               </button>
               <button
                 type="button"

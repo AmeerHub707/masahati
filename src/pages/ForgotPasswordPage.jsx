@@ -545,7 +545,9 @@ export default function ForgotPasswordPage() {
                   className="btn"
                 >
                   {isSending ? (
-                    <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                    <span className="flex items-center justify-center">
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    </span>
                   ) : (
                     'إرسال رابط إعادة التعيين'
                   )}

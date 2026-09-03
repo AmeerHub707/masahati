@@ -682,7 +682,9 @@ export default function ResetPasswordPage() {
 
                 <button type="submit" disabled={isResetting} className="btn">
                   {isResetting ? (
-                    <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                    <span className="flex items-center justify-center">
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    </span>
                   ) : (
                     'تعيين كلمة المرور'
                   )}
