@@ -781,7 +781,14 @@ export default function SignupPage() {
                 <p className="error">{errors.confirmPassword}</p>
               </div>
 
-              <button type="submit" className="btn">إنشاء حساب</button>
+              <button type="submit" className="btn" disabled={loading}>
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    جارٍ إنشاء حساب...
+                  </span>
+                ) : 'إنشاء حساب'}
+              </button>
 
               <p style={{ textAlign: 'center', fontSize: '0.85rem', marginTop: '1rem', color: 'rgba(255,255,255,0.72)' }}>
                 هل لديك حساب؟ <Link to="/login" style={{ color: 'var(--accent)', fontWeight: 'bold', textDecoration: 'none' }}>تسجيل الدخول</Link>
@@ -820,7 +827,14 @@ export default function SignupPage() {
               </div>
               <p className="error">{otpError}</p>
 
-              <button type="submit" className="btn">تحقق من البريد</button>
+              <button type="submit" className="btn" disabled={loading}>
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    جارٍ التحقق...
+                  </span>
+                ) : 'تحقق من البريد'}
+              </button>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginTop: '1rem', color: 'rgba(255,255,255,0.8)' }}>
                 <span>لم تستلمه؟</span>
