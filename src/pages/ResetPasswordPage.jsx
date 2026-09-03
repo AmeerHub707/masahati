@@ -18,7 +18,7 @@ function translateError(msg, status) {
   return msg;
 }
 
-const EMAIL_REGEX = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
