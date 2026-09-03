@@ -599,9 +599,8 @@ export default function LoginPage() {
             {/* زر الدخول */}
             <button type="submit" className="btn" disabled={loading}>
               {loading ? (
-                <span className="flex items-center justify-center gap-2">
+                <span className="flex items-center justify-center">
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  جارٍ تسجيل الدخول...
                 </span>
               ) : 'تسجيل الدخول'}
             </button>
