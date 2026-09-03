@@ -426,7 +426,7 @@ export default function SignupPage() {
           scrollbar-width: thin;
           scrollbar-color: var(--accent) transparent;
         }
-        .auth-form::-webkit-scrollbar { width: 6px; }
+        .auth-form::-webkit-scrollbar { width: 1px; }
         .auth-form::-webkit-scrollbar-track { background: transparent; }
         .auth-form::-webkit-scrollbar-thumb {
           background: var(--accent);
