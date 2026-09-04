@@ -36,3 +36,6 @@ Port 5173 is in use, trying another one...
 9:29:17 PM [vite] (client) hmr update /src/App.jsx, /src/index.css
 9:29:17 PM [vite] (client) page reload index.html
 9:29:18 PM [vite] (client) hmr update /src/pages/ResetPasswordPage.jsx, /src/index.css
+11:18:58 AM [vite] (client) hmr update /src/index.css, /src/components/landing/Hero.jsx
+11:19:26 AM [vite] (client) hmr update /src/index.css, /src/components/landing/Hero.jsx
+11:19:44 AM [vite] (client) hmr update /src/index.css

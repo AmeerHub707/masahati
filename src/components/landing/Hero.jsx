@@ -3,14 +3,6 @@ import { useEffect, useRef, useState } from 'react';
 import AnimatedOrbs from '../common/AnimatedOrbs';
 import MagneticButton from '../common/MagneticButton';
 
-// صور المساحات الجديدة التى أضفتها فى public/ — خلفية متحركة بانتقال متقاطع (crossfade)
-const gallery = [
-  { src: '/Loginside.jpg', alt: 'مساحة عمل مشتركة مضيئة في غزة' },
-  { src: '/360-workspace-kita-e2-open-office.jpg', alt: 'مكتب مفتوح واسع للفرق' },
-  { src: '/images.jfif', alt: 'ركن دراسة هادئ بإضاءة دافئة' },
-  { src: '/m.jfif', alt: 'مساحة عمل مشتركة في غزة' },
-];
-
 const stats = [
   { value: '120+', label: 'مساحة موثّقة' },
   { value: '24/7', label: 'فلتر الكهرباء' },
@@ -67,29 +59,20 @@ function CountUp({ value, duration = 1400 }) {
 }
 
 export default function Hero() {
-  const [active, setActive] = useState(0);
-
-  // تنقّل تلقائى بين الصور مع انتقال متقاطع (crossfade) ناعم
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const id = setInterval(() => setActive((i) => (i + 1) % gallery.length), 10000);
-    return () => clearInterval(id);
-  }, []);
-
   return (
     <>
       <header className="hero">
-        {/* خلفية الصور المتحركة */}
+        {/* خلفية الفيديو المتحرك */}
         <div className="hero__bg" aria-hidden="true">
-          {gallery.map((g, i) => (
-            <img
-              key={g.src}
-              src={g.src}
-              alt=""
-              className={`gallery__img${i === active ? ' is-active' : ''}`}
-              loading={i === 0 ? 'eager' : 'lazy'}
-            />
-          ))}
+          <video
+            className="gallery__video"
+            src="/video/FinalResult.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+          />
           <AnimatedOrbs />
           <span className="hero__scrim"></span>
         </div>
