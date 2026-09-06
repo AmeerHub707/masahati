@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { login, googleLogin, ApiError } from '../lib/authStore';
+import { login, googleLogin, getHomePath, ApiError } from '../lib/authStore';
 import useGoogleAuth from '../hooks/useGoogleAuth';
 
 export default function LoginPage() {
@@ -24,7 +24,7 @@ export default function LoginPage() {
   const handleGoogleSuccess = async (credential) => {
     // في صفحة الدخول لا نرسل دوراً؛ الباك إند يطابق البريد/ينشئ افتراضياً.
     await googleLogin(credential);
-    navigate('/dashboard');
+    navigate(getHomePath());
   };
 
   const handleGoogleError = (err) => {
@@ -83,7 +83,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(identifier, formData.password);
-      navigate('/dashboard');
+      navigate(getHomePath());
     } catch (err) {
       if (err instanceof ApiError && (err.status === 401 || err.status === 422)) {
         setFormError('البريد الإلكتروني أو كلمة المرور غير صحيحة.');

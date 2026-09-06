@@ -9,6 +9,7 @@ const BASE_URL = (
 ).replace(/\/$/, '');
 
 const TOKEN_KEY = '***';
+const USER_KEY = '***:user';
 
 // مدة المهلة الافتراضية لكل طلب (مدة كافية لـ Render في cold start).
 const DEFAULT_TIMEOUT_MS = 25000;
@@ -32,6 +33,37 @@ export function setToken(token) {
 export function clearToken() {
   try {
     localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    /* التخزين غير متاح */
+  }
+}
+
+// ----- بيانات المستخدم الحالية (role وغيرها) تُحفظ مع التوكن -----
+// توفر الدور فوراً بعد تسجيل الدخول دون طلب إضافي، وتستخدمه
+// صفحات التحويل اللاحقة لاختيار لوحة التحكم المناسبة للدور.
+export function getUser() {
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    if (!raw) return null;
+    const user = JSON.parse(raw);
+    return user && typeof user === 'object' ? user : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setUser(user) {
+  try {
+    if (!user) return;
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  } catch {
+    /* التخزين غير متاح */
+  }
+}
+
+export function clearUser() {
+  try {
+    localStorage.removeItem(USER_KEY);
   } catch {
     /* التخزين غير متاح */
   }
@@ -115,7 +147,10 @@ export async function request(path, options = {}) {
 
   if (!res.ok) {
     // 401 على مسار محمي => نلغي الجلسة المحلية.
-    if (res.status === 401 && auth) clearToken();
+    if (res.status === 401 && auth) {
+      clearToken();
+      clearUser();
+    }
     throw new ApiError(
       extractErrorMessage(data, `تعذر إتمام الطلب (${res.status}).`),
       res.status,

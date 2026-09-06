@@ -13,6 +13,7 @@ import {
   registerOwner,
   login,
   googleLogin,
+  getHomePath,
   ApiError,
   request,
 } from '../lib/authStore';
@@ -66,7 +67,8 @@ export default function SignupPage() {
     await googleLogin(credential, role);
     // الطالب وصاحب المساحة ينتقلان إلى لوحة التحكم؛ صاحب المساحة
     // لا يستطيع إضافة مساحة حتى يرفع وثيقة الملكية لاحقاً.
-    navigate('/dashboard');
+    // التوجيه يعتمد على الدور (user.role) عبر getHomePath (كلاهما /dashboard حالياً).
+    navigate(getHomePath());
   };
 
   const handleGoogleError = (err) => {
@@ -249,7 +251,7 @@ export default function SignupPage() {
       if (role === 'owner') {
         // صاحب المساحة ينتقل إلى لوحة التحكم مباشرة؛ الوثيقة اختيارية الآن،
         // لكنه لن يستطيع إضافة مساحة حتى يرفع وثيقة الملكية لاحقاً.
-        navigate('/dashboard');
+        navigate(getHomePath());
       } else {
         setStep('done');
       }

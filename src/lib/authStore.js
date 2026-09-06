@@ -2,7 +2,7 @@
 // المصادقة عبر Bearer token (Sanctum) يُحفظ في localStorage.
 // التوكن هو المرجع الوحيد لكون الجلسة نشطة؛ لا نعتمد على أي علم إضافي.
 
-import { request, getToken, setToken, clearToken, ApiError } from './api';
+import { request, getToken, setToken, clearToken, setUser, clearUser, getUser, ApiError } from './api';
 
 // إعادة التصدير لتسهيل الاستيراد من صفحات المصادقة
 export { request, ApiError };
@@ -23,6 +23,7 @@ export async function login(email, password) {
   });
   if (data && data.token) {
     setToken(data.token);
+    setUser(data.user);
     return data;
   }
   // إصلاح: كان الكود السابق يتجاهل غياب التوكن ويعود بنجاح صامت.
@@ -58,10 +59,14 @@ export async function googleLogin(idToken, role) {
   });
   if (data && data.token) {
     setToken(data.token);
+    setUser(data.user);
     return data;
   }
   throw new ApiError('استجابة الخادم غير متوقعة (لا يوجد توكن).', 500, data);
 }
+
+// ----- بيانات المستخدم الحالي -----
+export { getUser, setUser, clearUser };
 
 // ----- بيانات المستخدم الحالي (محمي) -----
 export async function userDetails() {
@@ -76,6 +81,7 @@ export async function logout() {
     /* نمسح التوكن محلياً على أي حال */
   } finally {
     clearToken();
+    clearUser();
   }
 }
 
@@ -102,4 +108,21 @@ export async function isEmailRegistered(email) {
     }
     return true;
   }
+}
+
+// ----- المسار بعد تسجيل الدخول/التسجيل -----
+// يعتمد على دور المستخدم المُعاد من الباك إند (`user.role`) ويرسل كل دور
+// إلى لوحة تحكمه. حالياً لوحتا "الطالب" و"صاحب المساحة" المنفصلتان لم
+// تُبنيا بعد، لذلك يذهب الجميع إلى /dashboard (نفس السلوك السابق).
+// عند إنشاء الصفحتين لاحقاً، غيّر القيمتين أدناه فقط:
+//   owner   → '/dashboard/owner'
+//   student → '/dashboard/student'
+const DASHBOARD_PATHS = {
+  owner: '/dashboard',
+  student: '/dashboard',
+};
+
+export function getHomePath() {
+  const role = getUser()?.role;
+  return DASHBOARD_PATHS[role] || '/dashboard';
 }
