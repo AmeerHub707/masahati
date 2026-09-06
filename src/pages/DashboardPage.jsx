@@ -6,7 +6,7 @@ import { getUser } from '../lib/authStore';
 // الزائر غير المسجّل يُحوَّل إلى الصفحة الرئيسية (انظر حماية المسار في App.jsx).
 export default function DashboardPage() {
   const user = getUser();
-  const roleLabel = user?.role === 'owner' ? 'صاحب مساحة' : user?.role === 'student' ? 'طالب' : '';
+  const roleLabel = user?.role === 'space_owner' ? 'صاحب مساحة' : user?.role === 'customer' ? 'عميل' : '';
   return (
     <div className="relative min-h-screen w-full flex flex-col items-center p-5 bg-cover bg-center bg-no-repeat overflow-hidden font-['Cairo'] text-zinc-900 dir-rtl" style={{ backgroundImage: "url('/background.jpeg')" }}>
       <div className="fixed inset-0 bg-gradient-to-br from-black/55 to-black/35 -z-10" />

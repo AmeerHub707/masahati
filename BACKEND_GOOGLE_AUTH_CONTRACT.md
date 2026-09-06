@@ -19,13 +19,14 @@ Google Sign-In flow matches the frontend. The frontend is DONE and needs no chan
   ```json
   {
     "id_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6...",
-    "role": "student"
+    "role": "space_owner"
   }
   ```
   - `id_token` — **required**. The Google credential JWT from GIS.
-  - `role` — **optional**. `"student"` | `"owner"`. Sent only from the **signup page**
-    (the user picks a role there). The **login page never sends it** — backend must then
-    match an existing account by email, or fall back to `student` for a brand-new user.
+  - `role` — **optional**. `"customer"` | `"space_owner"`. Sent only from the **signup page**
+    (the user picks a role there), or from the **login page after the user picks a role in
+    the popup** because their email wasn't registered. The **login page never sends it the
+    first time** — backend must check whether the email exists first (see below).
 - **Success response (expected shape):**
   ```json
   {
@@ -36,6 +37,21 @@ Google Sign-In flow matches the frontend. The frontend is DONE and needs no chan
   ```
   - `token` is the Sanctum bearer token. It must be present on success — the frontend
     throws an error if it is missing.
+  - **Role values:** `user.role` must be exactly `"space_owner"` or `"customer"`. These are
+    the canonical role names. `user.role` is read by the frontend to choose the dashboard
+    and the role badge — no aliases (`owner`, `student`) are accepted.
+
+## Login flow (email already registered vs not)
+
+`POST /api/auth/google` called WITH **no** `role` (login page first attempt) MUST:
+
+1. Look up the user by the Google email (`sub` claim of the verified id_token).
+2. **If found** → return `200 { message, user, token }` with that user's existing role.
+   The frontend redirects straight to their dashboard (no role popup).
+3. **If NOT found** → return **`409`** with JSON `{ "code": "NOT_REGISTERED", "message": "..." }`.
+   The frontend shows a popup asking the user to pick `customer` or `space_owner`, then calls
+   this same endpoint AGAIN with that `role` to create the account.
+4. When a `role` IS present, create the account with exactly that role (`customer`/`space_owner`).
 - **Errors:** return proper `4xx/5xx` with a JSON `{ "message": "..." }` (and `errors`
   for `422`) so the frontend can surface a clear Arabic message.
 
@@ -77,9 +93,12 @@ Apply the same `hasFile()` guard anywhere else `proof_document` is touched
 
 ## Acceptance criteria (how the backend team verifies)
 
-1. `POST /api/auth/google` with a valid Google `id_token` + `role: "student"` → `200` with
+1. `POST /api/auth/google` with a valid Google `id_token` + `role: "customer"` → `200` with
    a Sanctum `token`; the user can call protected routes with `Authorization: Bearer`.
-2. Same call **without** `role` (login page) → matches an existing email or creates a
-   student; never fails because of a missing role.
-3. `register/space-owner` succeeds **without** `proof_document`.
-4. A space-creation request from an owner with no approved document is **rejected**.
+2. Same call **without** `role` for an email that IS registered → `200` returning that
+   user's existing role (no `NOT_REGISTERED`).
+3. Same call **without** `role` for an email that is NOT registered → **`409`**
+   `{ "code": "NOT_REGISTERED" }` (NOT auto-created as customer).
+4. After the user picks a role, calling again WITH `role` creates the account with that role.
+5. `register/space-owner` succeeds **without** `proof_document`.
+6. A space-creation request from an owner with no approved document is **rejected**.

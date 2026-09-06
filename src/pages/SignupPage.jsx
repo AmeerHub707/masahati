@@ -25,7 +25,7 @@ export default function SignupPage() {
 
   // --- States ---
   const [step, setStep] = useState('register'); // 'register' | 'otp' | 'done'
-  const [role, setRole] = useState('student'); // 'student' | 'owner'
+  const [role, setRole] = useState('customer'); // 'customer' | 'space_owner'
   const [otpChannel, setOtpChannel] = useState('email'); // 'email' | 'whatsapp'
   const [showChannelModal, setShowChannelModal] = useState(false);
 
@@ -151,7 +151,7 @@ export default function SignupPage() {
       // الباك إند يُرسل رمز OTP عبر البريد تلقائياً عند التسجيل،
       // ويرجع registration_token (UUID) اللازم لاحقاً لـ verify/resend-otp.
       let regToken = '';
-      if (role === 'owner') {
+      if (role === 'space_owner') {
         const fd = new FormData();
         Object.entries(payload).forEach(([k, v]) => fd.append(k, v));
         if (formData.ownershipDocument) {
@@ -254,7 +254,7 @@ export default function SignupPage() {
       // تسجيل الدخول تلقائياً بعد التحقق
       await login(formData.email.trim(), formData.password);
 
-      if (role === 'owner') {
+      if (role === 'space_owner') {
         // صاحب المساحة ينتقل إلى لوحة التحكم مباشرة؛ الوثيقة اختيارية الآن،
         // لكنه لن يستطيع إضافة مساحة حتى يرفع وثيقة الملكية لاحقاً.
         navigate(getHomePath());
@@ -730,20 +730,20 @@ export default function SignupPage() {
               </p>
 
               {/* Segmented Role Selector */}
-              <div className={`segment ${role === 'owner' ? 'owner' : ''}`}>
+              <div className={`segment ${role === 'space_owner' ? 'owner' : ''}`}>
                 <span className="segment__thumb" aria-hidden="true"></span>
                 <button
                   type="button"
-                  className={`segment__opt ${role === 'student' ? 'active' : ''}`}
-                  onClick={() => setRole('student')}
+                  className={`segment__opt ${role === 'customer' ? 'active' : ''}`}
+                  onClick={() => setRole('customer')}
                 >
                   <GraduationCap size={18} />
-                  طالب
+                  عميل
                 </button>
                 <button
                   type="button"
-                  className={`segment__opt ${role === 'owner' ? 'active' : ''}`}
-                  onClick={() => setRole('owner')}
+                  className={`segment__opt ${role === 'space_owner' ? 'active' : ''}`}
+                  onClick={() => setRole('space_owner')}
                 >
                   <Building2 size={18} />
                   صاحب مساحة
@@ -796,7 +796,7 @@ export default function SignupPage() {
               </div>
 
               {/* Dynamic Field: Document Ownership (Optional for Space Owner) */}
-              {role === 'owner' && (
+              {role === 'space_owner' && (
                 <div className={`field ${errors.ownershipDocument ? 'has-error' : ''}`}>
                   <label>إثبات ملكية/إدارة مساحة (اختياري)</label>
                   <label

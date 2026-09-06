@@ -21,15 +21,47 @@ export default function LoginPage() {
   const googleBtnRef = useRef(null);
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
+  // عند فتح اختيار الدور (بريد Google غير مسجّل بعد)
+  const [roleModalOpen, setRoleModalOpen] = useState(false);
+  const [roleModalLoading, setRoleModalLoading] = useState(false);
+  const [pendingCredential, setPendingCredential] = useState('');
+
   const handleGoogleSuccess = async (credential) => {
-    // في صفحة الدخول لا نرسل دوراً؛ الباك إند يطابق البريد/ينشئ افتراضياً.
+    // في صفحة الدخول لا نرسل دوراً أولاً؛ الباك إند يتحقق هل البريد مسجّل:
+    //  - مسجّل  => يرجع 200 { user, token } => ننتقل للوحة تحكمه مباشرة.
+    //  - غير مسجّل => يرجع 409 { code: "NOT_REGISTERED" } => نعرض نافذة اختيار الدور
+    //    (عميل / صاحب مساحة) ثم نسجّل عبر Google بالدور المختار.
     try {
       await googleLogin(credential);
       navigate(getHomePath());
     } catch (err) {
+      if (
+        err instanceof ApiError &&
+        err.status === 409 &&
+        err.data?.code === 'NOT_REGISTERED'
+      ) {
+        setPendingCredential(credential);
+        setRoleModalOpen(true);
+        return;
+      }
       // إظهار رسالة الفشل بدل الفشل الصامت (مثال: الباك إند لم يُطبق المسار بعد).
       console.error('Google login failed:', err);
       setFormError(err?.message || 'تعذر تسجيل الدخول عبر Google. حاول مرة أخرى.');
+    }
+  };
+
+  // تأكيد الدور المختار في النافذة => تسجيل عبر Google بالدور نفسه ثم الانتقال للوحة تحكمه.
+  const handleRolePick = async (role) => {
+    if (!pendingCredential || roleModalLoading) return;
+    setRoleModalLoading(true);
+    try {
+      await googleLogin(pendingCredential, role);
+      navigate(getHomePath());
+    } catch (err) {
+      console.error('Google signup failed:', err);
+      setFormError(err?.message || 'تعذر إنشاء الحساب عبر Google. حاول مرة أخرى.');
+    } finally {
+      setRoleModalLoading(false);
     }
   };
 
@@ -514,6 +546,113 @@ export default function LoginPage() {
         }
         .switch a:hover { color: var(--accent); }
 
+        /* ===== نافذة اختيار الدور (بريد Google غير مسجّل) ===== */
+        .role-modal-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 100;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 1.25rem;
+          background: rgba(0,0,0,0.62);
+          backdrop-filter: blur(4px);
+          font-family: 'Cairo', sans-serif;
+          direction: rtl;
+        }
+        .role-modal {
+          position: relative;
+          width: 100%;
+          max-width: 26rem;
+          background: linear-gradient(180deg, rgba(39,39,42,0.98), rgba(24,24,27,0.98));
+          border: 1px solid rgba(249,115,22,0.28);
+          border-radius: var(--radius-card);
+          box-shadow: 0 30px 60px -20px rgba(0,0,0,0.7), 0 0 0 1px rgba(249,115,22,0.14);
+          padding: 2rem 1.5rem 1.6rem;
+          text-align: center;
+          color: #fff;
+          animation: roleModalIn .25s var(--ease);
+        }
+        @keyframes roleModalIn {
+          from { opacity: 0; transform: translateY(14px) scale(0.97); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .role-modal { animation: none; }
+        }
+        .role-modal__close {
+          position: absolute;
+          top: 0.8rem; left: 0.8rem;
+          width: 2.1rem; height: 2.1rem;
+          display: flex; align-items: center; justify-content: center;
+          border-radius: 999px;
+          border: 1px solid rgba(255,255,255,0.18);
+          background: rgba(255,255,255,0.08);
+          color: rgba(255,255,255,0.85);
+          cursor: pointer;
+          transition: background .2s, color .2s;
+        }
+        .role-modal__close:hover { background: rgba(255,255,255,0.16); color: #fff; }
+        .role-modal__brand { justify-content: center; margin-bottom: 0.8rem; }
+        .role-modal h3 { font-size: 1.35rem; font-weight: 800; margin: 0 0 0.3rem; }
+        .role-modal__sub {
+          margin: 0 0 1.1rem;
+          font-size: 0.9rem;
+          line-height: 1.6;
+          color: rgba(255,255,255,0.72);
+        }
+        .role-modal__segment { margin-bottom: 1.1rem; }
+        .role-modal__hint {
+          margin: 0;
+          font-size: 0.78rem;
+          color: rgba(255,255,255,0.55);
+          line-height: 1.6;
+        }
+        .role-modal__loading {
+          margin: 0.9rem 0 0;
+          font-size: 0.85rem;
+          font-weight: 700;
+          color: var(--accent);
+        }
+
+        /* مقسم الأدوار (نفس الهوية البصرية لصفحة إنشاء الحساب) */
+        .segment {
+          position: relative;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          direction: rtl;
+          background: rgba(255,255,255,0.08);
+          border: 1.5px solid rgba(255,255,255,0.18);
+          border-radius: 999px;
+          padding: 0.3rem;
+        }
+        .segment__thumb {
+          position: absolute;
+          top: 0.3rem; bottom: 0.3rem; right: 0.3rem;
+          width: calc(50% - 0.3rem);
+          background: linear-gradient(180deg, #fb923c, var(--accent) 60%, var(--accent-hover));
+          border-radius: 999px;
+          transition: transform .28s var(--ease);
+          z-index: 0;
+        }
+        .segment__opt {
+          position: relative;
+          z-index: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.45rem;
+          padding: 0.55rem 0.5rem;
+          border: none;
+          background: transparent;
+          cursor: pointer;
+          font-size: 0.9rem;
+          font-weight: 600;
+          color: rgba(255,255,255,0.7);
+          transition: color .2s var(--ease);
+        }
+        .segment__opt.active { color: #fff; }
+
         /* ===== ضبط دقيق للهواتف ===== */
         @media (max-width: 600px) {
           .auth-welcome { display: none; }
@@ -697,6 +836,67 @@ export default function LoginPage() {
           </svg>
         </a>
       </main>
+
+      {/* نافذة اختيار الدور: تظهر عندما يكون بريد Google غير مسجّل بعد */}
+      {roleModalOpen && (
+        <div className="role-modal-overlay" role="dialog" aria-modal="true" aria-label="اختر نوع الحساب">
+          <div className="role-modal" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="role-modal__close"
+              onClick={() => setRoleModalOpen(false)}
+              aria-label="إغلاق"
+            >
+              <svg viewBox="0 0 24 24" className="w-5 h-5 fill-none stroke-current stroke-[2.2] stroke-linecap-round">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+
+            <div className="brand role-modal__brand">
+              <img src="/masahati.jpeg" alt="Masahati" className="brand-logo" />
+              <span className="brand-name">Masa<span>hati</span></span>
+            </div>
+
+            <h3>مرحباً بك في مساحاتي</h3>
+            <p className="role-modal__sub">لم نجد بريدك مسجلاً بعد. اختر نوع الحساب لإنشائه:</p>
+
+            {/* مقسم اختيار الدور — نفس الهوية البصرية لصفحة إنشاء الحساب */}
+            <div className="segment role-modal__segment">
+              <span className="segment__thumb" aria-hidden="true"></span>
+              <button
+                type="button"
+                className={`segment__opt active`}
+                onClick={() => handleRolePick('customer')}
+              >
+                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-[2] stroke-linecap-round stroke-linejoin-round">
+                  <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+                  <path d="M6 12v5c3 3 9 3 12 0v-5" />
+                </svg>
+                عميل
+              </button>
+              <button
+                type="button"
+                className={`segment__opt`}
+                onClick={() => handleRolePick('space_owner')}
+              >
+                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-[2] stroke-linecap-round stroke-linejoin-round">
+                  <path d="M3 21h18M5 21V7l7-4 7 4v14" />
+                  <path d="M9 21v-4h6v4" />
+                </svg>
+                صاحب مساحة
+              </button>
+            </div>
+
+            <p className="role-modal__hint">
+              يمكنك تغيير أو إكمال بيانات حسابك من لوحة التحكم لاحقاً.
+            </p>
+
+            {roleModalLoading && (
+              <p className="role-modal__loading">جارٍ إنشاء الحساب…</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

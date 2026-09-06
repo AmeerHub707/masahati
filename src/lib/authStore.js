@@ -50,7 +50,7 @@ export async function registerOwner(formData) {
 
 // ----- تسجيل الدخول عبر Google -----
 // يرسل id_token (credential من Google Identity Services) إلى الباك إند،
-// مع الدور الاختياري ('student' | 'owner') عند التسجيل. الباك إند يتحقق
+// مع الدور الاختياري ('customer' | 'space_owner') عند التسجيل. الباك إند يتحقق
 // من الرمز ويعيد Sanctum token يُحفظ مثل أي تسجيل دخول عادي.
 export async function googleLogin(idToken, role) {
   const data = await request('/api/auth/google', {
@@ -112,14 +112,14 @@ export async function isEmailRegistered(email) {
 
 // ----- المسار بعد تسجيل الدخول/التسجيل -----
 // يعتمد على دور المستخدم المُعاد من الباك إند (`user.role`) ويرسل كل دور
-// إلى لوحة تحكمه. حالياً لوحتا "الطالب" و"صاحب المساحة" المنفصلتان لم
+// إلى لوحة تحكمه. حالياً لوحتا "العميل" و"صاحب المساحة" المنفصلتان لم
 // تُبنيا بعد، لذلك يذهب الجميع إلى /dashboard (نفس السلوك السابق).
 // عند إنشاء الصفحتين لاحقاً، غيّر القيمتين أدناه فقط:
-//   owner   → '/dashboard/owner'
-//   student → '/dashboard/student'
+//   space_owner → '/dashboard/space-owner'
+//   customer    → '/dashboard/customer'
 const DASHBOARD_PATHS = {
-  owner: '/dashboard',
-  student: '/dashboard',
+  space_owner: '/dashboard',
+  customer: '/dashboard',
 };
 
 export function getHomePath() {
