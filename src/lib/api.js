@@ -158,6 +158,16 @@ export async function request(path, options = {}) {
     );
   }
 
+  // استجابة ناجحة لكنها HTML بدل JSON (مثال: الباك إند يعيد صفحة Laravel
+  // الافتراضية بدلاً من تنفيذ المسار). نكشف ذلك لنظهر رسالة واضحة بدل فشل صامت.
+  if (res.ok && text && data === null && /^\s*</.test(text)) {
+    throw new ApiError(
+      'استجابة الخادم غير متوقعة (صفحة HTML بدلاً من JSON). يبدو أن مسار الباك إند لم يُطبق بعد.',
+      200,
+      null
+    );
+  }
+
   return data;
 }
 

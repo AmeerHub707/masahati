@@ -64,11 +64,17 @@ export default function SignupPage() {
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
   const handleGoogleSuccess = async (credential) => {
-    await googleLogin(credential, role);
-    // الطالب وصاحب المساحة ينتقلان إلى لوحة التحكم؛ صاحب المساحة
-    // لا يستطيع إضافة مساحة حتى يرفع وثيقة الملكية لاحقاً.
-    // التوجيه يعتمد على الدور (user.role) عبر getHomePath (كلاهما /dashboard حالياً).
-    navigate(getHomePath());
+    try {
+      await googleLogin(credential, role);
+      // الطالب وصاحب المساحة ينتقلان إلى لوحة التحكم؛ صاحب المساحة
+      // لا يستطيع إضافة مساحة حتى يرفع وثيقة الملكية لاحقاً.
+      // التوجيه يعتمد على الدور (user.role) عبر getHomePath (كلاهما /dashboard حالياً).
+      navigate(getHomePath());
+    } catch (err) {
+      // إظهار رسالة الفشل بدل الفشل الصامت (مثال: الباك إند لم يُطبق المسار بعد).
+      console.error('Google signup failed:', err);
+      setFormError(err?.message || 'تعذر إنشاء الحساب عبر Google. حاول مرة أخرى.');
+    }
   };
 
   const handleGoogleError = (err) => {

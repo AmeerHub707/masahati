@@ -23,8 +23,14 @@ export default function LoginPage() {
 
   const handleGoogleSuccess = async (credential) => {
     // في صفحة الدخول لا نرسل دوراً؛ الباك إند يطابق البريد/ينشئ افتراضياً.
-    await googleLogin(credential);
-    navigate(getHomePath());
+    try {
+      await googleLogin(credential);
+      navigate(getHomePath());
+    } catch (err) {
+      // إظهار رسالة الفشل بدل الفشل الصامت (مثال: الباك إند لم يُطبق المسار بعد).
+      console.error('Google login failed:', err);
+      setFormError(err?.message || 'تعذر تسجيل الدخول عبر Google. حاول مرة أخرى.');
+    }
   };
 
   const handleGoogleError = (err) => {
