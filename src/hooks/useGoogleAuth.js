@@ -79,7 +79,7 @@ export default function useGoogleAuth({ clientId, onSuccess, onError }) {
         type: 'standard',
         theme: 'outline',
         size: 'large',
-        text: 'continue_with',
+        text: 'signin_with',
         shape: 'pill',
         width: container.clientWidth || 320,
         locale: 'ar',
