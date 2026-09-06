@@ -47,6 +47,22 @@ export async function registerOwner(formData) {
   });
 }
 
+// ----- تسجيل الدخول عبر Google -----
+// يرسل id_token (credential من Google Identity Services) إلى الباك إند،
+// مع الدور الاختياري ('student' | 'owner') عند التسجيل. الباك إند يتحقق
+// من الرمز ويعيد Sanctum token يُحفظ مثل أي تسجيل دخول عادي.
+export async function googleLogin(idToken, role) {
+  const data = await request('/api/auth/google', {
+    method: 'POST',
+    body: role ? { id_token: idToken, role } : { id_token: idToken },
+  });
+  if (data && data.token) {
+    setToken(data.token);
+    return data;
+  }
+  throw new ApiError('استجابة الخادم غير متوقعة (لا يوجد توكن).', 500, data);
+}
+
 // ----- بيانات المستخدم الحالي (محمي) -----
 export async function userDetails() {
   return request('/api/user-details', { method: 'GET', auth: true });

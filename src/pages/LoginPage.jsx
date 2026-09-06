@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { login, ApiError } from '../lib/authStore';
+import { login, googleLogin, ApiError } from '../lib/authStore';
+import useGoogleAuth from '../hooks/useGoogleAuth';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -15,6 +16,32 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   const toggleShowPassword = () => setShowPassword((s) => !s);
+
+  // --- Google Auth ---
+  const googleBtnRef = useRef(null);
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+  const handleGoogleSuccess = async (credential) => {
+    // في صفحة الدخول لا نرسل دوراً؛ الباك إند يطابق البريد/ينشئ افتراضياً.
+    await googleLogin(credential);
+    navigate('/dashboard');
+  };
+
+  const handleGoogleError = (err) => {
+    setFormError(err?.message || 'تعذر تسجيل الدخول عبر Google. حاول مرة أخرى.');
+  };
+
+  const { isReady: googleReady, renderButton: renderGoogleButton } = useGoogleAuth({
+    clientId: googleClientId,
+    onSuccess: handleGoogleSuccess,
+    onError: handleGoogleError,
+  });
+
+  useEffect(() => {
+    if (googleReady && googleBtnRef.current) {
+      renderGoogleButton(googleBtnRef.current);
+    }
+  }, [googleReady, renderGoogleButton]);
 
   const handleChange = (e) => {
     const { id, value, type, checked } = e.target;
@@ -258,7 +285,7 @@ export default function LoginPage() {
         @media (min-width: 768px) {
           .auth-form {
             width: 54%; flex: none;
-            padding: 2.2rem 2.4rem 1.8rem;
+            padding: 2rem 2.4rem 1.4rem;
             border-top: none;
             border-inline-start: 1px solid rgba(255,255,255,0.12);
           }
@@ -270,7 +297,7 @@ export default function LoginPage() {
           justify-content: space-between;
           gap: 1rem;
           width: 100%;
-          margin-bottom: 1.4rem;
+          margin-bottom: 1rem;
         }
         .brand { display: flex; align-items: center; gap: 0.6rem; }
         .brand-logo { height: 2.4rem; width: auto; object-fit: contain; filter: drop-shadow(0 6px 14px rgba(249,115,22,0.3)); }
@@ -303,13 +330,13 @@ export default function LoginPage() {
           color: #fff;
         }
         .form-sub {
-          margin: 0 0 1.5rem;
+          margin: 0 0 0.9rem;
           font-size: 0.92rem;
           color: rgba(255,255,255,0.72);
         }
 
         /* الحقول */
-        .field { margin-bottom: 0.5rem; }
+        .field { margin-bottom: 0.35rem; }
         .field label {
           display: block;
           font-size: 0.82rem;
@@ -345,9 +372,9 @@ export default function LoginPage() {
           margin-top: 0.3rem;
           min-height: 1.1rem;
         }
-        .form-error-slot { min-height: 2.2rem; margin-top: 0.2rem; }
+        .form-error-slot { min-height: 0; margin-top: 0; }
         .form-error-toast {
-          margin: 0;
+          margin: 0.5rem 0 0;
           min-height: auto;
           padding: 0.45rem 0.6rem;
           border-radius: 0.5rem;
@@ -383,7 +410,7 @@ export default function LoginPage() {
           align-items: center;
           justify-content: space-between;
           gap: 0.75rem;
-          margin: 0.6rem 0 1.1rem;
+          margin: 0.3rem 0 0.6rem;
           flex-wrap: wrap;
         }
         .remember {
@@ -440,15 +467,39 @@ export default function LoginPage() {
           cursor: pointer;
           box-shadow: 0 12px 26px -10px rgba(249,115,22,0.6);
           transition: all 0.18s var(--ease);
-          margin-top: 0.4rem;
+          margin-top: 0.2rem;
         }
         .btn:hover { transform: translateY(-2px); filter: brightness(1.04); }
+
+        /* ===== فصل + زر تسجيل الدخول عبر Google ===== */
+        .google-divider {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          margin: 0.7rem 0 0.6rem;
+          color: rgba(255,255,255,0.6);
+          font-size: 0.8rem;
+          font-weight: 600;
+        }
+        .google-divider::before,
+        .google-divider::after {
+          content: "";
+          flex: 1;
+          height: 1px;
+          background: rgba(255,255,255,0.18);
+        }
+        .google-btn-wrap {
+          margin-bottom: 0.2rem;
+        }
+        .google-btn-wrap > div {
+          width: 100%;
+        }
 
         .switch {
           text-align: center;
           font-size: 0.9rem;
           color: rgba(255,255,255,0.72);
-          margin-top: 1.2rem;
+          margin-top: 0.8rem;
         }
         .switch a {
           color: #fff;
@@ -462,7 +513,7 @@ export default function LoginPage() {
           .auth-welcome { display: none; }
           .auth-form {
             background: rgba(0,0,0,0.6);
-            padding: 1.8rem 1.3rem 1.6rem;
+            padding: 1.5rem 1.3rem 1.2rem;
           }
           .field input { font-size: 16px; padding: 0.8rem 0.9rem; }
           .btn { font-size: 1.02rem; padding: 0.9rem 1rem; min-height: 52px; }
@@ -614,6 +665,10 @@ export default function LoginPage() {
                 </span>
               ) : 'تسجيل الدخول'}
             </button>
+
+            {/* تسجيل الدخول عبر Google */}
+            <div className="google-divider">أو</div>
+            <div ref={googleBtnRef} className="google-btn-wrap" aria-label="المتابعة عبر Google" />
 
             {/* التحويل إلى إنشاء حساب */}
             <p className="switch">

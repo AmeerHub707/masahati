@@ -1,10 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   GraduationCap,
   Building2,
   Check,
-  Clock,
   ArrowLeft,
   Upload,
   FileCheck
@@ -13,14 +12,18 @@ import {
   registerCustomer,
   registerOwner,
   login,
+  googleLogin,
   ApiError,
   request,
 } from '../lib/authStore';
+import useGoogleAuth from '../hooks/useGoogleAuth';
 import WhatsAppBubble from '../components/common/WhatsAppBubble';
 
 export default function SignupPage() {
+  const navigate = useNavigate();
+
   // --- States ---
-  const [step, setStep] = useState('register'); // 'register' | 'otp' | 'done' | 'pending'
+  const [step, setStep] = useState('register'); // 'register' | 'otp' | 'done'
   const [role, setRole] = useState('student'); // 'student' | 'owner'
   const [otpChannel, setOtpChannel] = useState('email'); // 'email' | 'whatsapp'
   const [showChannelModal, setShowChannelModal] = useState(false);
@@ -55,6 +58,33 @@ export default function SignupPage() {
     return () => clearInterval(interval);
   }, [timerLeft]);
 
+  // --- Google Auth ---
+  const googleBtnRef = useRef(null);
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+  const handleGoogleSuccess = async (credential) => {
+    await googleLogin(credential, role);
+    // الطالب وصاحب المساحة ينتقلان إلى لوحة التحكم؛ صاحب المساحة
+    // لا يستطيع إضافة مساحة حتى يرفع وثيقة الملكية لاحقاً.
+    navigate('/dashboard');
+  };
+
+  const handleGoogleError = (err) => {
+    setFormError(err?.message || 'تعذر تسجيل الدخول عبر Google. حاول مرة أخرى.');
+  };
+
+  const { isReady: googleReady, renderButton: renderGoogleButton } = useGoogleAuth({
+    clientId: googleClientId,
+    onSuccess: handleGoogleSuccess,
+    onError: handleGoogleError,
+  });
+
+  useEffect(() => {
+    if (googleReady && googleBtnRef.current) {
+      renderGoogleButton(googleBtnRef.current);
+    }
+  }, [googleReady, renderGoogleButton]);
+
   // --- Handlers ---
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -85,11 +115,6 @@ export default function SignupPage() {
     if (!phoneRegex.test(formData.phone.trim())) newErrors.phone = 'رقم الهاتف غير صحيح.';
     if (formData.password.length < 6) newErrors.password = 'كلمة المرور يجب أن تكون 6 أحرف على الأقل.';
     if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'كلمات المرور غير متطابقة.';
-
-    // شرط إضافي لصاحب المساحة: إرفاق وثيقة اثبات ملكية
-    if (role === 'owner' && !formData.ownershipDocument) {
-      newErrors.ownershipDocument = 'يرجى إرفاق وثيقة تثبت ملكيتك أو إدارتك لمساحة واحدة على الأقل.';
-    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -222,7 +247,9 @@ export default function SignupPage() {
       await login(formData.email.trim(), formData.password);
 
       if (role === 'owner') {
-        setStep('pending');
+        // صاحب المساحة ينتقل إلى لوحة التحكم مباشرة؛ الوثيقة اختيارية الآن،
+        // لكنه لن يستطيع إضافة مساحة حتى يرفع وثيقة الملكية لاحقاً.
+        navigate('/dashboard');
       } else {
         setStep('done');
       }
@@ -576,6 +603,33 @@ export default function SignupPage() {
         }
         .btn:hover { transform: translateY(-2px); filter: brightness(1.04); }
 
+        /* ===== فصل + زر تسجيل الدخول عبر Google ===== */
+        .google-divider {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          margin: 1rem 0 0.9rem;
+          color: rgba(255,255,255,0.6);
+          font-size: 0.8rem;
+          font-weight: 600;
+        }
+        .google-divider::before,
+        .google-divider::after {
+          content: "";
+          flex: 1;
+          height: 1px;
+          background: rgba(255,255,255,0.18);
+        }
+        .google-btn-wrap {
+          margin-bottom: 0.4rem;
+        }
+        .google-btn-wrap > div {
+          width: 100%;
+        }
+        .google-btn-hero {
+          margin: 0.1rem 0 0;
+        }
+
         /* OTP Input */
         .otp-row { display: flex; direction: ltr; gap: 0.5rem; margin: 0.4rem 0 0.3rem; justify-content: center; }
         .otp-box {
@@ -595,7 +649,6 @@ export default function SignupPage() {
           display: flex; align-items: center; justify-content: center;
         }
         .state-badge.ok { background: linear-gradient(180deg, #fb923c, var(--accent)); color: white; }
-        .state-badge.pending { background: linear-gradient(180deg, #fbbf24, #f59e0b); color: white; }
 
         .dev-note {
           margin-top: 0.8rem; padding: 0.55rem 0.75rem; border-radius: var(--radius-field);
@@ -689,6 +742,10 @@ export default function SignupPage() {
                 </button>
               </div>
 
+              {/* تسجيل الدخول عبر Google — الأبرز قبل الحقول، يُرسل الدور المحدد */}
+              <div ref={googleBtnRef} className="google-btn-wrap google-btn-hero" aria-label="المتابعة عبر Google" />
+              <div className="google-divider">أو أنشئ حساباً يدوياً</div>
+
               {/* Name Field */}
               <div className={`field ${errors.name ? 'has-error' : ''}`}>
                 <label>الاسم الكامل</label>
@@ -730,10 +787,10 @@ export default function SignupPage() {
                 <p className="error">{errors.phone}</p>
               </div>
 
-              {/* Dynamic Field: Document Ownership (Required ONLY for Space Owner) */}
+              {/* Dynamic Field: Document Ownership (Optional for Space Owner) */}
               {role === 'owner' && (
                 <div className={`field ${errors.ownershipDocument ? 'has-error' : ''}`}>
-                  <label>إثبات ملكية/إدارة مساحة</label>
+                  <label>إثبات ملكية/إدارة مساحة (اختياري)</label>
                   <label
                     htmlFor="doc-upload"
                     className={`file-upload-box ${formData.ownershipDocument ? 'has-file' : ''}`}
@@ -746,7 +803,7 @@ export default function SignupPage() {
                     ) : (
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: 'rgba(255,255,255,0.75)', fontSize: '0.85rem' }}>
                         <Upload size={18} />
-                        <span>ارفاق وثيقة تثبت امتلاكك لمساحة (سند ملكية / عقد إيجار / ترخيص)</span>
+                        <span>ارفاق وثيقة تثبت امتلاكك لمساحة (سند ملكية / عقد إيجار / ترخيص) — اختياري</span>
                       </div>
                     )}
                   </label>
@@ -880,22 +937,6 @@ export default function SignupPage() {
               </p>
               <Link to="/login" className="btn" style={{ display: 'block', textDecoration: 'none' }}>
                 الذهاب لتسجيل الدخول
-              </Link>
-            </div>
-          )}
-
-          {/* STEP 3B: OWNER PENDING APPROVAL */}
-          {step === 'pending' && (
-            <div className="form-panel state-wrap">
-              <div className="state-badge pending">
-                <Clock size={36} />
-              </div>
-              <h2>بانتظار موافقة الإدارة</h2>
-              <p>
-                شكرًا لانضمامك كصاحب مساحة! تم استلام بياناتك ووثيقة الملكية بنجاح. سيقوم فريق الإدارة بمراجعة الوثائق وتفعيل حسابك قريبًا، وسنحيطك علمًا عبر البريد الإلكتروني.
-              </p>
-              <Link to="/" className="btn" style={{ display: 'block', textDecoration: 'none' }}>
-                العودة للرئيسية
               </Link>
             </div>
           )}
