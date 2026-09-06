@@ -51,6 +51,30 @@ Strategy change: space owners no longer must attach a proof-of-ownership documen
   should require an approved document and reject the request otherwise. The frontend will
   also gate the button in the dashboard UI, but the backend is the source of truth.
 
+### Implementing the OPTIONAL document (fixes `store() on null` crash)
+
+The field must be nullable AND the file access must be guarded. Otherwise the endpoint
+crashes with `Call to a member function store() on null` whenever the owner signs up
+without a document (the default case now):
+
+```php
+$data = $request->validate([
+    'name' => 'required|string|max:255',
+    'email' => 'required|email|unique:users,email',
+    'phone' => 'required|string',
+    'password' => 'required|string|min:6|confirmed',
+    'proof_document' => 'nullable|file|mimes:pdf,png,jpg,jpeg|max:5120', // اختيارية
+]);
+
+if ($request->hasFile('proof_document')) {
+    $data['proof_document'] = $request->file('proof_document')
+                                     ->store('proof_documents', 'public');
+}
+```
+
+Apply the same `hasFile()` guard anywhere else `proof_document` is touched
+(Google-auth owner creation, space-creation checks).
+
 ## Acceptance criteria (how the backend team verifies)
 
 1. `POST /api/auth/google` with a valid Google `id_token` + `role: "student"` → `200` with
