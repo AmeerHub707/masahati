@@ -8,7 +8,7 @@ import Roles from '../components/landing/Roles';
 import About from '../components/landing/About';
 import CtaBand from '../components/landing/CtaBand';
 import Footer from '../components/layout/Footer';
-import WhatsAppBubble from '../components/common/WhatsAppBubble';
+import AssistantWidget from '../components/assistant/AssistantWidget';
 import Reveal from '../components/common/Reveal';
 import ScrollProgress from '../components/common/ScrollProgress';
 import SectionDivider from '../components/common/SectionDivider';
@@ -88,7 +88,7 @@ export default function LandingPage() {
 
       <Footer />
 
-      <WhatsAppBubble />
+      <AssistantWidget />
 
       {/* زر العودة لأعلى الصفحة */}
       <button

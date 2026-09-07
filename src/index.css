@@ -468,3 +468,98 @@ img{max-width:100%;}
   .orb{animation:none!important;}
   .divider-fill-1,.divider-fill-2{animation:none!important;}
 }
+
+/* ===== مساعد مساحاتي (AI Assistant) ===== */
+/* الزجاجة: في الزاوية السفلية اليسرى (مكان فقاعة واتساب سابقاً) */
+.assistant-bubble{
+  position:fixed;bottom:1.4rem;left:1.4rem;right:auto;z-index:90;width:3.4rem;height:3.4rem;border-radius:50%;border:none;cursor:pointer;
+  background:var(--gradient-brand);color:#fff;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 14px 30px -8px rgba(249,115,22,.6);transition:transform .2s var(--ease),box-shadow .2s;
+}
+.assistant-bubble:hover{transform:translateY(-3px) scale(1.05);box-shadow:0 18px 36px -8px rgba(249,115,22,.75);}
+.assistant-bubble__icon{width:1.7rem;height:1.7rem;}
+.assistant-bubble::before{content:'';position:absolute;inset:-3px;border-radius:50%;border:2px solid rgba(249,115,22,.45);animation:assistantPulse 2.4s var(--ease) infinite;}
+.assistant-bubble::after{content:attr(data-tip);position:absolute;right:4.2rem;left:auto;top:50%;transform:translateY(-50%);
+  white-space:nowrap;background:#0a0a0a;color:#fff;font-size:.78rem;font-weight:700;padding:.35rem .6rem;border-radius:.5rem;opacity:0;pointer-events:none;transition:opacity .2s;}
+.assistant-bubble:hover::after{opacity:1;}
+@keyframes assistantPulse{0%{transform:scale(1);opacity:.7;}70%,100%{transform:scale(1.35);opacity:0;}}
+
+/* لوحة المحادثة — تفتح فوق الفقاعة */
+.assistant-panel{
+  position:fixed;bottom:5.9rem;left:1.4rem;right:auto;z-index:91;width:23rem;
+  max-height:min(32rem,calc(100dvh - 11.5rem));display:flex;flex-direction:column;overflow:hidden;
+  background:#fff;border:1px solid rgba(249,115,22,.22);border-radius:var(--radius-card);
+  box-shadow:0 30px 60px -20px rgba(0,0,0,.35),0 0 0 1px rgba(249,115,22,.08);
+  color:var(--text-strong);font-family:'Cairo',sans-serif;direction:rtl;text-align:right;
+  animation:assistantIn .28s var(--ease);
+}
+@keyframes assistantIn{from{opacity:0;transform:translateY(12px) scale(.97);}to{opacity:1;transform:translateY(0) scale(1);}}
+
+.assistant-header{display:flex;align-items:center;gap:.7rem;padding:.8rem 1rem;background:var(--gradient-brand);color:#fff;}
+.assistant-header__avatar{width:2.5rem;height:2.5rem;flex:none;border-radius:50%;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;}
+.assistant-header__avatar svg{width:1.35rem;height:1.35rem;}
+.assistant-header__meta{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.35;}
+.assistant-header__meta strong{font-size:.95rem;font-weight:800;}
+.assistant-header__meta span{font-size:.74rem;color:rgba(255,255,255,.88);display:flex;align-items:center;gap:.35rem;}
+.assistant-header__dot{width:.5rem;height:.5rem;border-radius:50%;background:#4ade80;display:inline-block;box-shadow:0 0 0 3px rgba(74,222,128,.25);}
+.assistant-header__close{width:2.2rem;height:2.2rem;flex:none;border:none;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s;}
+.assistant-header__close:hover{background:rgba(255,255,255,.28);}
+.assistant-header__close svg{width:1.1rem;height:1.1rem;}
+
+.assistant-body{flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:.7rem;
+  scrollbar-width:thin;scrollbar-color:rgba(249,115,22,.4) transparent;}
+
+.assistant-msg{display:flex;gap:.5rem;align-items:flex-start;}
+.assistant-msg__avatar{width:2rem;height:2rem;flex:none;border-radius:999px;background:var(--gradient-brand);color:#fff;display:flex;align-items:center;justify-content:center;}
+.assistant-msg__avatar svg{width:1rem;height:1rem;}
+.assistant-msg__content{max-width:86%;min-width:0;}
+.assistant-msg__content p{margin:0;font-size:.86rem;line-height:1.65;padding:.55rem .8rem;border-radius:1rem;word-wrap:break-word;white-space:pre-line;}
+.assistant-msg--bot .assistant-msg__content p{background:#f4f4f5;color:var(--text-strong);border-top-right-radius:.15rem;}
+.assistant-msg--user{flex-direction:row-reverse;}
+.assistant-msg--user .assistant-msg__content p{background:var(--gradient-brand);color:#fff;border-top-left-radius:.15rem;}
+.assistant-msg--user .assistant-msg__avatar{display:none;}
+.assistant-msg--error .assistant-msg__content p{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-top-right-radius:.15rem;}
+
+.assistant-typing{display:flex;gap:.25rem;align-items:center;background:#f4f4f5;width:fit-content;padding:.75rem .9rem;border-radius:1rem;border-top-right-radius:.15rem;}
+.assistant-typing span{width:.5rem;height:.5rem;border-radius:50%;background:var(--accent);animation:typingBounce 1.1s infinite;}
+.assistant-typing span:nth-child(2){animation-delay:.18s;}
+.assistant-typing span:nth-child(3){animation-delay:.36s;}
+@keyframes typingBounce{0%,60%,100%{transform:translateY(0);opacity:.4;}30%{transform:translateY(-4px);opacity:1;}}
+
+.assistant-chips{display:flex;flex-wrap:wrap;gap:.45rem;padding:.25rem 1rem .85rem;}
+.assistant-chip{display:inline-flex;align-items:center;gap:.4rem;min-height:36px;padding:.4rem .75rem;border:1.5px solid rgba(249,115,22,.35);
+  background:var(--accent-soft);color:var(--accent-hover);border-radius:999px;font-size:.76rem;font-weight:700;cursor:pointer;
+  transition:transform .18s var(--ease),background .18s,border-color .18s;}
+.assistant-chip:hover{background:#fff;border-color:var(--accent);transform:translateY(-1px);}
+.assistant-chip svg{width:.9rem;height:.9rem;}
+
+.assistant-inputbar{display:flex;gap:.5rem;align-items:center;padding:.7rem 1rem 1rem;border-top:1px solid #f4f4f5;}
+.assistant-inputbar input{flex:1;min-width:0;min-height:44px;border:1.5px solid var(--border);border-radius:999px;padding:.4rem 1rem;font-size:.88rem;font-family:'Cairo',sans-serif;color:var(--text-strong);outline:none;transition:border-color .18s,box-shadow .18s;}
+.assistant-inputbar input:focus{border-color:var(--accent);box-shadow:var(--ring);}
+.assistant-inputbar input:disabled{opacity:.6;}
+.assistant-send{width:44px;height:44px;flex:none;border:none;border-radius:50%;background:var(--gradient-brand);color:#fff;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 10px 20px -8px rgba(249,115,22,.55);
+  transition:transform .18s var(--ease),filter .18s;}
+.assistant-send:hover:not(:disabled){transform:translateY(-1px) scale(1.04);filter:brightness(1.04);}
+.assistant-send:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;}
+.assistant-send svg{width:1.05rem;height:1.05rem;}
+
+/* بطاقات المساحات داخل الرد */
+.assistant-spaces{margin-top:.6rem;display:flex;flex-direction:column;gap:.5rem;}
+.assistant-space{display:flex;gap:.6rem;align-items:center;background:#fff;border:1px solid var(--border);border-radius:1rem;padding:.5rem;
+  text-decoration:none;color:inherit;transition:border-color .18s,transform .18s var(--ease);}
+.assistant-space:hover{border-color:var(--accent);transform:translateY(-1px);}
+.assistant-space>img,.assistant-space__img-fallback{width:3.2rem;height:3.2rem;flex:none;border-radius:.7rem;object-fit:cover;background:var(--gradient-brand);}
+.assistant-space__info{flex:1;min-width:0;display:flex;flex-direction:column;gap:.1rem;font-size:.76rem;color:var(--text-muted);}
+.assistant-space__info strong{font-size:.85rem;color:var(--text-strong);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.assistant-space__info span{display:flex;align-items:center;gap:.3rem;}
+.assistant-space__info svg{width:.85rem;height:.85rem;color:var(--accent);flex:none;}
+.assistant-space>b{font-size:.9rem;color:var(--accent-hover);white-space:nowrap;flex:none;}
+.assistant-more{display:block;text-align:center;font-size:.8rem;font-weight:700;color:var(--accent-hover);text-decoration:none;padding:.4rem;border-radius:.6rem;transition:background .18s;}
+.assistant-more:hover{background:var(--accent-soft);}
+
+/* ===== مساعد مساحاتي — الجوال ===== */
+@media (max-width:600px){
+  .assistant-bubble{bottom:calc(1rem + env(safe-area-inset-bottom));left:1rem;width:3.1rem;height:3.1rem;}
+  .assistant-panel{left:.6rem;right:.6rem;width:auto;bottom:calc(4.7rem + env(safe-area-inset-bottom));max-height:calc(100dvh - 6.1rem);}
+}
