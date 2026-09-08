@@ -80,9 +80,7 @@ export default function LandingPage() {
             <About />
           </Reveal>
           <SectionDivider flip />
-          <Reveal delay={80}>
-            <CtaBand />
-          </Reveal>
+          <CtaBand />
         </main>
       </ReactPullToRefresh>
 
