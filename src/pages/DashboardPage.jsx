@@ -14,7 +14,7 @@ export default function DashboardPage() {
       <Navbar />
 
       <main className="relative w-full max-w-[40rem] my-auto rounded-3xl overflow-hidden shadow-[0_30px_60px_-20px_rgba(0,0,0,0.55),0_0_0_2px_rgba(249,115,22,0.22)] bg-zinc-100 border border-white/75 p-10 text-center">
-        <img src="/masahati.jpeg" alt="Masahati" className="h-12 mx-auto mb-5 object-contain drop-shadow-[0_6px_14px_rgba(249,115,22,0.30)]" />
+        <img src="/Logo.png" alt="Masahati" className="h-12 mx-auto mb-5 object-contain drop-shadow-[0_6px_14px_rgba(249,115,22,0.30)]" />
         <h1 className="text-3xl font-bold mb-3 flex items-center justify-center gap-3 flex-wrap">
           <span>{user?.name ? `مرحباً، ${user.name}` : 'مرحباً بك في لوحة التحكم'}</span>
           {roleLabel && (

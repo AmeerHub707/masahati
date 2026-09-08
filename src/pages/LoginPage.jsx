@@ -701,8 +701,7 @@ export default function LoginPage() {
         <section className="auth-form">
           <div className="form-head">
             <div className="brand">
-              <img src="/masahati.jpeg" alt="Masahati" className="brand-logo" />
-              <span className="brand-name">Masa<span>hati</span></span>
+              <img src="/Logo.png" alt="Masahati" className="brand-logo" />
             </div>
 
             <Link
@@ -853,8 +852,7 @@ export default function LoginPage() {
             </button>
 
             <div className="brand role-modal__brand">
-              <img src="/masahati.jpeg" alt="Masahati" className="brand-logo" />
-              <span className="brand-name">Masa<span>hati</span></span>
+              <img src="/Logo.png" alt="Masahati" className="brand-logo" />
             </div>
 
             <h3>مرحباً بك في مساحاتي</h3>

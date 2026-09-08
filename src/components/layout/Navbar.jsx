@@ -37,8 +37,7 @@ export default function Navbar() {
       <div className="wrap nav__inner">
         {/* الشعار — يمين في RTL */}
         <Link className="brand" to="/" onClick={handleLogoClick} aria-label="Masahati">
-          <img src="/masahati.jpeg" alt="Masahati" className="brand-logo" />
-          <span className="brand-name">Masa<span>hati</span></span>
+          <img src="/Logo.png" alt="Masahati" className="brand-logo" />
         </Link>
 
         {/* روابط النص — سطح المكتب فقط (صف واحد، داخل حاوية زجاجية) */}

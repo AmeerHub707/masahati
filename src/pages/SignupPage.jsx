@@ -711,8 +711,7 @@ export default function SignupPage() {
         <section className="auth-form">
           <div className="form-head">
             <div className="brand">
-              <img src="/masahati.jpeg" alt="Masahati" className="brand-logo" />
-              <span className="brand-name">Masa<span>hati</span></span>
+              <img src="/Logo.png" alt="Masahati" className="brand-logo" />
             </div>
 
             <Link className="back-home" to="/">

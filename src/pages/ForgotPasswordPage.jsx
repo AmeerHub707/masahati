@@ -477,8 +477,7 @@ export default function ForgotPasswordPage() {
         <section className="auth-form">
           <div className="form-head">
             <div className="brand">
-              <img src="/masahati.jpeg" alt="Masahati" className="brand-logo" />
-              <span className="brand-name">Masa<span>hati</span></span>
+              <img src="/Logo.png" alt="Masahati" className="brand-logo" />
             </div>
 
             <Link
@@ -499,7 +498,7 @@ export default function ForgotPasswordPage() {
             {status === 'sent' ? (
               <div className="success-screen">
                 <div className="success-card">
-                  <img src="/masahati.jpeg" alt="Masahati" className="success-card__logo" />
+                  <img src="/Logo.png" alt="Masahati" className="success-card__logo" />
                   <div className="success-screen__ico">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="42" height="42">
                       <path d="M22 2 11 13" />

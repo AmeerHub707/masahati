@@ -538,8 +538,7 @@ export default function ResetPasswordPage() {
         <section className="auth-form">
           <div className="form-head">
             <div className="brand">
-              <img src="/masahati.jpeg" alt="Masahati" className="brand-logo" />
-              <span className="brand-name">Masa<span>hati</span></span>
+              <img src="/Logo.png" alt="Masahati" className="brand-logo" />
             </div>
 
             <Link to="/" aria-label="العودة إلى الصفحة الرئيسية" className="back-home">
@@ -556,7 +555,7 @@ export default function ResetPasswordPage() {
             {status === 'done' ? (
               <div className="success-screen">
                 <div className="success-card">
-                  <img src="/masahati.jpeg" alt="Masahati" className="success-card__logo" />
+                  <img src="/Logo.png" alt="Masahati" className="success-card__logo" />
                   <div className="success-screen__ico">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="42" height="42">
                       <path d="M20 6 9 17l-5-5" />
@@ -569,7 +568,7 @@ export default function ResetPasswordPage() {
             ) : status === 'error' ? (
               <div className="success-screen error-screen">
                 <div className="success-card">
-                  <img src="/masahati.jpeg" alt="Masahati" className="success-card__logo" />
+                  <img src="/Logo.png" alt="Masahati" className="success-card__logo" />
                   <div className="success-screen__ico" style={{ background: 'rgba(248,113,113,0.16)', color: '#f87171' }}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="42" height="42">
                       <circle cx="12" cy="12" r="10" />
@@ -592,7 +591,7 @@ export default function ResetPasswordPage() {
             ) : isInvalidLink ? (
               <div className="success-screen">
                 <div className="success-card">
-                  <img src="/masahati.jpeg" alt="Masahati" className="success-card__logo" />
+                  <img src="/Logo.png" alt="Masahati" className="success-card__logo" />
                   <div className="success-screen__ico" style={{ background: 'rgba(248,113,113,0.16)', color: '#f87171' }}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="42" height="42">
                       <circle cx="12" cy="12" r="10" />

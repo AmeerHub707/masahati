@@ -5,8 +5,7 @@ export default function Footer() {
     <footer className="footer">
       <div className="wrap footer__inner">
         <Link className="brand" to="/">
-          <img src="/masahati.jpeg" alt="مساحاتي" className="brand-logo" style={{ height: '1.9rem' }} />
-          <span className="brand-name" style={{ fontSize: '1.15rem' }}>Masa<span>hati</span></span>
+          <img src="/Logo.png" alt="مساحاتي" className="brand-logo" style={{ height: '1.9rem' }} />
         </Link>
         <span>© ٢٠٢٦ مساحاتي — مساحات عمل مشتركة عبر غزة.</span>
         <span>
