@@ -1,21 +1,54 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { CountUp } from 'countup.js';
-import { Lottie } from 'lottie-react';
 import { useEffect, useRef } from 'react';
 import AnimatedOrbs from '../common/AnimatedOrbs';
 import MagneticButton from '../common/MagneticButton';
-import buildingAnim from '../../assets/lottie/building.json';
-import boltAnim from '../../assets/lottie/bolt.json';
-import clockAnim from '../../assets/lottie/clock.json';
-import starAnim from '../../assets/lottie/star.json';
 
 const stats = [
-  { value: 120, suffix: '+', label: 'مساحة موثّقة', anim: buildingAnim },
-  { value: 24, suffix: '/7', label: 'فلتر الكهرباء', anim: boltAnim },
-  { value: 5, suffix: ' min', label: 'لحجز مقعد', anim: clockAnim },
-  { value: 4.8, suffix: '★', decimals: 1, label: 'تقييم الأعضاء', anim: starAnim },
+  { value: 120, suffix: '+', label: 'مساحة موثّقة', icon: 'building' },
+  { value: 24, suffix: '/7', label: 'فلتر الكهرباء', icon: 'bolt' },
+  { value: 5, suffix: ' min', label: 'لحجز مقعد', icon: 'clock' },
+  { value: 4.8, suffix: '★', decimals: 1, label: 'تقييم الأعضاء', icon: 'star' },
 ];
+
+function StatIcon({ name }) {
+  if (name === 'building') {
+    return (
+      <svg className="stat-icon icon-building" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect x="4.4" y="3.4" width="15.2" height="17.2" rx="2" stroke="#fff" strokeWidth="2.1" />
+        <rect x="9" y="8" width="6" height="8.4" rx="1.3" fill="#fff" className="icon-building__win" />
+        <rect x="9" y="18.2" width="6" height="2.4" rx="1.2" fill="#fff" />
+      </svg>
+    );
+  }
+  if (name === 'bolt') {
+    return (
+      <svg className="stat-icon icon-bolt" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" fill="#fff" />
+      </svg>
+    );
+  }
+  if (name === 'clock') {
+    return (
+      <svg className="stat-icon icon-clock" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="9.2" stroke="#fff" strokeWidth="2.1" />
+        <circle cx="12" cy="12" r="1.1" fill="#fff" />
+        <g className="icon-clock__hand">
+          <rect x="11.35" y="5.2" width="1.3" height="8.6" rx="0.65" fill="#fff" />
+        </g>
+      </svg>
+    );
+  }
+  if (name === 'star') {
+    return (
+      <svg className="stat-icon icon-star" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 2.4l2.7 5.9 6.5.9-4.7 4.6 1.1 6.4-5.6-3-5.6 3 1.1-6.4L2.8 9.2l6.5-.9L12 2.4z" fill="#fff" />
+      </svg>
+    );
+  }
+  return null;
+}
 
 function StatNumber({ value, suffix, decimals = 0 }) {
   const elRef = useRef(null);
@@ -52,6 +85,39 @@ function StatNumber({ value, suffix, decimals = 0 }) {
       <span ref={elRef}>0</span>
       <span className="stat__suffix">{suffix}</span>
     </b>
+  );
+}
+
+function StatCard({ stat }) {
+  const ref = useRef(null);
+
+  const handleMove = (e) => {
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty('--mx', `${((e.clientX - r.left) / r.width) * 100}%`);
+    el.style.setProperty('--my', `${((e.clientY - r.top) / r.height) * 100}%`);
+  };
+
+  return (
+    <motion.div
+      className="stat"
+      ref={ref}
+      variants={item}
+      onMouseMove={handleMove}
+      onMouseLeave={() => {
+        const el = ref.current;
+        if (!el) return;
+        el.style.setProperty('--mx', '50%');
+        el.style.setProperty('--my', '50%');
+      }}
+    >
+      <span className="stat__lottie" aria-hidden="true">
+        <StatIcon name={stat.icon} />
+      </span>
+      <StatNumber value={stat.value} suffix={stat.suffix} decimals={stat.decimals ?? 0} />
+      <span>{stat.label}</span>
+    </motion.div>
   );
 }
 
@@ -104,7 +170,7 @@ export default function Hero() {
         </div>
       </header>
 
-      {/* إحصائيات تحت الهيرو — زجاجية مع حركات */}
+      {/* شريط المؤشرات — تحت الهيرو */}
       <div className="wrap">
         <motion.div
           className="stats"
@@ -114,13 +180,7 @@ export default function Hero() {
           viewport={{ once: false, amount: 0.3 }}
         >
           {stats.map((stat) => (
-            <motion.div className="stat" key={stat.label} variants={item}>
-              <span className="stat__lottie" aria-hidden="true">
-                <Lottie animationData={stat.anim} loop autoplay style={{ width: 44, height: 44 }} />
-              </span>
-              <StatNumber value={stat.value} suffix={stat.suffix} decimals={stat.decimals ?? 0} />
-              <span>{stat.label}</span>
-            </motion.div>
+            <StatCard key={stat.label} stat={stat} />
           ))}
         </motion.div>
       </div>
