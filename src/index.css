@@ -87,11 +87,11 @@ a{color:inherit;}
 }
 .btn-primary:hover{transform:translateY(-2px);filter:brightness(1.04);box-shadow:0 18px 32px -10px rgba(249,115,22,.7);}
 .btn-ghost{
-  display:inline-flex;align-items:center;gap:.5rem;background:#fff;color:var(--text-strong);font-weight:700;font-size:.95rem;
-  padding:.7rem 1.4rem;border:1.5px solid var(--border);border-radius:var(--radius-field);cursor:pointer;text-decoration:none;
+  display:inline-flex;align-items:center;gap:.5rem;background:rgba(255,255,255,.35);color:var(--text-strong);font-weight:700;font-size:.95rem;
+  padding:.7rem 1.4rem;border:1.5px solid rgba(0,0,0,.15);border-radius:var(--radius-field);cursor:pointer;text-decoration:none;
   transition:border-color .18s,background .18s,transform .18s var(--ease);
 }
-.btn-ghost:hover{border-color:var(--accent);background:var(--accent-soft);transform:translateY(-2px);}
+.btn-ghost:hover{border-color:var(--accent);background:rgba(255,255,255,.55);transform:translateY(-2px);}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}
   .hero__copy>*{opacity:1!important;transform:none!important;}}
 
@@ -113,19 +113,19 @@ a{color:inherit;}
 .blob--soft{width:10rem;height:10rem;background:#fff;opacity:.22;}
 
 /* ===== Navbar — DESKTOP SETTINGS ===== */
-.nav{position:sticky;top:0;z-index:50;background:transparent;backdrop-filter:none;border-bottom-color:transparent;box-shadow:none;transition:background .25s var(--ease),box-shadow .25s,border-color .25s;}
-/* شفاف فوق الهيرو (في صفحة الهبوط)، يتحوّل لزجاج سائل عند النزول (بدون كتلة بيضاء) */
-.landing .nav:not(.nav--scrolled){background:transparent;backdrop-filter:none;border-bottom-color:transparent;box-shadow:none;}
+.nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,1);backdrop-filter:none;border-bottom:1px solid rgba(0,0,0,.08);box-shadow:0 6px 20px -18px rgba(0,0,0,.4);transition:background .25s var(--ease),box-shadow .25s,border-color .25s;}
+/* خلفية بيضاء صلبة 100% في جميع المواضع */
+.landing .nav:not(.nav--scrolled){background:rgba(255,255,255,1);backdrop-filter:none;border-bottom-color:rgba(0,0,0,.08);box-shadow:0 6px 20px -18px rgba(0,0,0,.4);}
 /* زجاج سائل (frosted glass) بدل الخلفية البيضاء الصلبة */
 .nav--scrolled{
-  background:rgba(255,255,255,.18);
+  background:rgba(255,255,255,1);
   backdrop-filter:blur(18px) saturate(160%);
   -webkit-backdrop-filter:blur(18px) saturate(160%);
   border-bottom:1px solid rgba(255,255,255,.35);
   box-shadow:0 10px 30px -18px rgba(0,0,0,.45);
 }
 .landing .nav--scrolled{
-  background:rgba(255,255,255,.22);
+  background:rgba(255,255,255,1);
   backdrop-filter:blur(18px) saturate(160%);
   -webkit-backdrop-filter:blur(18px) saturate(160%);
   border-bottom:1px solid rgba(255,255,255,.30);

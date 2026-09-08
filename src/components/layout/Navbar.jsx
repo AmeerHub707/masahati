@@ -49,9 +49,9 @@ export default function Navbar() {
 
         {/* الأزرار (تسجيل الدخول + إضافة حساب) */}
         <div className="nav__cta">
-          <Link className="btn-ghost" to="/login">تسجيل الدخول</Link>
+          <Link className="cta-btn cta-btn--ghost" to="/login">تسجيل الدخول</Link>
           <MagneticButton>
-            <Link className="btn-primary" to="/signup">إضافة حساب</Link>
+            <Link className="cta-btn cta-btn--primary" to="/signup">إضافة حساب</Link>
           </MagneticButton>
         </div>
 
@@ -73,9 +73,9 @@ export default function Navbar() {
           {LINKS.map((l) => (
             <NavTab key={l.label} label={l.label} to={l.to} href={l.href} onClick={closeMenu} />
           ))}
-          <Link className="btn-ghost" to="/login" onClick={closeMenu}>تسجيل الدخول</Link>
+          <Link className="cta-btn cta-btn--ghost" to="/login" onClick={closeMenu}>تسجيل الدخول</Link>
           <MagneticButton>
-            <Link className="btn-primary" to="/signup" onClick={closeMenu}>إضافة حساب</Link>
+            <Link className="cta-btn cta-btn--primary" to="/signup" onClick={closeMenu}>إضافة حساب</Link>
           </MagneticButton>
         </div>
       )}
