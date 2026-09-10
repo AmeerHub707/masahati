@@ -43,7 +43,7 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen font-['Cairo'] text-zinc-900 dark:text-zinc-100 dir-rtl landing">
+    <div className="min-h-screen font-['Cairo'] text-zinc-900 dir-rtl landing">
       <ScrollProgress />
       <Navbar />
 
