@@ -602,6 +602,8 @@ img{max-width:100%;}
 .assistant-bubble::after{content:attr(data-tip);position:absolute;right:4.2rem;left:auto;top:50%;transform:translateY(-50%);
   white-space:nowrap;background:#0a0a0a;color:#fff;font-size:.78rem;font-weight:700;padding:.35rem .6rem;border-radius:.5rem;opacity:0;pointer-events:none;transition:opacity .2s;}
 .assistant-bubble:hover::after{opacity:1;}
+.assistant-badge{position:absolute;top:-2px;right:-2px;min-width:1.1rem;height:1.1rem;padding:0 .3rem;border-radius:999px;background:#ef4444;color:#fff;font-size:.65rem;font-weight:800;line-height:1.1rem;text-align:center;pointer-events:none;box-shadow:0 2px 6px rgba(239,68,68,.5);animation:assistantBadgePop .3s var(--ease);}
+@keyframes assistantBadgePop{0%{transform:scale(0);}60%{transform:scale(1.2);}100%{transform:scale(1);}}
 @keyframes assistantPulse{0%{transform:scale(1);opacity:.7;}70%,100%{transform:scale(1.35);opacity:0;}}
 
 /* لوحة المحادثة — تفتح فوق الفقاعة */
@@ -622,9 +624,13 @@ img{max-width:100%;}
 .assistant-header__meta strong{font-size:.95rem;font-weight:800;}
 .assistant-header__meta span{font-size:.74rem;color:rgba(255,255,255,.88);display:flex;align-items:center;gap:.35rem;}
 .assistant-header__dot{width:.5rem;height:.5rem;border-radius:50%;background:#4ade80;display:inline-block;box-shadow:0 0 0 3px rgba(74,222,128,.25);}
-.assistant-header__close{width:2.2rem;height:2.2rem;flex:none;border:none;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s;}
-.assistant-header__close:hover{background:rgba(255,255,255,.28);}
-.assistant-header__close svg{width:1.1rem;height:1.1rem;}
+.assistant-header__actions{display:flex;align-items:center;gap:.5rem;}
+.assistant-header__action,.assistant-header__close{width:2.2rem;height:2.2rem;flex:none;border:none;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s var(--ease);}
+.assistant-header__action:hover,.assistant-header__close:hover{background:rgba(255,255,255,.28);}
+.assistant-header__action svg,.assistant-header__close svg{width:1.1rem;height:1.1rem;}
+
+.assistant-header__action--clear{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);}
+.assistant-header__action--clear:hover{background:rgba(255,80,80,.2);border-color:rgba(255,80,80,.4);color:#ffcccc;}
 
 .assistant-body{flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:.7rem;
   scrollbar-width:thin;scrollbar-color:rgba(249,115,22,.4) transparent;}
@@ -639,6 +645,8 @@ img{max-width:100%;}
 .assistant-msg--user .assistant-msg__content p{background:var(--gradient-brand);color:#fff;border-top-left-radius:.15rem;}
 .assistant-msg--user .assistant-msg__avatar{display:none;}
 .assistant-msg--error .assistant-msg__content p{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-top-right-radius:.15rem;}
+.assistant-msg--notification{justify-content:center;}
+.assistant-msg--notification .assistant-msg__content p{background:var(--accent-soft);color:var(--accent-hover);border:1px solid rgba(249,115,22,.2);font-style:italic;text-align:center;border-radius:1rem;box-shadow:0 4px 12px -4px rgba(249,115,22,.2);}
 
 .assistant-typing{display:flex;gap:.25rem;align-items:center;background:#f4f4f5;width:fit-content;padding:.75rem .9rem;border-radius:1rem;border-top-right-radius:.15rem;}
 .assistant-typing span{width:.5rem;height:.5rem;border-radius:50%;background:var(--accent);animation:typingBounce 1.1s infinite;}
@@ -677,6 +685,24 @@ img{max-width:100%;}
 .assistant-space>b{font-size:.9rem;color:var(--accent-hover);white-space:nowrap;flex:none;}
 .assistant-more{display:block;text-align:center;font-size:.8rem;font-weight:700;color:var(--accent-hover);text-decoration:none;padding:.4rem;border-radius:.6rem;transition:background .18s;}
 .assistant-more:hover{background:var(--accent-soft);}
+
+/* مربع حوار تأكيد مسح المحادثة */
+.assistant-confirm-overlay{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);animation:confirmFadeIn .2s var(--ease);}
+@keyframes confirmFadeIn{from{opacity:0;}to{opacity:1;}}
+.assistant-confirm{width:min(90vw,21rem);background:#fff;border-radius:var(--radius-card);overflow:hidden;box-shadow:0 30px 60px -20px rgba(0,0,0,.4);animation:confirmScaleIn .25s var(--ease);}
+@keyframes confirmScaleIn{from{opacity:0;transform:scale(.92);}to{opacity:1;transform:scale(1);}}
+.assistant-confirm__header{display:flex;align-items:center;gap:.55rem;padding:.85rem 1.1rem;background:var(--gradient-brand);color:#fff;}
+.assistant-confirm__header strong{font-size:.92rem;font-weight:800;}
+.assistant-confirm__body{margin:0;padding:1.1rem 1.2rem;font-size:.88rem;line-height:1.65;color:var(--text-strong);}
+.assistant-confirm__actions{display:flex;gap:.5rem;padding:0 1.1rem 1.1rem;justify-content:flex-start;}
+.assistant-confirm__btn{border:none;border-radius:999px;font-family:'Cairo',sans-serif;font-weight:700;font-size:.84rem;padding:.5rem 1.1rem;cursor:pointer;transition:transform .15s var(--ease),filter .15s,box-shadow .15s;}
+.assistant-confirm__btn--cancel{background:#f4f4f5;color:var(--text-strong);border:1px solid var(--border);}
+.assistant-confirm__btn--cancel:hover{background:#e4e4e7;}
+.assistant-confirm__btn--confirm{background:var(--gradient-brand);color:#fff;box-shadow:0 8px 18px -6px rgba(249,115,22,.5);}
+.assistant-confirm__btn--confirm:hover{transform:translateY(-1px);filter:brightness(1.04);}
+html[data-theme="dark"] .landing .assistant-confirm{background:#1c1917;}
+html[data-theme="dark"] .landing .assistant-confirm__body{color:#e7e5e4;}
+html[data-theme="dark"] .landing .assistant-confirm__btn--cancel{background:#27231f;color:#e7e5e4;border-color:var(--border);}
 
 /* ===== مساعد مساحاتي — الجوال ===== */
 @media (max-width:600px){

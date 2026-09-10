@@ -1,9 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Bot, X, Send, MapPin, Ruler, Sparkles } from 'lucide-react';
+import { Bot, X, Send, MapPin, Ruler, Sparkles, Trash2 } from 'lucide-react';
 import { askAssistant } from '../../lib/assistant';
 
-// اقتراحات سريعة تظهر عند فتح المحادثة أول مرة
 const QUICK_QUESTIONS = [
   'كيف أحجز مقعداً؟',
   'كم سعر الساعة في المساحات؟',
@@ -12,20 +11,42 @@ const QUICK_QUESTIONS = [
 ];
 
 const WELCOME = 'مرحباً 👋 أنا مساعد مساحاتي. اسألني عن المساحات، الأسعار، الحجز، أو أي شيء يخص المنصة.';
+const STORAGE_KEY = 'masahati_assistant_messages';
 
-let idCounter = 0;
-const nextId = () => ++idCounter;
+const generateId = () => `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
 export default function AssistantWidget() {
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState(() => [
-    { id: nextId(), role: 'assistant', text: WELCOME, spaces: [] },
-  ]);
+  const [messages, setMessages] = useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse assistant messages', e);
+      }
+    }
+    return [{ id: generateId(), role: 'assistant', text: WELCOME, spaces: [] }];
+  });
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [unreadOnly, setUnreadOnly] = useState(0);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const listRef = useRef(null);
   const inputRef = useRef(null);
+  const openRef = useRef(false);
+  const clearIdRef = useRef(0);
+
+  // مزامنة openRef مع الحالة
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
+
+  // حفظ الرسائل في LocalStorage عند كل تحديث
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+  }, [messages]);
 
   // تمرير تلقائي إلى آخر رسالة عند كل تحديث
   useEffect(() => {
@@ -47,33 +68,47 @@ export default function AssistantWidget() {
     };
   }, [open]);
 
+  // مسح عداد غير المقروء عند فتح اللوحة
+  useEffect(() => {
+    if (open) setUnreadOnly(0);
+  }, [open]);
+
   const send = useCallback(async (raw) => {
     const text = String(raw || '').trim();
     if (!text || loading) return;
 
     setMessages((prev) => [
       ...prev,
-      { id: nextId(), role: 'user', text, spaces: [] },
+      { id: generateId(), role: 'user', text, spaces: [] },
     ]);
     setInput('');
     setLoading(true);
 
+    const currentClearId = clearIdRef.current;
+
     try {
       const { reply, spaces } = await askAssistant(text);
+
+      if (clearIdRef.current !== currentClearId) return;
+
       setMessages((prev) => [
         ...prev,
         {
-          id: nextId(),
+          id: generateId(),
           role: 'assistant',
           text: reply || 'لم أستطع صياغة رد الآن، جرّب سؤالاً آخر.',
           spaces,
         },
       ]);
+
+      if (!openRef.current) setUnreadOnly((n) => n + 1);
     } catch (err) {
+      if (clearIdRef.current !== currentClearId) return;
+
       setMessages((prev) => [
         ...prev,
         {
-          id: nextId(),
+          id: generateId(),
           role: 'assistant',
           text:
             err?.message ||
@@ -82,10 +117,26 @@ export default function AssistantWidget() {
           error: true,
         },
       ]);
+
+      if (!openRef.current) setUnreadOnly((n) => n + 1);
     } finally {
       setLoading(false);
     }
   }, [loading]);
+
+  const clearChat = () => {
+    setConfirmOpen(true);
+  };
+
+  const confirmClear = () => {
+    const resetMessages = [{ id: generateId(), role: 'assistant', text: WELCOME, spaces: [] }];
+    setMessages(resetMessages);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(resetMessages));
+    setLoading(false);
+    setUnreadOnly(0);
+    clearIdRef.current += 1;
+    setConfirmOpen(false);
+  };
 
   const onSubmit = (e) => {
     e.preventDefault();
@@ -94,7 +145,6 @@ export default function AssistantWidget() {
 
   return (
     <div className="assistant">
-      {/* زر الفقاعة — فوق فقاعة واتساب في الزاوية السفلية اليسرى */}
       <button
         type="button"
         className="assistant-bubble"
@@ -105,9 +155,13 @@ export default function AssistantWidget() {
         data-tip={open ? 'إغلاق المحادثة' : 'اسأل مساعد مساحاتي'}
       >
         <Bot className="assistant-bubble__icon" aria-hidden="true" />
+        {unreadOnly > 0 && (
+          <span className="assistant-badge" aria-label={`${unreadOnly} رسائل جديدة`}>
+            {unreadOnly > 99 ? '99+' : unreadOnly}
+          </span>
+        )}
       </button>
 
-      {/* لوحة المحادثة */}
       {open && (
         <div
           className="assistant-panel"
@@ -123,14 +177,27 @@ export default function AssistantWidget() {
               <strong>مساعد مساحاتي</strong>
               <span><i className="assistant-header__dot" aria-hidden="true"></i>متصل الآن</span>
             </div>
-            <button
-              type="button"
-              className="assistant-header__close"
-              onClick={() => setOpen(false)}
-              aria-label="إغلاق المحادثة"
-            >
-              <X aria-hidden="true" />
-            </button>
+            <div className="assistant-header__actions">
+              {messages.length > 0 && (
+                <button
+                  type="button"
+                  className="assistant-header__action assistant-header__action--clear"
+                  onClick={clearChat}
+                  aria-label="مسح المحادثة"
+                  title="مسح المحادثة"
+                >
+                  <Trash2 aria-hidden="true" size={18} />
+                </button>
+              )}
+              <button
+                type="button"
+                className="assistant-header__close"
+                onClick={() => setOpen(false)}
+                aria-label="إغلاق المحادثة"
+              >
+                <X aria-hidden="true" />
+              </button>
+            </div>
           </header>
 
           <div
@@ -149,7 +216,6 @@ export default function AssistantWidget() {
             )}
           </div>
 
-          {/* اقتراحات سريعة قبل أول تفاعل */}
           {!loading && messages.length <= 1 && (
             <div className="assistant-chips">
               {QUICK_QUESTIONS.map((q) => (
@@ -185,6 +251,41 @@ export default function AssistantWidget() {
               <Send aria-hidden="true" />
             </button>
           </form>
+        </div>
+      )}
+
+      {confirmOpen && (
+        <div className="assistant-confirm-overlay" onClick={() => setConfirmOpen(false)}>
+          <div
+            className="assistant-confirm"
+            role="alertdialog"
+            aria-label="تأكيد مسح المحادثة"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="assistant-confirm__header">
+              <Trash2 aria-hidden="true" size={20} />
+              <strong>مسح المحادثة</strong>
+            </div>
+            <p className="assistant-confirm__body">
+              هل تريد مسح المحادثة بالكامل؟ لن تتمكن من التراجع.
+            </p>
+            <div className="assistant-confirm__actions">
+              <button
+                type="button"
+                className="assistant-confirm__btn assistant-confirm__btn--cancel"
+                onClick={() => setConfirmOpen(false)}
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                className="assistant-confirm__btn assistant-confirm__btn--confirm"
+                onClick={confirmClear}
+              >
+                نعم، مسح
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
