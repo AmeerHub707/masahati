@@ -212,7 +212,7 @@ a{color:inherit;}
 .stat-icon svg{display:block;width:100%;height:100%;}
 .icon-building__win{transform-box:fill-box;transform-origin:center;animation:stW 2.6s ease-in-out infinite;}
 .icon-bolt{transform-box:fill-box;transform-origin:center;animation:stB 2s ease-in-out infinite;}
-.icon-clock__hand{transform-box:fill-box;transform-origin:12px 12px;animation:stC 6s linear infinite;}
+.icon-clock__hand{transform-box:view-box;transform-origin:12px 12px;animation:stC 6s linear infinite;}
 .icon-star{transform-box:fill-box;transform-origin:center;animation:stS 1.9s ease-in-out infinite;}
 @keyframes stW{0%,100%{opacity:1;transform:scaleY(1)}50%{opacity:.3;transform:scaleY(.75)}}
 @keyframes stB{0%,100%{transform:scale(1)}30%{transform:scale(1.16)}60%{transform:scale(.94)}}
@@ -330,8 +330,10 @@ a.cta-contact__row:hover{background:rgba(255,255,255,.14);border-color:rgba(255,
 .cta-btn--primary:hover{transform:translateY(-2px);filter:brightness(1.06);box-shadow:0 22px 44px -12px rgba(249,115,22,.75);}
 .cta-btn--primary .cta-btn__arrow{width:1.05rem;height:1.05rem;transition:transform .2s var(--ease);}
 .cta-btn--primary:hover .cta-btn__arrow{transform:translateX(-3px);}
-.cta-glass .cta-btn--ghost{background:#fff;color:var(--accent);padding:.85rem 1.5rem;border:1.5px solid var(--accent);}
-.cta-glass .cta-btn--ghost:hover{background:var(--accent-soft);border-color:var(--accent-hover);transform:translateY(-2px);}
+.cta-btn--ghost{color:var(--text-strong);padding:.85rem 1.5rem;border:1.5px solid rgba(0,0,0,.15);background:transparent;position:relative;overflow:hidden;}
+.cta-btn--ghost:hover{background:var(--accent-soft);border-color:var(--accent);color:var(--text-strong);transform:translateY(-2px);box-shadow:0 14px 30px -12px rgba(249,115,22,.45);}
+.cta-glass .cta-btn--ghost{background:#fff;color:var(--text-strong);padding:.85rem 1.5rem;border:1.5px solid rgba(0,0,0,.15);}
+.cta-glass .cta-btn--ghost:hover{background:var(--accent-soft);border-color:var(--accent);transform:translateY(-2px);box-shadow:0 14px 30px -12px rgba(249,115,22,.45);}
 
 /* ===== Footer (سطر واحد) ===== */
 .footer{position:relative;border-top:1px solid var(--border);
