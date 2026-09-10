@@ -48,12 +48,12 @@ export default function Navbar() {
         </nav>
 
         {/* الأزرار (تسجيل الدخول + إضافة حساب) */}
-        <div className="nav__cta">
-          <Link className="cta-btn cta-btn--ghost" to="/login">تسجيل الدخول</Link>
-          <MagneticButton>
-            <Link className="cta-btn cta-btn--primary" to="/signup">إضافة حساب</Link>
-          </MagneticButton>
-        </div>
+                <div className="nav__cta">
+                  <Link className="cta-btn cta-btn--ghost" to="/login">تسجيل الدخول</Link>
+                  <MagneticButton>
+                    <Link className="cta-btn cta-btn--primary" to="/signup">إضافة حساب</Link>
+                  </MagneticButton>
+                </div>
 
         {/* زر القائمة — منفصل في الزاوية (يسار/يمين حسب الاتجاه) */}
         <button
