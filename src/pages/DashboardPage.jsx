@@ -1,11 +1,20 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation, Navigate } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
-import { getUser } from '../lib/authStore';
+import { getUser, getHomePath } from '../lib/authStore';
 
 // صفحة لوحة التحكم (مؤقتة). لوحة التحكم الحقيقية تُبنى لاحقاً.
 // الزائر غير المسجّل يُحوَّل إلى الصفحة الرئيسية (انظر حماية المسار في App.jsx).
 export default function DashboardPage() {
   const user = getUser();
+  const location = useLocation();
+
+  // حماية: إن لم يكن المسار الحالي هو لوحة تحكم الدور الفعلي للمستخدم،
+  // نُحوّله إلى لوحة تحكمه الصحيحة (الدور مصدره الباك إند ولا يُتجاهل).
+  const expectedPath = getHomePath(user?.role);
+  if (expectedPath !== '/dashboard' && location.pathname !== expectedPath) {
+    return <Navigate to={expectedPath} replace />;
+  }
+
   const roleLabel = user?.role === 'space_owner' ? 'صاحب مساحة' : user?.role === 'customer' ? 'عميل' : '';
   return (
     <div className="relative min-h-screen w-full flex flex-col items-center p-5 bg-cover bg-center bg-no-repeat overflow-hidden font-['Cairo'] text-zinc-900 dir-rtl" style={{ backgroundImage: "url('/background.jpeg')" }}>

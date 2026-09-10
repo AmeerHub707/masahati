@@ -32,8 +32,8 @@ export default function LoginPage() {
     //  - غير مسجّل => يرجع 409 { code: "NOT_REGISTERED" } => نعرض نافذة اختيار الدور
     //    (عميل / صاحب مساحة) ثم نسجّل عبر Google بالدور المختار.
     try {
-      await googleLogin(credential);
-      navigate(getHomePath());
+      const data = await googleLogin(credential);
+      navigate(getHomePath(data.user?.role));
     } catch (err) {
       if (
         err instanceof ApiError &&
@@ -55,8 +55,8 @@ export default function LoginPage() {
     if (!pendingCredential || roleModalLoading) return;
     setRoleModalLoading(true);
     try {
-      await googleLogin(pendingCredential, role);
-      navigate(getHomePath());
+      const created = await googleLogin(pendingCredential, role);
+      navigate(getHomePath(created.user?.role));
     } catch (err) {
       console.error('Google signup failed:', err);
       setFormError(err?.message || 'تعذر إنشاء الحساب عبر Google. حاول مرة أخرى.');
@@ -120,8 +120,8 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      await login(identifier, formData.password);
-      navigate(getHomePath());
+      const data = await login(identifier, formData.password);
+      navigate(getHomePath(data.user?.role));
     } catch (err) {
       if (err instanceof ApiError && (err.status === 401 || err.status === 422)) {
         setFormError('البريد الإلكتروني أو كلمة المرور غير صحيحة.');

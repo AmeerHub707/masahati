@@ -44,12 +44,23 @@ export default function SignupPage() {
 
   const handleGoogleSuccess = async (credential) => {
     try {
-      await googleLogin(credential, role);
-      // الطالب وصاحب المساحة ينتقلان إلى لوحة التحكم؛ صاحب المساحة
-      // لا يستطيع إضافة مساحة حتى يرفع وثيقة الملكية لاحقاً.
-      // التوجيه يعتمد على الدور (user.role) عبر getHomePath (كلاهما /dashboard حالياً).
-      navigate(getHomePath());
+      // أولاً: حاول بدون دور. إذا كان المستخدم مسجلاً بالفعل، يعيد الباك إند
+      // دوره الحقيقي من قاعدة البيانات ويُتجاهل مفتاح التسجيل المحدد في الصفحة.
+      const data = await googleLogin(credential);
+      navigate(getHomePath(data.user?.role));
     } catch (err) {
+      // إذا لم يكن البريد مسجلاً (409)، أنشئ الحساب بالدور المختار من الصفحة.
+      if (err instanceof ApiError && err.status === 409 && err.data?.code === 'NOT_REGISTERED') {
+        setFormError('');
+        try {
+          const created = await googleLogin(credential, role);
+          navigate(getHomePath(created.user?.role));
+        } catch (createErr) {
+          console.error('Google signup (create) failed:', createErr);
+          setFormError(createErr?.message || 'تعذر إنشاء الحساب عبر Google. حاول مرة أخرى.');
+        }
+        return;
+      }
       // إظهار رسالة الفشل بدل الفشل الصامت (مثال: الباك إند لم يُطبق المسار بعد).
       console.error('Google signup failed:', err);
       setFormError(err?.message || 'تعذر إنشاء الحساب عبر Google. حاول مرة أخرى.');

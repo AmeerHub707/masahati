@@ -23,10 +23,12 @@ Google Sign-In flow matches the frontend. The frontend is DONE and needs no chan
   }
   ```
   - `id_token` — **required**. The Google credential JWT from GIS.
-  - `role` — **optional**. `"customer"` | `"space_owner"`. Sent only from the **signup page**
-    (the user picks a role there), or from the **login page after the user picks a role in
-    the popup** because their email wasn't registered. The **login page never sends it the
-    first time** — backend must check whether the email exists first (see below).
+  - `role` — **optional**. `"customer"` | `"space_owner"`. Used **only to create a NEW
+    account** (registered via Google for the first time). Both the **signup** and **login**
+    pages first call this endpoint **WITHOUT** `role`; if the email already exists the backend
+    returns the user's **real DB role** and the frontend redirects by it (the signup role
+    toggle is ignored for existing users). `role` is sent only after the backend replies
+    `409 { code: "NOT_REGISTERED" }`, to create the account with the chosen role.
 - **Success response (expected shape):**
   ```json
   {
@@ -43,7 +45,8 @@ Google Sign-In flow matches the frontend. The frontend is DONE and needs no chan
 
 ## Login flow (email already registered vs not)
 
-`POST /api/auth/google` called WITH **no** `role` (login page first attempt) MUST:
+`POST /api/auth/google` called WITH **no** `role` (first attempt on BOTH the login and
+signup pages) MUST:
 
 1. Look up the user by the Google email (`sub` claim of the verified id_token).
 2. **If found** → return `200 { message, user, token }` with that user's existing role.

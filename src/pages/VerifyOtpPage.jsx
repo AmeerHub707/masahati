@@ -79,10 +79,10 @@ export default function VerifyOtpPage() {
       });
 
       // تسجيل الدخول تلقائياً بعد التحقق
-      await login(email.trim(), password);
+      const loggedIn = await login(email.trim(), password);
 
       if (role === 'space_owner') {
-        navigate(getHomePath());
+        navigate(getHomePath(loggedIn.user?.role));
       } else {
         setVerified(true);
       }

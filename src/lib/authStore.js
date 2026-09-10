@@ -112,17 +112,14 @@ export async function isEmailRegistered(email) {
 
 // ----- المسار بعد تسجيل الدخول/التسجيل -----
 // يعتمد على دور المستخدم المُعاد من الباك إند (`user.role`) ويرسل كل دور
-// إلى لوحة تحكمه. حالياً لوحتا "العميل" و"صاحب المساحة" المنفصلتان لم
-// تُبنيا بعد، لذلك يذهب الجميع إلى /dashboard (نفس السلوك السابق).
-// عند إنشاء الصفحتين لاحقاً، غيّر القيمتين أدناه فقط:
-//   space_owner → '/dashboard/space-owner'
-//   customer    → '/dashboard/customer'
+// إلى لوحة تحكمه الخاصة. لوحتا "العميل" و"صاحب المساحة" تستخدمان نفس
+// الصفحة المؤقتة حالياً، وستنفصلان عند بنائهما تفصيلياً.
 const DASHBOARD_PATHS = {
-  space_owner: '/dashboard',
-  customer: '/dashboard',
+  space_owner: '/dashboard/space-owner',
+  customer: '/dashboard/customer',
 };
 
-export function getHomePath() {
-  const role = getUser()?.role;
-  return DASHBOARD_PATHS[role] || '/dashboard';
+export function getHomePath(role) {
+  const resolvedRole = role || getUser()?.role;
+  return DASHBOARD_PATHS[resolvedRole] || '/dashboard';
 }
