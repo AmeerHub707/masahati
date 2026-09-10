@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   GraduationCap,
   Building2,
-  Check,
   ArrowLeft,
   Upload,
   FileCheck
@@ -11,11 +10,9 @@ import {
 import {
   registerCustomer,
   registerOwner,
-  login,
   googleLogin,
   getHomePath,
   ApiError,
-  request,
 } from '../lib/authStore';
 import useGoogleAuth from '../hooks/useGoogleAuth';
 import WhatsAppBubble from '../components/common/WhatsAppBubble';
@@ -24,10 +21,7 @@ export default function SignupPage() {
   const navigate = useNavigate();
 
   // --- States ---
-  const [step, setStep] = useState('register'); // 'register' | 'otp' | 'done'
   const [role, setRole] = useState('customer'); // 'customer' | 'space_owner'
-  const [otpChannel, setOtpChannel] = useState('email'); // 'email' | 'whatsapp'
-  const [showChannelModal, setShowChannelModal] = useState(false);
 
   // Form Fields
   const [formData, setFormData] = useState({
@@ -43,21 +37,6 @@ export default function SignupPage() {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState('');
-
-  // OTP State
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [otpError, setOtpError] = useState('');
-  const [timerLeft, setTimerLeft] = useState(0);
-  // رمز التسجيل الذي يُرجعه الباك إند عند إنشاء الحساب، ويُستخدم في verify/resend-otp
-  const [registrationToken, setRegistrationToken] = useState('');
-  const otpInputsRef = useRef([]);
-
-  // Timer logic for Resend OTP
-  useEffect(() => {
-    if (timerLeft <= 0) return;
-    const interval = setInterval(() => setTimerLeft((prev) => prev - 1), 1000);
-    return () => clearInterval(interval);
-  }, [timerLeft]);
 
   // --- Google Auth ---
   const googleBtnRef = useRef(null);
@@ -110,8 +89,8 @@ export default function SignupPage() {
     }
   };
 
-  // Step 1: Validate & Submit Register Form
-  const handleRegisterSubmit = (e) => {
+  // Step 1: Validate & Submit Register Form → ثم توجيه المستخدم لصفحة OTP
+  const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {};
 
@@ -129,14 +108,7 @@ export default function SignupPage() {
       return;
     }
 
-    // عرض نافذة اختيار قناة استلام الرمز (بريد أو هاتف)
-    setShowChannelModal(true);
-  };
-
-  // اختيار القناة من النافذة المنبثقة ثم إنشاء الحساب فعلياً + إرسال الرمز
-  const confirmChannel = async (channel) => {
-    setOtpChannel(channel);
-    setShowChannelModal(false);
+    setErrors({});
     setFormError('');
     setLoading(true);
     try {
@@ -158,7 +130,7 @@ export default function SignupPage() {
           fd.append('proof_document', formData.ownershipDocument);
         }
         // نتأكد من نجاح تسجيل المالك أولاً ونلتقط registration_token،
-        // ثم نكمل إلى OTP فقط عند النجاح.
+        // ثم نكمل إلى صفحة OTP فقط عند النجاح.
         try {
           const res = await registerOwner(fd);
           regToken = res?.registration_token || '';
@@ -169,7 +141,6 @@ export default function SignupPage() {
           } else {
             setFormError(ownerErr.message || 'تعذر إكمال تسجيل المالك. حاول مرة أخرى.');
           }
-          setStep('register');
           throw ownerErr; // نُعيد الرمي ليُلتقط في الـ catch الخارجي
         }
       } else {
@@ -177,113 +148,28 @@ export default function SignupPage() {
         regToken = res?.registration_token || '';
       }
 
-      // إصلاح: كان الكود السابق يستدعي /api/send-otp (غير موجود، يرجع 404).
       // الباك إند أرسل الرمز بالفعل أثناء التسجيل، فقط نحتاج registration_token.
       if (!regToken) {
         setFormError('تعذر بدء التحقق: لم يُرجع الخادم رمز التسجيل.');
-        setStep('register');
         return;
       }
-      setRegistrationToken(regToken);
-      setTimerLeft(30);
-      setStep('otp');
+
+      // توجيه المستخدم إلى صفحة OTP المخصصة /verify-otp مع بيانات التدفق
+      navigate('/verify-otp', {
+        state: {
+          registrationToken: regToken,
+          email: formData.email.trim(),
+          password: formData.password,
+          role,
+        },
+      });
     } catch (err) {
       if (err instanceof ApiError && err.status === 422 && err.data?.errors) {
         setErrors(err.data.errors);
         setFormError('يرجى تصحيح الحقول المعلّمة أدناه.');
-        setStep('register');
       } else {
         setFormError(err.message || 'تعذر إنشاء الحساب. حاول مرة أخرى.');
       }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // OTP Handlers
-  const handleOtpChange = (index, value) => {
-    const val = value.replace(/\D/g, '').slice(0, 1);
-    const newOtp = [...otp];
-    newOtp[index] = val;
-    setOtp(newOtp);
-    setOtpError('');
-
-    if (val && index < 5) {
-      otpInputsRef.current[index + 1]?.focus();
-    }
-  };
-
-  const handleOtpKeyDown = (index, e) => {
-    if (e.key === 'Backspace' && !otp[index] && index > 0) {
-      otpInputsRef.current[index - 1]?.focus();
-    }
-  };
-
-  const handleOtpPaste = (e) => {
-    e.preventDefault();
-    const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6).split('');
-    const newOtp = [...otp];
-    pastedData.forEach((char, i) => {
-      newOtp[i] = char;
-    });
-    setOtp(newOtp);
-    if (pastedData.length > 0) {
-      const nextIdx = Math.min(pastedData.length, 5);
-      otpInputsRef.current[nextIdx]?.focus();
-    }
-  };
-
-  // Step 2: Verify OTP & Branching based on Role
-  const handleOtpSubmit = async (e) => {
-    e.preventDefault();
-    const code = otp.join('');
-    if (code.length < 6) {
-      setOtpError('الرجاء إدخال الأرقام الستة كاملة.');
-      return;
-    }
-
-    setOtpError('');
-    setLoading(true);
-    try {
-      // التحقق الفعلي من الرمز عبر الباك إند (يتطلب registration_token + code)
-      await request('/api/verify-otp', {
-        method: 'POST',
-        body: { registration_token: registrationToken, code },
-      });
-
-      // تسجيل الدخول تلقائياً بعد التحقق
-      await login(formData.email.trim(), formData.password);
-
-      if (role === 'space_owner') {
-        // صاحب المساحة ينتقل إلى لوحة التحكم مباشرة؛ الوثيقة اختيارية الآن،
-        // لكنه لن يستطيع إضافة مساحة حتى يرفع وثيقة الملكية لاحقاً.
-        navigate(getHomePath());
-      } else {
-        setStep('done');
-      }
-    } catch (err) {
-      if (err instanceof ApiError && (err.status === 422 || err.status === 401 || err.status === 400)) {
-        setOtpError('الرمز غير صحيح. حاول مرة أخرى.');
-      } else {
-        setOtpError(err.message || 'تعذر التحقق. حاول مرة أخرى.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResendOtp = async () => {
-    if (timerLeft > 0 || !registrationToken) return;
-    setLoading(true);
-    try {
-      await request('/api/resend-otp', {
-        method: 'POST',
-        body: { registration_token: registrationToken },
-      });
-      setOtp(['', '', '', '', '', '']);
-      setTimerLeft(30);
-    } catch (err) {
-      setOtpError(err.message || 'تعذر إعادة إرسال الرمز.');
     } finally {
       setLoading(false);
     }
@@ -720,9 +606,8 @@ export default function SignupPage() {
             </Link>
           </div>
 
-          {/* STEP 1: REGISTER FORM */}
-          {step === 'register' && (
-            <form onSubmit={handleRegisterSubmit} className="form-panel" noValidate>
+          {/* REGISTER FORM */}
+          <form onSubmit={handleRegisterSubmit} className="form-panel" noValidate>
               <h2>أنشئ <span style={{ color: 'var(--accent)' }}>حسابك</span></h2>
               <p className="form-sub">
                 سجّل في مساحاتي — سنتحقق من بريدك الإلكتروني.
@@ -867,162 +752,11 @@ export default function SignupPage() {
                 هل لديك حساب؟ <Link to="/login" style={{ color: 'var(--accent)', fontWeight: 'bold', textDecoration: 'none' }}>تسجيل الدخول</Link>
               </p>
             </form>
-          )}
-
-          {/* STEP 2: OTP VERIFICATION */}
-          {step === 'otp' && (
-            <form onSubmit={handleOtpSubmit} className="form-panel" noValidate>
-              <h2>تحقق من <span style={{ color: 'var(--accent)' }}>بريدك</span></h2>
-              <p className="form-sub">
-                أرسلنا رمزًا مكوّنًا من 6 أرقام عبر <b>{otpChannel === 'whatsapp' ? 'واتساب' : 'البريد الإلكتروني'}</b>
-                {otpChannel === 'email' ? <> إلى <b>{formData.email}</b></> : <> إلى رقم <b dir="ltr">{formData.phone}</b></>} . أدخله أدناه لإتمام التسجيل.
-              </p>
-
-              {/* Real OTP notice */}
-              <div className="dev-note" style={{ marginBottom: '1rem' }}>
-                تم إرسال رمز التحقق المكوّن من 6 أرقام إلى <b>{otpChannel === 'email' ? formData.email : formData.phone}</b>. تحقق من بريدك (أو مجلد الرسائل غير المرغوبة) وأدخله أدناه.
-              </div>
-
-              <div className="otp-row">
-                {otp.map((digit, idx) => (
-                  <input
-                    key={idx}
-                    ref={(el) => (otpInputsRef.current[idx] = el)}
-                    type="text"
-                    className="otp-box"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleOtpChange(idx, e.target.value)}
-                    onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                    onPaste={handleOtpPaste}
-                  />
-                ))}
-              </div>
-              <p className="error">{otpError}</p>
-
-              <button type="submit" className="btn" disabled={loading}>
-                {loading ? (
-                  <span className="flex items-center justify-center">
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  </span>
-                ) : 'تحقق من البريد'}
-              </button>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginTop: '1rem', color: 'rgba(255,255,255,0.8)' }}>
-                <span>لم تستلمه؟</span>
-                <button
-                  type="button"
-                  onClick={handleResendOtp}
-                  disabled={timerLeft > 0}
-                  style={{ background: 'none', border: 'none', color: timerLeft > 0 ? 'gray' : 'var(--accent)', fontWeight: 'bold', cursor: timerLeft > 0 ? 'default' : 'pointer' }}
-                >
-                  {timerLeft > 0 ? `إعادة الإرسال خلال ${timerLeft}s` : 'إعادة الإرسال'}
-                </button>
-              </div>
-
-              <p style={{ textAlign: 'center', marginTop: '1rem' }}>
-                <button
-                  type="button"
-                  onClick={() => { setRegistrationToken(''); setStep('register'); }}
-                  style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '0.85rem' }}
-                >
-                  ← تغيير البريد
-                </button>
-              </p>
-            </form>
-          )}
-
-          {/* STEP 3A: STUDENT SUCCESS */}
-          {step === 'done' && (
-            <div className="form-panel state-wrap">
-              <div className="state-badge ok">
-                <Check size={36} />
-              </div>
-              <h2>تم الأمر</h2>
-              <p>
-                تم التحقق من بريدك وحسابك كـ (طالب) في مساحاتي جاهز للاستخدام.
-              </p>
-              <Link to="/login" className="btn" style={{ display: 'block', textDecoration: 'none' }}>
-                الذهاب لتسجيل الدخول
-              </Link>
-            </div>
-          )}
         </section>
 
         {/* WhatsApp Support Bubble (same as landing) */}
         <WhatsAppBubble />
       </main>
-
-      {/* نافذة اختيار قناة استلام رمز التحقق */}
-      {showChannelModal && (
-        <div
-          className="modal-overlay"
-          onClick={() => setShowChannelModal(false)}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 100,
-            background: 'rgba(0,0,0,0.55)', display: 'flex',
-            alignItems: 'center', justifyContent: 'center', padding: '1rem'
-          }}
-        >
-          <div
-            className="modal-box"
-            onClick={(e) => e.stopPropagation()}
-            dir="rtl"
-            style={{
-              width: '100%', maxWidth: '24rem', background: '#fff',
-              borderRadius: '1.25rem', padding: '1.75rem', textAlign: 'center',
-              boxShadow: '0 30px 60px -20px rgba(0,0,0,0.5)'
-            }}
-          >
-            <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-strong)' }}>
-              كيف تريد استلام رمز التحقق؟
-            </h3>
-            <p style={{ margin: '0 0 1.25rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-              اختر القناة المفضّلة لإرسال الرمز المكوّن من 6 أرقام.
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <button
-                type="button"
-                onClick={() => confirmChannel('email')}
-                disabled={loading}
-                style={{
-                  padding: '0.75rem', borderRadius: 'var(--radius-field)', border: '1.5px solid var(--accent)',
-                  background: 'var(--accent-soft)', color: 'var(--accent-hover)',
-                  fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', opacity: loading ? 0.6 : 1
-                }}
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center">
-                    <span className="w-4 h-4 border-2 border-[var(--accent)]/30 border-t-[var(--accent)] rounded-full animate-spin" />
-                  </span>
-                ) : `البريد الإلكتروني (${formData.email})`}
-              </button>
-              <button
-                type="button"
-                onClick={() => confirmChannel('whatsapp')}
-                disabled={loading}
-                style={{
-                  padding: '0.75rem', borderRadius: 'var(--radius-field)', border: '1.5px solid var(--accent)',
-                  background: 'var(--accent-soft)', color: 'var(--accent-hover)',
-                  fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer'
-                }}
-              >
-                واتساب ({formData.phone})
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowChannelModal(false)}
-              style={{
-                marginTop: '1.25rem', background: 'none', border: 'none',
-                color: 'var(--text-muted)', fontSize: '0.85rem', cursor: 'pointer'
-              }}
-            >
-              إلغاء
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
