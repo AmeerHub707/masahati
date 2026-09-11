@@ -63,7 +63,7 @@ export default function Navbar() {
     };
 
     animate();
-    timer = setInterval(animate, 5000);
+    timer = setInterval(animate, 10000);
     return () => { cancelled = true; clearInterval(timer); };
   }, [appReady, logo, glow, shine]);
 
