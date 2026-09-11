@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 
-const SEEN_KEY = 'masahati_loading_seen';
+export const LOADING_SEEN_KEY = 'masahati_loading_seen';
 const TOTAL_DURATION_MS = 2300;
 const EXIT_DURATION_MS = 420;
 
@@ -33,7 +33,7 @@ export default function LoadingScreen({ onDone }) {
 
   const [skip] = useState(() => {
     try {
-      return sessionStorage.getItem(SEEN_KEY) === '1';
+      return sessionStorage.getItem(LOADING_SEEN_KEY) === '1';
     } catch {
       return false;
     }
@@ -55,7 +55,7 @@ export default function LoadingScreen({ onDone }) {
       return undefined;
     }
     try {
-      sessionStorage.setItem(SEEN_KEY, '1');
+      sessionStorage.setItem(LOADING_SEEN_KEY, '1');
     } catch (err) {
       console.debug('sessionStorage غير متاح:', err);
     }
@@ -90,7 +90,7 @@ export default function LoadingScreen({ onDone }) {
 
   const handleSkip = useCallback(() => {
     try {
-      sessionStorage.setItem(SEEN_KEY, '1');
+      sessionStorage.setItem(LOADING_SEEN_KEY, '1');
     } catch (err) {
       console.debug('sessionStorage غير متاح:', err);
     }
