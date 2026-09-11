@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
+import LoadingScreen from './components/common/LoadingScreen';
 
 // ملاحظة: قم بإنشاء ملفات وهمية/مؤقتة لهذه الصفحات لحين بنائها تفصيلياً
 import SpacesPage from './pages/SpacesPage';
@@ -17,8 +19,11 @@ function RequireAuth({ children }) {
 }
 
 export default function App() {
+  const [splashDone, setSplashDone] = useState(false);
   return (
-    <Routes>
+    <>
+      {!splashDone && <LoadingScreen onDone={() => setSplashDone(true)} />}
+      <Routes>
       {/* الصفحة الرئيسية - صفحة الهبوط */}
       <Route path="/" element={<LandingPage />} />
       
@@ -39,6 +44,7 @@ export default function App() {
       
       {/* مسار احتياطي للصفحات غير الموجودة 404 */}
       <Route path="*" element={<LandingPage />} />
-    </Routes>
+      </Routes>
+    </>
   );
 }
