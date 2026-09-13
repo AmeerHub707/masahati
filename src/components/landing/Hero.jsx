@@ -112,6 +112,7 @@ function StatCard({ stat }) {
         el.style.setProperty('--my', '50%');
       }}
     >
+      <span className="stat__sheen" aria-hidden="true" />
       <span className="stat__lottie" aria-hidden="true">
         <StatIcon name={stat.icon} />
       </span>

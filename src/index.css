@@ -226,6 +226,29 @@ a{color:inherit;}
   font-size:2.1rem;font-weight:800;letter-spacing:-.02em;color:#000;line-height:1;}
 .stat__suffix{color:var(--accent);font-size:.7em;font-weight:800;}
 .stat>span:last-child{position:relative;z-index:1;font-size:.88rem;color:var(--text-muted);font-weight:600;}
+/* لمسة إبداعية: لمعة نور تمسح البطاقة بعد استقرارها (تتدرّج عبر اللوحة) */
+.stat__sheen{position:absolute;inset:0;border-radius:inherit;z-index:3;pointer-events:none;
+  background:linear-gradient(115deg,transparent 34%,rgba(255,255,255,.55) 50%,transparent 66%) 0 0 / 200% 100% no-repeat;
+  animation:statSheen 1.3s var(--ease) 1 backwards;}
+.stat:nth-child(1) .stat__sheen{animation-delay:.7s;}
+.stat:nth-child(2) .stat__sheen{animation-delay:.9s;}
+.stat:nth-child(3) .stat__sheen{animation-delay:1.1s;}
+.stat:nth-child(4) .stat__sheen{animation-delay:1.3s;}
+@keyframes statSheen{from{background-position:200% 0}to{background-position:-200% 0}}
+/* الأيقونة تظهر بقفزة مرتدّة بعد استقرار البطاقة */
+.stat:nth-child(1) .stat__lottie{animation:iconPop .55s cubic-bezier(.34,1.56,.64,1) .45s backwards;}
+.stat:nth-child(2) .stat__lottie{animation:iconPop .55s cubic-bezier(.34,1.56,.64,1) .6s backwards;}
+.stat:nth-child(3) .stat__lottie{animation:iconPop .55s cubic-bezier(.34,1.56,.64,1) .75s backwards;}
+.stat:nth-child(4) .stat__lottie{animation:iconPop .55s cubic-bezier(.34,1.56,.64,1) .9s backwards;}
+@keyframes iconPop{from{transform:scale(0) rotate(-60deg);opacity:0}}
+/* شرارة الرقم: تطوّر قصير ودافئ بعد انتهاء العدّ */
+.stat:nth-child(1) b{animation:numSpark .5s var(--ease) 1.5s backwards;}
+.stat:nth-child(2) b{animation:numSpark .5s var(--ease) 1.7s backwards;}
+.stat:nth-child(3) b{animation:numSpark .5s var(--ease) 1.9s backwards;}
+.stat:nth-child(4) b{animation:numSpark .5s var(--ease) 2.1s backwards;}
+@keyframes numSpark{30%{transform:scale(1.07);color:#fdba74}}
+/* نبضة ضوء خفيفة خلف الرقم عند التحويم */
+.stat:hover b{text-shadow:0 0 18px rgba(249,115,22,.35);}
 
 /* ===== Section shells ===== */
 .section{padding:120px 0;}
@@ -590,6 +613,7 @@ img{max-width:100%;}
   .reveal{opacity:1;transform:none;transition:none;}
   .orb{animation:none!important;}
   .divider-fill-1,.divider-fill-2{animation:none!important;}
+  .stat__sheen,.stat__lottie,.stat b{animation:none!important;}
 }
 
 /* ===== مساعد مساحاتي (AI Assistant) ===== */
