@@ -52,7 +52,6 @@ export default function CtaBand() {
         <div className={`cta-card${inView ? ' is-in' : ''}`}>
           {/* الجزء: الدعوة للإجراء */}
           <div className="cta-card__main">
-            <span className="cta-card__badge">مستعد للبدء؟</span>
             <h2>جاهز لتجد مساحتك؟</h2>
             <p>انضم إلى الطلاب وأصحاب المساحات في غزة على المنصة المبنية للعمل الموثوق القابل للحجز.</p>
 

@@ -174,8 +174,8 @@ a{color:inherit;}
 .hero__inner{position:relative;z-index:1;padding:6rem 0 5rem;grid-template-columns:1.05fr .95fr;}
 /* النص فوق الخلفية يصبح فاتحاً لضمان التباين */
 .hero__copy{position:relative;z-index:2;pointer-events:auto;color:#fff;text-shadow:0 2px 14px rgba(0,0,0,.45);}
-.hero__copy .lead{color:#faa763;text-shadow:0 1px 10px rgba(0,0,0,.5);}
-.hero__copy h1{color:#faa763;text-shadow:0 2px 18px rgba(0,0,0,.5);}
+.hero__copy .lead{color:#fff;text-shadow:0 1px 10px rgba(0,0,0,.5);}
+.hero__copy h1{color:#fff;text-shadow:0 2px 18px rgba(0,0,0,.5);}
 .hero__copy h1 .hl{color:#faa763;text-shadow:0 2px 16px rgba(0,0,0,.45);}
 .eyebrow{text-shadow:0 1px 8px rgba(0,0,0,.45);}
 .live-chip{color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.45);}
@@ -304,9 +304,14 @@ a{color:inherit;}
   background:
     linear-gradient(180deg,rgba(255,150,70,.6) 0%,rgba(255,130,50,.6) 100%),
     url('/FooterBG.png') center/cover no-repeat;
-  box-shadow:0 24px 50px -24px rgba(249,115,22,.55),0 10px 20px -14px rgba(0,0,0,.4);}
+  box-shadow:0 30px 60px -30px rgba(0,0,0,.4),0 12px 24px -16px rgba(0,0,0,.4);}
 /* بقع ضوئية زخرفية في الخلفية */
 .cta-glass__glow{display:none;}
+/* ظل يشبه ظل فيديو الهيرو فوق خلفية القسم */
+.cta-glass::before{content:'';position:absolute;inset:0;z-index:0;
+  background:
+    linear-gradient(105deg, rgba(8,8,10,.09) 0%, rgba(8,8,10,.06) 42%, rgba(8,8,10,.04) 70%, rgba(8,8,10,.06) 100%),
+    linear-gradient(0deg, rgba(8,8,10,.06), rgba(8,8,10,.02));}
 /* بطاقة واحدة: دعوة للإجراء + تواصل — زجاجية بيضاء عصرية */
 .cta-card{position:relative;z-index:2;max-width:64rem;margin:0 auto;
   display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);align-items:stretch;
@@ -319,10 +324,8 @@ a{color:inherit;}
 .cta-card.is-in{opacity:1;transform:none;}
 /* الجزء: الدعوة للإجراء */
 .cta-card__main{position:relative;text-align:center;color:#1f2937;
+  display:flex;flex-direction:column;justify-content:center;
   padding:clamp(2.2rem,4vw,3.4rem) clamp(1.8rem,4vw,3rem);}
-.cta-card__badge{display:inline-block;margin-bottom:1.2rem;padding:.4rem 1.1rem;border-radius:999px;
-  font-size:.8rem;font-weight:700;letter-spacing:.02em;color:#c2410c;
-  background:rgba(255,150,70,.16);border:1px solid rgba(249,115,22,.4);}
 .cta-card__main h2{margin:0 0 .8rem;font-size:clamp(1.9rem,3.4vw,2.6rem);font-weight:900;letter-spacing:-.025em;line-height:1.2;text-wrap:balance;
   color:#000;}
 .cta-card__main p{margin:0 auto 2.2rem;max-width:32rem;color:#1f2937;font-size:1.05rem;line-height:1.75;font-weight:500;}
