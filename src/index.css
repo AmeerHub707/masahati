@@ -497,6 +497,7 @@ img{max-width:100%;}
 .nav__mobile a{text-decoration:none;color:var(--text-strong);font-weight:700;font-size:.95rem;padding:.65rem 1rem;background:transparent;border:1.5px solid transparent;border-radius:999px;transition:color .18s,background .18s,border-color .18s;}
 .nav__mobile a:hover{background:var(--accent-soft);color:var(--accent);border-color:var(--accent);}
 .nav__mobile .btn-ghost,.nav__mobile .btn-primary{justify-content:center;margin-top:.4rem;}
+.nav__mobile-toggle{display:flex;align-items:center;padding:.25rem .35rem;}
 
 /* ===== Navbar — MOBILE SETTINGS (≤768px) =====
    على الجوال فقط: إخفاء الروابط وإظهار شريط الهامبرغ (الروابط داخل القائمة المنسدلة).
@@ -1340,6 +1341,7 @@ html.dark{
   --text-muted:#a1a1aa;
   --border:#2e2e35;
   --surface-2:#1c1c21;
+  --accent-soft:rgba(249,115,22,.14);
 }
 html.dark body{
   background:
@@ -1354,7 +1356,7 @@ html.dark ::-webkit-scrollbar-thumb{border-color:var(--surface-2);}
 /* ┘┘ê╪ص╪ر ╪د┘╪ز╪ص┘â┘à */
 html.dark .dash{background:#131318;}
 html.dark .dash__side{background:#1c1c22;border-inline-end-color:var(--border);}
-html.dark .dash__top{background:rgba(19,19,24,.65);border-bottom-color:rgba(255,255,255,.08);}
+html.dark .dash__top{background:#000;border-bottom-color:rgba(255,255,255,.08);}
 html.dark .dash__title h1{color:var(--text-strong);}
 html.dark .dash__profile{background:transparent;}
 html.dark .dash__nav a,html.dark .dash__nav button{color:#e4e4e7;}
@@ -1426,3 +1428,98 @@ html.dark .step .num{color:#fff;}
 html.dark .dash__hero-ads-dot,
 html.dark .dash__hero-ads-dot:hover{background:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.35);}
 html.dark .dash__hero-ads-dot.is-active{background:var(--accent);border-color:var(--accent);transform:scale(1.35);}
+
+/* ╪د┘ä┘ä┘ê┘å╪»┘è┘å╪║ ┘ê┘äß█æ┘é ┘è┘è┘ä ┘ä┘ä┘ê╪¡ ┘ê╪º┘ä┘é╪│╪º┘è┘à (═┘è╪º┘ê┘å) */
+html.dark .nav,
+html.dark .landing .nav:not(.nav--scrolled),
+html.dark .nav--scrolled,
+html.dark .landing .nav--scrolled{
+  background:rgba(24,24,29,.92);
+  backdrop-filter:blur(18px) saturate(160%);
+  -webkit-backdrop-filter:blur(18px) saturate(160%);
+  border-bottom-color:rgba(255,255,255,.08);
+}
+html.dark .nav__mobile{background:rgba(24,24,29,.96);border-bottom-color:rgba(255,255,255,.08);}
+html.dark .nav__links a,
+html.dark .nav__links .nav-tab{color:var(--text-muted);}
+html.dark .nav__links a:hover,
+html.dark .nav__links .nav-tab:hover{color:var(--accent);background:rgba(249,115,22,.12);border-color:rgba(249,115,22,.35);}
+
+/* ╪د┘ä┘ç┘è╪▒┘ê ╪»┘ê┘å ┘ü┘è╪»┘è┘ê ┘ê╪º┘ä┘é╪│╪º┘è┘à */
+html.dark .hero{background:linear-gradient(160deg,#17171c,#1c1c22);}
+html.dark #features{background:linear-gradient(180deg,#17171c,#1b1b21);}
+html.dark #about{background:linear-gradient(180deg,#17171c,#1b1b21);}
+html.dark #how{background:linear-gradient(180deg,#1b1b21,#17171c);}
+html.dark .roles{background:linear-gradient(160deg,#1c1a17,#17171c);}
+html.dark .section__head h2,
+html.dark .feature h3,
+html.dark .role-card h3,
+html.dark .step h3,
+html.dark .stat b{color:var(--text-strong);}
+html.dark .section__head p,
+html.dark .feature p,
+html.dark .step p,
+html.dark .role-card li{color:var(--text-muted);}
+
+/* ╪º┘ä┘é╪▒╪º╪╖ ╪»┘è┘è┘ä ┘ä┘ä┘è┘è┘ä */
+html.dark .stat,
+html.dark .feature,
+html.dark .role-card,
+html.dark .step{background:#1c1c22;border-color:var(--border);}
+html.dark .stat:hover,
+html.dark .feature:hover,
+html.dark .role-card:hover,
+html.dark .step:hover{border-color:#7c2d12;}
+html.dark .stat b{color:var(--text-strong);}
+html.dark .eyebrow,
+html.dark .tag{color:#fdba74;}
+html.dark .footer{background:linear-gradient(180deg,#17171c 0%,#1b1b21 100%);border-top-color:var(--border);}
+html.dark .footer__social-link{background:#1c1c22;border-color:var(--border);color:var(--text-muted);}
+html.dark .footer__social-link:hover{color:#fff;background:var(--gradient-brand);border-color:var(--accent-hover);}
+
+/* dark: section divider waves (no more white lines) */
+html.dark .divider-fill-2{fill:#1b1b21;}
+
+/* dark: hide white logo shine sweep */
+html.dark .brand__shine{display:none;}
+
+/* dark: roles + eyebrow tag pills */
+html.dark .tag{
+  background:rgba(249,115,22,.16);
+  border:1px solid rgba(249,115,22,.28);
+  color:#fdba74;
+}
+html.dark .tag:hover,
+html.dark .tag:focus{background:rgba(249,115,22,.24);border-color:rgba(249,115,22,.5);}
+html.dark .eyebrow{background:rgba(249,115,22,.14);border:1px solid rgba(249,115,22,.24);color:#fdba74;}
+
+/* dark: CTA card + login ghost button */
+html.dark .cta-card{
+  background:linear-gradient(165deg,rgba(38,38,44,.85) 0%,rgba(28,28,34,.9) 100%);
+  border-color:rgba(255,255,255,.08);
+  box-shadow:0 40px 90px -30px rgba(0,0,0,.65),inset 0 1px 0 rgba(255,255,255,.06);
+}
+html.dark .cta-card__main{color:var(--text-strong);}
+html.dark .cta-card__main h2{color:var(--text-strong);}
+html.dark .cta-card__main p{color:var(--text-muted);}
+html.dark .cta-glass .cta-btn--ghost{background:rgba(255,255,255,.08);color:var(--text-strong);border-color:rgba(255,255,255,.22);}
+html.dark .cta-glass .cta-btn--ghost:hover{background:rgba(249,115,22,.2);border-color:var(--accent);color:#fff;}
+
+/* dark: AI assistant chat */
+html.dark .assistant-panel{background:#1c1c22;border-color:var(--border);}
+html.dark .assistant-msg--bot .assistant-msg__content p{background:#26262e;color:var(--text-strong);}
+html.dark .assistant-typing{background:#26262e;}
+html.dark .assistant-msg--error .assistant-msg__content p{background:rgba(220,38,38,.14);color:#fca5a5;border-color:rgba(220,38,38,.35);}
+html.dark .assistant-chip{background:rgba(249,115,22,.14);color:#fdba74;}
+html.dark .assistant-chip:hover{background:rgba(249,115,22,.24);border-color:var(--accent);}
+html.dark .assistant-msg--notification .assistant-msg__content p{color:#fdba74;border-color:rgba(249,115,22,.25);}
+html.dark .assistant-inputbar{border-top-color:var(--border);}
+html.dark .assistant-inputbar input{background:#131318;color:var(--text-strong);}
+html.dark .assistant-space{background:#131318;border-color:var(--border);}
+html.dark .assistant-space>b{color:#fdba74;}
+html.dark .assistant-space__info strong{color:var(--text-strong);}
+html.dark .assistant-more{color:#fdba74;}
+html.dark .assistant-more:hover{background:rgba(249,115,22,.14);}
+html.dark .assistant-confirm{background:#1c1c22;border:1px solid var(--border);}
+html.dark .assistant-confirm__btn--cancel{background:#26262e;color:var(--text-strong);border-color:var(--border);}
+html.dark .assistant-confirm__btn--cancel:hover{background:#2f2f38;}

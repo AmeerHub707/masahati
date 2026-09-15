@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { login, googleLogin, getHomePath, ApiError } from '../lib/authStore';
 import useGoogleAuth from '../hooks/useGoogleAuth';
+import { useForceLight } from '../hooks/useTheme';
 
 export default function LoginPage() {
+  useForceLight();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     identifier: '',

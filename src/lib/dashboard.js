@@ -10,7 +10,42 @@
 //   - GET api/dashboard/spaces
 
 import { request, imageUrl } from './api';
-import { getProfile, getUser } from './authStore';
+import { getUser } from './authStore';
+
+// مؤقت أقصر لبيانات لوحة التحكم: بدلاً من انتظار 25 ثانية (مهلة Render العامة)،
+// نفشل بسرعة ونعرض الحالة الفعلية (بيانات مخزنة أو رسالة خطأ) بدل شاشة تحميل ممتدّة.
+const DASH_TIMEOUT_MS = 8000;
+const DASH_CACHE_KEY = 'masahati_dashboard_cache';
+
+// ----- ذاكرة تخزين لوحة التحكم -----
+// تُستخدم لعرض البيانات فوراً عند الرجوع للوحة (بدل إعادة تحميل كل شيء)
+// مع تحديث الخلفية عند توفر استجابة جديدة.
+export function readDashboardCache() {
+  try {
+    const raw = localStorage.getItem(DASH_CACHE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    return data && typeof data === 'object' ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearDashboardCache() {
+  try {
+    localStorage.removeItem(DASH_CACHE_KEY);
+  } catch {
+    /* التخزين غير متاح */
+  }
+}
+
+export function writeDashboardCache(payload) {
+  try {
+    localStorage.setItem(DASH_CACHE_KEY, JSON.stringify(payload));
+  } catch {
+    /* التخزين غير متاح */
+  }
+}
 
 // يقبل أي صيغة: { user: {...} } أو { data: {...} } أو { data: { user: {...} } }
 // أو الكائن نفسه، ويعيد أعمق كائن مستخدم/بيانات.
@@ -80,11 +115,11 @@ function listOf(res, key) {
 // جلب بيانات لوحة التحكم بالكامل (بالتوازي) ودمجها مع الملف الشخصي.
 export async function fetchDashboard() {
   const [stats, upcomingApi, historyApi, favoritesApi, profileApi] = await Promise.all([
-    request('/api/dashboard/stats', { method: 'GET', auth: true }).catch(() => null),
-    request('/api/dashboard/upcoming-booking', { method: 'GET', auth: true }).catch(() => null),
-    request('/api/dashboard/bookings', { method: 'GET', auth: true }).catch(() => null),
-    request('/api/dashboard/favorites', { method: 'GET', auth: true }).catch(() => null),
-    getProfile().catch(() => null),
+    request('/api/dashboard/stats', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
+    request('/api/dashboard/upcoming-booking', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
+    request('/api/dashboard/bookings', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
+    request('/api/dashboard/favorites', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
+    request('/api/profile', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
   ]);
 
   const s = stats || {};
@@ -101,7 +136,7 @@ export async function fetchDashboard() {
   const rawRole = u.role || localUser.role || 'customer';
   const role = rawRole === 'space_owner' ? 'owner' : rawRole;
 
-  return {
+  const result = {
     user: {
       name: u.name || '',
       email: u.email || '',
@@ -120,6 +155,10 @@ export async function fetchDashboard() {
     favorites: mapFavorites(listOf(favoritesApi, 'favorites')),
     ads: [],
   };
+
+  // حفظ نسخة للعرض الفوري عند الرجوع للوحة (تُحدَّث في الخلفية لاحقاً).
+  writeDashboardCache(result);
+  return result;
 }
 
 // يبحث عن حقل الصورة في أي صيغة استجابة (مباشرة أو مغلّفة).

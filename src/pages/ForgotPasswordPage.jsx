@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { request, ApiError } from '../lib/authStore';
+import { useForceLight } from '../hooks/useTheme';
 
 // ترجمة رسائل الخطأ الإنجليزية القادمة من Laravel إلى العربية.
 function translate(msg) {
@@ -13,6 +14,7 @@ function translate(msg) {
 }
 
 export default function ForgotPasswordPage() {
+  useForceLight();
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
   const [formError, setFormError] = useState('');

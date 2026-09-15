@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { LogOut, User, Pencil, HelpCircle, KeyRound, Eye, EyeOff, CheckCircle2, AlertCircle, Camera, Trash2 } from 'lucide-react';
 import { changePassword, ApiError } from '../../lib/authStore';
+import { imageUrl } from '../../lib/api';
 import useSafeInput from '../../hooks/useSafeInput';
 
 function initialsOf(name) {
@@ -45,7 +46,9 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
     setSaveMsg('');
     try {
       if (onUploadPicture) {
-        await onUploadPicture(file);
+        const uploadedUrl = await onUploadPicture(file);
+        // انعكس الصورة إلى الرابط المؤكَّد (أو أبقِ المعاينة المؤقتة كبديل).
+        setPhotoPreview((prev) => (uploadedUrl ? imageUrl(uploadedUrl) : prev));
         setSaveMsg('ok▶تم تحديث صورة الملف الشخصي.');
       }
     } catch (err) {

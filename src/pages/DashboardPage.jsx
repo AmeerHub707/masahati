@@ -1,9 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { logout, deleteUser, updateProfile, updateProfilePicture, getUser, setUser } from '../lib/authStore';
-import { fetchDashboard, cancelBooking, toggleFavorite } from '../lib/dashboard';
+import { fetchDashboard, readDashboardCache, clearDashboardCache, writeDashboardCache, cancelBooking, toggleFavorite } from '../lib/dashboard';
 import { imageUrl } from '../lib/api';
 import DashboardLayout from '../components/dashboard/DashboardLayout';
+import DashboardLoading from '../components/dashboard/DashboardLoading';
 import Overview from '../components/dashboard/Overview';
 import Bookings from '../components/dashboard/Bookings';
 import Favorites from '../components/dashboard/Favorites';
@@ -12,7 +14,7 @@ import ScrollProgress from '../components/common/ScrollProgress';
 import Footer from '../components/layout/Footer';
 import WhatsAppBubble from '../components/common/WhatsAppBubble';
 import AdBanner from '../components/dashboard/AdBanner';
-import { AlertCircle, Loader2, Trash2 } from 'lucide-react';
+import { AlertCircle, Trash2 } from 'lucide-react';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -53,6 +55,19 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let isMounted = true;
+
+    // نسخة مخزنة: نعرضها فوراً (بدون شاشة تحميل) عبر مؤقّت لتجنب setState متزامن في الـ effect.
+    const cached = readDashboardCache();
+    let showCacheTimer = 0;
+    if (cached) {
+      showCacheTimer = setTimeout(() => {
+        if (!isMounted) return;
+        setData(cached);
+        setStatus('ready');
+      }, 0);
+    }
+
+    // تحديث الخلفية: جلب جديد يُستبدل البيانات عند وصوله، ولا يعيد شاشة التحميل.
     (async () => {
       try {
         const result = await fetchDashboard();
@@ -60,13 +75,25 @@ export default function DashboardPage() {
         setData(result);
         setStatus('ready');
       } catch {
-        if (isMounted) setStatus('error');
+        // فشل الجلب: نبقي البيانات المخزنة إن وُجدت، وإلا نعرض الخطأ.
+        if (isMounted) {
+          setStatus((prev) => (prev === 'loading' ? 'error' : prev));
+        }
       }
     })();
+
     return () => {
       isMounted = false;
+      clearTimeout(showCacheTimer);
     };
   }, []);
+
+  // مزامنة النسخة المخزنة مع أي تغيير محلي (الاسم/الهاتف/البريد/الصورة/الإلغاء/المفضّلة)
+  // حتى لا يعود المستخدم للوحة ويجد بيانات قديمة من الكاش.
+  useEffect(() => {
+    if (!data) return;
+    writeDashboardCache(data);
+  }, [data]);
 
   const handleCancel = async (id) => {
     setCancellingId(id);
@@ -120,6 +147,7 @@ export default function DashboardPage() {
   };
 
   const handleLogout = useCallback(async () => {
+    clearDashboardCache();
     await logout();
     navigate('/');
   }, [navigate]);
@@ -131,6 +159,7 @@ export default function DashboardPage() {
     try {
       await deleteUser();
     } finally {
+      clearDashboardCache();
       logout();
     }
     navigate('/');
@@ -157,15 +186,23 @@ export default function DashboardPage() {
 
   const handleUploadPicture = useCallback(async (file) => {
     const res = await updateProfilePicture(file);
-    const nested = res?.data || res;
-    const picture = imageUrl(nested?.profile_picture_url || nested?.picture || nested?.photo || nested?.url) || null;
+    const nested = res?.user || res?.profile || res?.data || res;
+    const picturePath =
+      nested?.profile_picture_url ||
+      nested?.profile_picture ||
+      nested?.picture ||
+      nested?.photo ||
+      nested?.photo_url ||
+      nested?.url;
+    const picture = imageUrl(picturePath) || null;
     applyUserPatch({ photo: picture });
     // Persist to localStorage for reliability (survives refreshes, API failures)
-    if (picture) {
+    const storedPic = picture || imageUrl(res?.profile_picture_url) || null;
+    if (storedPic) {
       try {
-        localStorage.setItem('profile_picture_url', picture);
+        localStorage.setItem('profile_picture_url', storedPic);
         const stored = getUser() || {};
-        setUser({ ...stored, photo: picture });
+        setUser({ ...stored, photo: storedPic });
       } catch {
         /* storage not available */
       }
@@ -175,12 +212,7 @@ export default function DashboardPage() {
 
   let tabContent;
   if (status === 'loading') {
-    tabContent = (
-      <div className="dash__state">
-        <div className="st-svg"><Loader2 style={{ animation: 'ptr-spin .8s linear infinite' }} /></div>
-        <h3>جارٍ تحميل لوحة التحكم…</h3>
-      </div>
-    );
+    tabContent = null;
   } else if (status === 'error') {
     tabContent = (
       <div className="dash__state dash__state--error">
@@ -213,6 +245,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen font-['Cairo'] text-zinc-900 dir-rtl">
+      <DashboardLoading done={status !== 'loading'} />
       <ScrollProgress />
       <DashboardLayout
         active={active}
@@ -226,7 +259,20 @@ export default function DashboardPage() {
             dismissed={dismissedAds}
           />
         )}
-        {tabContent}
+        <AnimatePresence mode="wait" initial={false}>
+          {tabContent ? (
+            <motion.div
+              key={active}
+              className="dash__tab"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.28, ease: 'easeOut' }}
+            >
+              {tabContent}
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       </DashboardLayout>
       <Footer />
       <WhatsAppBubble />

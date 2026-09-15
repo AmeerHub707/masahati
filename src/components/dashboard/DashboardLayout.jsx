@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { Home, CalendarCheck, Heart, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Moon, Sun, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Home, CalendarCheck, Heart, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import MagneticButton from '../common/MagneticButton';
+import ThemeToggle from '../common/ThemeToggle';
 
 const TABS = [
   { id: 'overview', label: 'نظرة عامة', icon: Home },
@@ -26,11 +27,6 @@ export default function DashboardLayout({
   const notifRef = useRef(null);
   const btnRef = useRef(null);
   const [panelPos, setPanelPos] = useState({ top: 0, left: 0 });
-  const [dark, setDark] = useState(() => {
-    const saved = localStorage.getItem('masahati_theme');
-    if (saved) return saved === 'dark';
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-  });
 
   const [notifications, setNotifications] = useState([
     { id: 1, text: 'تم تأكيد حجزك لمساحة "قاعة الاجتماعات"', time: 'منذ 5 دقائق', read: false, icon: Check },
@@ -38,11 +34,6 @@ export default function DashboardLayout({
     { id: 3, text: 'تنتهي صلاحية حجزك غداً', time: 'منذ 3 ساعات', read: true, icon: Clock },
     { id: 4, text: 'تم إضافة مساحة جديدة في منطقتك', time: 'أمس', read: true, icon: MapPin },
   ]);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', dark);
-    localStorage.setItem('masahati_theme', dark ? 'dark' : 'light');
-  }, [dark]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -90,10 +81,6 @@ export default function DashboardLayout({
   };
 
   const handleNavClick = (id) => {
-    if (collapsed) {
-      setCollapsed(false);
-      return;
-    }
     navigateTo(id);
   };
 
@@ -217,14 +204,7 @@ export default function DashboardLayout({
               <p>{today}</p>
             </div>
 
-            <button
-              type="button"
-              className="dash__theme-btn"
-              onClick={() => setDark((d) => !d)}
-              aria-label={dark ? 'الوضع الفاتح' : 'الوضع الداكن'}
-            >
-              {dark ? <Sun /> : <Moon />}
-            </button>
+            <ThemeToggle />
 
             <div className="dash__notif-wrap" ref={notifRef}>
               <button

@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, useAnimation } from 'framer-motion';
 import NavTab from './NavTab';
 import MagneticButton from '../common/MagneticButton';
+import ThemeToggle from '../common/ThemeToggle';
 import { AppReadyContext } from '../../context/AppReadyContext';
 
 const LINKS = [
@@ -114,6 +115,7 @@ export default function Navbar() {
 
         {/* الأزرار */}
         <div className="nav__cta">
+          <ThemeToggle />
           <Link className="cta-btn cta-btn--ghost" to="/login">تسجيل الدخول</Link>
           <MagneticButton>
             <Link className="cta-btn cta-btn--primary" to="/signup">إضافة حساب</Link>
@@ -128,6 +130,9 @@ export default function Navbar() {
 
       {menuOpen && (
         <div className="nav__mobile">
+          <div className="nav__mobile-toggle">
+            <ThemeToggle />
+          </div>
           {LINKS.map((l) => (
             <NavTab key={l.label} label={l.label} to={l.to} href={l.href} onClick={closeMenu} />
           ))}

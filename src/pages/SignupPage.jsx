@@ -16,8 +16,10 @@ import {
 } from '../lib/authStore';
 import useGoogleAuth from '../hooks/useGoogleAuth';
 import WhatsAppBubble from '../components/common/WhatsAppBubble';
+import { useForceLight } from '../hooks/useTheme';
 
 export default function SignupPage() {
+  useForceLight();
   const navigate = useNavigate();
 
   // --- States ---
