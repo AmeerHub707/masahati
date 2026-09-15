@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "node --experimental-vm-modules src/utils/sanitize.test.mjs && node --experimental-vm-modules src/utils/sanitize.full.test.mjs"
+    "test": "node --experimental-vm-modules src/utils/sanitize.test.mjs && node --experimental-vm-modules src/utils/sanitize.full.test.mjs && node --experimental-vm-modules src/utils/integration.test.mjs && node --experimental-vm-modules src/utils/ui.smoke.test.mjs"
   },
   "dependencies": {
     "countup.js": "^2.10.1",

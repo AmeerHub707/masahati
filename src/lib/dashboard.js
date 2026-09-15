@@ -12,9 +12,10 @@
 import { request, imageUrl } from './api';
 import { getUser } from './authStore';
 
-// مؤقت أقصر لبيانات لوحة التحكم: بدلاً من انتظار 25 ثانية (مهلة Render العامة)،
-// نفشل بسرعة ونعرض الحالة الفعلية (بيانات مخزنة أو رسالة خطأ) بدل شاشة تحميل ممتدّة.
-const DASH_TIMEOUT_MS = 8000;
+// مؤقت لبيانات لوحة التحكم: كان 8s يقطع الطلبات أثناء cold start (قياس فعلي:
+// profile ~8.4s و stats ~11.1s بالتوازي بعد توقف Render). 15s يوازن بين
+// فشل سريع وعدم قطع استجابات بطيئة فعلية. (المهلة العمومية في api.js هي 25s.)
+const DASH_TIMEOUT_MS = 15000;
 const DASH_CACHE_KEY = 'masahati_dashboard_cache';
 
 // ----- ذاكرة تخزين لوحة التحكم -----
