@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { LogOut, User, HelpCircle, KeyRound, Eye, EyeOff, CheckCircle2, AlertCircle, Camera, Trash2 } from 'lucide-react';
+import { LogOut, User, Pencil, HelpCircle, KeyRound, Eye, EyeOff, CheckCircle2, AlertCircle, Camera, Trash2 } from 'lucide-react';
 import { changePassword, ApiError } from '../../lib/authStore';
 import useSafeInput from '../../hooks/useSafeInput';
 
@@ -35,6 +35,7 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
   const [saveMsg, setSaveMsg] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
   const [uploading, setUploading] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const handlePhotoChange = async (e) => {
     const file = e.target.files && e.target.files[0];
@@ -118,7 +119,6 @@ const handleChangePassword = async (e) => {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    setSaving(true);
     setSaveMsg('');
     setFieldErrors({});
 
@@ -131,9 +131,27 @@ const handleChangePassword = async (e) => {
 
     if (Object.keys(errs).length > 0) {
       setFieldErrors(errs);
-      setSaving(false);
       return;
     }
+
+    // No actual changes? no need to confirm
+    const changed =
+      name.value !== (user?.name || '') ||
+      phone.value !== (user?.phone || '') ||
+      email.value !== (user?.email || '');
+    if (!changed) {
+      setSaveMsg('ok▶لا توجد تغييرات لحفظها.');
+      return;
+    }
+
+    setConfirmOpen(true);
+  };
+
+  const confirmSave = async () => {
+    setSaving(true);
+    setSaveMsg('');
+    setConfirmOpen(false);
+    setFieldErrors({});
 
     try {
       if (onSaveProfile) {
@@ -209,7 +227,7 @@ const handleChangePassword = async (e) => {
           </div>
 
           <form className="dash__form dash__form--inside" onSubmit={handleSave}>
-<div className={`field${fieldErrors.name ? ' has-error' : ''}`}>
+            <div className={`field${fieldErrors.name ? ' has-error' : ''}`}>
               <label htmlFor="set-name">الاسم الكامل</label>
               <input
                 id="set-name"
@@ -236,24 +254,21 @@ const handleChangePassword = async (e) => {
             </div>
 
             <div className={`field${fieldErrors.phone ? ' has-error' : ''}`}>
-            <label htmlFor="set-phone">رقم الهاتف</label>
-            <input
-              id="set-phone"
-              type="tel"
-              dir="ltr"
-              value={phone.value}
-              onChange={phone.onChange}
-              placeholder="+970 59 000 0000"
-            />
-            <p className="error">{fieldErrors.phone}</p>
-          </div>
+              <label htmlFor="set-phone">رقم الهاتف</label>
+              <input
+                id="set-phone"
+                type="tel"
+                dir="ltr"
+                value={phone.value}
+                onChange={phone.onChange}
+                placeholder="+970 59 000 0000"
+              />
+              <p className="error">{fieldErrors.phone}</p>
+            </div>
 
-<button
-              type="submit"
-              className="btn-primary"
-              disabled={saving}>
-                {saving ? 'جارٍ الحفظ…' : 'حفظ التغييرات'}
-          </button>
+            <button type="submit" className="btn-primary" disabled={saving}>
+              {saving ? 'جارٍ الحفظ…' : 'حفظ التغييرات'}
+            </button>
           </form>
 
           {/* رسالة الحفظ */}
@@ -398,6 +413,45 @@ const handleChangePassword = async (e) => {
           </button>
         </div>
       </section>
+
+      {confirmOpen && (
+        <div className="modal-overlay delete-confirm__overlay" onClick={() => !saving && setConfirmOpen(false)}>
+          <div
+            className="modal-box delete-confirm"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="تأكيد حفظ التغييرات"
+          >
+            <div className="delete-confirm__ico" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
+              <Pencil style={{ width: '1.6rem', height: '1.6rem' }} />
+            </div>
+            <h3>هل أنت متأكد من تحديث بياناتك؟</h3>
+            <p>
+              سيتم حفظ التعديلات التالية: الاسم، رقم الهاتف، والبريد الإلكتروني.
+              هل تريد المتابعة؟
+            </p>
+            <div className="delete-confirm__actions">
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => setConfirmOpen(false)}
+                disabled={saving}
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={confirmSave}
+                disabled={saving}
+              >
+                {saving ? 'جارٍ الحفظ…' : 'نعم، حفظ التغييرات'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

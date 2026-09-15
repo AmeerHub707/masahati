@@ -1,16 +1,16 @@
 // وحدة بيانات لوحة المستخدم — تتواصل مع الباك إند الحقيقي (Laravel).
 //
 // كل نقطة استدعاء هنا تقابل نقطة من /api.txt:
+//   - GET api/profile
 //   - GET api/dashboard/stats
 //   - GET api/dashboard/upcoming-booking
 //   - GET api/dashboard/bookings
 //   - GET api/dashboard/favorites
+//   - POST api/dashboard/favorites/toggle
 //   - GET api/dashboard/spaces
 
 import { request, imageUrl } from './api';
-import { userDetails, getProfile, getUser } from './authStore';
-
-// ----- أدوات مساعدة لفك غلاف الاستجابات (Laravel يغلّف أحياناً) -----
+import { getProfile, getUser } from './authStore';
 
 // يقبل أي صيغة: { user: {...} } أو { data: {...} } أو { data: { user: {...} } }
 // أو الكائن نفسه، ويعيد أعمق كائن مستخدم/بيانات.
@@ -28,24 +28,27 @@ function pickUser(...sources) {
   const out = {};
   for (const src of sources) {
     if (!src || typeof src !== 'object') continue;
-    for (const key of ['name', 'email', 'phone', 'role', 'picture', 'profile_picture_url', 'photo', 'avatar', 'image']) {
+    for (const key of ['name', 'email', 'phone', 'role', 'picture', 'photo']) {
       if (!out[key] && src[key]) out[key] = src[key];
     }
   }
   return out;
 }
 
-// ----- محوّل بين حقول الباك إند وحقول الواجهة الحالية -----
+// ----- محوّل الحجوزات -----
+// يدعم كلا الشكلين:
+//   - upcoming: { title, image, date, time }
+//   - history:  { booking_id, space_name, image, date, time_from, time_to, status }
 function mapBookings(rows = []) {
   return rows.map((b) => ({
     id: b.booking_id ?? b.id,
     spaceName: b.space_name ?? b.title ?? '',
     image: imageUrl(b.image) || '',
-    date: b.date || b.booking_date || '',
+    date: b.date || '',
     time: b.time_from && b.time_to ? `${b.time_from} – ${b.time_to}` : (b.time || ''),
     hours: b.hours || 0,
     price: b.price || b.cost || 0,
-    status: b.status || 'pending',
+    status: b.status || (b.time_from ? 'confirmed' : 'pending'),
   }));
 }
 
@@ -62,41 +65,39 @@ function mapFavorites(rows = []) {
   }));
 }
 
+// يفكّك قائمة من استجابة قد تكون { key: [...] } أو { data: [...] } أو مصفوفة مباشرة،
+// أو كائناً واحداً (upcoming-booking) نحوّله لقائمة من عنصر واحد.
+function listOf(res, key) {
+  if (Array.isArray(res)) return res;
+  if (!res || typeof res !== 'object') return [];
+  if (res[key] && Array.isArray(res[key])) return res[key];
+  if (res.data && Array.isArray(res.data)) return res.data;
+  if (res.data?.[key] && Array.isArray(res.data[key])) return res.data[key];
+  const looksLikeItem = 'id' in res || 'booking_id' in res || 'space_id' in res || 'title' in res;
+  return looksLikeItem ? [res] : [];
+}
+
 // جلب بيانات لوحة التحكم بالكامل (بالتوازي) ودمجها مع الملف الشخصي.
 export async function fetchDashboard() {
-  const [stats, bookings, favorites, detailsApi, profileApi] = await Promise.all([
+  const [stats, upcomingApi, historyApi, favoritesApi, profileApi] = await Promise.all([
     request('/api/dashboard/stats', { method: 'GET', auth: true }).catch(() => null),
     request('/api/dashboard/upcoming-booking', { method: 'GET', auth: true }).catch(() => null),
+    request('/api/dashboard/bookings', { method: 'GET', auth: true }).catch(() => null),
     request('/api/dashboard/favorites', { method: 'GET', auth: true }).catch(() => null),
-    userDetails().catch(() => null),
     getProfile().catch(() => null),
   ]);
-
-  // صيغة الإرجاع: في حال كانت الاستجابة كائناً يحوي قائمة، نفكّكها.
-  // قد يعيد الباك إند كائناً واحداً (upcoming-booking) بدل قائمة — نحوّله لقائمة.
-  const list = (res, key) => {
-    if (Array.isArray(res)) return res;
-    if (!res || typeof res !== 'object') return [];
-    if (res[key] && Array.isArray(res[key])) return res[key];
-    if (res.data && Array.isArray(res.data)) return res.data;
-    if (res.data?.[key] && Array.isArray(res.data[key])) return res.data[key];
-    // كائن حجز/مساحة واحد مباشر (يحوي حقول بيانات وليس قائمة) => نغلّفه.
-    const looksLikeItem = 'id' in res || 'booking_id' in res || 'space_id' in res || 'title' in res;
-    return looksLikeItem ? [res] : [];
-  };
 
   const s = stats || {};
   const localUser = getUser() || {};
 
-  // المستخدم: نجمع من واجهتي بيانات (case: إحداهما قد لا تكون مطبَّقة) مع
-  // المستخدم المخزّن محلياً من لحظة تسجيل الدخول على أن يكون الملاذ الأخير.
-  const u = pickUser(unwrapUser(detailsApi), unwrapUser(profileApi), localUser);
+  // المستخدم: /api/profile (name, phone, email, picture) هو المصدر الأساسي،
+  // مع المستخدم المخزّن محلياً من لحظة تسجيل الدخول كملاذ أخير (يحمل role).
+  const u = pickUser(unwrapUser(profileApi), localUser);
 
-  // الصورة: نفضّل رابط الصورة من أي مصدر، ونحوّله لرابط كامل إن كان نسبياً.
-  const rawPhoto = pickPhoto(detailsApi, profileApi, localUser);
+  // الصورة من أي مصدر حتى لو لم تُطبَّق واجهة profile بعد.
+  const rawPhoto = pickPhoto(profileApi, localUser) || localStorage.getItem('profile_picture_url');
   const photo = rawPhoto ? imageUrl(rawPhoto) : null;
 
-  // الدور: الباك إند قد يعيد space_owner بينما الواجهة تعرضه كـ owner.
   const rawRole = u.role || localUser.role || 'customer';
   const role = rawRole === 'space_owner' ? 'owner' : rawRole;
 
@@ -109,13 +110,14 @@ export async function fetchDashboard() {
       photo,
     },
     stats: {
-      upcomingBookings: s.upcoming_bookings_count ?? s.total_bookings_count ?? 0,
+      upcomingBookings: s.upcoming_bookings_count ?? 0,
       hoursThisMonth: s.total_hours ?? 0,
-      savedFavorites: s.favorite_spaces_count ?? s.total_favorites ?? 0,
+      savedFavorites: s.favorite_spaces_count ?? 0,
       hoursSpentThisMonth: s.booked_hours_this_month ?? 0,
     },
-    bookings: mapBookings(list(bookings, 'bookings')),
-    favorites: mapFavorites(list(favorites, 'favorites')),
+    upcoming: mapBookings(listOf(upcomingApi, 'bookings')),
+    bookings: mapBookings(listOf(historyApi, 'bookings')),
+    favorites: mapFavorites(listOf(favoritesApi, 'favorites')),
     ads: [],
   };
 }
@@ -124,17 +126,31 @@ export async function fetchDashboard() {
 function pickPhoto(...sources) {
   for (const src of sources) {
     const u = unwrapUser(src);
-    for (const key of ['picture', 'profile_picture_url', 'photo', 'avatar', 'image']) {
+    for (const key of ['picture', 'photo', 'avatar', 'image']) {
       if (u[key]) return u[key];
     }
   }
   return null;
 }
 
+// تبديل المساحة في المفضّلة — POST api/dashboard/favorites/toggle { space_id }
+// يعيد { message, is_favorited }.
+export async function toggleFavorite(spaceId) {
+  const res = await request('/api/dashboard/favorites/toggle', {
+    method: 'POST',
+    auth: true,
+    body: { space_id: spaceId },
+  });
+  const isFavorited = typeof res?.is_favorited === 'boolean'
+    ? res.is_favorited
+    : typeof res?.data?.is_favorited === 'boolean' ? res.data.is_favorited : null;
+  return { message: res?.message || '', isFavorited };
+}
+
 // تصفّح المساحات (صفحات) — GET api/dashboard/spaces (paginate)
 export async function fetchSpaces(page = 1) {
   const res = await request(`/api/dashboard/spaces?page=${page}`, { method: 'GET', auth: true });
-  // Laravel paginator يعيد { data: [...] }، وقد تُغلَّف النتيجة أحياناً في res.data مرة أخرى.
+  // Laravel paginator يعيد { data: [...] } وقد تُغلَّف النتيجة أحياناً في res.data مرة أخرى.
   const rawItems = res?.data?.data || res?.data || res?.spaces || [];
   const items = Array.isArray(rawItems) ? rawItems : [];
   return {

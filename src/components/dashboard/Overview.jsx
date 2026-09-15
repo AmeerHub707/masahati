@@ -10,6 +10,10 @@ const dashAds = [
   { id: 5, title: 'استوديو تصوير', desc: 'مجهز للتصوير الفوتوغرافي والفيديو', badge: 'جديد', price: '60 ر.س/ساعة' },
 ];
 
+function initialsOf(name) {
+  return (name || 'م').trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('') || 'م';
+}
+
 export default function Overview({ data }) {
   const user = data.user || {};
   const stats = data.stats || {};
@@ -18,6 +22,7 @@ export default function Overview({ data }) {
   const [rating, setRating] = useState(0);
   const [rated, setRated] = useState(false);
   const [activeAd, setActiveAd] = useState(0);
+  const [photoError, setPhotoError] = useState(false);
   const statCards = [
     { icon: CalendarCheck, value: stats.upcomingBookings, label: 'حجوزات قادمة' },
     { icon: Clock, value: stats.hoursThisMonth, label: 'ساعة محجوزة هذا الشهر' },
@@ -41,7 +46,7 @@ export default function Overview({ data }) {
     }, 250);
   };
 
-  const allUpcoming = (data.bookings || []).filter((b) => b.status !== 'cancelled');
+  const allUpcoming = (data.upcoming || []).filter((b) => b.status !== 'cancelled');
   const upcoming = showAll ? allUpcoming : allUpcoming.slice(0, 2);
 
   useEffect(() => {
@@ -55,6 +60,16 @@ export default function Overview({ data }) {
       <section className="dash__hero">
         <AnimatedOrbs />
         <div className="dash__hero-copy">
+          {user.photo && !photoError ? (
+            <img
+              className="dash__hero-avatar"
+              src={user.photo}
+              alt={user.name || ''}
+              onError={() => setPhotoError(true)}
+            />
+          ) : (
+            user.name && <div className="dash__hero-avatar">{initialsOf(user.name)}</div>
+          )}
           <h2>أهلاً <span className="dash__hero-name">{user.name || 'بك'}</span> بعودتك</h2>
           <p>
             {user.role === 'owner'

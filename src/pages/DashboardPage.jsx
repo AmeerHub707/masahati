@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { logout, deleteUser, updateProfile, updateProfilePicture, getUser, setUser } from '../lib/authStore';
-import { fetchDashboard, cancelBooking } from '../lib/dashboard';
+import { fetchDashboard, cancelBooking, toggleFavorite } from '../lib/dashboard';
 import { imageUrl } from '../lib/api';
 import DashboardLayout from '../components/dashboard/DashboardLayout';
 import Overview from '../components/dashboard/Overview';
@@ -20,6 +20,7 @@ export default function DashboardPage() {
   const [data, setData] = useState(null);
   const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
   const [cancellingId, setCancellingId] = useState(null);
+  const [togglingId, setTogglingId] = useState(null);
   const [dismissedAds] = useState([]);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -83,6 +84,38 @@ export default function DashboardPage() {
       }));
     } finally {
       setCancellingId(null);
+    }
+  };
+
+  const handleToggleFavorite = async (id, name) => {
+    setTogglingId(id);
+    // إزالة تفاؤلية فورية ثم التراجع عند فشل الخادم فقط.
+    setData((prev) => ({
+      ...prev,
+      favorites: (prev.favorites || []).filter((f) => f.id !== id),
+      stats: {
+        ...prev.stats,
+        savedFavorites: Math.max(0, (prev.stats.savedFavorites || 1) - 1),
+      },
+    }));
+    try {
+      await toggleFavorite(id);
+    } catch {
+      // فشل الخادم: نعيد المساحة إلى القائمة كما كانت.
+      setData((prev) => {
+        const exists = (prev.favorites || []).some((f) => f.id === id);
+        if (exists) return prev;
+        return {
+          ...prev,
+          favorites: [...(prev.favorites || []), { id, name }],
+          stats: {
+            ...prev.stats,
+            savedFavorites: (prev.stats.savedFavorites || 0) + 1,
+          },
+        };
+      });
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -166,7 +199,7 @@ export default function DashboardPage() {
       ) : active === 'bookings' ? (
         <Bookings data={data} onCancel={handleCancel} cancellingId={cancellingId} />
       ) : active === 'favorites' ? (
-        <Favorites data={data} />
+        <Favorites data={{ ...(data || {}), togglingId }} onToggleFavorite={handleToggleFavorite} />
       ) : (
         <Settings
           user={data?.user}
