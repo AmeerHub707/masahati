@@ -1,0 +1,63 @@
+
+> masahati@0.0.0 dev
+> vite
+
+Port 5173 is in use, trying another one...
+Port 5174 is in use, trying another one...
+Port 5175 is in use, trying another one...
+
+  [32m[1mVITE[22m v8.2.1[39m  [2mready in [0m[1m1590[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5176[22m/[39m
+[2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+[2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+[2m3:46:51 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m3:46:54 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css[22m
+[2m3:46:55 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ForgotPasswordPage.jsx, /src/index.css[22m
+[2m3:46:55 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css[22m
+[2m3:47:27 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ForgotPasswordPage.jsx, /src/index.css[22m
+[2m3:47:28 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m3:48:43 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ForgotPasswordPage.jsx, /src/index.css[22m
+[2m3:48:43 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m3:48:45 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ForgotPasswordPage.jsx, /src/index.css[22m
+[2m3:48:45 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m4:01:19 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ForgotPasswordPage.jsx, /src/index.css[22m
+[2m4:01:32 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ForgotPasswordPage.jsx, /src/index.css[22m
+[2m4:01:54 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m4:02:05 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m4:02:58 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m4:02:58 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ForgotPasswordPage.jsx, /src/index.css[22m
+[2m4:02:59 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ForgotPasswordPage.jsx, /src/index.css[22m
+[2m4:02:59 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m4:12:10 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m4:12:25 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ForgotPasswordPage.jsx, /src/index.css[22m
+[2m4:13:29 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m4:13:29 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ForgotPasswordPage.jsx, /src/index.css[22m
+[2m4:13:29 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ForgotPasswordPage.jsx, /src/index.css[22m
+[2m4:13:29 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m4:27:44 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ForgotPasswordPage.jsx, /src/index.css[22m
+[2m4:27:44 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m4:28:03 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m4:28:03 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ForgotPasswordPage.jsx, /src/index.css[22m
+[2m4:28:46 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m4:28:46 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ForgotPasswordPage.jsx, /src/index.css[22m
+[2m4:29:29 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ForgotPasswordPage.jsx, /src/index.css[22m
+[2m4:29:29 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m4:29:29 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ForgotPasswordPage.jsx, /src/index.css[22m
+[2m4:29:29 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m4:55:34 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m4:55:54 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m4:56:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m4:56:29 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m4:56:40 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m4:56:53 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m4:57:12 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m4:57:35 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ForgotPasswordPage.jsx, /src/index.css[22m
+[2m4:58:03 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ForgotPasswordPage.jsx, /src/index.css[22m
+[2m4:58:21 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ForgotPasswordPage.jsx, /src/index.css[22m
+[2m4:58:39 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ForgotPasswordPage.jsx, /src/index.css[22m
+[2m4:59:24 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ForgotPasswordPage.jsx, /src/index.css[22m
+[2m5:00:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m5:00:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ForgotPasswordPage.jsx, /src/index.css[22m
+[2m5:00:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ResetPasswordPage.jsx, /src/index.css[22m
+[2m5:00:11 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ForgotPasswordPage.jsx, /src/index.css[22m
