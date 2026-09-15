@@ -1,7 +1,5 @@
-import { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
-import LoadingScreen, { LOADING_SEEN_KEY } from './components/common/LoadingScreen';
 import { AppReadyContext } from './context/AppReadyContext';
 
 // ملاحظة: قم بإنشاء ملفات وهمية/مؤقتة لهذه الصفحات لحين بنائها تفصيلياً
@@ -20,21 +18,10 @@ function RequireAuth({ children }) {
 }
 
 export default function App() {
-  const [splashDone, setSplashDone] = useState(false);
-  const [loadingSeen] = useState(() => {
-    try {
-      return sessionStorage.getItem(LOADING_SEEN_KEY) === '1';
-    } catch {
-      return false;
-    }
-  });
-  const ready = splashDone || loadingSeen;
-
   return (
-    <AppReadyContext.Provider value={ready}>
-      {!splashDone && <LoadingScreen onDone={() => setSplashDone(true)} />}
+    <AppReadyContext.Provider value={true}>
       <Routes>
-      {/* الصفحة الرئيسية - صفحة الهبوط */}
+      {/* الصفحة الرئيسية - صفحة الهبوط (الترحيب) */}
       <Route path="/" element={<LandingPage />} />
       
       {/* باقي صفحات المنصة */}

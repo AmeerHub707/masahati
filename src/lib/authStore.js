@@ -159,9 +159,7 @@ const DASHBOARD_PATHS = {
 
 export function getHomePath(role) {
   const resolvedRole = role || getUser()?.role;
-<<<<<<< HEAD
+  // الدور الناقص/غير المعروف يُرسَل افتراضياً إلى لوحة العميل حتى لا يتعثر
+  // التوجيه في المسار العام '/dashboard' (حلقة إعادة توجيه → شاشة فارغة).
   return DASHBOARD_PATHS[resolvedRole] || '/dashboard/customer';
-=======
-  return DASHBOARD_PATHS[resolvedRole] || '/dashboard';
->>>>>>> c11d71720e3cc630cfeb274674899e596bf43fed
 }
