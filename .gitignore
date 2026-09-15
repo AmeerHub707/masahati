@@ -21,3 +21,6 @@ dev.log
 # Vite / Bundler caches
 /.vite
 /.vite-temp
+
+# Nested/embedded repo copy — must never be committed as gitlink
+/masahati/
