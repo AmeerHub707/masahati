@@ -122,12 +122,12 @@ export default function DashboardLayout({
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
-                <img src="/logo-icon.svg" alt="مساحاتي" className="h-10 w-10" draggable={false} />
+                <img src="/Logo.png" alt="مساحاتي" className="h-10 w-10 object-contain" draggable={false} />
               </div>
             ) : (
               <div className="flex w-full items-center gap-1 px-1">
                 <span className="flex items-center gap-2">
-                  <img src="/logo-full.svg" alt="مساحاتي" className="h-9 w-auto" />
+                  <img src="/Logo.png" alt="مساحاتي" className="h-9 w-auto object-contain" />
                   <span className="brand-name text-xl font-extrabold" style={{ color: 'var(--accent)' }}>مساحاتي</span>
                 </span>
                 <button

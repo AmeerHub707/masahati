@@ -8,7 +8,7 @@
 //   - GET api/dashboard/spaces
 
 import { request } from './api';
-import { getProfile, userDetails } from './authStore';
+import { getProfile } from './authStore';
 
 // محوّل بين حقول الباك إند وحقول الواجهة الحالية
 function mapBookings(rows = []) {
@@ -43,7 +43,7 @@ export async function fetchDashboard() {
     request('/api/dashboard/stats', { method: 'GET', auth: true }).catch(() => null),
     request('/api/dashboard/upcoming-booking', { method: 'GET', auth: true }).catch(() => null),
     request('/api/dashboard/favorites', { method: 'GET', auth: true }).catch(() => null),
-    userDetails().catch(() => getProfile().catch(() => null)),
+    getProfile().catch(() => null),
   ]);
 
   // صيغة الإرجاع: في حال كانت الاستجابة كائناً يحوي قائمة، نفكّكها.
