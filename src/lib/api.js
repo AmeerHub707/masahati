@@ -8,6 +8,17 @@ const BASE_URL = (
   'https://back-end-kwba.onrender.com'
 ).replace(/\/$/, '');
 
+// يحوّل مسار صورة نسبي (/storage/...) إلى رابط كامل على نفس مخدم الباك إند،
+// لأن ملفات المستخدمين تُخزَّن هناك لا على مخدم الواجهة.
+// صلاحيات الوصول: تصدير BASE_URL نفسه أيضاً إن احتاجت أجزاء أخرى إليه.
+export { BASE_URL };
+
+export function imageUrl(path) {
+  if (!path || typeof path !== 'string') return '';
+  if (/^https?:\/\//i.test(path) || path.startsWith('data:')) return path;
+  return `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+}
+
 const TOKEN_KEY = '***';
 const USER_KEY = '***:user';
 
