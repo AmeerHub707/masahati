@@ -73,6 +73,41 @@ export async function userDetails() {
   return request('/api/user-details', { method: 'GET', auth: true });
 }
 
+// ----- تغيير كلمة المرور أثناء تسجيل الدخول (محمي) -----
+export async function changePassword({ oldPassword, newPassword, newPassword_confirmation }) {
+  return request('/api/change-pass', {
+    method: 'POST',
+    auth: true,
+    body: { oldPassword, newPassword, newPassword_confirmation },
+  });
+}
+
+// ----- الملف الشخصي: جلب البيانات الحالية (محمي) -----
+export async function getProfile() {
+  return request('/api/profile', { method: 'GET', auth: true });
+}
+
+// ----- تحديث الملف الشخصي (name, phone, email) (محمي) -----
+export async function updateProfile({ full_name, phone, email }) {
+  return request('/api/customer/profile', {
+    method: 'PATCH',
+    auth: true,
+    body: { full_name, phone, email },
+  });
+}
+
+// ----- تحديث صورة الملف الشخصي (محمي) -----
+export async function updateProfilePicture(file) {
+  const fd = new FormData();
+  fd.append('profile_picture', file);
+  return request('/api/profile/picture', {
+    method: 'POST',
+    auth: true,
+    isForm: true,
+    body: fd,
+  });
+}
+
 // ----- تسجيل الخروج -----
 export async function logout() {
   try {

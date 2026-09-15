@@ -12,6 +12,7 @@ import VerifyOtpPage from './pages/VerifyOtpPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import DashboardPage from './pages/DashboardPage';
+import AdDetailsPage from './pages/AdDetailsPage';
 import { isLoggedIn, getHomePath } from './lib/authStore';
 
 // حماية المسار: الزائر غير المسجّل يُحوَّل للصفحة الرئيسية
@@ -48,6 +49,7 @@ export default function App() {
       <Route path="/password-reset" element={<Navigate to="/reset-password" replace />} />
       <Route path="/password-reset/:token" element={<Navigate to="/reset-password" replace />} />
       <Route path="/api/reset-password/:token" element={<ResetPasswordPage />} />
+      <Route path="/ads/:id" element={<AdDetailsPage />} />
       <Route path="/dashboard" element={<RequireAuth><Navigate to={getHomePath()} replace /></RequireAuth>} />
       <Route path="/dashboard/customer" element={<RequireAuth><DashboardPage /></RequireAuth>} />
       <Route path="/dashboard/space-owner" element={<RequireAuth><DashboardPage /></RequireAuth>} />
