@@ -90,19 +90,18 @@ export async function getProfile() {
 // ----- تحديث الملف الشخصي (name, phone, email) (محمي) -----
 export async function updateProfile({ full_name, phone, email }) {
   return request('/api/customer/profile', {
-    method: 'PATCH',
+    method: 'POST',
     auth: true,
     body: { full_name, phone, email },
   });
 }
 
 // ----- تحديث صورة الملف الشخصي (محمي) -----
-// إصلاح: الباك إند يتوقع PATCH (كما في api.txt) وليس POST.
 export async function updateProfilePicture(file) {
   const fd = new FormData();
   fd.append('profile_picture', file);
   return request('/api/profile/picture', {
-    method: 'PATCH',
+    method: 'POST',
     auth: true,
     isForm: true,
     body: fd,
