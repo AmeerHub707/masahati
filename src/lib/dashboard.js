@@ -115,24 +115,33 @@ function listOf(res, key) {
 
 // جلب بيانات لوحة التحكم بالكامل (بالتوازي) ودمجها مع الملف الشخصي.
 export async function fetchDashboard() {
-  const [stats, upcomingApi, historyApi, favoritesApi, profileApi] = await Promise.all([
+  const [stats, upcomingApi, historyApi, favoritesApi, profileApi, detailsApi] = await Promise.all([
     request('/api/dashboard/stats', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
     request('/api/dashboard/upcoming-booking', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
     request('/api/dashboard/bookings', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
     request('/api/dashboard/favorites', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
     request('/api/profile', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
+    request('/api/user-details', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
   ]);
 
   const s = stats || {};
   const localUser = getUser() || {};
 
-  // المستخدم: /api/profile (name, phone, email, picture) هو المصدر الأساسي،
-  // مع المستخدم المخزّن محلياً من لحظة تسجيل الدخول كملاذ أخير (يحمل role).
-  const u = pickUser(unwrapUser(profileApi), localUser);
+  // المستخدم: /api/user-details ثم /api/profile (name, phone, email, picture)
+  // هما المصدران الأساسيان، مع المستخدم المخزّن محلياً من لحظة تسجيل الدخول
+  // كملاذ أخير (يحمل role).
+  const u = pickUser(unwrapUser(detailsApi), unwrapUser(profileApi), localUser);
 
-  // الصورة من أي مصدر حتى لو لم تُطبَّق واجهة profile بعد.
-  const rawPhoto = pickPhoto(profileApi, localUser) || localStorage.getItem('profile_picture_url');
+  // الصورة من أي مصدر (user-details أولاً، ثم profile والمحلي) حتى لو لم تُطبَّق
+  // واجهة بعد. نعيد مسارها النسبي إلى رابط كامل على مخدم الباك إند.
+  const rawPhoto = pickPhoto(detailsApi, profileApi, localUser) || localStorage.getItem('profile_picture_url');
   const photo = rawPhoto ? imageUrl(rawPhoto) : null;
+  if (photo) {
+    // نحفظها محلياً ليعرضها كل مكان يقرأ من localStorage حتى لو فشل الاتصال لاحقاً.
+    try {
+      localStorage.setItem('profile_picture_url', photo);
+    } catch { /* storage not available */ }
+  }
 
   const rawRole = u.role || localUser.role || 'customer';
   const role = rawRole === 'space_owner' ? 'owner' : rawRole;
