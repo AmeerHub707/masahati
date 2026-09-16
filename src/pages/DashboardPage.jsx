@@ -16,6 +16,9 @@ import WhatsAppBubble from '../components/common/WhatsAppBubble';
 import AdBanner from '../components/dashboard/AdBanner';
 import { AlertCircle, Trash2 } from 'lucide-react';
 
+// كل المفاتيح التي قد يُرجعها الباك إند لحقل صورة المستخدم في استجابة الرفع.
+const PIC_KEYS = ['profile_picture_url', 'profile_picture', 'picture', 'photo', 'photo_url', 'avatar', 'image', 'url'];
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   const [active, setActive] = useState('overview');
@@ -184,7 +187,6 @@ export default function DashboardPage() {
     } catch { /* */ }
   }, [applyUserPatch]);
 
-  const PIC_KEYS = ['profile_picture_url', 'profile_picture', 'picture', 'photo', 'photo_url', 'avatar', 'image', 'url'];
   const handleUploadPicture = useCallback(async (file) => {
     const res = await updateProfilePicture(file);
     // البحث عن مسار الصورة في الاستجابة الغلّفة (user/profile/data) وفي الجذر.
