@@ -162,12 +162,19 @@ export async function fetchDashboard() {
   return result;
 }
 
-// يبحث عن حقل الصورة في أي صيغة استجابة (مباشرة أو مغلّفة).
+// كل المفاتيح التي قد يُرجعها الباك إند لحقل صورة المستخدم.
+const PHOTO_KEYS = ['profile_picture_url', 'profile_picture', 'picture', 'photo', 'photo_url', 'avatar', 'image', 'url'];
+
+// يبحث عن حقل الصورة في أي صيغة استجابة (مباشرة أو مغلّفة أو في الجذر).
 function pickPhoto(...sources) {
   for (const src of sources) {
-    const u = unwrapUser(src);
-    for (const key of ['picture', 'photo', 'avatar', 'image']) {
-      if (u[key]) return u[key];
+    if (!src || typeof src !== 'object') continue;
+    const candidates = [unwrapUser(src), src];
+    for (const obj of candidates) {
+      if (!obj || typeof obj !== 'object') continue;
+      for (const key of PHOTO_KEYS) {
+        if (obj[key]) return obj[key];
+      }
     }
   }
   return null;

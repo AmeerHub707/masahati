@@ -184,25 +184,28 @@ export default function DashboardPage() {
     } catch { /* */ }
   }, [applyUserPatch]);
 
+  const PIC_KEYS = ['profile_picture_url', 'profile_picture', 'picture', 'photo', 'photo_url', 'avatar', 'image', 'url'];
   const handleUploadPicture = useCallback(async (file) => {
     const res = await updateProfilePicture(file);
+    // البحث عن مسار الصورة في الاستجابة الغلّفة (user/profile/data) وفي الجذر.
+    let picturePath = null;
     const nested = res?.user || res?.profile || res?.data || res;
-    const picturePath =
-      nested?.profile_picture_url ||
-      nested?.profile_picture ||
-      nested?.picture ||
-      nested?.photo ||
-      nested?.photo_url ||
-      nested?.url;
+    for (const obj of [nested, res]) {
+      if (!obj || typeof obj !== 'object') continue;
+      for (const key of PIC_KEYS) {
+        if (obj[key]) { picturePath = obj[key]; break; }
+      }
+      if (picturePath) break;
+    }
+    // لا نكتب null فوق صورة موجودة إن لم يُرجع الباك إند مساراً.
     const picture = imageUrl(picturePath) || null;
-    applyUserPatch({ photo: picture });
-    // Persist to localStorage for reliability (survives refreshes, API failures)
-    const storedPic = picture || imageUrl(res?.profile_picture_url) || null;
-    if (storedPic) {
+    if (picture) {
+      applyUserPatch({ photo: picture });
+      // Persist to localStorage for reliability (survives refreshes, API failures)
       try {
-        localStorage.setItem('profile_picture_url', storedPic);
+        localStorage.setItem('profile_picture_url', picture);
         const stored = getUser() || {};
-        setUser({ ...stored, photo: storedPic });
+        setUser({ ...stored, photo: picture });
       } catch {
         /* storage not available */
       }

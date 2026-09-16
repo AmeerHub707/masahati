@@ -28,6 +28,13 @@ export default function DashboardLayout({
   const btnRef = useRef(null);
   const [panelPos, setPanelPos] = useState({ top: 0, left: 0 });
 
+  // مصدر الصورة الحالي — نعيد تعيين avatarError عند تغيّره حتى لا يعلق الشريط
+  // الجانبي على صورة فاشلة قديماً رغم رفع صورة جديدة ناجحة.
+  const photoSrc = user?.photo || localStorage.getItem('profile_picture_url') || '';
+  useEffect(() => {
+    setAvatarError(false);
+  }, [photoSrc]);
+
   const [notifications, setNotifications] = useState([
     { id: 1, text: 'تم تأكيد حجزك لمساحة "قاعة الاجتماعات"', time: 'منذ 5 دقائق', read: false, icon: Check },
     { id: 2, text: 'طلب حجز جديد على مساحتك "المكتب الرئيسي"', time: 'منذ ساعة', read: false, icon: FileText },
@@ -130,8 +137,8 @@ export default function DashboardLayout({
           </div>
 
           <div className="dash__profile" style={collapsed ? { justifyContent: 'center', padding: '.6rem .25rem' } : {}}>
-            {(user?.photo || localStorage.getItem('profile_picture_url')) && !avatarError ? (
-              <img className="dash__avatar" src={user?.photo || localStorage.getItem('profile_picture_url')} alt={user?.name || ''} onError={() => setAvatarError(true)} />
+            {(photoSrc && !avatarError) ? (
+              <img className="dash__avatar" src={photoSrc} alt={user?.name || ''} onError={() => setAvatarError(true)} />
             ) : (
               <div className="dash__avatar">{initials}</div>
             )}
