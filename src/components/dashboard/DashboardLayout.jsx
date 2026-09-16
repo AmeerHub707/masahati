@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Home, CalendarCheck, Heart, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import MagneticButton from '../common/MagneticButton';
 import ThemeToggle from '../common/ThemeToggle';
+import { getCachedPictureUrl } from '../../lib/profilePicture';
 
 const TABS = [
   { id: 'overview', label: 'نظرة عامة', icon: Home },
@@ -30,7 +31,7 @@ export default function DashboardLayout({
 
   // مصدر الصورة الحالي — إذا غيّره المستخدم برفع صورة جديدة يعاد عرضها تلقائياً
   // حتى لو كان المصدر السابق قد فشل في التحميل (بدل التعليق على الحروف الأولى).
-  const photoSrc = user?.photo || localStorage.getItem('profile_picture_url') || '';
+  const photoSrc = user?.photo || getCachedPictureUrl() || '';
 
   const [notifications, setNotifications] = useState([
     { id: 1, text: 'تم تأكيد حجزك لمساحة "قاعة الاجتماعات"', time: 'منذ 5 دقائق', read: false, icon: Check },

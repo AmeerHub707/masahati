@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { LogOut, User, Pencil, HelpCircle, KeyRound, Eye, EyeOff, CheckCircle2, AlertCircle, Camera, Trash2 } from 'lucide-react';
 import { changePassword, ApiError } from '../../lib/authStore';
-import { imageUrl } from '../../lib/api';
+import { getCachedPictureUrl } from '../../lib/profilePicture';
 import useSafeInput from '../../hooks/useSafeInput';
 
 function initialsOf(name) {
@@ -26,7 +26,7 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
 
   // --- صورة الملف الشخصي (معاينة قبل الرفع للـ API) ---
   const [photoPreview, setPhotoPreview] = useState(() => {
-    const cached = localStorage.getItem('profile_picture_url');
+    const cached = getCachedPictureUrl();
     return cached || user?.photo || null;
   });
   const fileRef = useRef(null);
@@ -47,13 +47,14 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
     try {
       if (onUploadPicture) {
         const uploadedUrl = await onUploadPicture(file);
-        // انعكس الصورة إلى الرابط المؤكَّد (أو أبقِ المعاينة المؤقتة كبديل).
-        setPhotoPreview((prev) => (uploadedUrl ? imageUrl(uploadedUrl) : prev));
+        // الرابط المُعاد جاهز كاملاً بالنسخة (t=)؛ انعكسه فوراً (أو أبقِ المعاينة
+        // المؤقتة كبديل إن لم يُرجع الباك إند رابطاً).
+        setPhotoPreview((prev) => uploadedUrl || prev);
         setSaveMsg('ok▶تم تحديث صورة الملف الشخصي.');
       }
     } catch (err) {
       setSaveMsg(`err▶${err?.message || 'تعذر تحديث صورة الملف الشخصي. حاول مجدداً.'}`);
-      setPhotoPreview(user?.photo || localStorage.getItem('profile_picture_url') || null);
+      setPhotoPreview(user?.photo || getCachedPictureUrl() || null);
     } finally {
       setUploading(false);
       e.target.value = '';

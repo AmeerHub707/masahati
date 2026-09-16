@@ -1,7 +1,7 @@
 // وحدة بيانات لوحة المستخدم — تتواصل مع الباك إند الحقيقي (Laravel).
 //
 // كل نقطة استدعاء هنا تقابل نقطة من /api.txt:
-//   - GET api/profile
+//   - GET api/profile  (مصدر كل تفاصيل المستخدم بما فيها صورة الملف)
 //   - GET api/dashboard/stats
 //   - GET api/dashboard/upcoming-booking
 //   - GET api/dashboard/bookings
@@ -11,6 +11,7 @@
 
 import { request, imageUrl } from './api';
 import { getUser } from './authStore';
+import { extractPicturePath, resolvePictureUrl, getCachedPictureUrl } from './profilePicture';
 
 // مؤقت لبيانات لوحة التحكم: كان 8s يقطع الطلبات أثناء cold start (قياس فعلي:
 // profile ~8.4s و stats ~11.1s بالتوازي بعد توقف Render). 15s يوازن بين
@@ -115,33 +116,25 @@ function listOf(res, key) {
 
 // جلب بيانات لوحة التحكم بالكامل (بالتوازي) ودمجها مع الملف الشخصي.
 export async function fetchDashboard() {
-  const [stats, upcomingApi, historyApi, favoritesApi, profileApi, detailsApi] = await Promise.all([
+  const [stats, upcomingApi, historyApi, favoritesApi, profileApi] = await Promise.all([
     request('/api/dashboard/stats', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
     request('/api/dashboard/upcoming-booking', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
     request('/api/dashboard/bookings', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
     request('/api/dashboard/favorites', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
     request('/api/profile', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
-    request('/api/user-details', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
   ]);
 
   const s = stats || {};
   const localUser = getUser() || {};
 
-  // المستخدم: /api/user-details ثم /api/profile (name, phone, email, picture)
-  // هما المصدران الأساسيان، مع المستخدم المخزّن محلياً من لحظة تسجيل الدخول
-  // كملاذ أخير (يحمل role).
-  const u = pickUser(unwrapUser(detailsApi), unwrapUser(profileApi), localUser);
+  // المستخدم: /api/profile (name, phone, email, picture) هو المصدر الأساسي،
+  // مع المستخدم المخزّن محلياً من لحظة تسجيل الدخول كملاذ أخير (يحمل role).
+  const u = pickUser(unwrapUser(profileApi), localUser);
 
-  // الصورة من أي مصدر (user-details أولاً، ثم profile والمحلي) حتى لو لم تُطبَّق
-  // واجهة بعد. نعيد مسارها النسبي إلى رابط كامل على مخدم الباك إند.
-  const rawPhoto = pickPhoto(detailsApi, profileApi, localUser) || localStorage.getItem('profile_picture_url');
-  const photo = rawPhoto ? imageUrl(rawPhoto) : null;
-  if (photo) {
-    // نحفظها محلياً ليعرضها كل مكان يقرأ من localStorage حتى لو فشل الاتصال لاحقاً.
-    try {
-      localStorage.setItem('profile_picture_url', photo);
-    } catch { /* storage not available */ }
-  }
+  // الصورة من /api/profile أو من المستخدم المحلي، حتى لو لم تُطبَّق واجهة بعد.
+  // resolvePictureUrl يعيد الرابط الكامل مع نسخة التحديث ويحدّث الكاش محلياً.
+  const rawPhoto = extractPicturePath(profileApi, localUser) || getCachedPictureUrl();
+  const photo = resolvePictureUrl(rawPhoto);
 
   const rawRole = u.role || localUser.role || 'customer';
   const role = rawRole === 'space_owner' ? 'owner' : rawRole;
@@ -169,24 +162,6 @@ export async function fetchDashboard() {
   // حفظ نسخة للعرض الفوري عند الرجوع للوحة (تُحدَّث في الخلفية لاحقاً).
   writeDashboardCache(result);
   return result;
-}
-
-// كل المفاتيح التي قد يُرجعها الباك إند لحقل صورة المستخدم.
-const PHOTO_KEYS = ['profile_picture_url', 'profile_picture', 'picture', 'photo', 'photo_url', 'avatar', 'image', 'url'];
-
-// يبحث عن حقل الصورة في أي صيغة استجابة (مباشرة أو مغلّفة أو في الجذر).
-function pickPhoto(...sources) {
-  for (const src of sources) {
-    if (!src || typeof src !== 'object') continue;
-    const candidates = [unwrapUser(src), src];
-    for (const obj of candidates) {
-      if (!obj || typeof obj !== 'object') continue;
-      for (const key of PHOTO_KEYS) {
-        if (obj[key]) return obj[key];
-      }
-    }
-  }
-  return null;
 }
 
 // تبديل المساحة في المفضّلة — POST api/dashboard/favorites/toggle { space_id }

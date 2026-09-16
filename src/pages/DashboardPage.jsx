@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { logout, deleteUser, updateProfile, updateProfilePicture, getUser, setUser } from '../lib/authStore';
 import { fetchDashboard, readDashboardCache, clearDashboardCache, writeDashboardCache, cancelBooking, toggleFavorite } from '../lib/dashboard';
-import { imageUrl } from '../lib/api';
+import { extractPicturePath, resolveNewPictureUrl } from '../lib/profilePicture';
 import DashboardLayout from '../components/dashboard/DashboardLayout';
 import DashboardLoading from '../components/dashboard/DashboardLoading';
 import Overview from '../components/dashboard/Overview';
@@ -15,9 +15,6 @@ import Footer from '../components/layout/Footer';
 import WhatsAppBubble from '../components/common/WhatsAppBubble';
 import AdBanner from '../components/dashboard/AdBanner';
 import { AlertCircle, Trash2 } from 'lucide-react';
-
-// كل المفاتيح التي قد يُرجعها الباك إند لحقل صورة المستخدم في استجابة الرفع.
-const PIC_KEYS = ['profile_picture_url', 'profile_picture', 'picture', 'photo', 'photo_url', 'avatar', 'image', 'url'];
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -189,23 +186,14 @@ export default function DashboardPage() {
 
   const handleUploadPicture = useCallback(async (file) => {
     const res = await updateProfilePicture(file);
-    // البحث عن مسار الصورة في الاستجابة الغلّفة (user/profile/data) وفي الجذر.
-    let picturePath = null;
-    const nested = res?.user || res?.profile || res?.data || res;
-    for (const obj of [nested, res]) {
-      if (!obj || typeof obj !== 'object') continue;
-      for (const key of PIC_KEYS) {
-        if (obj[key]) { picturePath = obj[key]; break; }
-      }
-      if (picturePath) break;
-    }
-    // لا نكتب null فوق صورة موجودة إن لم يُرجع الباك إند مساراً.
-    const picture = imageUrl(picturePath) || null;
+    // استخراج مسار الصورة من أي صيغة استجابة، ثم ربطه بالنسخة (t=) وحفظه.
+    const rawPath = extractPicturePath(res);
+    if (!rawPath) return null;
+    const picture = resolveNewPictureUrl(rawPath);
     if (picture) {
+      // تحديث الحالة فوراً كي تظهر الصورة الجديدة في كل مكان (شريط/نظرة عامة/إعدادات).
       applyUserPatch({ photo: picture });
-      // Persist to localStorage for reliability (survives refreshes, API failures)
       try {
-        localStorage.setItem('profile_picture_url', picture);
         const stored = getUser() || {};
         setUser({ ...stored, photo: picture });
       } catch {

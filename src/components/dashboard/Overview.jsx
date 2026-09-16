@@ -22,7 +22,7 @@ export default function Overview({ data }) {
   const [rating, setRating] = useState(0);
   const [rated, setRated] = useState(false);
   const [activeAd, setActiveAd] = useState(0);
-  const [photoError, setPhotoError] = useState(false);
+  const [photoFailed, setPhotoFailed] = useState('');
   const statCards = [
     { icon: CalendarCheck, value: stats.upcomingBookings, label: 'حجوزات قادمة' },
     { icon: Clock, value: stats.hoursThisMonth, label: 'ساعة محجوزة هذا الشهر' },
@@ -60,12 +60,12 @@ export default function Overview({ data }) {
       <section className="dash__hero">
         <AnimatedOrbs />
         <div className="dash__hero-copy">
-          {user.photo && !photoError ? (
+          {user.photo && user.photo !== photoFailed ? (
             <img
               className="dash__hero-avatar"
               src={user.photo}
               alt={user.name || ''}
-              onError={() => setPhotoError(true)}
+              onError={() => setPhotoFailed(user.photo)}
             />
           ) : (
             user.name && <div className="dash__hero-avatar">{initialsOf(user.name)}</div>

@@ -68,11 +68,6 @@ export async function googleLogin(idToken, role) {
 // ----- بيانات المستخدم الحالي -----
 export { getUser, setUser, clearUser };
 
-// ----- بيانات المستخدم الحالي (محمي) -----
-export async function userDetails() {
-  return request('/api/user-details', { method: 'GET', auth: true });
-}
-
 // ----- تغيير كلمة المرور أثناء تسجيل الدخول (محمي) -----
 export async function changePassword({ oldPassword, newPassword, newPassword_confirmation }) {
   return request('/api/change-pass', {
