@@ -25,11 +25,11 @@ export default function Bookings({ data, onCancel, cancellingId }) {
         </div>
       ) : (
         <div className="dash__list">
-          {bookings.map((b) => {
+          {bookings.map((b, i) => {
             const meta = STATUS_META[b.status] || STATUS_META.pending;
             const Icon = meta.Icon;
             return (
-              <div className="dash__booking" key={b.id}>
+              <div className="dash__booking" key={b.id ?? `${b.spaceName || ''}-${b.date || ''}-${i}`}>
                 <img src={b.image || ''} alt={b.spaceName || ''} loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; }} />
                 <div className="bk-body">
                   <h3>{b.spaceName || ''}</h3>

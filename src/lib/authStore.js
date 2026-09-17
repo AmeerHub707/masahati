@@ -82,21 +82,34 @@ export async function getProfile() {
   return request('/api/profile', { method: 'GET', auth: true });
 }
 
-// ----- تحديث الملف الشخصي (name, phone, email) (محمي) -----
+// ----- تحديث الملف الشخصي (full_name, phone, email) (محمي، PATCH) -----
 export async function updateProfile({ full_name, phone, email }) {
   return request('/api/customer/profile', {
-    method: 'POST',
+    method: 'PATCH',
     auth: true,
     body: { full_name, phone, email },
   });
 }
 
-// ----- تحديث صورة الملف الشخصي (محمي) -----
+// ----- رفع صورة الملف الشخصي لأول مرة (محمي، POST) -----
+// يعيد { profile_picture_url, msg } وفق /api.txt.
+export async function uploadPicture(file) {
+  const fd = new FormData();
+  fd.append('profile_picture', file);
+  return request('/api/uploadPicture', {
+    method: 'POST',
+    auth: true,
+    isForm: true,
+    body: fd,
+  });
+}
+
+// ----- استبدال صورة الملف الشخصي الحالية بأخرى (محمي، PATCH) -----
 export async function updateProfilePicture(file) {
   const fd = new FormData();
   fd.append('profile_picture', file);
   return request('/api/profile/picture', {
-    method: 'POST',
+    method: 'PATCH',
     auth: true,
     isForm: true,
     body: fd,

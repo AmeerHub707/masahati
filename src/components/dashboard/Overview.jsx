@@ -162,8 +162,8 @@ export default function Overview({ data }) {
 
         {upcoming.length > 0 ? (
           <div className="dash__list">
-            {upcoming.map((b) => (
-              <div className="dash__booking" key={b.id}>
+            {upcoming.map((b, i) => (
+              <div className="dash__booking" key={b.id ?? `${b.spaceName || ''}-${b.date || ''}-${i}`}>
                 <img src={b.image || ''} alt={b.spaceName || ''} loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; }} />
                 <div className="bk-body">
                   <h3>{b.spaceName}</h3>

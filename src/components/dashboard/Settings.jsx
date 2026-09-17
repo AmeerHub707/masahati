@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { LogOut, User, Pencil, HelpCircle, KeyRound, Eye, EyeOff, CheckCircle2, AlertCircle, Camera, Trash2 } from 'lucide-react';
-import { changePassword, ApiError } from '../../lib/authStore';
+import { changePassword, ApiError, getUser, setUser } from '../../lib/authStore';
 import { getCachedPictureUrl } from '../../lib/profilePicture';
 import useSafeInput from '../../hooks/useSafeInput';
 
@@ -30,6 +30,8 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
     return cached || user?.photo || null;
   });
   const fileRef = useRef(null);
+  // يمنع نتيجة رفع قديم من الكتابة فوق نتيجة رفع أحدث (نقرات متتالية سريعة).
+  const uploadSeq = useRef(0);
 
   // --- حالة الحفظ ---
   const [saving, setSaving] = useState(false);
@@ -38,26 +40,60 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
   const [uploading, setUploading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const handlePhotoChange = async (e) => {
+  const handleProfilePhoto = async (e) => {
     const file = e.target.files && e.target.files[0];
+    // نُفرغ الحقل فوراً كي يُعاد إطلاق الحدث عند اختيار نفس الملف لاحقاً.
+    e.target.value = '';
     if (!file) return;
-    setPhotoPreview(URL.createObjectURL(file));
+
+    // تحقق من نوع الملف وحجمه قبل إرساله للخادم
+    if (!file.type || !file.type.startsWith('image/')) {
+      setSaveMsg('err▶يرجى اختيار ملف صورة (PNG، JPG، WEBP، GIF …).');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setSaveMsg('err▶حجم الصورة كبير جداً. الرجاء اختيار صورة أصغر من 5 ميجابايت.');
+      return;
+    }
+    if (typeof onUploadPicture !== 'function') {
+      setSaveMsg('err▶تعذّر رفع الصورة: خدمة الرفع غير متاحة حالياً.');
+      return;
+    }
+
+    const seq = ++uploadSeq.current;
+    // معاينة فورية مؤقتة للمستخدم (Blob URL) أثناء الرفع
+    const tempPreviewUrl = URL.createObjectURL(file);
+    setPhotoPreview(tempPreviewUrl);
     setUploading(true);
     setSaveMsg('');
+
     try {
-      if (onUploadPicture) {
-        const uploadedUrl = await onUploadPicture(file);
-        // الرابط المُعاد جاهز كاملاً بالنسخة (t=)؛ انعكسه فوراً (أو أبقِ المعاينة
-        // المؤقتة كبديل إن لم يُرجع الباك إند رابطاً).
-        setPhotoPreview((prev) => uploadedUrl || prev);
-        setSaveMsg('ok▶تم تحديث صورة الملف الشخصي.');
+      // إرسال الملف للباك إند واستلام رابط الصورة الراجع (Cloudinary)
+      const uploadedUrl = await onUploadPicture(file);
+      if (seq !== uploadSeq.current) return; // نتيجة رفع أقدم: تُتجاهل
+
+      if (!uploadedUrl) {
+        throw new Error('لم يُرجع الخادم رابط الصورة.');
       }
-    } catch (err) {
-      setSaveMsg(`err▶${err?.message || 'تعذر تحديث صورة الملف الشخصي. حاول مجدداً.'}`);
+
+      // استبدال معاينة الـ Blob بالرابط الحقيقي وتحديث الكاش والمستخدم المخزن
+      setPhotoPreview(uploadedUrl);
+      try {
+        const stored = getUser() || {};
+        setUser({ ...stored, photo: uploadedUrl });
+      } catch {
+        /* التخزين غير متاح */
+      }
+      setSaveMsg('ok▶تم تحديث صورة الملف الشخصي.');
+    } catch (error) {
+      if (seq !== uploadSeq.current) return;
+      console.warn('Picture upload failed:', error);
       setPhotoPreview(user?.photo || getCachedPictureUrl() || null);
+      setSaveMsg(`err▶${error?.message || 'تعذر رفع الصورة. حاول مجدداً.'}`);
     } finally {
-      setUploading(false);
-      e.target.value = '';
+      // تنظيف رابط الـ Blob المؤقت فوراً من ذاكرة المتصفح
+      URL.revokeObjectURL(tempPreviewUrl);
+      if (seq === uploadSeq.current) setUploading(false);
     }
   };
 
@@ -76,7 +112,7 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
     setConfirmPassword('');
   };
 
-const handleChangePassword = async (e) => {
+  const handleChangePassword = async (e) => {
     e.preventDefault();
     setPwError('');
     setPwSuccess('');
@@ -224,7 +260,7 @@ const handleChangePassword = async (e) => {
               type="file"
               accept="image/*"
               hidden
-              onChange={handlePhotoChange}
+              onChange={handleProfilePhoto}
             />
             <h3 className="dash__photo-name">{user?.name || 'المستخدم'}</h3>
             <p className="dash__photo-role">{user?.role === 'owner' ? 'صاحب مساحة' : 'طالب'}</p>

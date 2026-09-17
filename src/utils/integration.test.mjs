@@ -202,10 +202,10 @@ globalThis.fetch = async (url, opts = {}) => {
   return { ok: true, status: 200, text: async () => JSON.stringify({ ok: true }) };
 };
 await authStore.updateProfile({ full_name: 'كرم جديد', phone: '+970123', email: 'a@b.com' });
-report('2.4 updateProfile -> POST /api/customer/profile', cap.method === 'POST' && cap.path === '/api/customer/profile');
+report('2.4 updateProfile -> PATCH /api/customer/profile', cap.method === 'PATCH' && cap.path === '/api/customer/profile');
 report('2.5 updateProfile sends full_name/phone/email JSON', cap.body.includes('"full_name":"كرم جديد"') && cap.body.includes('"email":"a@b.com"'));
 
-// updateProfilePicture — يجب أن تكون POST
+// updateProfilePicture — يجب أن تكون PATCH
 globalThis.fetch = async (url, opts = {}) => {
   const cap2 = {
     method: opts.method,
@@ -215,8 +215,23 @@ globalThis.fetch = async (url, opts = {}) => {
   return { ok: true, status: 200, text: async () => JSON.stringify({ profile_picture_url: '/pp.jpg' }) };
 };
 await authStore.updateProfilePicture(new dom.window.Blob(['img']));
-report('2.6 updateProfilePicture -> POST', globalThis.__cap2?.method === 'POST');
+report('2.6 updateProfilePicture -> PATCH', globalThis.__cap2?.method === 'PATCH');
 report('2.7 updateProfilePicture sends FormData', globalThis.__cap2?.isForm === true);
+
+// uploadPicture — POST /api/uploadPicture (رفع أولي لصورة الملف)
+globalThis.fetch = async (url, opts = {}) => {
+  const cap3 = {
+    method: opts.method,
+    path: String(url).replace(BASE, ''),
+    isForm: typeof opts.body !== 'string' && opts.body && typeof opts.body.append === 'function' && opts.headers['Content-Type'] === undefined,
+  };
+  globalThis.__cap3 = cap3;
+  return { ok: true, status: 200, text: async () => JSON.stringify({ profile_picture_url: '/new.jpg', msg: 'upload is succes' }) };
+};
+const upRes = await authStore.uploadPicture(new dom.window.Blob(['img']));
+report('2.7b uploadPicture -> POST /api/uploadPicture', globalThis.__cap3?.method === 'POST' && globalThis.__cap3?.path === '/api/uploadPicture');
+report('2.7c uploadPicture sends FormData', globalThis.__cap3?.isForm === true);
+report('2.7d uploadPicture returns profile_picture_url + msg', upRes?.profile_picture_url === '/new.jpg' && upRes?.msg === 'upload is succes');
 
 // logout يمسح الرمز حتى لو فشل الخادم
 globalThis.fetch = makeFetch({

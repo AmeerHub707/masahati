@@ -69,8 +69,9 @@ const routes = {
   'GET /api/dashboard/favorites': { status: 200, body: [{ space_id: 5, title: 'استوديو تصوير', image: '/s.jpg', rating: 4, location: 'رام الله', price: 50 }] },
   'GET /api/profile': { status: 200, body: { name: 'كرم', email: 'k@k.com', phone: '+970', picture: '/profile.jpg' } },
   'POST /api/dashboard/favorites/toggle': { status: 200, body: { message: 'أُزيلت', is_favorited: false } },
-  'POST /api/customer/profile': { status: 200, body: { ok: true } },
+  'PATCH /api/customer/profile': { status: 200, body: { ok: true } },
   'PATCH /api/profile/picture': { status: 200, body: { profile_picture_url: '/new.jpg' } },
+  'POST /api/uploadPicture': { status: 200, body: { profile_picture_url: '/new-upload.jpg', msg: 'upload is succes' } },
   'POST /api/logout': { status: 200, body: { message: 'ok' } },
 };
 

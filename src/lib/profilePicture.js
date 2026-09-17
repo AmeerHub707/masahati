@@ -11,16 +11,23 @@
 
 import { imageUrl } from './api';
 
-// كل المفاتيح التي قد يردّ بها الباك إند (Laravel) لحقل صورة المستخدم.
+// كل المفاتيح التي قد يردّ بها الباك إند (Laravel/Cloudinary) لحقل صورة المستخدم.
 export const PICTURE_KEYS = [
   'profile_picture_url',
   'profile_picture',
+  'profile_image_url',
+  'profile_image',
+  'picture_url',
   'picture',
-  'photo',
   'photo_url',
+  'photo',
+  'avatar_url',
   'avatar',
+  'image_url',
   'image',
+  'secure_url',
   'url',
+  'path',
 ];
 
 const PICTURE_URL_KEY = 'profile_picture_url';
@@ -36,6 +43,19 @@ function unwrapUser(obj) {
   return cur;
 }
 
+// يحوّل قيمة الحقل إلى رابط نصّي؛ يدعم النص المباشر أو كائن وسائط
+// (مثل ردّ Cloudinary: { secure_url } / { url } / { path }).
+function urlFromValue(val) {
+  if (!val) return null;
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object') {
+    for (const key of ['secure_url', 'url', 'path', 'profile_picture_url', 'picture', 'image']) {
+      if (typeof val[key] === 'string' && val[key]) return val[key];
+    }
+  }
+  return null;
+}
+
 // يستخرج مسار/رابط الصورة من أي صيغة استجابة يردّها الباك إند.
 export function extractPicturePath(...sources) {
   for (const src of sources) {
@@ -43,7 +63,8 @@ export function extractPicturePath(...sources) {
     for (const obj of [unwrapUser(src), src]) {
       if (!obj || typeof obj !== 'object') continue;
       for (const key of PICTURE_KEYS) {
-        if (obj[key]) return obj[key];
+        const found = urlFromValue(obj[key]);
+        if (found) return found;
       }
     }
   }

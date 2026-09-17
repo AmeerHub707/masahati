@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { logout, deleteUser, updateProfile, updateProfilePicture, getUser, setUser } from '../lib/authStore';
+import { logout, deleteUser, updateProfile, updateProfilePicture, uploadPicture, getUser, setUser } from '../lib/authStore';
 import { fetchDashboard, readDashboardCache, clearDashboardCache, writeDashboardCache, cancelBooking, toggleFavorite } from '../lib/dashboard';
-import { extractPicturePath, resolveNewPictureUrl } from '../lib/profilePicture';
+import { extractPicturePath, resolveNewPictureUrl, getCachedPictureUrl } from '../lib/profilePicture';
 import DashboardLayout from '../components/dashboard/DashboardLayout';
 import DashboardLoading from '../components/dashboard/DashboardLoading';
 import Overview from '../components/dashboard/Overview';
@@ -185,7 +185,10 @@ export default function DashboardPage() {
   }, [applyUserPatch]);
 
   const handleUploadPicture = useCallback(async (file) => {
-    const res = await updateProfilePicture(file);
+    // إصلاح الملف الشخصي: إن وُجدت صورة قائمة نستبدلها عبر PATCH /api/profile/picture،
+    // وإلا نرفع الصورة لأول مرة عبر POST /api/uploadPicture (وفق /api.txt).
+    const hasPhoto = Boolean(data?.user?.photo || getCachedPictureUrl());
+    const res = hasPhoto ? await updateProfilePicture(file) : await uploadPicture(file);
     // استخراج مسار الصورة من أي صيغة استجابة، ثم ربطه بالنسخة (t=) وحفظه.
     const rawPath = extractPicturePath(res);
     if (!rawPath) return null;
@@ -201,7 +204,7 @@ export default function DashboardPage() {
       }
     }
     return picture;
-  }, [applyUserPatch]);
+  }, [data?.user?.photo, applyUserPatch]);
 
   let tabContent;
   if (status === 'loading') {
