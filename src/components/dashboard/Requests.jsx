@@ -3,11 +3,18 @@ import {
   Megaphone, Plus, Sparkles, Repeat, ChevronLeft, ChevronRight, X, Check,
   Loader2, Clock, CalendarClock, Users, MapPin, Wallet, Building2,
   DoorOpen, BadgeCheck, CircleDollarSign, Wifi, Zap, Video, Snowflake, Mic, Pencil, Send,
+  Share2, Copy, Lock, AlertTriangle, Ban, Eraser,
 } from 'lucide-react';
 import {
   loadRequestsWithFallback,
   loadRequestDetailWithFallback,
   createRequestWithFallback,
+  rejectOfferWithFallback,
+  closeRequestWithFallback,
+  newOffersCountFor,
+  markRequestSeen,
+  isRequestOpen,
+  isRequestExpired,
   SPACE_TYPES,
   AMENITY_LABELS,
   SCHEDULE_LABELS,
@@ -49,8 +56,8 @@ function timeAgo(iso) {
   return days <= 30 ? `منذ ${days} يوم` : `منذ ${Math.round(days / 30)} شهر`;
 }
 
-export default function Requests({ onAcceptOffer, onOffersChange }) {
-  const [view, setView] = useState('list'); // 'list' | 'create' | 'detail'
+export default function Requests({ onAcceptOffer, onOffersChange, view: viewProp, onViewChange }) {
+  const [view, setView] = useState(viewProp !== undefined ? viewProp : 'list'); // 'list' | 'create' | 'detail'
   const [requests, setRequests] = useState([]);
   const [detail, setDetail] = useState(null);
   const [demo, setDemo] = useState(false);
@@ -58,7 +65,12 @@ export default function Requests({ onAcceptOffer, onOffersChange }) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [acceptingId, setAcceptingId] = useState(null);
+  const [rejectingId, setRejectingId] = useState(null);
   const [confirmOffer, setConfirmOffer] = useState(null);
+  const [confirmReject, setConfirmReject] = useState(null);
+  const [closingId, setClosingId] = useState(null);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const [sortKey, setSortKey] = useState('default');
   const [form, setForm] = useState(DEFAULT_FORM);
   const [errors, setErrors] = useState({});
   const [toast, setToast] = useState(null);
@@ -68,6 +80,16 @@ export default function Requests({ onAcceptOffer, onOffersChange }) {
   const showToast = useCallback((msg, type = 'ok') => {
     setToast({ msg, type });
   }, []);
+
+  // إبلاغ الأب (لوحة التحكم) عند تغيير العرض لتفعيل رابط الأكوورديون في الشريط الجانبي.
+  const setCurrentView = useCallback((v) => {
+    setView(v);
+    if (onViewChange) onViewChange(v);
+  }, [onViewChange]);
+
+  // في الوضع المُتحكَّم (من الشريط الجانبي) نشتقّ العرض مباشرة من الأب،
+  // وإلا نستخدم الحالة الداخلية — بلا مضاعفة مزامنة عبر تأثيرات.
+  const effectiveView = viewProp !== undefined ? viewProp : view;
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -106,26 +128,28 @@ export default function Requests({ onAcceptOffer, onOffersChange }) {
   }, [badgeCount, onOffersChange]);
 
   const openDetail = useCallback(async (id) => {
-    setView('detail');
+    setCurrentView('detail');
     setDetailLoading(true);
     setDetail(null);
     try {
       const result = await loadRequestDetailWithFallback(id);
       setDetail(result);
       setDemo(result.demo);
+      markRequestSeen(result.id, (result.offers || []).length);
+      loadList();
     } catch {
       showToast('تعذّر تحميل تفاصيل الطلب.', 'err');
-      setView('list');
+      setCurrentView('list');
     } finally {
       setDetailLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, loadList, setCurrentView]);
 
   const backToList = useCallback(() => {
-    setView('list');
+    setCurrentView('list');
     setDetail(null);
     loadList();
-  }, [loadList]);
+  }, [loadList, setCurrentView]);
 
   const toggleAmenity = (key) => {
     setForm((f) => ({
@@ -172,7 +196,7 @@ export default function Requests({ onAcceptOffer, onOffersChange }) {
       setDemo(result.demo);
       setForm(DEFAULT_FORM);
       setErrors({});
-      setView('list');
+      setCurrentView('list');
       await loadList(result.demo ? false : true);
       showToast(
         result.demo
@@ -209,6 +233,47 @@ export default function Requests({ onAcceptOffer, onOffersChange }) {
     }
   };
 
+  const handleReject = async () => {
+    if (!confirmReject || !detail || rejectingId) return;
+    const offer = confirmReject.offer;
+    setRejectingId(offer.id);
+    try {
+      const result = await rejectOfferWithFallback(detail.id, offer.id);
+      setDemo(result?.demo ?? demo);
+      if (result?.request) {
+        setDetail((prev) => (prev ? { ...prev, ...result.request } : prev));
+      }
+      setConfirmReject(null);
+      showToast(result?.message || 'تم رفض العرض.', 'ok');
+      loadList();
+    } catch {
+      showToast('تعذّر رفض العرض. حاول مجدداً.', 'err');
+      setConfirmReject(null);
+    } finally {
+      setRejectingId(null);
+    }
+  };
+
+  const handleClose = async () => {
+    if (!detail || closingId) return;
+    setClosingId(detail.id);
+    try {
+      const result = await closeRequestWithFallback(detail.id);
+      setDemo(result?.demo ?? demo);
+      if (result?.request) {
+        setDetail((prev) => (prev ? { ...prev, ...result.request } : prev));
+      }
+      setConfirmClose(false);
+      showToast(result?.message || 'تم إغلاق الطلب.', 'ok');
+      loadList();
+    } catch {
+      showToast('تعذّر إغلاق الطلب. حاول مجدداً.', 'err');
+      setConfirmClose(false);
+    } finally {
+      setClosingId(null);
+    }
+  };
+
   const offerCountLabel = (n) => {
     const v = Number(n || 0);
     if (v === 0) return 'لا عروض بعد';
@@ -216,6 +281,75 @@ export default function Requests({ onAcceptOffer, onOffersChange }) {
     if (v === 2) return 'عرضان';
     if (v <= 10) return `${fmtNumber(v)} عروض`;
     return `${fmtNumber(v)} عرضًا`;
+  };
+
+  // وصف نصي مختصر للطلب للمشاركة في واتساب / النسخ.
+  const describeRequest = (r) => {
+    const budget = r.budget > 0 ? ` | ميزانية تصل ${fmtNumber(r.budget)} ش.ج` : '';
+    return `طلب خاص في مساحاتي: ${r.title}${budget}`;
+  };
+
+  const shareViaWhatsApp = (r) => {
+    const text = `${describeRequest(r)}\nhttps://masahati.ps/requests/${r.id}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const copyShareLink = async (r) => {
+    const text = `${describeRequest(r)}\nhttps://masahati.ps/requests/${r.id}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('تم نسخ رابط الطلب لمشاركته.', 'ok');
+    } catch {
+      showToast('تعذّر النسخ. حاول مجدداً.', 'err');
+    }
+  };
+
+  // "نشر طلب مشابه": يبني استمارة مسبقة من طلب قائم ويفتح صفحة الإنشاء.
+  const duplicateRequest = (r) => {
+    const preset = r.schedule?.preset || 'once';
+    setForm({
+      title: r.title || '',
+      space_type: r.space_type || 'whole',
+      capacity: r.capacity ? String(r.capacity) : '',
+      schedule: {
+        preset,
+        count: Number(r.schedule?.count) || 1,
+      },
+      preferred_time: r.preferred_time || '',
+      area: r.area || '',
+      amenities: r.amenities || [],
+      budget: r.budget ? String(r.budget) : '',
+      notes: r.notes || '',
+    });
+    setErrors({});
+    setCurrentView('create');
+    showToast('تم تعبئة النموذج من الطلب المحدد — عدّل ثم انشر.', 'ok');
+  };
+
+  // مسح النموذج بالكامل ليبدأ المستخدم من جديد.
+  const clearForm = () => {
+    setForm(DEFAULT_FORM);
+    setErrors({});
+    showToast('تم مسح الحقول — يمكنك التعبئة من جديد.', 'ok');
+  };
+
+  const SORT_OPTIONS = [
+    { key: 'default', label: 'الترتيب الافتراضي' },
+    { key: 'price-asc', label: 'الأرخص أولاً' },
+    { key: 'rating-desc', label: 'الأعلى تقييماً' },
+    { key: 'duration-asc', label: 'الأقصر مدة' },
+  ];
+
+  const sortedOffers = (offers) => {
+    const arr = [...offers];
+    if (sortKey === 'price-asc') {
+      arr.sort((a, b) => Number(a.price_per_hour || 0) - Number(b.price_per_hour || 0));
+    } else if (sortKey === 'rating-desc') {
+      arr.sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0));
+    } else if (sortKey === 'duration-asc') {
+      arr.sort((a, b) => Number(a.duration_hours || 0) - Number(b.duration_hours || 0));
+    }
+    return arr;
   };
 
   const renderBanner = () => {
@@ -245,8 +379,8 @@ export default function Requests({ onAcceptOffer, onOffersChange }) {
       );
     }
 
-    const openReqs = requests.filter((r) => r.status === 'open');
-    const closedReqs = requests.filter((r) => r.status === 'accepted');
+    const openReqs = requests.filter((r) => isRequestOpen(r));
+    const closedReqs = requests.filter((r) => !isRequestOpen(r));
 
     return (
       <>
@@ -261,7 +395,7 @@ export default function Requests({ onAcceptOffer, onOffersChange }) {
             <div className="st-svg"><Megaphone /></div>
             <h3>لا توجد طلبات خاصة بعد</h3>
             <p>أخبر مالكي المساحات بما تبحث عنه بالظبط، ودعهم يقدّموا لك عروضهم.</p>
-            <button type="button" className="btn-primary" onClick={() => setView('create')}>
+            <button type="button" className="btn-primary" onClick={() => setCurrentView('create')}>
               <Plus /> أنشئ طلبك الأول
             </button>
           </div>
@@ -295,17 +429,21 @@ export default function Requests({ onAcceptOffer, onOffersChange }) {
   };
 
   const renderCard = (r) => {
+    const expired = isRequestExpired(r);
+    const newCount = isRequestOpen(r) && !expired ? newOffersCountFor(r) : 0;
     const statusMeta = r.status === 'accepted'
       ? { label: 'تم القبول', cls: 'badge--confirmed', Icon: BadgeCheck }
-      : Number(r.offers_count) > 0
-        ? { label: offerCountLabel(r.offers_count), cls: 'badge--pending', Icon: Clock }
-        : { label: 'بانتظار العروض', cls: 'badge--pending', Icon: Clock };
-    const SIcon = r.status === 'accepted' ? BadgeCheck : Megaphone;
+      : r.status === 'closed' || expired
+        ? { label: expired ? 'انتهى وقته' : 'تم الإغلاق', cls: 'badge--muted', Icon: Ban }
+        : Number(r.offers_count) > 0
+          ? { label: offerCountLabel(r.offers_count), cls: 'badge--pending', Icon: Clock }
+          : { label: 'بانتظار العروض', cls: 'badge--pending', Icon: Clock };
+    const SIcon = r.status === 'accepted' ? BadgeCheck : (r.status === 'closed' || expired) ? Ban : Megaphone;
     const meta = statusMeta;
     const MIcon = meta.Icon;
 
     return (
-      <div className={`dash__req-card${r.status === 'accepted' ? ' is-done' : ''}`} key={r.id}>
+      <div className={`dash__req-card${r.status === 'accepted' ? ' is-done' : ''}${r.status === 'closed' || expired ? ' is-closed' : ''}`} key={r.id}>
         <div className="dash__req-main">
           <div className="dash__req-ico"><SIcon /></div>
           <div className="dash__req-body">
@@ -313,6 +451,9 @@ export default function Requests({ onAcceptOffer, onOffersChange }) {
               <span className={`badge ${meta.cls}`}><MIcon /> {meta.label}</span>
               <span className="dash__req-time">{timeAgo(r.created_at)}</span>
             </div>
+            {newCount > 0 && (
+              <span className="dash__offer-badge-new"><Sparkles /> {newCount} عروض جديدة</span>
+            )}
             <h3>{r.title}</h3>
             <p className="dash__req-desc">{r.notes || 'بدون تفاصيل إضافية.'}</p>
             <div className="dash__req-meta">
@@ -343,14 +484,43 @@ export default function Requests({ onAcceptOffer, onOffersChange }) {
           ) : (
             <span className="dash__req-offers"><BadgeCheck /> {offerCountLabel(r.offers_count)}</span>
           )}
-          <button
-            type="button"
-            className="dash__req-open"
-            onClick={() => openDetail(r.id)}
-          >
-            {r.status === 'accepted' ? 'عرض الطلب' : 'عرض العروض'}
-            <ChevronLeft />
-          </button>
+          <div className="dash__req-foot-actions">
+            <button
+              type="button"
+              className="dash__req-iconbtn"
+              onClick={() => duplicateRequest(r)}
+              title="نشر طلب مشابه"
+              aria-label="نشر طلب مشابه"
+            >
+              <Repeat />
+            </button>
+            <button
+              type="button"
+              className="dash__req-iconbtn"
+              onClick={() => shareViaWhatsApp(r)}
+              title="مشاركة الطلب"
+              aria-label="مشاركة الطلب"
+            >
+              <Share2 />
+            </button>
+            <button
+              type="button"
+              className="dash__req-iconbtn"
+              onClick={() => copyShareLink(r)}
+              title="نسخ الرابط"
+              aria-label="نسخ رابط الطلب"
+            >
+              <Copy />
+            </button>
+            <button
+              type="button"
+              className="dash__req-open"
+              onClick={() => openDetail(r.id)}
+            >
+              {r.status === 'accepted' || r.status === 'closed' || expired ? 'عرض الطلب' : 'عرض العروض'}
+              <ChevronLeft />
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -360,13 +530,20 @@ export default function Requests({ onAcceptOffer, onOffersChange }) {
     const setSeg = (key, val) => setForm((f) => ({ ...f, [key]: val }));
 
     return (
-      <div className="dash__req-form">
+      <>
+        <button type="button" className="dash__req-back" onClick={() => setCurrentView('list')}>
+          <ChevronRight /> كل الطلبات
+        </button>
+        <div className="dash__req-form">
         <div className="dash__req-form-head">
           <div className="dash__req-form-ico"><Megaphone /></div>
           <div>
             <h3>أنشئ طلباً خاصاً</h3>
             <p>صف احتياجك مرة واحدة ودع المالكين يتنافسون لخدمتك بأفضل عرض.</p>
           </div>
+          <button type="button" className="btn-ghost dash__req-clear" onClick={clearForm} title="مسح كل الحقول">
+            <Eraser /> مسح الحقول
+          </button>
         </div>
 
         <div className="dash__req-field">
@@ -519,7 +696,7 @@ export default function Requests({ onAcceptOffer, onOffersChange }) {
         </div>
 
         <div className="dash__req-form-actions">
-          <button type="button" className="btn-ghost" onClick={() => setView('list')}>
+          <button type="button" className="btn-ghost" onClick={() => setCurrentView('list')}>
             <ChevronRight /> إلغاء
           </button>
           <button type="button" className="btn-primary" onClick={handleCreate} disabled={creating}>
@@ -527,7 +704,8 @@ export default function Requests({ onAcceptOffer, onOffersChange }) {
             {creating ? 'جارٍ النشر…' : 'نشر الطلب'}
           </button>
         </div>
-      </div>
+        </div>
+      </>
     );
   };
 
@@ -544,10 +722,17 @@ export default function Requests({ onAcceptOffer, onOffersChange }) {
       );
     }
 
-    const offers = d.offers || [];
+    const expired = isRequestExpired(d);
+    const isOpen = isRequestOpen(d) && !expired;
+    const offers = sortedOffers(d.offers || []);
     const acceptedOffer = offers.find((o) => o.status === 'accepted');
     const prices = offers.filter((o) => Number(o.price_per_hour) > 0).map((o) => Number(o.price_per_hour));
     const bestPrice = prices.length > 1 ? Math.min(...prices) : null;
+    const statusLabel =
+      d.status === 'accepted' ? 'تم القبول'
+        : d.status === 'closed' ? 'تم الإغلاق'
+          : expired ? 'انتهى وقت الطلب'
+            : 'مفتوحة للعروض';
 
     return (
       <>
@@ -557,9 +742,9 @@ export default function Requests({ onAcceptOffer, onOffersChange }) {
 
         <div className="dash__req-detail">
           <div className="dash__req-detail-head">
-            <div className={`badge ${d.status === 'accepted' ? 'badge--confirmed' : 'badge--pending'}`}>
-              {d.status === 'accepted' ? <BadgeCheck /> : <Clock />}
-              {d.status === 'accepted' ? 'تم القبول' : 'مفتوحة للعروض'}
+            <div className={`badge ${d.status === 'accepted' ? 'badge--confirmed' : d.status === 'closed' || expired ? 'badge--muted' : 'badge--pending'}`}>
+              {d.status === 'accepted' ? <BadgeCheck /> : d.status === 'closed' || expired ? <Ban /> : <Clock />}
+              {statusLabel}
             </div>
             <span>نُشر {timeAgo(d.created_at)}</span>
           </div>
@@ -587,12 +772,66 @@ export default function Requests({ onAcceptOffer, onOffersChange }) {
               </div>
             )}
           </div>
+
+          {isOpen && (
+            <div className="dash__req-detail-actions">
+              <button
+                type="button"
+                className="dash__req-iconbtn"
+                onClick={() => duplicateRequest(d)}
+                title="نشر طلب مشابه"
+              >
+                <Repeat /> نشر طلب مشابه
+              </button>
+              <button
+                type="button"
+                className="dash__req-iconbtn"
+                onClick={() => shareViaWhatsApp(d)}
+                title="مشاركة الطلب"
+              >
+                <Share2 /> مشاركة
+              </button>
+              <button
+                type="button"
+                className="dash__req-iconbtn"
+                onClick={() => copyShareLink(d)}
+                title="نسخ الرابط"
+              >
+                <Copy /> نسخ الرابط
+              </button>
+              <button
+                type="button"
+                className="dash__req-close"
+                onClick={() => setConfirmClose(true)}
+                disabled={closingId === d.id}
+              >
+                {closingId === d.id ? <Loader2 className="spin" /> : <Lock />}
+                إغلاق الطلب
+              </button>
+            </div>
+          )}
         </div>
 
         <section className="dash__section">
           <div className="dash__section-head">
             <h2><BadgeCheck /> العروض المقدمة</h2>
-            <span className="dash__req-count">{offerCountLabel(offers.length)}</span>
+            <div className="dash__req-count-wrap">
+              {offers.length > 1 && (
+                <label className="dash__offer-sort">
+                  <span>ترتيب:</span>
+                  <select
+                    value={sortKey}
+                    onChange={(e) => setSortKey(e.target.value)}
+                    aria-label="ترتيب العروض"
+                  >
+                    {SORT_OPTIONS.map((o) => (
+                      <option key={o.key} value={o.key}>{o.label}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              <span className="dash__req-count">{offerCountLabel(offers.length)}</span>
+            </div>
           </div>
 
           {offers.length === 0 ? (
@@ -608,9 +847,12 @@ export default function Requests({ onAcceptOffer, onOffersChange }) {
             <div className="dash__offers">
               {offers.map((o, i) => {
                 const isAccepted = o.status === 'accepted';
+                const isRejected = o.status === 'rejected';
                 const isBest = !isAccepted && bestPrice !== null && Number(o.price_per_hour) === bestPrice;
+                const inBudget = isOpen && d.budget > 0 && Number(o.price_per_hour) <= Number(d.budget);
+                const overBudget = isOpen && d.budget > 0 && !inBudget;
                 return (
-                  <div className={`dash__offer${isAccepted ? ' is-accepted' : ''}${isBest ? ' is-best' : ''}`} key={o.id}>
+                  <div className={`dash__offer${isAccepted ? ' is-accepted' : ''}${isRejected ? ' is-rejected' : ''}${isBest ? ' is-best' : ''}`} key={o.id}>
                     <div className="dash__offer-main">
                       <div className="dash__offer-avatar">
                         {o.owner_avatar ? (
@@ -623,6 +865,8 @@ export default function Requests({ onAcceptOffer, onOffersChange }) {
                       <div className="dash__offer-body">
                         <div className="dash__offer-line">
                           <h4>{o.space_name}</h4>
+                          {inBudget && <span className="dash__offer-budget-ok"><Check /> ضمن ميزانيتك</span>}
+                          {overBudget && <span className="dash__offer-budget-over"><AlertTriangle /> يتجاوز ميزانيتك</span>}
                           {isBest && <span className="dash__offer-best"><Sparkles /> الأفضل سعراً</span>}
                           {isAccepted && <span className="badge badge--confirmed"><Check /> العرض المقبول</span>}
                         </div>
@@ -643,17 +887,29 @@ export default function Requests({ onAcceptOffer, onOffersChange }) {
                         {fmtNumber(o.price_per_hour)}
                         <small>ش.ج / ساعة</small>
                       </div>
-                      {d.status === 'open' && !isAccepted && (
-                        <button
-                          type="button"
-                          className="btn-primary"
-                          onClick={() => setConfirmOffer({ requestId: d.id, offer: o })}
-                          disabled={acceptingId === o.id}
-                        >
-                          {acceptingId === o.id ? <Loader2 className="spin" /> : <Check />}
-                          قبول هذا العرض
-                        </button>
+                      {isOpen && !isAccepted && (
+                        <div className="dash__offer-btns">
+                          <button
+                            type="button"
+                            className="btn-ghost dash__offer-accept"
+                            onClick={() => setConfirmOffer({ requestId: d.id, offer: o })}
+                            disabled={acceptingId === o.id || rejectingId === o.id}
+                          >
+                            {acceptingId === o.id ? <Loader2 className="spin" /> : <Check />}
+                            قبول هذا العرض
+                          </button>
+                          <button
+                            type="button"
+                            className="dash__offer-reject"
+                            onClick={() => setConfirmReject({ offer: o })}
+                            disabled={acceptingId === o.id || rejectingId === o.id}
+                          >
+                            {rejectingId === o.id ? <Loader2 className="spin" /> : <X />}
+                            رفض هذا العرض
+                          </button>
+                        </div>
                       )}
+                      {isRejected && <span className="dash__offer-rejected"><X /> تم رفض هذا العرض</span>}
                     </div>
                   </div>
                 );
@@ -685,7 +941,7 @@ export default function Requests({ onAcceptOffer, onOffersChange }) {
           <p>نشر طلباً واحدة، ودع مالكي المساحات يتنافسون لتقديم أفضل عرض لك.</p>
         </div>
         <div className="dash__req-head-actions">
-          {view === 'list' && (
+          {effectiveView === 'list' && (
             <button
               type="button"
               className="dash__req-refresh"
@@ -697,17 +953,17 @@ export default function Requests({ onAcceptOffer, onOffersChange }) {
               <Repeat className={refreshing ? 'spin' : ''} />
             </button>
           )}
-          {view !== 'create' && (
-            <button type="button" className="btn-primary" onClick={() => setView('create')}>
+          {effectiveView !== 'create' && (
+            <button type="button" className="dash__req-add" onClick={() => setCurrentView('create')}>
               <Plus /> طلب جديد
             </button>
           )}
         </div>
       </div>
 
-      {view === 'list' && renderList()}
-      {view === 'create' && renderCreate()}
-      {view === 'detail' && renderDetail()}
+      {effectiveView === 'list' && renderList()}
+      {effectiveView === 'create' && renderCreate()}
+      {effectiveView === 'detail' && renderDetail()}
 
       {toast && (
         <div className={`dash__req-toast is-${toast.type}`} role="status">
@@ -739,6 +995,57 @@ export default function Requests({ onAcceptOffer, onOffersChange }) {
               <button type="button" className="btn-primary" onClick={handleAccept} disabled={acceptingId}>
                 {acceptingId ? <Loader2 className="spin" /> : <Check />}
                 {acceptingId ? 'جارٍ القبول…' : 'نعم، أقبل العرض'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmReject && (
+        <div className="modal-overlay dash__req-overlay" onClick={() => setConfirmReject(null)}>
+          <div className="modal-box dash__req-confirm is-danger" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="تأكيد رفض العرض">
+            <span className="dash__req-confirm-ico is-danger"><X /></span>
+            <h3>رفض العرض؟</h3>
+            <p>
+              سيُرفض عرض <b>{confirmReject.offer.space_name}</b> نهائياً ولن يتمكّن
+              مالكه من متابعته على هذا الطلب.
+            </p>
+            <div className="dash__req-confirm-offer">
+              <div>
+                <span>{confirmReject.offer.space_name}</span>
+                <small>{confirmReject.offer.owner_name}</small>
+              </div>
+              <b>{fmtNumber(confirmReject.offer.price_per_hour)} <small>ش.ج/ساعة</small></b>
+            </div>
+            <div className="dash__req-confirm-actions">
+              <button type="button" className="btn-ghost" onClick={() => setConfirmReject(null)} disabled={rejectingId}>
+                إلغاء
+              </button>
+              <button type="button" className="dash__offer-reject is-confirm" onClick={handleReject} disabled={rejectingId}>
+                {rejectingId ? <Loader2 className="spin" /> : <X />}
+                {rejectingId ? 'جارٍ الرفض…' : 'نعم، أرفض العرض'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmClose && (
+        <div className="modal-overlay dash__req-overlay" onClick={() => setConfirmClose(false)}>
+          <div className="modal-box dash__req-confirm" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="تأكيد إغلاق الطلب">
+            <span className="dash__req-confirm-ico is-danger"><Lock /></span>
+            <h3>إغلاق الطلب؟</h3>
+            <p>
+              سيُغلق الطلب عن المالكين ولن يستطيعوا تقديم عروض جديدة. يمكنك إرجاع
+              عرض مقبول منه لاحقاً، لكن هذا الإجراء يوقف استقبال العروض.
+            </p>
+            <div className="dash__req-confirm-actions">
+              <button type="button" className="btn-ghost" onClick={() => setConfirmClose(false)} disabled={closingId}>
+                إلغاء
+              </button>
+              <button type="button" className="dash__offer-reject is-confirm" onClick={handleClose} disabled={closingId}>
+                {closingId ? <Loader2 className="spin" /> : <Lock />}
+                {closingId ? 'جارٍ الإغلاق…' : 'نعم، أغلق الطلب'}
               </button>
             </div>
           </div>

@@ -35,6 +35,8 @@ const server = await createServer({
 const api = await server.ssrLoadModule('/src/lib/api.js');
 const authStore = await server.ssrLoadModule('/src/lib/authStore.js');
 const dashboard = await server.ssrLoadModule('/src/lib/dashboard.js');
+const requests = await server.ssrLoadModule('/src/lib/requests.js');
+const notifications = await server.ssrLoadModule('/src/lib/notifications.js');
 
 const TOKEN = 'tok-test-123';
 const BASE = api.BASE_URL;
@@ -319,6 +321,84 @@ globalThis.fetch = makeFetch({
 });
 const tog = await dashboard.toggleFavorite(7);
 report('3.17 toggleFavorite parses is_favorited', tog.isFavorited === true && tog.message === 'أُضيفت');
+
+// ============================================================
+// القسم 4: requests.js — حالات الأمان السريعة + notifications.js
+// ============================================================
+console.log('\n===== 4) requests.js (special requests) + notifications.js =====');
+
+// وضع تجريبي: فشل الخادم -> مخزن محلي + تعيين العلامة
+resetStorage();
+api.setToken(TOKEN);
+globalThis.fetch = makeFetch({
+  'GET /api/special-requests': { status: 404, body: { message: 'nf' } },
+});
+const listFallback = await requests.loadRequestsWithFallback();
+report('4.1 fallback to demo list', listFallback.demo === true && listFallback.requests.length > 0);
+report('4.2 demo list items mapped', listFallback.requests[0]?.id && listFallback.requests[0].status === 'open');
+
+// إنشاء طلب في وضع تجريبي يُضاف محلياً ويُعاد تغذية القائمة
+const createRes = await requests.createRequestWithFallback({
+  title: 'طلب اختبار حوسبة',
+  notes: 'وصف',
+  space_type: 'room',
+  capacity: 12,
+  schedule: { preset: 'weekly', count: 4 },
+  preferred_time: '9:00 م',
+  area: 'غزة',
+  amenities: ['internet'],
+  budget: 90,
+});
+report('4.3 create in demo mode', createRes.demo === true && createRes.request.title === 'طلب اختبار حوسبة');
+const listAfterCreate = await requests.loadRequestsWithFallback();
+report('4.4 created request first in list', listAfterCreate.requests[0].title === 'طلب اختبار حوسبة');
+
+// تفاصيل الطلب (نأخذ أول طلب)
+const detail = await requests.loadRequestDetailWithFallback(listAfterCreate.requests[0].id);
+report('4.5 detail loads with offers array', detail.demo === true && Array.isArray(detail.offers));
+
+// رفض أحد العروض -> يظهر rejected بعد إعادة تحميل التفاصيل
+const demoDetail = await requests.loadRequestDetailWithFallback('demo-1');
+const rejectTarget = demoDetail.offers[0];
+const rejectRes = await requests.rejectOfferWithFallback('demo-1', rejectTarget.id);
+report('4.6 reject offer returns message', typeof rejectRes.message === 'string');
+const afterReject = await requests.loadRequestDetailWithFallback('demo-1');
+report('4.6b reject marked in stored detail', afterReject.offers.find((o) => o.id === rejectTarget.id)?.status === 'rejected');
+
+// إغلاق الطلب -> closed + لا يُعد مفتوحاً
+const closeRes = await requests.closeRequestWithFallback('demo-1');
+report('4.7 close request status', closeRes.demo === true && closeRes.request.status === 'closed');
+report('4.8 closed request not open', requests.isRequestOpen(closeRes.request) === false);
+
+// انتهاء الصلاحية: expires_at في الماضي -> غير مفتوح
+const expiredReq = { status: 'open', expires_at: '2020-01-01 00:00:00' };
+report('4.9 expiry in past -> not open', requests.isRequestExpired(expiredReq) === true && requests.isRequestOpen(expiredReq) === false);
+const futureReq = { status: 'open', expires_at: '2099-01-01 00:00:00' };
+report('4.10 future expiry still open', requests.isRequestOpen(futureReq) === true);
+report('4.11 no expiry default open', requests.isRequestOpen({ status: 'open' }) === true);
+
+// شارة العروض الجديدة: قبل الزيارة صفر، بعد إضافة عرض > 0
+resetStorage();
+globalThis.fetch = makeFetch({
+  'GET /api/special-requests': { status: 404, body: { message: 'nf' } },
+});
+await requests.loadRequestsWithFallback(true);
+report('4.12 unseen request -> 0 new offers', requests.newOffersCountFor({ id: 'demo-1', offers_count: 3 }) === 0);
+requests.markRequestSeen('demo-1', 3);
+report('4.13 after visit with 3 -> 0 new', requests.newOffersCountFor({ id: 'demo-1', offers_count: 3 }) === 0);
+report('4.14 after 5 offers -> 2 new', requests.newOffersCountFor({ id: 'demo-1', offers_count: 5 }) === 2);
+
+// notifications.js: وضع تجريبي يشتق من مخزن الطلبات
+const notifRes = await notifications.loadNotificationsWithFallback();
+report('4.15 notifications fallback derived locally', notifRes.demo === true && Array.isArray(notifRes.notifications));
+report('4.16 at least one notification present', notifRes.notifications.length > 0);
+report('4.17 notifications carry text + read', typeof notifRes.notifications[0].text === 'string' && typeof notifRes.notifications[0].read === 'boolean');
+
+// علامة قراءة الكل: لا تنفجر وتُحدّث العلامة المحلية عند التجريبي
+const markRes = await notifications.markAllNotificationsReadWithFallback();
+report('4.18 mark-all-read works in demo', (markRes.demo === true && typeof markRes.message === 'string'));
+const notifAfterRead = notifications.deriveLocalNotifications();
+report('4.19 derived notifications become read after flag', notifAfterRead.every((n) => n.read === true));
 
 await server.close();
 

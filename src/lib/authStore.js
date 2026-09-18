@@ -81,21 +81,31 @@ export async function googleLogin(idToken, role) {
   });
   if (data && data.token) {
     setToken(data.token);
-    // إصلاح: الباك إند قد لا يُرجع صورة في user (أو يُرجعها فارغة)، والـ id_token
-    // نفسه يحمل صورت الحساب في claims.picture. نضمّنها في المستخدم المخزّن
-    // كي تُعرض في الشريط الجانبي والإعدادات حتى قبل جلب الملف الشخصي.
-    const googlePayload = decodeGoogleIdToken(idToken);
-    const userWithGooglePicture =
-      googlePayload && typeof googlePayload.picture === 'string' && googlePayload.picture
-        ? { ...(data.user || {}), picture: googlePayload.picture }
-        : null;
-    // الصورة الصادرة من الباك إند لها الأولوية؛ نكتفي باحتياط الغوغل عندما لا توجد.
-    const backendPicture = extractPicturePath(data.user);
-    if (!backendPicture) {
-      setUser(userWithGooglePicture || data.user);
-    } else {
-      setUser(data.user);
+    // إصلاح: الباك إند قد لا يُرجع بيانات كاملة لمستخدمي Google في /api/auth/google
+    // أو /api/profile (اسم/بريد/صورة فارغة). الـ id_token نفسه يحمل هذه البيانات في
+    // claims موثوقة (name, email, picture) — نملأ الفراغ فقط ونترك قيم الباك إند
+    // لها الأولوية حين تكون موجودة.
+    const googlePayload = decodeGoogleIdToken(idToken) || {};
+    const backendUser = data.user || {};
+
+    const hasBackendPicture = Boolean(extractPicturePath(backendUser));
+    const merged = { ...backendUser };
+    if (!hasBackendPicture && typeof googlePayload.picture === 'string' && googlePayload.picture) {
+      merged.picture = googlePayload.picture;
     }
+    if (!merged.name && (typeof googlePayload.name === 'string' && googlePayload.name)) {
+      merged.name = googlePayload.name;
+    }
+    if (!merged.full_name && merged.name) {
+      merged.full_name = merged.name;
+    }
+    if (!merged.email && typeof googlePayload.email === 'string' && googlePayload.email) {
+      merged.email = googlePayload.email;
+    }
+
+    // نخزّن النسخة المدمجة فقط إذا أضفنا فعلاً قيمة لم تكن موجودة.
+    const fallbackAdded = Object.keys(merged).some((k) => merged[k] && merged[k] !== backendUser[k]);
+    setUser(fallbackAdded ? merged : backendUser);
     return data;
   }
   throw new ApiError('استجابة الخادم غير متوقعة (لا يوجد توكن).', 500, data);

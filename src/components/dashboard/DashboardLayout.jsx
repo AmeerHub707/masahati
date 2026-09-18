@@ -1,10 +1,24 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { Home, CalendarCheck, Heart, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Megaphone, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Home, CalendarCheck, Heart, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Megaphone, ChevronLeft, ChevronRight, ChevronDown, Lock, Sparkles, Plus, List } from 'lucide-react';
 import MagneticButton from '../common/MagneticButton';
 import ThemeToggle from '../common/ThemeToggle';
 import { getCachedPictureUrl } from '../../lib/profilePicture';
+import { loadNotificationsWithFallback, markAllNotificationsReadWithFallback } from '../../lib/notifications';
+
+const NOTIF_ICONS = {
+  bell: Bell,
+  check: Check,
+  clock: Clock,
+  offer: Megaphone,
+  accepted: Check,
+  rejected: X,
+  close: Lock,
+  file: FileText,
+  map: MapPin,
+  spark: Sparkles,
+};
 
 const TABS = [
   { id: 'overview', label: 'نظرة عامة', icon: Home },
@@ -21,15 +35,20 @@ export default function DashboardLayout({
   user,
   offersBadge,
   children,
+  requestsView,
+  onRequestsViewChange,
 }) {
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [reqOpen, setReqOpen] = useState(true);
   const [failedSrc, setFailedSrc] = useState('');
   const [tips, setTips] = useState({ show: false, top: 0, left: 0 });
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef(null);
   const btnRef = useRef(null);
   const [panelPos, setPanelPos] = useState({ top: 0, left: 0 });
+  const [hiddenTop, setHiddenTop] = useState(false);
+  const lastScrollY = useRef(0);
 
   // "الطلبات الخاصة" متاحة للطلاب فقط (تظهر المتاجر عروضاً عبر واجهة مالك).
   const displayTabs = TABS.filter((t) => t.id !== 'requests' || user?.role !== 'owner');
@@ -39,11 +58,43 @@ export default function DashboardLayout({
   const photoSrc = user?.photo || getCachedPictureUrl() || '';
 
   const [notifications, setNotifications] = useState([
-    { id: 1, text: 'تم تأكيد حجزك لمساحة "قاعة الاجتماعات"', time: 'منذ 5 دقائق', read: false, icon: Check },
-    { id: 2, text: 'طلب حجز جديد على مساحتك "المكتب الرئيسي"', time: 'منذ ساعة', read: false, icon: FileText },
-    { id: 3, text: 'تنتهي صلاحية حجزك غداً', time: 'منذ 3 ساعات', read: true, icon: Clock },
-    { id: 4, text: 'تم إضافة مساحة جديدة في منطقتك', time: 'أمس', read: true, icon: MapPin },
+    { id: 0, text: 'جارٍ تحميل الإشعارات…', time: '', read: false, icon: Clock },
   ]);
+  const [notifLoading, setNotifLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await loadNotificationsWithFallback();
+        if (cancelled) return;
+        setNotifications(result.notifications.map((n) => ({ ...n, icon: NOTIF_ICONS[n.icon] || Bell })));
+      } catch {
+        if (cancelled) return;
+        setNotifications([]);
+      } finally {
+        if (!cancelled) setNotifLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const applyLocalMarkRead = () => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+
+  const handleMarkAllRead = async () => {
+    applyLocalMarkRead();
+    try {
+      await markAllNotificationsReadWithFallback();
+    } catch {
+      /* الوضع التجريبي يكتفي بالعلامة المحلية */
+    }
+  };
+
+  const handleMarkOneRead = (id) => {
+    setNotifications((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, read: true } : item))
+    );
+  };
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -51,6 +102,25 @@ export default function DashboardLayout({
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // يخفي الشريط العلوي عند التمرير للأسفل ويُعيده عند التمرير للأعلى.
+  useEffect(() => {
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY;
+        const dirDown = y > lastScrollY.current;
+        const pastTop = y > 64;
+        setHiddenTop(dirDown && pastTop);
+        lastScrollY.current = Math.max(0, y);
+        ticking = false;
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   useEffect(() => {
@@ -156,6 +226,63 @@ export default function DashboardLayout({
           <nav className="dash__nav" aria-label="قائمة لوحة التحكم">
             {displayTabs.map((tab) => {
               const Icon = tab.icon;
+              if (tab.id === 'requests') {
+                return (
+                  <div className="dash__nav-group" key={tab.id}>
+                    <button
+                      type="button"
+                      className={`dash__nav-parent${active === tab.id ? ' is-active' : ''}`}
+                      onClick={() => { setReqOpen((o) => !o); handleNavClick(tab.id); }}
+                      aria-current={active === tab.id ? 'page' : undefined}
+                      aria-expanded={reqOpen}
+                      title={collapsed ? tab.label : undefined}
+                    >
+                      <Icon />
+                      {!collapsed && <span>{tab.label}</span>}
+                      {!collapsed && (
+                        <ChevronDown className={`dash__nav-caret${reqOpen ? ' is-open' : ''}`} aria-hidden="true" />
+                      )}
+                      {offersBadge > 0 && (
+                        collapsed ? (
+                          <span className="dash__nav-dot" aria-label={`لديك ${offersBadge} عروض جديدة`} />
+                        ) : (
+                          <span className="dash__nav-badge" aria-label={`لديك ${offersBadge} عروض جديدة`}>
+                            {offersBadge}
+                          </span>
+                        )
+                      )}
+                    </button>
+                    {reqOpen && !collapsed && (
+                      <div className="dash__nav-sub">
+                        <button
+                          type="button"
+                          className={requestsView === 'list' ? 'is-active' : ''}
+                          onClick={() => {
+                            if (onRequestsViewChange) onRequestsViewChange('list');
+                            handleNavClick(tab.id);
+                          }}
+                          aria-current={active === tab.id && requestsView === 'list' ? 'page' : undefined}
+                        >
+                          <List />
+                          <span>طلباتي</span>
+                        </button>
+                        <button
+                          type="button"
+                          className={requestsView === 'create' ? 'is-active' : ''}
+                          onClick={() => {
+                            if (onRequestsViewChange) onRequestsViewChange('create');
+                            handleNavClick(tab.id);
+                          }}
+                          aria-current={active === tab.id && requestsView === 'create' ? 'page' : undefined}
+                        >
+                          <Plus />
+                          <span>إنشاء طلب</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
               return (
                 <button
                   key={tab.id}
@@ -207,7 +334,7 @@ export default function DashboardLayout({
 
         {/* الشريط الرئيسي */}
         <div className="dash__main">
-          <header className="dash__top">
+          <header className={`dash__top${hiddenTop ? ' is-hidden' : ''}`}>
             <button
               type="button"
               className="dash__burger"
@@ -250,36 +377,39 @@ export default function DashboardLayout({
                       <button
                         type="button"
                         className="dash__notif-mark"
-                        onClick={() => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))}
+                        onClick={handleMarkAllRead}
+                        disabled={notifLoading || notifications.length === 0}
                       >
                         قراءة الكل
                       </button>
                     </div>
-                    <ul className="dash__notif-list">
-                      {notifications.map((n) => {
-                        const Icon = n.icon;
-                        return (
-                          <li
-                            key={n.id}
-                            className={`dash__notif-item${n.read ? '' : ' is-unread'}`}
-                            onClick={() => {
-                              setNotifications((prev) =>
-                                prev.map((item) => (item.id === n.id ? { ...item, read: true } : item))
-                              );
-                            }}
-                          >
-                            <span className="dash__notif-icon">
-                              <Icon />
-                            </span>
-                            <div className="dash__notif-body">
-                              <p>{n.text}</p>
-                              <span className="dash__notif-time">{n.time}</span>
-                            </div>
-                            {!n.read && <span className="dash__notif-dot" />}
-                          </li>
-                        );
-                      })}
-                    </ul>
+                    {notifLoading ? (
+                      <p className="dash__notif-empty">جارٍ تحميل الإشعارات…</p>
+                    ) : notifications.length === 0 ? (
+                      <p className="dash__notif-empty">لا توجد إشعارات حالياً.</p>
+                    ) : (
+                      <ul className="dash__notif-list">
+                        {notifications.map((n) => {
+                          const Icon = n.icon;
+                          return (
+                            <li
+                              key={n.id}
+                              className={`dash__notif-item${n.read ? '' : ' is-unread'}`}
+                              onClick={() => handleMarkOneRead(n.id)}
+                            >
+                              <span className="dash__notif-icon">
+                                <Icon />
+                              </span>
+                              <div className="dash__notif-body">
+                                <p>{n.text}</p>
+                                <span className="dash__notif-time">{n.time}</span>
+                              </div>
+                              {!n.read && <span className="dash__notif-dot" />}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
                   </div>
                 ),
                 document.body

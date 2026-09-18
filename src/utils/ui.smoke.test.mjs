@@ -152,6 +152,55 @@ report('U7 Favorites shows saved space', await waitForText('استوديو تص�
 report('U8 Navigate to settings section (click)', await clickByText('الإعدادات'), 'no click');
 report('U9 Settings form renders', await waitForText('كلمة المرور') || !!appEl.querySelector('[id="set-name"]'), 'settings form absent');
 
+// ----- قسم الطلبات الخاصة (وضع تجريبي) -----
+console.log('\n===== UI: Requests tab (demo) =====');
+report('R1 Navigate to requests tab', await clickByText('طلباتي الخاصة'), 'no click');
+report('R2 Requests list rendered', await waitForText('في انتظار العروض'), 'requests list absent');
+
+// فتح أول طلب -> شارة العروض الجديدة تُصفّر تلقائياً (لا اختبار لأن العرض الأول بدون شارة)
+const openReqCard = await waitForText('عرض العروض');
+report('R3 Cards show open-requests CTA', openReqCard, 'no open CTA found');
+
+// زر طلب جديد موجود
+report('R4 "طلب جديد" button present', !!(await clickByText('طلب جديد')), 'no button');
+report('R5 Create form opens', await waitForText('أنشئ طلباً خاصاً'), 'create form absent');
+report('R6 Back link returns to list', await clickByText('كل الطلبات'), 'no back');
+report('R7 List visible again', await waitForText('في انتظار العروض'), 'list absent');
+
+// ----- أكورديون "الطلبات الخاصة" في الشريط الجانبي + مسح النموذج -----
+console.log('\n===== UI: Requests accordion + clear form =====');
+report('R8 Expand sidebar requests accordion', (await clickByText('طلباتي الخاصة')) && !!appEl.querySelector('.dash__nav-sub'), 'no submenu');
+const subLabels = Array.from(appEl.querySelectorAll('.dash__nav-sub')).map((s) => s.textContent);
+report('R9 Submenu lists طلباتي + إنشاء طلب', subLabels.some((t) => t.includes('طلباتي') && t.includes('إنشاء طلب')), JSON.stringify(subLabels));
+
+async function clickSubmenu(itemText) {
+  const btn = Array.from(appEl.querySelectorAll('.dash__nav-sub button')).find((b) => b.textContent.includes(itemText));
+  if (!btn) return false;
+  btn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  await flush();
+  await flush();
+  return true;
+}
+
+report('R10 Open create form via submenu item', (await clickSubmenu('إنشاء طلب')) && (await waitForText('أنشئ طلباً خاصاً')), 'create form absent');
+
+async function setInputValue(sel, value) {
+  const el = appEl.querySelector(sel);
+  if (!el) return false;
+  const setter = Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value').set;
+  setter.call(el, value);
+  el.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+  el.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+  await flush();
+  return true;
+}
+
+const titleFilled = setInputValue('input[placeholder^="مثال: قاعة"]', 'قاعة محاضرات كبيرة');
+report('R11 Fill title field', titleFilled && appEl.querySelector('input[placeholder^="مثال: قاعة"]')?.value === 'قاعة محاضرات كبيرة', 'title not set');
+report('R12 "مسح الحقول" button present', await clickByText('مسح الحقول'), 'no clear button');
+report('R13 Title cleared after clicking مسح الحقول', (appEl.querySelector('input[placeholder^="مثال: قاعة"]')?.value || '') === '', 'title still filled');
+
+report('R14 Back to list via submenu "طلباتي"', (await clickSubmenu('طلباتي')) && (await waitForText('في انتظار العروض')), 'list absent');
 await server.close();
 console.log(`\n===== RESULT: ${pass} passed, ${fail} failed =====`);
 if (failures.length) {

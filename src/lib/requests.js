@@ -11,6 +11,7 @@ const REQ_TIMEOUT_MS = 8000;
 
 const DEMO_FLAG_KEY = 'masahati_special_requests_demo_v1';
 const DEMO_DATA_KEY = 'masahati_special_requests_data_v1';
+const SEEN_KEY = 'masahati_special_requests_seen_v1';
 
 // ----- وضع تجريبي -----
 export function isSpecialRequestsDemo() {
@@ -75,12 +76,14 @@ export const SCHEDULE_LABELS = {
 export const REQUEST_STATUS_META = {
   open: { label: 'مفتوحة للعروض', cls: 'badge--pending' },
   accepted: { label: 'تم القبول', cls: 'badge--confirmed' },
+  closed: { label: 'تم الإغلاق', cls: 'badge--muted' },
 };
 
 // ------------- أدوات تطبيع -------------
 function mergeReqStatus(b) {
   const raw = b.status ?? (b.is_accepted ? 'accepted' : 'open');
-  return raw === 'accepted' || raw === 'closed' ? 'accepted' : 'open';
+  if (raw === 'closed') return 'closed';
+  return raw === 'accepted' ? 'accepted' : 'open';
 }
 
 function normalizeAmenities(b) {
@@ -128,8 +131,23 @@ function mapRequest(r) {
     status: mergeReqStatus(r),
     offers_count: Number(r.offers_count ?? 0),
     created_at: r.created_at ?? r.created ?? '',
+    expires_at: r.expires_at ?? r.expires ?? '',
     is_accepted: mergeReqStatus(r) === 'accepted',
+    is_closed: mergeReqStatus(r) === 'closed',
   };
+}
+
+// هل تجاوز الطلب تاريخ انتهاء صلاحيته؟ يقرأ تجاهل الصيغ الشائعة (soft / حرفياً).
+export function isRequestExpired(r) {
+  const raw = r?.expires_at || r?.expired_at || '';
+  if (!raw) return false;
+  const t = new Date(String(raw).replace(' ', 'T'));
+  if (Number.isNaN(t.getTime())) return false;
+  return t.getTime() < Date.now();
+}
+
+export function isRequestOpen(r) {
+  return (r?.status === 'open' || r?.status === 'pending') && !isRequestExpired(r);
 }
 
 function mapOffer(o) {
@@ -316,6 +334,62 @@ function demoStore() {
   const payload = { requests: seedDemoRequests() };
   writeDemoStore(payload);
   return payload;
+}
+
+// ------------- تتبّع الزيارات (شارة العروض الجديدة) -------------
+// نحفظ اللحظة الزمنية التي فتح فيها المستخدم تفاصيل كل طلب، لنعرف
+// عدد العروض الجديدة التي أُضيفت بعد آخر زيارة ونعرضها كشارة على البطاقة.
+function readSeenMap() {
+  try {
+    const raw = localStorage.getItem(SEEN_KEY);
+    if (!raw) return {};
+    const map = JSON.parse(raw);
+    return map && typeof map === 'object' ? map : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeSeenMap(map) {
+  try {
+    localStorage.setItem(SEEN_KEY, JSON.stringify(map));
+  } catch {
+    /* التخزين غير متاح */
+  }
+}
+
+// عدد العروض الجديدة على طلب (offers) منذ آخر زيارة.
+// offer.created_at اختياري — نعتمد على عدد العروض المحفوظ مقابل آخر زيارة بحالة عدم توفر الوقت.
+export function newOffersCountFor(reqOrDetail, offers) {
+  const id = String(reqOrDetail?.id ?? '');
+  if (!id) return 0;
+  const map = readSeenMap();
+  const last = map[id];
+  if (!last) {
+    // أول زيارة: كل العروض الحالية تُعدّ قديمة (لا شارة مثبّتة).
+    return 0;
+  }
+  if (last.countAt) {
+    const base = Number(last.countAt || 0);
+    return Math.max(0, Number(offers?.length ?? reqOrDetail?.offers_count ?? 0) - base);
+  }
+  if (last.at) {
+    const t = new Date(String(last.at).replace(' ', 'T')).getTime();
+    if (Number.isNaN(t)) return 0;
+    return (offers || []).filter((o) => new Date(String(o.created_at).replace(' ', 'T')).getTime() > t).length;
+  }
+  return 0;
+}
+
+// يسجّل زيارة الطلب ويرجع عدد العروض الجديدة (قبل التصفير).
+export function markRequestSeen(id, offersCount = 0) {
+  const key = String(id ?? '');
+  if (!key) return;
+  const map = readSeenMap();
+  const prev = newOffersCountFor({ id: key, offers_count: offersCount }, []);
+  map[key] = { at: new Date().toISOString(), countAt: Number(offersCount || 0) };
+  writeSeenMap(map);
+  return prev;
 }
 
 // ------------- نقط التطبيع للمصدر الحقيقي -------------
@@ -570,6 +644,96 @@ export async function acceptOfferWithFallback(requestId, offerId) {
       message: 'تشغيل الطلب لم يتم على الخادم بعد — تم القبول محلياً للتجربة.',
       booking,
       request: req ? mapRequest(req) : null,
+    };
+  }
+}
+
+export async function rejectRequestOffer(requestId, offerId) {
+  const res = await request(`/api/special-requests/${requestId}/offers/${offerId}/reject`, {
+    method: 'POST',
+    auth: true,
+    timeoutMs: REQ_TIMEOUT_MS,
+  });
+  const body = unwrap(res);
+  return {
+    message: body.message || 'تم رفض العرض.',
+    request: mapRequest(body.request ?? rawRequestFromOffer(body)),
+  };
+}
+
+// إغلاق طلب مفتوح يدوياً: يتوقف عن الظهور لمالكي المساحات وتتوقف العروض.
+export async function closeSpecialRequest(requestId) {
+  const res = await request(`/api/special-requests/${requestId}/close`, {
+    method: 'POST',
+    auth: true,
+    timeoutMs: REQ_TIMEOUT_MS,
+  });
+  const body = unwrap(res);
+  return {
+    message: body.message || 'تم إغلاق الطلب.',
+    request: mapRequest(body.request ?? rawRequestFromOffer(body)),
+  };
+}
+
+export async function closeRequestWithFallback(requestId) {
+  const applyLocalClose = () => {
+    const store = demoStore();
+    const req = store.requests.find((r) => String(r.id) === String(requestId));
+    if (req) {
+      req.status = 'closed';
+      req.is_closed = true;
+      writeDemoStore(store);
+    }
+    return req ? mapRequest(req) : null;
+  };
+
+  if (isSpecialRequestsDemo()) {
+    return { demo: true, message: 'تم إغلاق الطلب في الوضع التجريبي.', request: applyLocalClose() };
+  }
+  try {
+    const result = await closeSpecialRequest(requestId);
+    setDemoFlag(false);
+    return { demo: false, ...result };
+  } catch {
+    setDemoFlag(true);
+    return {
+      demo: true,
+      message: 'تعذّر الوصول للخادم — أُغلق الطلب محلياً للتجربة.',
+      request: applyLocalClose(),
+    };
+  }
+}
+
+export async function rejectOfferWithFallback(requestId, offerId) {
+  // تطبيق الرفض في المخزن التجريبي المحلي ثم إعادة الوضع المحدّث.
+  const applyLocalReject = () => {
+    const store = demoStore();
+    const req = store.requests.find((r) => String(r.id) === String(requestId));
+    if (req) {
+      (req.offers || []).forEach((o) => {
+        if (String(o.id) === String(offerId)) {
+          o.status = 'rejected';
+          o.is_rejected = true;
+        }
+      });
+      writeDemoStore(store);
+    }
+    return req ? mapRequest(req) : null;
+  };
+
+  if (isSpecialRequestsDemo()) {
+    return { demo: true, message: 'تم رفض العرض في الوضع التجريبي.', request: applyLocalReject() };
+  }
+  try {
+    const result = await rejectRequestOffer(requestId, offerId);
+    setDemoFlag(false);
+    return { demo: false, ...result };
+  } catch {
+    setDemoFlag(true);
+    return {
+      demo: true,
+      message: 'تعذّر الوصول للخادم — تم رفض العرض محلياً للتجربة.',
+      request: applyLocalReject(),
     };
   }
 }

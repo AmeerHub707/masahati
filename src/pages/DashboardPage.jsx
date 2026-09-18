@@ -29,6 +29,7 @@ export default function DashboardPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [offersBadge, setOffersBadge] = useState(0);
+  const [requestsView, setRequestsView] = useState('list'); // 'list' | 'create' | 'detail'
   const deleteResolve = useRef(null);
 
   const requestDeleteConfirm = useCallback(() => {
@@ -254,7 +255,12 @@ export default function DashboardPage() {
       ) : active === 'favorites' ? (
         <Favorites data={{ ...(data || {}), togglingId }} onToggleFavorite={handleToggleFavorite} />
       ) : active === 'requests' ? (
-        <Requests onAcceptOffer={handleAcceptOffer} onOffersChange={setOffersBadge} />
+        <Requests
+          view={requestsView}
+          onViewChange={setRequestsView}
+          onAcceptOffer={handleAcceptOffer}
+          onOffersChange={setOffersBadge}
+        />
       ) : (
         <Settings
           user={data?.user}
@@ -276,6 +282,8 @@ export default function DashboardPage() {
         onLogout={handleLogout}
         user={data?.user}
         offersBadge={offersBadge}
+        requestsView={requestsView}
+        onRequestsViewChange={setRequestsView}
       >
         {data?.user?.role === 'customer' && (
           <AdBanner
