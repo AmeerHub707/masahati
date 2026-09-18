@@ -4,11 +4,13 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { logout, deleteUser, updateProfile, updateProfilePicture, uploadPicture, getUser, setUser } from '../lib/authStore';
 import { fetchDashboard, readDashboardCache, clearDashboardCache, writeDashboardCache, cancelBooking, toggleFavorite } from '../lib/dashboard';
 import { extractPicturePath, resolveNewPictureUrl, getCachedPictureUrl } from '../lib/profilePicture';
+import { acceptOfferWithFallback } from '../lib/requests';
 import DashboardLayout from '../components/dashboard/DashboardLayout';
 import DashboardLoading from '../components/dashboard/DashboardLoading';
 import Overview from '../components/dashboard/Overview';
 import Bookings from '../components/dashboard/Bookings';
 import Favorites from '../components/dashboard/Favorites';
+import Requests from '../components/dashboard/Requests';
 import Settings from '../components/dashboard/Settings';
 import ScrollProgress from '../components/common/ScrollProgress';
 import Footer from '../components/layout/Footer';
@@ -26,6 +28,7 @@ export default function DashboardPage() {
   const [dismissedAds] = useState([]);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [offersBadge, setOffersBadge] = useState(0);
   const deleteResolve = useRef(null);
 
   const requestDeleteConfirm = useCallback(() => {
@@ -169,6 +172,28 @@ export default function DashboardPage() {
     setData((prev) => (prev ? { ...prev, user: { ...prev.user, ...patch } } : prev));
   }, []);
 
+  // قبول عرض من طلب خاص: نستدعي الواجهة مع مُعاد الحفظ التجريبي؛
+  // عند نجاح القبول نضيف الحجز الجديد فوراً إلى بيانات اللوحة (دون إعادة تحميل كاملة).
+  const handleAcceptOffer = useCallback(async (requestId, offerId) => {
+    const result = await acceptOfferWithFallback(requestId, offerId);
+    if (result?.booking) {
+      setData((prev) => ({
+        ...prev,
+        bookings: [result.booking, ...(prev.bookings || [])],
+        stats: {
+          ...prev.stats,
+          upcomingBookings: (prev.stats.upcomingBookings || 0) + 1,
+        },
+      }));
+    }
+    return {
+      demo: result?.demo,
+      message: result?.message,
+      request: result?.request,
+      booking: result?.booking,
+    };
+  }, []);
+
   const handleSaveProfile = useCallback(async (fields) => {
     await updateProfile(fields);
     const patch = {
@@ -228,6 +253,8 @@ export default function DashboardPage() {
         <Bookings data={data} onCancel={handleCancel} cancellingId={cancellingId} />
       ) : active === 'favorites' ? (
         <Favorites data={{ ...(data || {}), togglingId }} onToggleFavorite={handleToggleFavorite} />
+      ) : active === 'requests' ? (
+        <Requests onAcceptOffer={handleAcceptOffer} onOffersChange={setOffersBadge} />
       ) : (
         <Settings
           user={data?.user}
@@ -248,6 +275,7 @@ export default function DashboardPage() {
         onNavigate={setActive}
         onLogout={handleLogout}
         user={data?.user}
+        offersBadge={offersBadge}
       >
         {data?.user?.role === 'customer' && (
           <AdBanner

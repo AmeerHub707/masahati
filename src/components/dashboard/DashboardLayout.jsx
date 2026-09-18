@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { Home, CalendarCheck, Heart, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Home, CalendarCheck, Heart, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Megaphone, ChevronLeft, ChevronRight } from 'lucide-react';
 import MagneticButton from '../common/MagneticButton';
 import ThemeToggle from '../common/ThemeToggle';
 import { getCachedPictureUrl } from '../../lib/profilePicture';
@@ -10,6 +10,7 @@ const TABS = [
   { id: 'overview', label: 'نظرة عامة', icon: Home },
   { id: 'bookings', label: 'حجوزاتي', icon: CalendarCheck },
   { id: 'favorites', label: 'المساحات المفضلة', icon: Heart },
+  { id: 'requests', label: 'طلباتي الخاصة', icon: Megaphone },
   { id: 'settings', label: 'الإعدادات', icon: Settings },
 ];
 
@@ -18,6 +19,7 @@ export default function DashboardLayout({
   onNavigate,
   onLogout,
   user,
+  offersBadge,
   children,
 }) {
   const [open, setOpen] = useState(false);
@@ -28,6 +30,9 @@ export default function DashboardLayout({
   const notifRef = useRef(null);
   const btnRef = useRef(null);
   const [panelPos, setPanelPos] = useState({ top: 0, left: 0 });
+
+  // "الطلبات الخاصة" متاحة للطلاب فقط (تظهر المتاجر عروضاً عبر واجهة مالك).
+  const displayTabs = TABS.filter((t) => t.id !== 'requests' || user?.role !== 'owner');
 
   // مصدر الصورة الحالي — إذا غيّره المستخدم برفع صورة جديدة يعاد عرضها تلقائياً
   // حتى لو كان المصدر السابق قد فشل في التحميل (بدل التعليق على الحروف الأولى).
@@ -149,7 +154,7 @@ export default function DashboardLayout({
           </div>
 
           <nav className="dash__nav" aria-label="قائمة لوحة التحكم">
-            {TABS.map((tab) => {
+            {displayTabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
@@ -162,6 +167,15 @@ export default function DashboardLayout({
                 >
                   <Icon />
                   {!collapsed && <span>{tab.label}</span>}
+                  {tab.id === 'requests' && offersBadge > 0 && (
+                    collapsed ? (
+                      <span className="dash__nav-dot" aria-label={`لديك ${offersBadge} عروض جديدة`} />
+                    ) : (
+                      <span className="dash__nav-badge" aria-label={`لديك ${offersBadge} عروض جديدة`}>
+                        {offersBadge}
+                      </span>
+                    )
+                  )}
                 </button>
               );
             })}
@@ -205,7 +219,7 @@ export default function DashboardLayout({
             </button>
 
             <div className="dash__title">
-              <h1>{TABS.find((t) => t.id === active)?.label || 'لوحة التحكم'}</h1>
+              <h1>{displayTabs.find((t) => t.id === active)?.label || 'لوحة التحكم'}</h1>
               <p>{today}</p>
             </div>
 
