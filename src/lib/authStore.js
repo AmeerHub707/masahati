@@ -3,6 +3,7 @@
 // التوكن هو المرجع الوحيد لكون الجلسة نشطة؛ لا نعتمد على أي علم إضافي.
 
 import { request, getToken, setToken, clearToken, setUser, clearUser, getUser, ApiError } from './api';
+import { extractPicturePath } from './profilePicture';
 
 // إعادة التصدير لتسهيل الاستيراد من صفحات المصادقة
 export { request, ApiError };
@@ -52,6 +53,27 @@ export async function registerOwner(formData) {
 // يرسل id_token (credential من Google Identity Services) إلى الباك إند،
 // مع الدور الاختياري ('customer' | 'space_owner') عند التسجيل. الباك إند يتحقق
 // من الرمز ويعيد Sanctum token يُحفظ مثل أي تسجيل دخول عادي.
+
+// يفكك حمولة id_token (JWT) محلياً لاستخراج بيانات المستخدم — خاصة صورة Google.
+// التوقيع يتحقق منه الباك إند؛ نحتاج الحمولة فقط كاحتياط عند عدم إرجاع صورة من الباك إند.
+function decodeGoogleIdToken(idToken) {
+  try {
+    const payload = String(idToken || '').split('.')[1];
+    if (!payload) return null;
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const normalized = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+    const json = decodeURIComponent(
+      atob(normalized)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
 export async function googleLogin(idToken, role) {
   const data = await request('/api/auth/google', {
     method: 'POST',
@@ -59,7 +81,21 @@ export async function googleLogin(idToken, role) {
   });
   if (data && data.token) {
     setToken(data.token);
-    setUser(data.user);
+    // إصلاح: الباك إند قد لا يُرجع صورة في user (أو يُرجعها فارغة)، والـ id_token
+    // نفسه يحمل صورت الحساب في claims.picture. نضمّنها في المستخدم المخزّن
+    // كي تُعرض في الشريط الجانبي والإعدادات حتى قبل جلب الملف الشخصي.
+    const googlePayload = decodeGoogleIdToken(idToken);
+    const userWithGooglePicture =
+      googlePayload && typeof googlePayload.picture === 'string' && googlePayload.picture
+        ? { ...(data.user || {}), picture: googlePayload.picture }
+        : null;
+    // الصورة الصادرة من الباك إند لها الأولوية؛ نكتفي باحتياط الغوغل عندما لا توجد.
+    const backendPicture = extractPicturePath(data.user);
+    if (!backendPicture) {
+      setUser(userWithGooglePicture || data.user);
+    } else {
+      setUser(data.user);
+    }
     return data;
   }
   throw new ApiError('استجابة الخادم غير متوقعة (لا يوجد توكن).', 500, data);
