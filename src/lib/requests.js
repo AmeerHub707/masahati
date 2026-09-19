@@ -113,7 +113,7 @@ export function scheduleLabelOf(req) {
   return scheduleLabel(req?.schedule);
 }
 
-function mapRequest(r) {
+export function mapRequest(r) {
   const id = r.request_id ?? r.id;
   return {
     id,
@@ -150,7 +150,7 @@ export function isRequestOpen(r) {
   return (r?.status === 'open' || r?.status === 'pending') && !isRequestExpired(r);
 }
 
-function mapOffer(o) {
+export function mapOffer(o) {
   return {
     id: o.offer_id ?? o.id,
     owner_name: o.owner_name ?? 'صاحب المساحة',
@@ -169,7 +169,7 @@ function mapOffer(o) {
 }
 
 // يستخرج مصفوفة من أي صيغة لارافيل شائعة.
-function listOf(res, key) {
+export function listOf(res, key) {
   if (Array.isArray(res)) return res;
   if (!res || typeof res !== 'object') return [];
   if (res[key] && Array.isArray(res[key])) return res[key];
@@ -178,7 +178,7 @@ function listOf(res, key) {
   return [];
 }
 
-function unwrap(res) {
+export function unwrap(res) {
   if (res && typeof res === 'object' && res.data && typeof res.data === 'object' && !Array.isArray(res.data)) return res.data;
   return res || {};
 }

@@ -9,13 +9,35 @@ import SignupPage from './pages/SignupPage';
 import VerifyOtpPage from './pages/VerifyOtpPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
-import DashboardPage from './pages/DashboardPage';
+import CustomerDashboard from './pages/CustomerDashboard';
+import SpaceOwnerDashboard from './pages/SpaceOwnerDashboard';
 import AdDetailsPage from './pages/AdDetailsPage';
-import { isLoggedIn, getHomePath } from './lib/authStore';
+import { isLoggedIn, getUser, getHomePath, normalizeRole } from './lib/authStore';
 
 // حماية المسار: الزائر غير المسجّل يُحوَّل للصفحة الرئيسية
 function RequireAuth({ children }) {
   return isLoggedIn() ? children : <Navigate to="/" replace />;
+}
+
+// إعادة توجيه المستخدم إلى لوحة التحكم الخاصة بدوره (أو الرئيسية إن كان الدور مفقوداً).
+function redirectForRole() {
+  const userRole = normalizeRole(getUser()?.role);
+  if (userRole !== 'customer' && userRole !== 'space_owner') return '/';
+  return getHomePath();
+}
+
+// حماية الدور (شرط صارم): كل لوحة تحكم تُفتح لنوع حسابها فقط، ولا يُسمح
+// بالخلط بين لوحة العميل ولوحة صاحب المساحة. الدور غير المتطابق يُحوَّل
+// إلى لوحة تحكم بدوره (أو الرئيسية إن لم يكن له دور صالح).
+function RequireRole({ role, children }) {
+  if (!isLoggedIn()) return <Navigate to="/" replace />;
+  const userRole = normalizeRole(getUser()?.role);
+  if (role === 'space_owner') {
+    if (userRole === 'space_owner') return children;
+  } else if (role === 'customer') {
+    if (userRole === 'customer') return children;
+  }
+  return <Navigate to={redirectForRole()} replace />;
 }
 
 export default function App() {
@@ -38,8 +60,8 @@ export default function App() {
       <Route path="/api/reset-password/:token" element={<ResetPasswordPage />} />
       <Route path="/ads/:id" element={<AdDetailsPage />} />
       <Route path="/dashboard" element={<RequireAuth><Navigate to={getHomePath()} replace /></RequireAuth>} />
-      <Route path="/dashboard/customer" element={<RequireAuth><DashboardPage /></RequireAuth>} />
-      <Route path="/dashboard/space-owner" element={<RequireAuth><DashboardPage /></RequireAuth>} />
+      <Route path="/dashboard/customer" element={<RequireAuth><RequireRole role="customer"><CustomerDashboard /></RequireRole></RequireAuth>} />
+      <Route path="/dashboard/space-owner" element={<RequireAuth><RequireRole role="space_owner"><SpaceOwnerDashboard /></RequireRole></RequireAuth>} />
       
       {/* مسار احتياطي للصفحات غير الموجودة 404 */}
       <Route path="*" element={<LandingPage />} />

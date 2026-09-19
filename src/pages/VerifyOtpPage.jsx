@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Check, ArrowLeft } from 'lucide-react';
-import { login, getHomePath, ApiError, request } from '../lib/authStore';
+import { login, getHomePath, ApiError, request, getUser, setUser } from '../lib/authStore';
 import WhatsAppBubble from '../components/common/WhatsAppBubble';
 
 export default function VerifyOtpPage() {
@@ -78,11 +78,16 @@ export default function VerifyOtpPage() {
         body: { registration_token: registrationToken, code },
       });
 
-      // تسجيل الدخول تلقائياً بعد التحقق
-      const loggedIn = await login(email.trim(), password);
+      // تسجيل الدخول مجدداً بعد التحقق ثم التوجيه حسب دور التسجيل
+      // (لا نعتمد على دور مستخدم استجابة /api/login لأنها قد تخلو من الروول).
+      await login(email.trim(), password);
 
       if (role === 'space_owner') {
-        navigate(getHomePath(loggedIn.user?.role));
+        const stored = getUser() || {};
+        if (stored.role !== 'space_owner' && stored.role !== 'owner') {
+          setUser({ ...stored, role: 'space_owner' });
+        }
+        navigate(getHomePath(role), { replace: true });
       } else {
         setVerified(true);
       }

@@ -80,6 +80,37 @@ export function clearUser() {
   }
 }
 
+// مسح كل بيانات الجلسة على الجهاز: التوكن، بيانات المستخدم، وصورة الملف،
+// وكاش لوحات التحكم (العميل والمالك)، ومخازن الوضع التجريبي للطلبات
+// الخاصة والإشعارات. مستخدم جديد بعد حذف حساب قديم لن يرى صورة/بيانات
+// الحساب السابق لأنها محفوظة تحت مفاتيح ثابتة غير مرتبطة بمعرّف المستخدم.
+const RESET_KEYS = [
+  'profile_picture_url',
+  'profile_picture_version',
+  'masahati_dashboard_cache',
+  'masahati_owner_cache',
+  'masahati_owner_demo_v1',
+  'masahati_owner_data_v1',
+  'masahati_special_requests_demo_v1',
+  'masahati_special_requests_data_v1',
+  'masahati_special_requests_seen_v1',
+  'masahati_notifications_demo_v1',
+  'masahati_notifications_read_v1',
+  'masahati_assistant_messages',
+];
+
+export function resetLocalUserData() {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    for (const key of RESET_KEYS) {
+      localStorage.removeItem(key);
+    }
+  } catch {
+    /* التخزين غير متاح */
+  }
+}
+
 class ApiError extends Error {
   constructor(message, status, data) {
     super(message);

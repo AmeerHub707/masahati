@@ -2,35 +2,41 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { logout, deleteUser, updateProfile, updateProfilePicture, uploadPicture, getUser, setUser } from '../lib/authStore';
-import { fetchDashboard, readDashboardCache, clearDashboardCache, writeDashboardCache, cancelBooking, toggleFavorite } from '../lib/dashboard';
+import {
+  loadOwnerDashboardWithFallback,
+  readOwnerCache,
+  writeOwnerCache,
+  clearOwnerCache,
+} from '../lib/owner';
 import { extractPicturePath, resolveNewPictureUrl, getCachedPictureUrl } from '../lib/profilePicture';
-import { acceptOfferWithFallback } from '../lib/requests';
-import DashboardLayout from '../components/dashboard/DashboardLayout';
+import OwnerLayout from '../components/dashboard/owner/OwnerLayout';
 import DashboardLoading from '../components/dashboard/DashboardLoading';
-import Overview from '../components/dashboard/Overview';
-import Bookings from '../components/dashboard/Bookings';
-import Favorites from '../components/dashboard/Favorites';
-import Requests from '../components/dashboard/Requests';
+import OwnerOverview from '../components/dashboard/owner/OwnerOverview';
+import Market from '../components/dashboard/owner/Market';
+import MyOffers from '../components/dashboard/owner/MyOffers';
+import Spaces from '../components/dashboard/owner/Spaces';
 import Settings from '../components/dashboard/Settings';
 import ScrollProgress from '../components/common/ScrollProgress';
 import Footer from '../components/layout/Footer';
 import WhatsAppBubble from '../components/common/WhatsAppBubble';
-import AdBanner from '../components/dashboard/AdBanner';
 import { AlertCircle, Trash2 } from 'lucide-react';
 
-export default function DashboardPage() {
+export default function SpaceOwnerDashboard() {
   const navigate = useNavigate();
   const [active, setActive] = useState('overview');
   const [data, setData] = useState(null);
   const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
-  const [cancellingId, setCancellingId] = useState(null);
-  const [togglingId, setTogglingId] = useState(null);
-  const [dismissedAds] = useState([]);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [offersBadge, setOffersBadge] = useState(0);
-  const [requestsView, setRequestsView] = useState('list'); // 'list' | 'create' | 'detail'
   const deleteResolve = useRef(null);
+
+  // حماية الدور: لوحة المالك خاصة بصاحب المساحة فقط.
+  useEffect(() => {
+    const role = getUser()?.role;
+    if (role !== 'space_owner' && role !== 'owner') {
+      navigate('/dashboard/customer', { replace: true });
+    }
+  }, [navigate]);
 
   const requestDeleteConfirm = useCallback(() => {
     return new Promise((resolve) => {
@@ -47,39 +53,27 @@ export default function DashboardPage() {
     }
   };
 
-  const load = useCallback(async () => {
-    try {
-      const result = await fetchDashboard();
-      setData(result);
-      setStatus('ready');
-    } catch {
-      setStatus('error');
-    }
-  }, []);
-
+  // تحميل: نسخة فورية من الكاش ثم تحديث في الخلفية (نفس نمط لوحة العميل).
   useEffect(() => {
     let isMounted = true;
 
-    // نسخة مخزنة: نعرضها فوراً (بدون شاشة تحميل) عبر مؤقّت لتجنب setState متزامن في الـ effect.
-    const cached = readDashboardCache();
+    const cached = readOwnerCache();
     let showCacheTimer = 0;
-    if (cached) {
+    if (cached?.data) {
       showCacheTimer = setTimeout(() => {
         if (!isMounted) return;
-        setData(cached);
+        setData(cached.data);
         setStatus('ready');
       }, 0);
     }
 
-    // تحديث الخلفية: جلب جديد يُستبدل البيانات عند وصوله، ولا يعيد شاشة التحميل.
     (async () => {
       try {
-        const result = await fetchDashboard();
+        const result = await loadOwnerDashboardWithFallback();
         if (!isMounted) return;
         setData(result);
         setStatus('ready');
       } catch {
-        // فشل الجلب: نبقي البيانات المخزنة إن وُجدت، وإلا نعرض الخطأ.
         if (isMounted) {
           setStatus((prev) => (prev === 'loading' ? 'error' : prev));
         }
@@ -92,66 +86,14 @@ export default function DashboardPage() {
     };
   }, []);
 
-  // مزامنة النسخة المخزنة مع أي تغيير محلي (الاسم/الهاتف/البريد/الصورة/الإلغاء/المفضّلة)
-  // حتى لا يعود المستخدم للوحة ويجد بيانات قديمة من الكاش.
+  // مزامنة الكاش مع أي تغيير محلي.
   useEffect(() => {
     if (!data) return;
-    writeDashboardCache(data);
+    writeOwnerCache({ data });
   }, [data]);
 
-  const handleCancel = async (id) => {
-    setCancellingId(id);
-    try {
-      await cancelBooking(id);
-      setData((prev) => ({
-        ...prev,
-        bookings: (prev.bookings || []).map((b) =>
-          b.id === id ? { ...b, status: 'cancelled' } : b
-        ),
-        stats: {
-          ...prev.stats,
-          upcomingBookings: Math.max(0, (prev.stats.upcomingBookings || 1) - 1),
-        },
-      }));
-    } finally {
-      setCancellingId(null);
-    }
-  };
-
-  const handleToggleFavorite = async (id, name) => {
-    setTogglingId(id);
-    // إزالة تفاؤلية فورية ثم التراجع عند فشل الخادم فقط.
-    setData((prev) => ({
-      ...prev,
-      favorites: (prev.favorites || []).filter((f) => f.id !== id),
-      stats: {
-        ...prev.stats,
-        savedFavorites: Math.max(0, (prev.stats.savedFavorites || 1) - 1),
-      },
-    }));
-    try {
-      await toggleFavorite(id);
-    } catch {
-      // فشل الخادم: نعيد المساحة إلى القائمة كما كانت.
-      setData((prev) => {
-        const exists = (prev.favorites || []).some((f) => f.id === id);
-        if (exists) return prev;
-        return {
-          ...prev,
-          favorites: [...(prev.favorites || []), { id, name }],
-          stats: {
-            ...prev.stats,
-            savedFavorites: (prev.stats.savedFavorites || 0) + 1,
-          },
-        };
-      });
-    } finally {
-      setTogglingId(null);
-    }
-  };
-
   const handleLogout = useCallback(async () => {
-    clearDashboardCache();
+    clearOwnerCache();
     await logout();
     navigate('/');
   }, [navigate]);
@@ -163,36 +105,14 @@ export default function DashboardPage() {
     try {
       await deleteUser();
     } finally {
-      clearDashboardCache();
-      logout();
+      clearOwnerCache();
+      await logout();
     }
     navigate('/');
   }, [navigate, requestDeleteConfirm]);
 
   const applyUserPatch = useCallback((patch) => {
     setData((prev) => (prev ? { ...prev, user: { ...prev.user, ...patch } } : prev));
-  }, []);
-
-  // قبول عرض من طلب خاص: نستدعي الواجهة مع مُعاد الحفظ التجريبي؛
-  // عند نجاح القبول نضيف الحجز الجديد فوراً إلى بيانات اللوحة (دون إعادة تحميل كاملة).
-  const handleAcceptOffer = useCallback(async (requestId, offerId) => {
-    const result = await acceptOfferWithFallback(requestId, offerId);
-    if (result?.booking) {
-      setData((prev) => ({
-        ...prev,
-        bookings: [result.booking, ...(prev.bookings || [])],
-        stats: {
-          ...prev.stats,
-          upcomingBookings: (prev.stats.upcomingBookings || 0) + 1,
-        },
-      }));
-    }
-    return {
-      demo: result?.demo,
-      message: result?.message,
-      request: result?.request,
-      booking: result?.booking,
-    };
   }, []);
 
   const handleSaveProfile = useCallback(async (fields) => {
@@ -203,34 +123,33 @@ export default function DashboardPage() {
       email: fields.email,
     };
     applyUserPatch(patch);
-    // حفظ التعديلات محلياً لضمان بقائها حتى فشل الاتصال بالخادم.
     try {
       const stored = getUser() || {};
       setUser({ ...stored, ...patch });
-    } catch { /* */ }
+    } catch { /* storage not available */ }
   }, [applyUserPatch]);
 
   const handleUploadPicture = useCallback(async (file) => {
-    // إصلاح الملف الشخصي: إن وُجدت صورة قائمة نستبدلها عبر PATCH /api/profile/picture،
-    // وإلا نرفع الصورة لأول مرة عبر POST /api/uploadPicture (وفق /api.txt).
     const hasPhoto = Boolean(data?.user?.photo || getCachedPictureUrl());
     const res = hasPhoto ? await updateProfilePicture(file) : await uploadPicture(file);
-    // استخراج مسار الصورة من أي صيغة استجابة، ثم ربطه بالنسخة (t=) وحفظه.
     const rawPath = extractPicturePath(res);
     if (!rawPath) return null;
     const picture = resolveNewPictureUrl(rawPath);
     if (picture) {
-      // تحديث الحالة فوراً كي تظهر الصورة الجديدة في كل مكان (شريط/نظرة عامة/إعدادات).
       applyUserPatch({ photo: picture });
       try {
         const stored = getUser() || {};
         setUser({ ...stored, photo: picture });
-      } catch {
-        /* storage not available */
-      }
+      } catch { /* storage not available */ }
     }
     return picture;
   }, [data?.user?.photo, applyUserPatch]);
+
+  // تحديث الحالة بعد تقديم عرض أو مناوبات المساحات: نحدّث الحقول المتبدلة فقط.
+  const handleProposalSubmitted = useCallback((offer) => {
+    if (!offer) return;
+    setData((prev) => (prev ? { ...prev, offers: [offer, ...(prev.offers || [])] } : prev));
+  }, []);
 
   let tabContent;
   if (status === 'loading') {
@@ -241,7 +160,7 @@ export default function DashboardPage() {
         <div className="st-svg"><AlertCircle /></div>
         <h3>تعذّر تحميل البيانات</h3>
         <p>تحقق من اتصالك ثم أعد المحاولة، أو جرّب بالضغط على زر الإنعاش.</p>
-        <button type="button" className="btn-ghost" onClick={() => load()}>
+        <button type="button" className="btn-ghost" onClick={() => setStatus('loading')}>
           إعادة المحاولة
         </button>
       </div>
@@ -249,18 +168,13 @@ export default function DashboardPage() {
   } else {
     tabContent = data &&
       (active === 'overview' ? (
-        <Overview data={data} />
-      ) : active === 'bookings' ? (
-        <Bookings data={data} onCancel={handleCancel} cancellingId={cancellingId} />
-      ) : active === 'favorites' ? (
-        <Favorites data={{ ...(data || {}), togglingId }} onToggleFavorite={handleToggleFavorite} />
-      ) : active === 'requests' ? (
-        <Requests
-          view={requestsView}
-          onViewChange={setRequestsView}
-          onAcceptOffer={handleAcceptOffer}
-          onOffersChange={setOffersBadge}
-        />
+        <OwnerOverview data={data} />
+      ) : active === 'market' ? (
+        <Market data={data} onProposalSubmitted={handleProposalSubmitted} />
+      ) : active === 'offers' ? (
+        <MyOffers data={data} />
+      ) : active === 'spaces' ? (
+        <Spaces data={data} />
       ) : (
         <Settings
           user={data?.user}
@@ -276,26 +190,17 @@ export default function DashboardPage() {
     <div className="min-h-screen font-['Cairo'] text-zinc-900 dir-rtl">
       <DashboardLoading done={status !== 'loading'} />
       <ScrollProgress />
-      <DashboardLayout
+      <OwnerLayout
         active={active}
         onNavigate={setActive}
         onLogout={handleLogout}
         user={data?.user}
-        offersBadge={offersBadge}
-        requestsView={requestsView}
-        onRequestsViewChange={setRequestsView}
       >
-        {data?.user?.role === 'customer' && (
-          <AdBanner
-            ads={data?.ads || []}
-            dismissed={dismissedAds}
-          />
-        )}
         <AnimatePresence mode="wait" initial={false}>
           {tabContent ? (
             <motion.div
               key={active}
-              className="dash__tab"
+              className="odash__tab"
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}
@@ -305,7 +210,7 @@ export default function DashboardPage() {
             </motion.div>
           ) : null}
         </AnimatePresence>
-      </DashboardLayout>
+      </OwnerLayout>
       <Footer />
       <WhatsAppBubble />
 
@@ -321,7 +226,7 @@ export default function DashboardPage() {
             <div className="delete-confirm__ico"><Trash2 /></div>
             <h3>حذف الحساب نهائياً؟</h3>
             <p>
-              سيتم حذف جميع بياناتك ومساحاتك وحجوزاتك من المنصة نهائياً.
+              سيتم حذف جميع بياناتك ومساحاتك وعروضك من المنصة نهائياً.
               هذا الإجراء لا يمكن التراجع عنه.
             </p>
             <div className="delete-confirm__actions">

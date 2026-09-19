@@ -177,6 +177,15 @@ globalThis.fetch = makeFetch({
 const loginRes = await authStore.login('a@b.com', 'secret');
 report('2.1 login stores token + user', authStore.isLoggedIn() && authStore.getUser()?.role === 'customer' && loginRes.token === TOKEN);
 
+// login بلا role في الاستجابة: يُستعلم /api/profile لتحديد الدور (لا الرئيسية)
+resetStorage();
+globalThis.fetch = makeFetch({
+  'POST /api/login': { status: 200, body: { token: TOKEN, data: { user: { name: 'كرم' } } } },
+  'GET /api/profile': { status: 200, body: { data: { user: { role: 'space_owner', name: 'كرم' } } } },
+});
+const loginFallbackRes = await authStore.login('a@b.com', 'secret');
+report('2.1b login role from /api/profile fallback', authStore.getUser()?.role === 'space_owner' && loginFallbackRes.user.role === 'space_owner');
+
 globalThis.fetch = makeFetch({
   'POST /api/login': { status: 200, body: { user: {} } },
 });
@@ -245,7 +254,22 @@ report('2.8 logout clears token even on server error', !authStore.isLoggedIn());
 // getHomePath
 report('2.9 getHomePath customer -> /dashboard/customer', authStore.getHomePath('customer') === '/dashboard/customer');
 report('2.10 getHomePath owner -> /dashboard/space-owner', authStore.getHomePath('space_owner') === '/dashboard/space-owner');
-report('2.11 getHomePath unknown defaults to customer', authStore.getHomePath('x') === '/dashboard/customer');
+report('2.10b getHomePath owner alias -> /dashboard/space-owner', authStore.getHomePath('owner') === '/dashboard/space-owner');
+report('2.11 getHomePath unknown -> home (no role mixing)', authStore.getHomePath('x') === '/');
+
+// normalizeRole + extractUser: إصلاح التوجيه إلى الرئيسية بسبب دور غير قياسي أو مستخدم مغلّف.
+report('2.12 normalizeRole variant "Space Owner" -> space_owner', authStore.normalizeRole('Space Owner') === 'space_owner');
+report('2.12b normalizeRole "SpaceOwner" -> space_owner', authStore.normalizeRole('SpaceOwner') === 'space_owner');
+report('2.13 normalizeRole "Customer"/blank -> customer/empty', authStore.normalizeRole('Customer') === 'customer' && authStore.normalizeRole('  ') === '');
+report(
+  '2.14 extractUser unwraps {data:{user}} shape',
+  (authStore.extractUser({ token: 't', data: { user: { name: 'كرم', role: 'space_owner' } } }).role) === 'space_owner'
+);
+report(
+  '2.15 extractUser unwraps {user} shape',
+  authStore.extractUser({ user: { role: 'owner' }, token: 't' }).role === 'owner'
+);
+report('2.16 getHomePath normalized variant routes to owner panel', authStore.getHomePath('Space Owner') === '/dashboard/space-owner');
 
 // ============================================================
 // القسم 3: dashboard.js — الكاش ودوال التحويل والجلب
@@ -399,6 +423,107 @@ const markRes = await notifications.markAllNotificationsReadWithFallback();
 report('4.18 mark-all-read works in demo', (markRes.demo === true && typeof markRes.message === 'string'));
 const notifAfterRead = notifications.deriveLocalNotifications();
 report('4.19 derived notifications become read after flag', notifAfterRead.every((n) => n.read === true));
+
+// ============================================================
+// القسم 5: owner.js — لوحة صاحب المساحة (API → وضع تجريبي)
+// ============================================================
+console.log('\n===== 5) owner.js (space owner dashboard) =====');
+
+const owner = await server.ssrLoadModule('/src/lib/owner.js');
+
+report('5.1 mapSpace maps laravel fields', owner.mapSpace({ space_id: 12, title: 'قاعة A', price: 120, capacity: 40, amenities: ['internet', { key: 'ac' }], status: 'inactive', rating: 4.75 }).id === 12
+  && owner.mapSpace({ space_id: 12, title: 'قاعة A', price: 120 }).price_per_hour === 120
+  && owner.mapSpace({ space_id: 12, amenities: ['internet', { key: 'ac' }] }).amenities[1] === 'ac'
+  && owner.mapSpace({ space_id: 12, status: 'inactive' }).is_active === false);
+
+report('5.2 mapMyOffer maps offer fields', owner.mapMyOffer({ offer_id: 88, request_title: 'طلب X', price_per_hour: 150, hours: 3, status: 'accepted' }).requestTitle === 'طلب X'
+  && owner.mapMyOffer({ offer_id: 88, price_per_hour: 150, hours: 3 }).duration_hours === 3
+  && owner.mapMyOffer({ offer_id: 88, status: 'accepted' }).status === 'accepted');
+
+report('5.3 mapOwnerBooking maps booking fields', owner.mapOwnerBooking({ booking_id: 5, space_name: 'قاعة B', time_from: '10:00', time_to: '13:00', price: 450 }).time === '10:00 – 13:00'
+  && owner.mapOwnerBooking({ booking_id: 5, space_name: 'قاعة B' }).spaceName === 'قاعة B');
+
+// تحميل كامل للوحة: كل نقاط الطريق تعمل → demo=false + تعيين المستخدم
+resetStorage();
+api.setToken(TOKEN);
+api.setUser({ name: 'مالك محلي', role: 'owner' });
+globalThis.fetch = makeFetch({
+  'GET /api/owner/spaces': { status: 200, body: { data: [{ space_id: 12, title: 'قاعة العروض', price_per_hour: 150, capacity: 120, amenities: ['internet', 'ac'], is_active: true }] } },
+  'GET /api/owner/offers': { status: 200, body: { data: [{ offer_id: 88, request_id: 41, request_title: 'طلب قاعة', status: 'pending', price_per_hour: 140, duration_hours: 3, created_at: '2026-09-18 11:00:00' }] } },
+  'GET /api/special-requests/open': { status: 200, body: { data: { requests: [{ request_id: 41, title: 'طلب السوق المفتوح', description: 'وصف', capacity: 40, budget: 180, status: 'open', offers_count: 2, created_at: '2026-09-18 10:00:00' }] } } },
+  'GET /api/owner/bookings': { status: 200, body: [] },
+  'GET /api/profile': { status: 200, body: { name: 'مالك API', email: 'm@m.com', phone: '+970', picture: '/owner.jpg' } },
+});
+const ownerDash = await owner.loadOwnerDashboardWithFallback();
+report('5.4 full dashboard loads from API', ownerDash.demo === false);
+report('5.5 dashboard user comes from profile', ownerDash.user.name === 'مالك API' && ownerDash.user.role === 'owner');
+report('5.6 dashboard spaces mapped', ownerDash.spaces.length === 1 && ownerDash.spaces[0].title === 'قاعة العروض' && ownerDash.spaces[0].id === 12);
+report('5.7 dashboard offers mapped', ownerDash.offers.length === 1 && ownerDash.offers[0].requestTitle === 'طلب قاعة' && ownerDash.offers[0].status === 'pending');
+report('5.8 dashboard market filtered open', ownerDash.market.length === 1 && ownerDash.market[0].title === 'طلب السوق المفتوح');
+report('5.9 dashboard stats built', ownerDash.stats.spacesCount === 1 && ownerDash.stats.activeSpacesCount === 1 && ownerDash.stats.pendingOffers === 1 && ownerDash.stats.openMarket === 1);
+owner.writeOwnerCache({ data: ownerDash });
+report('5.10 owner cache round-trips', owner.readOwnerCache()?.data?.stats?.spacesCount === 1);
+
+// فشل كل نقاط الطريق → وضع تجريبي آمن
+resetStorage();
+api.setToken(TOKEN);
+api.setUser({ name: 'مالك', role: 'owner' });
+globalThis.fetch = makeFetch({
+  'GET /api/owner/spaces': { status: 500, body: { message: 'x' } },
+  'GET /api/owner/offers': { status: 500, body: { message: 'x' } },
+  'GET /api/special-requests/open': { status: 500, body: { message: 'x' } },
+  'GET /api/owner/bookings': { status: 500, body: { message: 'x' } },
+  'GET /api/profile': { status: 500, body: { message: 'x' } },
+});
+const ownerDemo = await owner.loadOwnerDashboardWithFallback();
+report('5.11 all-fail falls back to demo', ownerDemo.demo === true && Array.isArray(ownerDemo.spaces) && Array.isArray(ownerDemo.offers) && Array.isArray(ownerDemo.market));
+report('5.12 demo flag set', owner.isOwnerDemo() === true);
+report('5.13 demo seeds 3 spaces', ownerDemo.spaces.length === 3);
+report('5.14 demo includes a stopped space', ownerDemo.spaces.some((s) => s.is_active === false));
+report('5.15 demo offers include pending + accepted', ownerDemo.offers.some((o) => o.status === 'pending') && ownerDemo.offers.some((o) => o.status === 'accepted'));
+report('5.16 demo stats consistent', ownerDemo.stats.spacesCount === 3 && ownerDemo.stats.activeSpacesCount === 2 && ownerDemo.stats.pendingOffers === 1 && ownerDemo.stats.acceptedOffers === 1);
+
+// عروض السوق في الوضع التجريبي: تقديم عرض → يُضاف محلياً، والتكرار يمنع
+const prop1 = await owner.submitProposalWithFallback('market-2', {
+  space_id: 'os-1', price_per_hour: 130, duration_hours: 3, notes: '', currency: 'ش.ج', request_title: 'قاعة اختبار',
+});
+report('5.17 proposal in demo returns offer', prop1.demo === true && prop1.duplicate === false && prop1.offer && prop1.offer.status === 'pending');
+const propDup = await owner.submitProposalWithFallback('market-2', {
+  space_id: 'os-1', price_per_hour: 130, duration_hours: 3, notes: '', currency: 'ش.ج', request_title: 'قاعة اختبار',
+});
+report('5.18 duplicate proposal rejected', propDup.duplicate === true && /سبق/.test(propDup.message));
+report('5.19 owner offers now include the new one', (await owner.loadOwnerOffersWithFallback()).offers.some((o) => o.requestTitle === 'قاعة اختبار'));
+
+// إضافة مساحة في الوضع التجريبي
+const newSpace = await owner.createSpaceWithFallback({ title: 'جناح جديد', location: 'غزة', price_per_hour: 90, capacity: 25, amenities: ['internet'] });
+report('5.20 add space in demo', newSpace.demo === true && newSpace.space.title === 'جناح جديد' && newSpace.space.is_active === true);
+const spacesAfterAdd = (await owner.loadSpacesWithFallback()).spaces;
+report('5.21 new space first in list', spacesAfterAdd[0].title === 'جناح جديد' && spacesAfterAdd.length === 4);
+
+// تبديل حالة مساحة → is_active تنقلب محلياً
+const toggled = await owner.toggleSpaceActiveWithFallback('os-1', false, { id: 'os-1', is_active: true });
+report('5.22 toggle space stopped', toggled.demo === true && toggled.space.is_active === false);
+const spacesAfterToggle = (await owner.loadSpacesWithFallback()).spaces;
+report('5.23 toggle persisted in store', spacesAfterToggle.find((s) => s.id === 'os-1')?.is_active === false);
+
+// السوق التجريبي: يعيد طلبات مخزن العميل المفتوحة إن وُجدت
+resetStorage();
+api.setToken(TOKEN);
+api.setUser({ name: 'مالك', role: 'owner' });
+localStorage.setItem('masahati_special_requests_data_v1', JSON.stringify({ requests: [{ id: 'cust-1', title: 'طلب من العميل', status: 'open', offers_count: 0, created_at: '2026-09-18 10:00:00' }, { id: 'cust-2', title: 'طلب مغلق', status: 'accepted' }] }));
+const marketFromCustomer = (await owner.loadMarketWithFallback(true)).requests;
+report('5.24 market reuses customer demo requests', marketFromCustomer.some((r) => r.title === 'طلب من العميل') && !marketFromCustomer.some((r) => r.title === 'طلب مغلق'));
+
+// bookmarks: loadOwnerBookings في الوضع التجريبي → قائمة فارغة آمنة
+resetStorage();
+api.setToken(TOKEN);
+api.setUser({ name: 'مالك', role: 'owner' });
+const bookingsDemo = await owner.loadOwnerBookingsWithFallback();
+report('5.25 bookings demo returns empty array', bookingsDemo.demo === true && Array.isArray(bookingsDemo.bookings) && bookingsDemo.bookings.length === 0);
+
+// isOwnerDemo / clearOwnerCache
+owner.clearOwnerCache();
+report('5.26 clearOwnerCache empties cache', owner.readOwnerCache() === null);
 
 await server.close();
 

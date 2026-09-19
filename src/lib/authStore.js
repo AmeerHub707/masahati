@@ -2,7 +2,7 @@
 // المصادقة عبر Bearer token (Sanctum) يُحفظ في localStorage.
 // التوكن هو المرجع الوحيد لكون الجلسة نشطة؛ لا نعتمد على أي علم إضافي.
 
-import { request, getToken, setToken, clearToken, setUser, clearUser, getUser, ApiError } from './api';
+import { request, getToken, setToken, setUser, clearUser, getUser, ApiError, resetLocalUserData } from './api';
 import { extractPicturePath } from './profilePicture';
 
 // إعادة التصدير لتسهيل الاستيراد من صفحات المصادقة
@@ -16,7 +16,28 @@ export function isLoggedIn() {
   return !!getToken();
 }
 
-// ----- تسجيل الدخول -----
+// يقبل أي صيغة إجابة يعيدها الباك إند ويفكّك أعمق كائن مستخدم/بيانات:
+//   { user: {...} } أو { data: {...} } أو { data: { user: {...} } } أو الكائن نفسه.
+// مثل dashboard.unwrapUser تماماً، لأن /api/login قد يغلّف المستخدم بنفس الطريقة.
+export function extractUser(res) {
+  if (!res || typeof res !== 'object') return {};
+  let cur = res;
+  if (cur.user && typeof cur.user === 'object') cur = cur.user;
+  if (cur.data && typeof cur.data === 'object') cur = cur.data;
+  if (cur.user && typeof cur.user === 'object') cur = cur.user;
+  return cur || {};
+}
+
+// تطبيع الدور الوارد من الباك إند إلى قيمتنا القياسية، حتى لو جاء بصيغة مختلفة
+// (مسافات/كبيرة/صغيرة/اسم مستعار) حتى لا يقع المستخدم في الرئيسية بدل لوحته.
+export function normalizeRole(role) {
+  if (!role) return '';
+  const s = String(role).trim().toLowerCase();
+  if (s === 'space_owner' || s === 'space owner' || s === 'spaceowner' || s === 'owner') return 'space_owner';
+  if (s === 'customer' || s === 'client') return 'customer';
+  return s;
+}
+
 export async function login(email, password) {
   const data = await request('/api/login', {
     method: 'POST',
@@ -24,8 +45,30 @@ export async function login(email, password) {
   });
   if (data && data.token) {
     setToken(data.token);
-    setUser(data.user);
-    return data;
+    // إصلاح: استجابة /api/login قد تخلو من user مباشرة (مغلّفة في data أو data.user)،
+    // وكذلك الدور قد يأتي بصيغة غير قياسية أو لا يأتي في استجابة الدخول إطلاقاً.
+    // نستخرج المستخدم الحقيقي ونطبّع الدور، وإن غاب نستعلم /api/profile (مصدر الدور
+    // في dashboard.js) حتى يُوجَّه المستخدم إلى لوحة تحكمه لا إلى الرئيسية.
+    const user = extractUser(data);
+    let role = normalizeRole(user.role);
+    if (!role) {
+      try {
+        const profile = extractUser(await request('/api/profile', { method: 'GET', auth: true }));
+        role = normalizeRole(profile.role);
+        if (role) {
+          user.role = role;
+          for (const k of ['name', 'email', 'phone', 'picture', 'photo']) {
+            if (typeof user[k] === 'undefined' && typeof profile[k] !== 'undefined') user[k] = profile[k];
+          }
+        }
+      } catch {
+        /* تجاهل فشل الملف: الدور أصلاً قد لا يقرره الباك إند */
+      }
+    }
+    if (role && !user.role) user.role = role;
+    setUser(Object.keys(user).length ? user : null);
+    // نعيد المستخدم المستخرج ضمن data حتى تعمل navigate(getHomePath(data.user?.role)).
+    return { ...data, user };
   }
   // إصلاح: كان الكود السابق يتجاهل غياب التوكن ويعود بنجاح صامت.
   // الآن: نرمي خطأ واضح إذا لم يُرجع السيرفر توكناً.
@@ -86,7 +129,7 @@ export async function googleLogin(idToken, role) {
     // claims موثوقة (name, email, picture) — نملأ الفراغ فقط ونترك قيم الباك إند
     // لها الأولوية حين تكون موجودة.
     const googlePayload = decodeGoogleIdToken(idToken) || {};
-    const backendUser = data.user || {};
+    const backendUser = extractUser(data);
 
     const hasBackendPicture = Boolean(extractPicturePath(backendUser));
     const merged = { ...backendUser };
@@ -102,11 +145,14 @@ export async function googleLogin(idToken, role) {
     if (!merged.email && typeof googlePayload.email === 'string' && googlePayload.email) {
       merged.email = googlePayload.email;
     }
+    // نسخّن دور الباك إند بنفس طريقة تسجيل الدخول العادي.
+    const role = normalizeRole(merged.role);
+    if (role) merged.role = role;
 
     // نخزّن النسخة المدمجة فقط إذا أضفنا فعلاً قيمة لم تكن موجودة.
     const fallbackAdded = Object.keys(merged).some((k) => merged[k] && merged[k] !== backendUser[k]);
     setUser(fallbackAdded ? merged : backendUser);
-    return data;
+    return { ...data, user: merged };
   }
   throw new ApiError('استجابة الخادم غير متوقعة (لا يوجد توكن).', 500, data);
 }
@@ -169,8 +215,9 @@ export async function logout() {
   } catch {
     /* نمسح التوكن محلياً على أي حال */
   } finally {
-    clearToken();
-    clearUser();
+    // نمسح كل بيانات الجلسة على الجهاز (توكن + مستخدم + كاش/صورة/بيانات تجريبية)
+    // حتى لا يتسرّب حسابٍ إلى حساب آخر عند التسجيل من جديد أو تبديل المستخدم.
+    resetLocalUserData();
   }
 }
 
@@ -205,12 +252,14 @@ export async function isEmailRegistered(email) {
 // الصفحة المؤقتة حالياً، وستنفصلان عند بنائهما تفصيلياً.
 const DASHBOARD_PATHS = {
   space_owner: '/dashboard/space-owner',
+  owner: '/dashboard/space-owner',
   customer: '/dashboard/customer',
 };
 
 export function getHomePath(role) {
-  const resolvedRole = role || getUser()?.role;
-  // الدور الناقص/غير المعروف يُرسَل افتراضياً إلى لوحة العميل حتى لا يتعثر
-  // التوجيه في المسار العام '/dashboard' (حلقة إعادة توجيه → شاشة فارغة).
-  return DASHBOARD_PATHS[resolvedRole] || '/dashboard/customer';
+  // نطبّع الدور أولاً (قد يأتي "space owner" أو "Owner" أو "SpaceOwner").
+  const rawRole = normalizeRole(role) || normalizeRole(getUser()?.role);
+  // شرط صارم: الدور الناقص/غير المعروف لا يُرسَل إلى أي لوحة تحكم كي لا يحدث
+  // خلط بين لوحة العميل ولوحة صاحب المساحة — يُحوَّل للرئيسية بدلاً من ذلك.
+  return DASHBOARD_PATHS[rawRole] || '/';
 }
