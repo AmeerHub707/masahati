@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Store, Send, Building2, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Megaphone, ChevronLeft, ChevronRight, Lock, Sparkles, Plus, TrendingUp, Home } from 'lucide-react';
+import { Store, Send, Building2, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Megaphone, ChevronLeft, ChevronRight, Lock, Sparkles, Plus, TrendingUp, Home, BarChart3, Wallet } from 'lucide-react';
 import MagneticButton from '../../common/MagneticButton';
 import ThemeToggle from '../../common/ThemeToggle';
 import { getCachedPictureUrl } from '../../../lib/profilePicture';
@@ -19,12 +19,15 @@ const NOTIF_ICONS = {
   spark: Sparkles,
 };
 
-// قائمة مخصصة لصاحب المساحة: نظرة عامة، السوق، عروضي، مساحاتي، الإعدادات.
+// قائمة مخصصة لصاحب المساحة: نظرة عامة، السوق، عروضي، مساحاتي، التقارير، الإيرادات، الإعدادات.
 const TABS = [
   { id: 'overview', label: 'نظرة عامة', icon: Home },
+  { id: 'my-spaces', label: 'مساحاتي', icon: Building2 },
   { id: 'market', label: 'السوق المفتوح', icon: Store },
   { id: 'offers', label: 'عروضي', icon: Send },
-  { id: 'spaces', label: 'مساحاتي', icon: Building2 },
+  { id: 'spaces', label: 'أضف مساحة', icon: Plus },
+  { id: 'reports', label: 'التقارير', icon: BarChart3 },
+  { id: 'revenues', label: 'الإيرادات', icon: Wallet },
   { id: 'settings', label: 'الإعدادات', icon: Settings },
 ];
 
@@ -167,7 +170,7 @@ export default function OwnerLayout({
               <div className="flex flex-col items-center gap-3">
                 <button
                   type="button"
-                  className="odash__collapse-btn relative inline-flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600 transition hover:bg-indigo-500 hover:text-white"
+                  className="odash__collapse-btn relative inline-flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100 text-orange-600 transition hover:bg-orange-500 hover:text-white"
                   onClick={() => setCollapsed((c) => !c)}
                   onMouseEnter={showCollapseTip}
                   onMouseLeave={hideCollapseTip}
@@ -183,11 +186,10 @@ export default function OwnerLayout({
               <div className="flex w-full items-center gap-1 px-1">
                 <span className="flex items-center gap-2">
                   <img src="/Logo.png" alt="مساحاتي" className="h-9 w-auto object-contain" />
-                  <span className="odash__brand-tag">صاحب مساحة</span>
                 </span>
                 <button
                   type="button"
-                  className="odash__collapse-btn ms-auto inline-flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600 transition hover:bg-indigo-500 hover:text-white"
+                  className="odash__collapse-btn ms-auto inline-flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100 text-orange-600 transition hover:bg-orange-500 hover:text-white"
                   onClick={() => setCollapsed((c) => !c)}
                   aria-label="طيّ الشريط الجانبي"
                 >

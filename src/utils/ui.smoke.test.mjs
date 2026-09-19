@@ -276,9 +276,9 @@ async function waitForOwnerLoaderGone(timeout = 6000) {
 report('O1 Owner dashboard mounts with side nav', await waitForOwnerLoaderGone(), 'loader still visible');
 report('O2 Owner side profile shows المدير name', ownerEl.querySelector('.odash__profile')?.textContent.includes('كرم'), 'owner profile name absent');
 
-// نظرة عامة: إحصاءات السوق والمساحات
-report('O3 Overview stats render', await waitForOwnerText('طلب مفتوح في السوق') && await waitForOwnerText('مساحة مسجّلة'), 'overview stats absent');
-report('O4 Overview hero greeting', !!ownerEl.querySelector('.odash__hero') && ownerEl.textContent.includes('صاحب مساحة'), 'hero absent');
+// نظرة عامة: أربع بطاقات إحصائية جديدة
+report('O3 Overview stats render', await waitForOwnerText('أرباح هذا الشهر') && await waitForOwnerText('طلبات السوق'), 'overview stats absent');
+report('O4 Overview four stat cards', ownerEl.querySelectorAll('.odash__stat').length === 4, 'expected 4 stat cards');
 
 // التنقل بين التبويبات المخصصة
 report('O5 Navigate to market tab', await clickOwnerByText('السوق المفتوح'), 'no click');

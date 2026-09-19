@@ -103,6 +103,14 @@ export function mapSpace(s) {
     power: s.power ?? s.has_power ?? s.electricity ?? null,
     is_active: s.is_active ?? (s.status !== 'inactive'),
     rating: Math.round(Number(s.rating ?? 0) * 10) / 10,
+    stats: s.stats
+      ? {
+          bookings: Number(s.stats.bookings ?? 0),
+          revenue: Number(s.stats.revenue ?? 0),
+          occupancy: Number(s.stats.occupancy ?? 0),
+          totalBookings: Number(s.stats.totalBookings ?? 0),
+        }
+      : null,
   };
 }
 
@@ -120,12 +128,16 @@ export function mapMyOffer(o) {
 }
 
 export function mapOwnerBooking(b) {
+  const timeFrom = b.time_from || b.start_time || '';
+  const timeTo = b.time_to || b.end_time || '';
   return {
     id: b.booking_id ?? b.id,
     spaceName: b.space_name ?? b.title ?? '',
     image: imageUrl(b.image) || '',
     date: b.date || '',
-    time: b.time_from && b.time_to ? `${b.time_from} – ${b.time_to}` : (b.time || ''),
+    time: timeFrom && timeTo ? `${timeFrom} – ${timeTo}` : (timeFrom || timeTo || b.time || ''),
+    timeFrom,
+    timeTo,
     hours: Number(b.hours || 0),
     price: Number(b.price || b.cost || 0),
     customer: b.customer ?? b.customer_name ?? '',
@@ -134,6 +146,31 @@ export function mapOwnerBooking(b) {
 }
 
 // ----- بذور الوضع التجريبي -----
+
+// إحصاءات تجريبية لكل مساحة تُشتق من بذور الحجوزات نفسها، حتى تلتزم الأرقام
+// مع بطاقات النظرة العامة (الأرباح، الحجوزات، الإشغال).
+function buildSpaceDemoStats(title, capacity) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const ym = `${year}-${String(month).padStart(2, '0')}`;
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const isConfirmed = (b) => b.status === 'confirmed' || b.status === 'accepted' || b.status === 'completed';
+  const scoped = seedOwnerBookings().filter((b) => b.space_name === title);
+  const confirmed = scoped.filter(isConfirmed);
+  const monthBookings = confirmed.filter((b) => String(b.date).slice(0, 7) === ym);
+  const hours = monthBookings.reduce((s, b) => s + Number(b.hours || 0), 0);
+  const revenue = monthBookings.reduce((s, b) => s + Number(b.price || 0), 0);
+  const capacityHours = Number(capacity || 0) * 8 * daysInMonth;
+  const occupancy = capacityHours > 0 ? Math.min(100, Math.round((hours / capacityHours) * 100)) : 0;
+  return {
+    bookings: monthBookings.length,
+    revenue,
+    occupancy,
+    totalBookings: confirmed.length,
+  };
+}
+
 function seedOwnerSpaces() {
   return [
     {
@@ -149,6 +186,7 @@ function seedOwnerSpaces() {
       power: true,
       is_active: true,
       rating: 4.8,
+      stats: buildSpaceDemoStats('قاعة العروض الكبرى', 120),
     },
     {
       id: 'os-2',
@@ -163,6 +201,7 @@ function seedOwnerSpaces() {
       power: true,
       is_active: true,
       rating: 4.6,
+      stats: buildSpaceDemoStats('غرفة الاجتماعات الذكية', 10),
     },
     {
       id: 'os-3',
@@ -177,6 +216,7 @@ function seedOwnerSpaces() {
       power: true,
       is_active: false,
       rating: 4.9,
+      stats: buildSpaceDemoStats('استوديو المبدعين', 15),
     },
   ];
 }
@@ -206,6 +246,61 @@ function seedOwnerOffers() {
       created_at: daysAgo(6),
     },
   ];
+}
+
+// حجوزات تجريبية تُنشأ حول تاريخ اليوم: شهر حالي بإيراد أعلى، وشهر سابق أقل،
+// حتى تظهر بطاقات النظرة العامة (الأرباح، الحجوزات، الإشغال) بأرقام واقعية.
+function seedOwnerBookings() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth() + 1;
+  const prevY = m === 1 ? y - 1 : y;
+  const prevM = m === 1 ? 12 : m - 1;
+  const dateStr = (yy, mm, dd) => `${yy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+  const daysIn = (yy, mm) => new Date(yy, mm, 0).getDate();
+  const clampDay = (yy, mm, dd) => dateStr(yy, mm, Math.max(1, Math.min(dd, daysIn(yy, mm))));
+  const spaces = [
+    { name: 'قاعة العروض الكبرى', rate: 150 },
+    { name: 'غرفة الاجتماعات الذكية', rate: 100 },
+  ];
+  const customers = ['أحمد خالد', 'سارة مراد', 'ليان قاسم', 'محمود عوض', 'نور الحاج'];
+
+  const list = [];
+  let id = 5000;
+
+  const push = (date, hours, status, i) => {
+    const space = spaces[i % spaces.length];
+    list.push({
+      booking_id: id++,
+      space_name: space.name,
+      image: '',
+      date,
+      time_from: '09:00:00',
+      time_to: `${9 + hours}:00:00`,
+      hours,
+      price: space.rate * hours,
+      customer_name: customers[i % customers.length],
+      status,
+    });
+  };
+
+  // اليوم والبارحة دائماً بالدالة حتى تظهر بطاقة الإشغال بأرقام حية.
+  const today = now.getDate();
+  const yesterday = today - 1;
+
+  let i = 0;
+  for (const [dayOffset, hours, status, cnt] of [
+    [today, 4, 'confirmed', 2],
+    [yesterday, 3, 'confirmed', 1],
+  ]) {
+    for (let k = 0; k < cnt; k++) push(clampDay(y, m, dayOffset), hours, status, i++);
+  }
+
+  for (let d = 2; d <= 8; d++) push(clampDay(y, m, Math.min(today + d, daysIn(y, m))), 2 + (d % 3), 'confirmed', i++);
+  for (let c = 0; c < 9; c++) push(clampDay(prevY, prevM, 3 + c * 2), 3 + (c % 3), c % 6 === 0 ? 'pending' : 'confirmed', i++);
+  for (let p = 0; p < 4; p++) push(clampDay(y, m, Math.max(1, today - 4 - p)), 2, 'pending', i++);
+
+  return list;
 }
 
 // سوق تجريبي: يحاول أولاً قراءة طلبات مخزن العميل المفتوحة (إن وُجد)،
@@ -557,7 +652,7 @@ export async function loadOwnerDashboardWithFallback(force = false) {
       spaces: store.spaces.map(mapSpace),
       offers: store.offers.map(mapMyOffer),
       market,
-      bookings: [],
+      bookings: seedOwnerBookings().map(mapOwnerBooking),
     };
   };
 

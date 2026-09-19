@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Building2, X, Loader2, MapPin, Users, Star, Wifi, Zap, Check,
   Sparkles, Repeat, Plus, BadgeCheck, Ban, CircleDollarSign, Send,
+  CalendarCheck, TrendingUp,
 } from 'lucide-react';
 import { loadSpacesWithFallback, createSpaceWithFallback, toggleSpaceActiveWithFallback, isOwnerDemo } from '../../../lib/owner';
 import { AMENITY_LABELS } from '../../../lib/requests';
@@ -352,6 +353,7 @@ export default function Spaces({ data }) {
 function renderCard(space, onToggle, togglingId) {
   const isActive = space.is_active !== false;
   const Icon = isActive ? CircleDollarSign : Ban;
+  const st = space.stats;
   return (
     <div className={`odash__space-card${isActive ? '' : ' is-inactive'}`} key={space.id}>
       <img src={space.image || ''} alt={space.title} loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
@@ -365,6 +367,13 @@ function renderCard(space, onToggle, togglingId) {
           {space.power && <span><Zap /> كهرباء</span>}
           {space.rating > 0 && <span className="odash__space-card-rating"><Star /> {space.rating}</span>}
         </div>
+        {st && (
+          <div className="odash__space-card-stats">
+            <span title="حجوزات هذا الشهر"><CalendarCheck /> {fmtNumber(st.bookings)}</span>
+            <span title="إيراد هذا الشهر"><CircleDollarSign /> {fmtNumber(st.revenue)} ش.ج</span>
+            <span title="معدّل الإشغال"><TrendingUp /> {fmtNumber(st.occupancy)}٪</span>
+          </div>
+        )}
       </div>
       <div className="odash__space-card-side">
         <b>{fmtNumber(space.price_per_hour)}</b>
