@@ -110,7 +110,14 @@ export function scheduleLabel(s) {
 
 export function scheduleLabelOf(req) {
   if (req?.schedule_label) return req.schedule_label;
-  return scheduleLabel(req?.schedule);
+  if (req?.schedule) return scheduleLabel(req.schedule);
+  if (req?.schedule_preset || req?.schedule_count) {
+    return scheduleLabel({
+      preset: req.schedule_preset || 'once',
+      count: Number(req.schedule_count) || 1,
+    });
+  }
+  return '';
 }
 
 export function mapRequest(r) {
@@ -428,7 +435,8 @@ export async function createSpecialRequest(payload) {
     },
     timeoutMs: REQ_TIMEOUT_MS,
   });
-  return { request: mapRequest(unwrap(res)) };
+  const body = unwrap(res);
+  return { request: mapRequest(body.request ?? body) };
 }
 
 export async function fetchRequestDetail(id) {
@@ -466,14 +474,8 @@ export async function acceptRequestOffer(requestId, offerId) {
           status: bookingRaw.status || 'pending',
         }
       : null,
-    request: mapRequest(body.request ?? rawRequestFromOffer(body)),
+    request: mapRequest(body.request ?? body),
   };
-}
-
-function rawRequestFromOffer(body) {
-  const keys = ['request', 'special_request'];
-  for (const k of keys) if (body[k] && typeof body[k] === 'object') return body[k];
-  return {};
 }
 
 // ------------- واجهة التطبيق (API → تجريبي) -------------
@@ -657,7 +659,7 @@ export async function rejectRequestOffer(requestId, offerId) {
   const body = unwrap(res);
   return {
     message: body.message || 'تم رفض العرض.',
-    request: mapRequest(body.request ?? rawRequestFromOffer(body)),
+    request: mapRequest(body.request ?? body),
   };
 }
 
@@ -671,7 +673,7 @@ export async function closeSpecialRequest(requestId) {
   const body = unwrap(res);
   return {
     message: body.message || 'تم إغلاق الطلب.',
-    request: mapRequest(body.request ?? rawRequestFromOffer(body)),
+    request: mapRequest(body.request ?? body),
   };
 }
 
