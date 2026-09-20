@@ -73,7 +73,6 @@ export async function userDetails() {
   return request('/api/user-details', { method: 'GET', auth: true });
 }
 
-<<<<<<< HEAD
 // ----- تغيير كلمة المرور أثناء تسجيل الدخول (محمي) -----
 export async function changePassword({ oldPassword, newPassword, newPassword_confirmation }) {
   return request('/api/change-pass', {
@@ -109,8 +108,6 @@ export async function updateProfilePicture(file) {
   });
 }
 
-=======
->>>>>>> c11d71720e3cc630cfeb274674899e596bf43fed
 // ----- تسجيل الخروج -----
 export async function logout() {
   try {
@@ -159,9 +156,5 @@ const DASHBOARD_PATHS = {
 
 export function getHomePath(role) {
   const resolvedRole = role || getUser()?.role;
-<<<<<<< HEAD
-  return DASHBOARD_PATHS[resolvedRole] || '/dashboard/customer';
-=======
-  return DASHBOARD_PATHS[resolvedRole] || '/dashboard';
->>>>>>> c11d71720e3cc630cfeb274674899e596bf43fed
+return DASHBOARD_PATHS[resolvedRole] || '/dashboard/customer';
 }

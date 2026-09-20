@@ -784,7 +784,6 @@ img{max-width:100%;}
   .loading__percent{font-size:.92rem;}
   .loading__skip{bottom:calc(1rem + env(safe-area-inset-bottom));left:1rem;}
 }
-<<<<<<< HEAD
 /* ===== Dashboard (pushed from dev branch) ===== */
 .btn-danger{
   display:inline-flex;align-items:center;gap:.5rem;background:#dc2626;color:#fff;font-weight:700;font-size:.95rem;
@@ -1424,5 +1423,3 @@ html.dark .step .num{color:#fff;}
 html.dark .dash__hero-ads-dot,
 html.dark .dash__hero-ads-dot:hover{background:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.35);}
 html.dark .dash__hero-ads-dot.is-active{background:var(--accent);border-color:var(--accent);transform:scale(1.35);}
-=======
->>>>>>> c11d71720e3cc630cfeb274674899e596bf43fed
