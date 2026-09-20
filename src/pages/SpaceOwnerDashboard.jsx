@@ -175,8 +175,10 @@ export default function SpaceOwnerDashboard() {
         <Market data={data} onProposalSubmitted={handleProposalSubmitted} />
       ) : active === 'offers' ? (
         <MyOffers data={data} />
-      ) : active === 'spaces' ? (
+      ) : active === 'my-spaces' ? (
         <Spaces data={data} />
+      ) : active === 'spaces' ? (
+        <Spaces data={data} autoOpen />
       ) : active === 'reports' ? (
         <Reports data={data} />
       ) : active === 'revenues' ? (

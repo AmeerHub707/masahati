@@ -90,12 +90,17 @@ function normalizeAmenities(b) {
 }
 
 export function mapSpace(s) {
+  const img = imageUrl(s.image) || '';
+  const gallery = Array.isArray(s.gallery)
+    ? s.gallery.map((g) => imageUrl(g)).filter(Boolean)
+    : (img ? [img] : []);
   return {
     id: s.space_id ?? s.id,
     title: s.title ?? '',
     description: s.description ?? '',
     location: s.location ?? '',
-    image: imageUrl(s.image) || '',
+    image: img,
+    gallery,
     price_per_hour: Number(s.price_per_hour ?? s.price ?? 0),
     capacity: Number(s.capacity ?? 0),
     amenities: normalizeAmenities(s),
@@ -483,6 +488,41 @@ export async function toggleOwnerSpaceActive(spaceId, isActive) {
   return { message: body.message || 'تم تحديث حالة المساحة.', space: mapSpace(body.space ?? body) };
 }
 
+export async function updateOwnerSpace(spaceId, payload) {
+  const res = await request(`/api/owner/spaces/${spaceId}`, {
+    method: 'PUT',
+    auth: true,
+    timeoutMs: REQ_TIMEOUT_MS,
+    body: {
+      title: payload.title,
+      description: payload.description,
+      location: payload.location,
+      price_per_hour: payload.price_per_hour,
+      capacity: payload.capacity,
+      amenities: payload.amenities,
+      internet: payload.internet,
+      power: payload.power,
+      image: payload.image,
+    },
+  });
+  const body = res && typeof res === 'object' && res.data && typeof res === 'object' && !Array.isArray(res.data)
+    ? res.data
+    : res || {};
+  return { message: body.message || 'تم تحديث المساحة.', space: mapSpace(body.space ?? body) };
+}
+
+export async function deleteOwnerSpace(spaceId) {
+  const res = await request(`/api/owner/spaces/${spaceId}`, {
+    method: 'DELETE',
+    auth: true,
+    timeoutMs: REQ_TIMEOUT_MS,
+  });
+  const body = res && typeof res === 'object' && res.data && typeof res === 'object' && !Array.isArray(res.data)
+    ? res.data
+    : res || {};
+  return { message: body.message || 'تم حذف المساحة.' };
+}
+
 export async function fetchOwnerBookings() {
   const res = await request('/api/owner/bookings', {
     method: 'GET',
@@ -578,6 +618,7 @@ export async function createSpaceWithFallback(payload) {
       description: payload.description || '',
       location: payload.location || '',
       image: payload.image || '',
+      gallery: Array.isArray(payload.gallery) ? payload.gallery : (payload.image ? [payload.image] : []),
       price_per_hour: Number(payload.price_per_hour || 0),
       capacity: Number(payload.capacity || 0),
       amenities: payload.amenities || [],
@@ -623,6 +664,67 @@ export async function toggleSpaceActiveWithFallback(spaceId, isActive, space) {
   } catch {
     setDemoFlag(true);
     return { demo: true, message: 'تم تحديث حالة المساحة (وضع تجريبي).', space: applyLocal() };
+  }
+}
+
+export async function updateSpaceWithFallback(spaceId, payload) {
+  const applyLocal = () => {
+    const store = demoStore();
+    const idx = store.spaces.findIndex((s) => String(s.id) === String(spaceId));
+    if (idx === -1) throw new Error('المساحة غير موجودة');
+    const merged = {
+      ...store.spaces[idx],
+      title: payload.title || store.spaces[idx].title,
+      description: payload.description ?? store.spaces[idx].description,
+      location: payload.location || store.spaces[idx].location,
+      price_per_hour: Number(payload.price_per_hour || store.spaces[idx].price_per_hour || 0),
+      capacity: Number(payload.capacity || store.spaces[idx].capacity || 0),
+      amenities: Array.isArray(payload.amenities) ? payload.amenities : store.spaces[idx].amenities,
+      internet: payload.internet ?? store.spaces[idx].internet,
+      power: payload.power ?? store.spaces[idx].power,
+      image: payload.image ?? store.spaces[idx].image,
+      gallery: Array.isArray(payload.gallery)
+        ? payload.gallery
+        : (Array.isArray(store.spaces[idx].gallery) ? store.spaces[idx].gallery : []),
+    };
+    store.spaces[idx] = merged;
+    writeDemoStore(store);
+    return mapSpace(merged);
+  };
+
+  if (isOwnerDemo()) {
+    return { demo: true, message: 'تم تحديث المساحة.', space: applyLocal() };
+  }
+  try {
+    const result = await updateOwnerSpace(spaceId, payload);
+    setDemoFlag(false);
+    return { demo: false, ...result };
+  } catch {
+    setDemoFlag(true);
+    return { demo: true, message: 'تعذّر الوصول للخادم — حُدّثت المساحة محلياً.', space: applyLocal() };
+  }
+}
+
+export async function deleteSpaceWithFallback(spaceId) {
+  const applyLocal = () => {
+    const store = demoStore();
+    const before = store.spaces.length;
+    store.spaces = store.spaces.filter((s) => String(s.id) !== String(spaceId));
+    writeDemoStore(store);
+    return store.spaces.length !== before;
+  };
+
+  if (isOwnerDemo()) {
+    return { demo: true, message: 'تم حذف المساحة.', deleted: applyLocal() };
+  }
+  try {
+    const result = await deleteOwnerSpace(spaceId);
+    setDemoFlag(false);
+    return { demo: false, message: result.message, deleted: true };
+  } catch {
+    setDemoFlag(true);
+    applyLocal();
+    return { demo: true, message: 'تعذّر الوصول للخادم — حُذفت المساحة محلياً.', deleted: true };
   }
 }
 

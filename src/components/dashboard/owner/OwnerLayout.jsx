@@ -25,7 +25,6 @@ const TABS = [
   { id: 'my-spaces', label: 'مساحاتي', icon: Building2 },
   { id: 'market', label: 'السوق المفتوح', icon: Store },
   { id: 'offers', label: 'عروضي', icon: Send },
-  { id: 'spaces', label: 'أضف مساحة', icon: Plus },
   { id: 'reports', label: 'التقارير', icon: BarChart3 },
   { id: 'revenues', label: 'الإيرادات', icon: Wallet },
   { id: 'settings', label: 'الإعدادات', icon: Settings },
@@ -271,7 +270,7 @@ export default function OwnerLayout({
             </button>
 
             <div className="odash__title">
-              <h1>{TABS.find((t) => t.id === active)?.label || 'لوحة المالك'}</h1>
+              <h1>{active === 'spaces' ? 'أضف مساحة' : (TABS.find((t) => t.id === active)?.label || 'لوحة المالك')}</h1>
               <p>{today}</p>
             </div>
 

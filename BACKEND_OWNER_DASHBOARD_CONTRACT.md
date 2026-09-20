@@ -15,6 +15,8 @@ It covers:
 2. `GET /api/owner/spaces` and `POST /api/owner/spaces` — space CRUD (list + create).
 3. `PATCH /api/owner/spaces/{spaceId}/active` — activate / stop a space. **Not implemented yet.**
 4. `GET /api/owner/bookings` — owner-side bookings/history. **Not implemented yet.**
+5. `PUT /api/owner/spaces/{spaceId}` and `DELETE /api/owner/spaces/{spaceId}` — space edit + delete
+   (used by the redesigned "مساحاتي" management view). **Not implemented yet.**
 
 ---
 
@@ -257,6 +259,80 @@ The frontend currently renders an empty state, but the endpoint keeps the overvi
 
 ---
 
+## 6) Update a space   ⚠️ NOT IMPLEMENTED YET
+
+```
+PUT /api/owner/spaces/{spaceId}     (auth: space_owner)
+```
+
+### Request body (what the frontend sends — same shape as create)
+```json
+{
+  "title": "غرفة الاجتماعات الذكية",
+  "description": "10 مقاعد مع شاشة عرض وكاميرا.",
+  "location": "المنطقة الشرقية",
+  "price_per_hour": 110,
+  "capacity": 10,
+  "amenities": ["internet", "projector", "ac"],
+  "internet": true,
+  "power": true,
+  "image": ""
+}
+```
+
+### Success (200)
+```json
+{
+  "message": "تم تحديث المساحة.",
+  "space": {
+    "space_id": 12,
+    "title": "غرفة الاجتماعات الذكية",
+    "price_per_hour": 110,
+    "is_active": true,
+    "rating": 4.6
+  }
+}
+```
+
+- Send the updated record (same shape as §2) so the list can refresh instantly.
+- Must 404 if the space belongs to another owner or does not exist.
+
+### Errors
+| Status | Body | When |
+|---|---|---|
+| 401 | `{ "message": "غير مصرح." }` | missing/revoked token |
+| 403 | `{ "message": "هذه الصفحة متاحة لمالكي المساحات فقط." }` | non-owner |
+| 404 | `{ "message": "المساحة غير موجودة." }` | bad `spaceId` or not owned by this owner |
+| 422 | `{ "message": "…" }` | missing/invalid fields |
+
+---
+
+## 7) Delete a space   ⚠️ NOT IMPLEMENTED YET
+
+```
+DELETE /api/owner/spaces/{spaceId}     (auth: space_owner)
+```
+
+### Success (200)
+```json
+{
+  "message": "تم حذف المساحة."
+}
+```
+
+- The space disappears from the owner's list, the customer booking flow, and future proposal
+  options. If the backend keeps soft-deletes / rejects deletion of a space with confirmed
+  bookings, return a clear JSON error so the UI can show it.
+
+### Errors
+| Status | Body | When |
+|---|---|---|
+| 401 | `{ "message": "غير مصرح." }` | missing/revoked token |
+| 403 | `{ "message": "هذه الصفحة متاحة لمالكي المساحات فقط." }` | non-owner |
+| 404 | `{ "message": "المساحة غير موجودة." }` | bad `spaceId` or not owned by this owner |
+
+---
+
 ## Verification checklist (after deploy)
 
 ```
@@ -270,6 +346,10 @@ GET    https://back-end-kwba.onrender.com/api/owner/bookings    -> 200 JSON list
 # any
 GET    https://back-end-kwba.onrender.com/api/owner/spaces (no token) -> 401 JSON
 ```
+
+Note: the "مساحاتي" view always tries the real API first (GET/POST/PATCH + PUT/DELETE above) and
+falls back to a local demo store when the endpoint is missing or the backend is unreachable —
+that is why the UI keeps working before the backend routes for §4/§6/§7 are implemented.
 
 Endpoints already specified in `BACKEND_SPECIAL_REQUESTS_BROADCAST_CONTRACT.md` (market feed
 `GET /api/special-requests/open`, submit `POST /api/special-requests/{id}/offers`, notifications)
