@@ -173,7 +173,7 @@ export default function SpaceOwnerDashboard() {
       (active === 'overview' ? (
         <OwnerOverview data={data} onNavigate={setActive} />
       ) : active === 'market' ? (
-        <Market data={data} onProposalSubmitted={handleProposalSubmitted} />
+        <Market data={data} onProposalSubmitted={handleProposalSubmitted} onNavigate={setActive} />
       ) : active === 'offers' ? (
         <MyOffers data={data} />
       ) : active === 'bookings' ? (

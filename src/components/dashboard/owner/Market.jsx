@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Store, Megaphone, X, Loader2, Clock, CalendarClock, Users, MapPin,
-  CircleDollarSign, Wifi, Zap, Video, Snowflake, Mic, Send, Check, Sparkles, Repeat, ChevronDown,
+  CircleDollarSign, Wifi, Zap, Video, Snowflake, Mic, Send, Check, Sparkles, Repeat, ChevronDown, Plus,
 } from 'lucide-react';
 import { loadMarketWithFallback, submitProposalWithFallback, isOwnerDemo } from '../../../lib/owner';
 import { isRequestOpen, isRequestExpired, AMENITY_LABELS } from '../../../lib/requests';
@@ -29,7 +29,7 @@ function timeAgo(iso) {
   return days <= 30 ? `منذ ${days} يوم` : `منذ ${Math.round(days / 30)} شهر`;
 }
 
-export default function Market({ data, onProposalSubmitted }) {
+export default function Market({ data, onProposalSubmitted, onNavigate }) {
   const [market, setMarket] = useState(() => (data?.market || []));
   const [demo, setDemo] = useState(() => isOwnerDemo());
   const [loading, setLoading] = useState(true);
@@ -40,11 +40,60 @@ export default function Market({ data, onProposalSubmitted }) {
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [spaceMenuOpen, setSpaceMenuOpen] = useState(false);
-  const [submitted, setSubmitted] = useState([]); // معرفات الطلبات التي قدّمنا عليها
+  const [submitted, setSubmitted] = useState(() =>
+    (data?.offers || []).filter((o) => o.status === 'pending').map((o) => String(o.requestId))
+  );
   const [toast, setToast] = useState(null);
 
   const spaces = (data?.spaces || []).filter((s) => s.is_active !== false);
   const selectedSpace = spaces.find((s) => String(s.id) === String(form.space_id));
+  const capacityWarn = (() => {
+    if (!form.space_id || !selectedSpace) return '';
+    const cap = Number(selectedSpace.capacity);
+    const need = Number(modal?.capacity || 0);
+    if (cap > 0 && need > 0 && cap < need) {
+      return `تتّسع «${selectedSpace.title}» لـ ${fmtNumber(cap)} شخص فقط، والطلب يحتاج ${fmtNumber(need)}.`;
+    }
+    return '';
+  })();
+
+  const suggestedFor = (space, budget) => {
+    const rate = Number(space?.price_per_hour || 0);
+    if (budget > 0 && rate > 0) return String(Math.round(Math.min(rate, budget)));
+    if (budget > 0) return String(Math.round(budget * 0.9));
+    if (rate > 0) return String(Math.round(rate));
+    return '';
+  };
+
+  const loadMarket = useCallback(async (force = false, silent = false) => {
+    if (force) setRefreshing(true);
+    else if (!silent) setLoading(true);
+    try {
+      const result = await loadMarketWithFallback(force);
+      setMarket(result.requests);
+      setDemo(result.demo);
+    } catch {
+      /* لا نكسر العرض */
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => loadMarket(), 0);
+    return () => clearTimeout(t);
+  }, [loadMarket]);
+
+  useEffect(() => {
+    // إنعاش خفيف في الخلفية: لا يرمش الواجهة ولا يفتح نافذة التحميل،
+    // ويتوقف أثناء الكتابة في نموذج العرض أو عند تصغير التبويب.
+    const id = setInterval(() => {
+      if (document.hidden || modal || submitting) return;
+      loadMarket(false, true);
+    }, 60000);
+    return () => clearInterval(id);
+  }, [loadMarket, modal, submitting]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -68,37 +117,15 @@ export default function Market({ data, onProposalSubmitted }) {
     };
   }, [spaceMenuOpen]);
 
-  const loadMarket = useCallback(async (force = false) => {
-    if (force) setRefreshing(true);
-    else setLoading(true);
-    try {
-      const result = await loadMarketWithFallback(force);
-      setMarket(result.requests);
-      setDemo(result.demo);
-      // إذا كان الوضع التجريبي، نستعرض عروضنا من البيانات الواردة عبر لوحة المالك.
-      if (result.demo && data?.offers) {
-        setSubmitted(data.offers
-          .filter((o) => o.status === 'pending')
-          .map((o) => String(o.requestId)));
-      }
-    } catch {
-      /* لا نكسر العرض */
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [data]);
-
-  useEffect(() => {
-    const t = setTimeout(() => loadMarket(), 0);
-    return () => clearTimeout(t);
-  }, [loadMarket]);
-
   const openModal = (req) => {
-    const defaultSpace = spaces.length === 1 ? String(spaces[0].id) : '';
+    const single = spaces.length === 1 ? spaces[0] : null;
     setForm({
-      space_id: defaultSpace,
-      price_per_hour: req.budget > 0 ? String(Math.round(Number(req.budget) * 0.9)) : '',
+      space_id: single ? String(single.id) : '',
+      price_per_hour: single
+        ? suggestedFor(single, Number(req.budget || 0))
+        : req.budget > 0
+          ? String(Math.round(Number(req.budget) * 0.9))
+          : '',
       duration_hours: '',
       notes: '',
     });
@@ -183,6 +210,9 @@ export default function Market({ data, onProposalSubmitted }) {
                     </span>
                   );
                 })}
+                {r.amenities.length > 4 && (
+                  <span className="odash__market-chip-more">+{r.amenities.length - 4}</span>
+                )}
               </div>
             )}
           </div>
@@ -264,7 +294,7 @@ export default function Market({ data, onProposalSubmitted }) {
         <div className="odash__state">
           <div className="ost-svg"><Store /></div>
           <h3>لا توجد طلبات مفتوحة حالياً</h3>
-          <p>صفحة السوق تنعش تلقائياً — عد لاحقاً أو تواصل معنا لتوفير المساحة.</p>
+          <p>نحدّث القائمة تلقائياً كل دقيقة — عد لاحقاً، أو استخدم زر التحديث أعلاه لعرض أحدث الطلبات.</p>
         </div>
       ) : modal ? (
         <div className="odash__market-single">
@@ -281,7 +311,10 @@ export default function Market({ data, onProposalSubmitted }) {
 
             {spaces.length === 0 ? (
               <div className="odash__modal-empty">
-                لا توجد مساحات نشطة بعد — أضف مساحة من تبويب <b>مساحاتي</b> أولاً.
+                <p>لا توجد مساحات نشطة بعد — أضف مساحة من تبويب <b>مساحاتي</b> أولاً لتتمكن من تقديم العروض.</p>
+                <button type="button" className="btn-primary" onClick={() => onNavigate?.('my-spaces')}>
+                  <Plus /> أضف مساحة الآن
+                </button>
               </div>
             ) : (
               <>
@@ -306,20 +339,30 @@ export default function Market({ data, onProposalSubmitted }) {
                       <ul className="odash__space-pick-list" role="listbox" aria-label="اختر المساحة">
                         {spaces.map((s) => {
                           const selected = form.space_id === String(s.id);
+                          const unfit =
+                            Number(s.capacity) > 0 && Number(modal?.capacity) > 0 && Number(s.capacity) < Number(modal.capacity);
                           return (
                             <li
                               key={s.id}
                               role="option"
                               aria-selected={selected}
-                              className={`odash__space-pick-item${selected ? ' is-selected' : ''}`}
+                              className={`odash__space-pick-item${selected ? ' is-selected' : ''}${unfit ? ' is-unfit' : ''}`}
                               onClick={() => {
-                                setForm((f) => ({ ...f, space_id: String(s.id) }));
+                                setForm((f) => ({ ...f, space_id: String(s.id), price_per_hour: suggestedFor(s, Number(modal?.budget || 0)) }));
                                 setErrors((er) => ({ ...er, space_id: '' }));
                                 setSpaceMenuOpen(false);
                               }}
                             >
                               <span className="odash__space-pick-item-name">{s.title}</span>
-                              <span className="odash__space-pick-item-price">{fmtNumber(s.price_per_hour)} ش.ج/ساعة</span>
+                              <span className="odash__space-pick-item-meta">
+                                <span className="odash__space-pick-item-price">{fmtNumber(s.price_per_hour)} ش.ج/ساعة</span>
+                                {Number(s.capacity) > 0 && (
+                                  <>
+                                    <span className="odash__space-pick-item-dot">·</span>
+                                    <span className="odash__space-pick-item-cap">{fmtNumber(s.capacity)} شخص</span>
+                                  </>
+                                )}
+                              </span>
                               {selected && <Check className="odash__space-pick-item-check" />}
                             </li>
                           );
@@ -327,12 +370,15 @@ export default function Market({ data, onProposalSubmitted }) {
                       </ul>
                     )}
                   </div>
-                  <p>{errors.space_id || ''}</p>
+                  <p className={!errors.space_id && capacityWarn ? 'is-warn' : ''}>{errors.space_id || capacityWarn}</p>
                 </div>
 
                 <div className="odash__modal-grid2">
                   <div className={`odash__field${errors.price_per_hour ? ' has-error' : ''}`}>
-                    <label>السعر (ش.ج/ساعة) <b>*</b></label>
+                    <label>
+                      السعر (ش.ج/ساعة) <b>*</b>
+                      {modal?.budget > 0 && <small>الميزانية: حتى {fmtNumber(modal.budget)} ش.ج</small>}
+                    </label>
                     <input
                       type="number"
                       min="0"
@@ -359,8 +405,8 @@ export default function Market({ data, onProposalSubmitted }) {
 
                 <div className="odash__field">
                   <label>ملاحظات للطالب (اختياري)</label>
-                  <input
-                    type="text"
+                  <textarea
+                    rows="2"
                     value={form.notes}
                     onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                     placeholder="مثال: تتضمن الشاشة والإنترنت والمشروبات"
