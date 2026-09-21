@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Store, Megaphone, X, Loader2, Clock, CalendarClock, Users, MapPin,
-  CircleDollarSign, Wifi, Zap, Video, Snowflake, Mic, Send, Check, Sparkles, Repeat,
+  CircleDollarSign, Wifi, Zap, Video, Snowflake, Mic, Send, Check, Sparkles, Repeat, ChevronDown,
 } from 'lucide-react';
 import { loadMarketWithFallback, submitProposalWithFallback, isOwnerDemo } from '../../../lib/owner';
 import { isRequestOpen, isRequestExpired, AMENITY_LABELS } from '../../../lib/requests';
@@ -39,16 +39,34 @@ export default function Market({ data, onProposalSubmitted }) {
   const [form, setForm] = useState({ space_id: '', price_per_hour: '', duration_hours: '', notes: '' });
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [spaceMenuOpen, setSpaceMenuOpen] = useState(false);
   const [submitted, setSubmitted] = useState([]); // معرفات الطلبات التي قدّمنا عليها
   const [toast, setToast] = useState(null);
 
   const spaces = (data?.spaces || []).filter((s) => s.is_active !== false);
+  const selectedSpace = spaces.find((s) => String(s.id) === String(form.space_id));
 
   useEffect(() => {
     if (!toast) return undefined;
     const id = setTimeout(() => setToast(null), 4200);
     return () => clearTimeout(id);
   }, [toast]);
+
+  useEffect(() => {
+    if (!spaceMenuOpen) return undefined;
+    const onDocClick = (e) => {
+      if (!e.target.closest('.odash__space-pick')) setSpaceMenuOpen(false);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') setSpaceMenuOpen(false);
+    };
+    document.addEventListener('click', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('click', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [spaceMenuOpen]);
 
   const loadMarket = useCallback(async (force = false) => {
     if (force) setRefreshing(true);
@@ -85,7 +103,15 @@ export default function Market({ data, onProposalSubmitted }) {
       notes: '',
     });
     setErrors({});
+    setSpaceMenuOpen(false);
     setModal(req);
+  };
+
+  const closeForm = () => {
+    if (submitting) return;
+    setSpaceMenuOpen(false);
+    setModal(null);
+    setErrors({});
   };
 
   const submitProposal = async () => {
@@ -117,6 +143,76 @@ export default function Market({ data, onProposalSubmitted }) {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const renderCard = (r, expanded = false) => {
+    const isSubmitted = submitted.includes(String(r.id));
+    const expired = isRequestExpired(r);
+    return (
+      <div
+        className={[
+          'odash__market-card',
+          isSubmitted ? ' is-submitted' : '',
+          expired ? ' is-expired' : '',
+          expanded ? ' is-selected' : '',
+        ].filter(Boolean).join(' ')}
+        key={r.id}
+      >
+        <div className="odash__market-card-main">
+          <div className="odash__market-ico"><Megaphone /></div>
+          <div className="odash__market-body">
+            <div className="odash__market-topline">
+              <span className="odash__market-badge"><Clock /> مفتوحة</span>
+              <span className="odash__market-time">{timeAgo(r.created_at)}</span>
+            </div>
+            <h3>{r.title}</h3>
+            {r.notes && <p className="odash__market-desc">{r.notes}</p>}
+            <div className="odash__market-meta">
+              <span><CalendarClock /> {r.schedule_label || 'مرة واحدة'}</span>
+              <span><Clock /> {r.preferred_time || 'وقت مرن'}</span>
+              <span><Users /> {fmtNumber(r.capacity)} شخص</span>
+              {r.area && <span><MapPin /> {r.area}</span>}
+            </div>
+            {r.amenities.length > 0 && (
+              <div className="odash__market-chips">
+                {r.amenities.slice(0, 4).map((a) => {
+                  const Icon = AMENITY_ICONS[a];
+                  return (
+                    <span key={a}>
+                      {Icon ? <Icon /> : null} {AMENITY_LABELS[a] || a}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="odash__market-foot">
+          <div className="odash__market-budget">
+            {r.budget > 0 ? (
+              <>
+                <CircleDollarSign /> حتى {fmtNumber(r.budget)} ش.ج
+              </>
+            ) : (
+              <span>الميزانية: غير محددة</span>
+            )}
+          </div>
+          <div className="odash__market-actions">
+            {expanded ? (
+              <button type="button" className="odash__market-close-form" onClick={closeForm} disabled={submitting} aria-label="إلغاء">
+                <X />
+              </button>
+            ) : isSubmitted ? (
+              <span className="odash__market-submitted"><Check /> تم إرسال عرضك</span>
+            ) : (
+              <button type="button" className="odash__market-bid" onClick={() => openModal(r)}>
+                <Send /> قدّم عرضاً
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const renderBanner = () => {
@@ -170,77 +266,18 @@ export default function Market({ data, onProposalSubmitted }) {
           <h3>لا توجد طلبات مفتوحة حالياً</h3>
           <p>صفحة السوق تنعش تلقائياً — عد لاحقاً أو تواصل معنا لتوفير المساحة.</p>
         </div>
-      ) : (
-        <div className="odash__market-grid">
-          {openReqs.map((r) => {
-            const isSubmitted = submitted.includes(String(r.id));
-            const expired = isRequestExpired(r);
-            return (
-              <div className={`odash__market-card${isSubmitted ? ' is-submitted' : ''}${expired ? ' is-expired' : ''}`} key={r.id}>
-                <div className="odash__market-card-main">
-                  <div className="odash__market-ico"><Megaphone /></div>
-                  <div className="odash__market-body">
-                    <div className="odash__market-topline">
-                      <span className="odash__market-badge"><Clock /> مفتوحة</span>
-                      <span className="odash__market-time">{timeAgo(r.created_at)}</span>
-                    </div>
-                    <h3>{r.title}</h3>
-                    {r.notes && <p className="odash__market-desc">{r.notes}</p>}
-                    <div className="odash__market-meta">
-                      <span><CalendarClock /> {r.schedule_label || 'مرة واحدة'}</span>
-                      <span><Clock /> {r.preferred_time || 'وقت مرن'}</span>
-                      <span><Users /> {fmtNumber(r.capacity)} شخص</span>
-                      {r.area && <span><MapPin /> {r.area}</span>}
-                    </div>
-                    {r.amenities.length > 0 && (
-                      <div className="odash__market-chips">
-                        {r.amenities.slice(0, 4).map((a) => {
-                          const Icon = AMENITY_ICONS[a];
-                          return (
-                            <span key={a}>
-                              {Icon ? <Icon /> : null} {AMENITY_LABELS[a] || a}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="odash__market-foot">
-                  <div className="odash__market-budget">
-                    {r.budget > 0 ? (
-                      <>
-                        <CircleDollarSign /> حتى {fmtNumber(r.budget)} ش.ج
-                      </>
-                    ) : (
-                      <span>الميزانية: غير محددة</span>
-                    )}
-                  </div>
-                  <div className="odash__market-actions">
-                    {isSubmitted ? (
-                      <span className="odash__market-submitted"><Check /> تم إرسال عرضك</span>
-                    ) : (
-                      <button type="button" className="odash__market-bid" onClick={() => openModal(r)}>
-                        <Send /> قدّم عرضاً
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {modal && (
-        <div className="modal-overlay odash__modal-overlay" onClick={() => setModal(null)}>
-          <div className="modal-box odash__modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="تقديم عرض">
-            <button type="button" className="odash__modal-close" onClick={() => setModal(null)} aria-label="إغلاق">
-              <X />
-            </button>
-            <span className="odash__modal-ico"><Send /></span>
-            <h3>قدّم عرضك على الطلب</h3>
-            <p className="odash__modal-sub">{modal.title}</p>
+      ) : modal ? (
+        <div className="odash__market-single">
+          {renderCard(modal, true)}
+          <div className="odash__market-form">
+            <div className="odash__market-form-head">
+              <button type="button" className="odash__market-close-form" onClick={closeForm} disabled={submitting} aria-label="إغلاق">
+                <X />
+              </button>
+              <span className="odash__modal-ico"><Send /></span>
+              <h3>قدّم عرضك على الطلب</h3>
+              <p className="odash__modal-sub">{modal.title}</p>
+            </div>
 
             {spaces.length === 0 ? (
               <div className="odash__modal-empty">
@@ -250,17 +287,46 @@ export default function Market({ data, onProposalSubmitted }) {
               <>
                 <div className={`odash__field${errors.space_id ? ' has-error' : ''}`}>
                   <label>المساحة <b>*</b></label>
-                  <select
-                    value={form.space_id}
-                    onChange={(e) => setForm((f) => ({ ...f, space_id: e.target.value }))}
-                  >
-                    <option value="">اختر مساحة…</option>
-                    {spaces.map((s) => (
-                      <option key={s.id} value={String(s.id)}>
-                        {s.title} — {fmtNumber(s.price_per_hour)} ش.ج/ساعة
-                      </option>
-                    ))}
-                  </select>
+                  <div className="odash__space-pick">
+                    <button
+                      type="button"
+                      className={`odash__space-pick-btn${spaceMenuOpen ? ' is-open' : ''}`}
+                      onClick={() => setSpaceMenuOpen((v) => !v)}
+                      aria-haspopup="listbox"
+                      aria-expanded={spaceMenuOpen}
+                    >
+                      <span className={`odash__space-pick-value${form.space_id ? '' : ' is-placeholder'}`}>
+                        {selectedSpace
+                          ? `${selectedSpace.title} — ${fmtNumber(selectedSpace.price_per_hour)} ش.ج/ساعة`
+                          : 'اختر مساحة…'}
+                      </span>
+                      <ChevronDown className="odash__space-pick-caret" />
+                    </button>
+                    {spaceMenuOpen && (
+                      <ul className="odash__space-pick-list" role="listbox" aria-label="اختر المساحة">
+                        {spaces.map((s) => {
+                          const selected = form.space_id === String(s.id);
+                          return (
+                            <li
+                              key={s.id}
+                              role="option"
+                              aria-selected={selected}
+                              className={`odash__space-pick-item${selected ? ' is-selected' : ''}`}
+                              onClick={() => {
+                                setForm((f) => ({ ...f, space_id: String(s.id) }));
+                                setErrors((er) => ({ ...er, space_id: '' }));
+                                setSpaceMenuOpen(false);
+                              }}
+                            >
+                              <span className="odash__space-pick-item-name">{s.title}</span>
+                              <span className="odash__space-pick-item-price">{fmtNumber(s.price_per_hour)} ش.ج/ساعة</span>
+                              {selected && <Check className="odash__space-pick-item-check" />}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
                   <p>{errors.space_id || ''}</p>
                 </div>
 
@@ -303,7 +369,7 @@ export default function Market({ data, onProposalSubmitted }) {
                 </div>
 
                 <div className="odash__modal-actions">
-                  <button type="button" className="btn-ghost" onClick={() => setModal(null)} disabled={submitting}>
+                  <button type="button" className="btn-ghost" onClick={closeForm} disabled={submitting}>
                     إلغاء
                   </button>
                   <button type="button" className="btn-primary" onClick={submitProposal} disabled={submitting}>
@@ -314,6 +380,10 @@ export default function Market({ data, onProposalSubmitted }) {
               </>
             )}
           </div>
+        </div>
+      ) : (
+        <div className="odash__market-grid">
+          {openReqs.map((r) => renderCard(r))}
         </div>
       )}
 
