@@ -132,18 +132,33 @@ export function mapMyOffer(o) {
   };
 }
 
+// يشتق عدد الساعات من وقت البداية/النهاية عند غياب حقل الساعات الصريح.
+function hoursFromTimes(from, to) {
+  const parse = (t) => {
+    const m = String(t || '').match(/(\d{1,2}):(\d{2})/);
+    return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+  };
+  const a = parse(from);
+  const b = parse(to);
+  if (a === null || b === null) return null;
+  const diff = (b - a) / 60;
+  return diff > 0 ? diff : null;
+}
+
 export function mapOwnerBooking(b) {
   const timeFrom = b.time_from || b.start_time || '';
   const timeTo = b.time_to || b.end_time || '';
+  const hours = Number(b.hours ?? b.duration_hours ?? 0) || hoursFromTimes(timeFrom, timeTo) || 0;
   return {
     id: b.booking_id ?? b.id,
+    spaceId: b.space_id ?? b.spaceId ?? null,
     spaceName: b.space_name ?? b.title ?? '',
     image: imageUrl(b.image) || '',
     date: b.date || '',
     time: timeFrom && timeTo ? `${timeFrom} – ${timeTo}` : (timeFrom || timeTo || b.time || ''),
     timeFrom,
     timeTo,
-    hours: Number(b.hours || 0),
+    hours,
     price: Number(b.price || b.cost || 0),
     customer: b.customer ?? b.customer_name ?? '',
     status: b.status || 'pending',

@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  CalendarCheck, CalendarDays, History, ListChecks, Clock, ChevronRight, ChevronLeft,
+  CalendarCheck, CalendarDays, History, ListChecks, ChevronRight, ChevronLeft,
   Loader2, Sparkles, X, Repeat, BadgeCheck, AlarmClock,
-  Building2, MapPin, Gauge, Check, Store, Search, ChevronDown,
+  Building2, Check, Store, Search, ChevronDown,
 } from 'lucide-react';
 import {
   isOwnerDemo,
@@ -49,6 +49,14 @@ function localDayKey(d) {
 function dayKeyOf(date) {
   const m = String(date || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
   return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
+}
+
+// يطابق الحجز مع المساحة بالمعرّف أولاً ثم بالاسم: بعض واجهات الباك إند ترسل
+// space_id بدون space_name، ما يجعل إحصاءات المساحة تظهر صفراً بلا هذا التطابق.
+function belongsToSpace(b, sp) {
+  if (!sp) return true;
+  if (b.spaceId != null && sp.id != null && String(b.spaceId) === String(sp.id)) return true;
+  return Boolean(b.spaceName) && b.spaceName === sp.title;
 }
 
 // يقرأ وقت البدء من الحجز (ساعة:دقيقة) مع تجاهل الثواني إن وُجدت.
@@ -135,60 +143,53 @@ export default function Bookings({ data }) {
   }, [load]);
 
   const todayKey = localDayKey(new Date());
-  const monthKeyNow = todayKey.slice(0, 7);
 
   // إحصاءات كل مساحة على حدة: تُشتق من الحجوزات نفسها وتُدمج مع بطاقة المساحة.
   const spaceRows = useMemo(() => {
-    const empty = () => ({ confirmed: 0, pending: 0, cancelled: 0, today: 0, monthHours: 0 });
+    const empty = () => ({ confirmed: 0, pending: 0, cancelled: 0, today: 0 });
+    const tally = (a, b) => {
+      const dk = dayKeyOf(b.date);
+      if (dk === todayKey && !isCancelled(b.status)) a.today += 1;
+      if (isCancelled(b.status)) a.cancelled += 1;
+      else if (isConfirmed(b.status)) a.confirmed += 1;
+      else a.pending += 1;
+    };
+
+    if (spaces.length) {
+      return spaces.map((sp) => {
+        const a = empty();
+        bookings.forEach((b) => { if (belongsToSpace(b, sp)) tally(a, b); });
+        return { ...sp, ...a };
+      });
+    }
+
     const agg = {};
     bookings.forEach((b) => {
       const name = b.spaceName || 'أخرى';
       if (!agg[name]) agg[name] = empty();
-      const a = agg[name];
-      const dk = dayKeyOf(b.date);
-      if (dk === todayKey) a.today += 1;
-      if (isCancelled(b.status)) a.cancelled += 1;
-      else if (isConfirmed(b.status)) {
-        a.confirmed += 1;
-        if (dk && dk.slice(0, 7) === monthKeyNow) a.monthHours += Number(b.hours || 0);
-      } else a.pending += 1;
+      tally(agg[name], b);
     });
-
-    const occupancyFor = (sp) => {
-      const stored = Math.round(Number(sp.stats?.occupancy ?? -1));
-      if (stored >= 0) return stored;
-      const cap = Number(sp.capacity || 0);
-      const a = agg[sp.title];
-      if (!cap || !a || !a.monthHours) return 0;
-      const days = new Date(Number(monthKeyNow.slice(0, 4)), Number(monthKeyNow.slice(5, 7)), 0).getDate();
-      const total = cap * 8 * days;
-      return total > 0 ? Math.min(100, Math.round((a.monthHours / total) * 100)) : 0;
-    };
-
-    if (spaces.length) {
-      return spaces.map((sp) => ({ ...sp, ...(agg[sp.title] || empty()), occupancy: occupancyFor(sp) }));
-    }
     return Object.entries(agg).map(([title, a]) => ({
-      id: title, title, image: '', location: '', is_active: true, capacity: 0, ...a, occupancy: 0,
+      id: title, title, image: '', location: '', is_active: true, capacity: 0, ...a,
     }));
-  }, [spaces, bookings, todayKey, monthKeyNow]);
+  }, [spaces, bookings, todayKey]);
 
   const selectedSpace = spaceRows.find((s) => String(s.id) === String(spaceId)) || null;
 
   // كل أقسام الصفحة (التقويم، الطلبات، السجل) تعرض حجوزات المساحة المختارة فقط.
   const scopedBookings = selectedSpace
-    ? bookings.filter((b) => b.spaceName && b.spaceName === selectedSpace.title)
+    ? bookings.filter((b) => belongsToSpace(b, selectedSpace))
     : bookings;
 
   const confirmedBookings = scopedBookings.filter((b) => isConfirmed(b.status));
   const pendingBookings = scopedBookings.filter((b) => b.status === 'pending');
-  const todayCount = scopedBookings.filter((b) => dayKeyOf(b.date) === localDayKey(new Date())).length;
+  const todayCount = scopedBookings.filter((b) => !isCancelled(b.status) && dayKeyOf(b.date) === localDayKey(new Date())).length;
 
   // حجوزات اليوم حسب المساحة المختارة: قائمة موسّعة بالتواريخ والأوقات.
   const todayBookings = useMemo(() => {
     const key = localDayKey(new Date());
     return scopedBookings
-      .filter((b) => dayKeyOf(b.date) === key)
+      .filter((b) => !isCancelled(b.status) && dayKeyOf(b.date) === key)
       .slice()
       .sort((a, b) => String(a.timeFrom || a.time || '').localeCompare(String(b.timeFrom || b.time || '')));
   }, [scopedBookings]);
@@ -197,24 +198,6 @@ export default function Bookings({ data }) {
     ? spaceRows.filter((s) => (s.title || '').toLowerCase().includes(query.toLowerCase()))
     : spaceRows;
 
-  // إجمالي كل المساحات (يُعرض افتراضياً قبل اختيار مساحة محددة).
-  const allAgg = useMemo(() => {
-    const t = { confirmed: 0, pending: 0, cancelled: 0, today: 0, monthHours: 0, occupancy: 0 };
-    let occSum = 0;
-    let occCount = 0;
-    spaceRows.forEach((s) => {
-      t.confirmed += s.confirmed;
-      t.pending += s.pending;
-      t.cancelled += s.cancelled;
-      t.today += s.today;
-      t.monthHours += s.monthHours;
-      if (s.occupancy > 0) { occSum += s.occupancy; occCount += 1; }
-    });
-    t.occupancy = occCount ? Math.round(occSum / occCount) : 0;
-    const activeCount = spaceRows.filter((s) => s.is_active !== false).length;
-    return { id: 'all', title: 'كل المساحات', image: '', location: `${activeCount} مساحة نشطة`, is_active: true, ...t };
-  }, [spaceRows]);
-
   // البطاقة العلوية تتغيّر حسب المساحة المختارة: إحصاءات المساحة فقط عند اختيارها.
   const summary = useMemo(() => {
     const scoped = selectedSpace
@@ -222,59 +205,18 @@ export default function Bookings({ data }) {
           confirmed: selectedSpace.confirmed,
           pending: selectedSpace.pending,
           today: selectedSpace.today,
-          monthHours: selectedSpace.monthHours,
         }
       : {
           confirmed: confirmedBookings.length,
           pending: pendingBookings.length,
           today: todayCount,
-          monthHours: spaceRows.reduce((sum, s) => sum + s.monthHours, 0),
         };
     return [
       { icon: BadgeCheck, value: scoped.confirmed, label: 'حجوزات مؤكَّدة' },
       { icon: AlarmClock, value: scoped.pending, label: 'طلبات بانتظار الرد' },
       { icon: CalendarCheck, value: scoped.today, label: 'حجوزات اليوم' },
-      { icon: Clock, value: fmtNumber(scoped.monthHours), label: 'ساعات محجوزة' },
     ];
-  }, [selectedSpace, confirmedBookings.length, pendingBookings.length, todayCount, spaceRows]);
-
-  const renderSpaceStat = (s, isAll) => (
-    <article className={`obk__space obk__space--single${s.is_active === false ? ' is-off' : ''}`}>
-      <div className="obk__space-head">
-        {s.image ? (
-          <img src={s.image} alt={s.title} loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-        ) : (
-          <div className="obk__space-ico"><Building2 /></div>
-        )}
-        <div className="obk__space-title">
-          <h3>{s.title}</h3>
-          {s.location && <p><MapPin /> {s.location}</p>}
-        </div>
-        {isAll ? (
-          <span className="obk__space-status">{fmtNumber(s.confirmed)} تأكيداً</span>
-        ) : (
-          <span className={`obk__space-status${s.is_active === false ? ' is-off' : ''}`}>
-            {s.is_active === false ? 'موقوفة' : 'نشطة'}
-          </span>
-        )}
-      </div>
-      <div className="obk__space-stats">
-        <div><b>{fmtNumber(s.confirmed)}</b><span>حجز مؤكَّد</span></div>
-        <div><b>{fmtNumber(s.today)}</b><span>حجوزات اليوم</span></div>
-        <div><b>{fmtNumber(s.pending)}</b><span>قيد الانتظار</span></div>
-        <div><b>{fmtNumber(s.monthHours)}</b><span>ساعات الشهر</span></div>
-      </div>
-      <div className="obk__space-occ">
-        <div className="obk__space-occ-label">
-          <span><Gauge /> {isAll ? 'متوسط الإشغال' : 'إشغال الشهر'}</span>
-          <b>{fmtNumber(s.occupancy)}٪</b>
-        </div>
-        <div className="odash__util-bar" role="img" aria-label={`نسبة الإشغال ${s.occupancy}٪`}>
-          <span className="odash__util-bar-fill" style={{ width: `${Math.min(100, s.occupancy)}%` }} />
-        </div>
-      </div>
-    </article>
-  );
+  }, [selectedSpace, confirmedBookings.length, pendingBookings.length, todayCount]);
 
   const handleStatus = useCallback(async (b, status) => {
     if (busyId) return;
@@ -379,9 +321,6 @@ export default function Bookings({ data }) {
             <small className="obk__row-date"><CalendarDays /> {fmtDayTitle(b.date)}</small>
           )}
           <small><CalendarCheck /> {b.spaceName || 'مساحة غير محددة'}</small>
-          <small className="obk__row-extra">
-            <Clock /> {fmtNumber(b.hours)} ساعات
-          </small>
         </span>
         {side}
       </div>
@@ -421,16 +360,75 @@ export default function Bookings({ data }) {
             <span className="obk__hero-chip"><Building2 /> {fmtNumber(spaceRows.length)} مساحة</span>
           </div>
         </div>
-        <button
-          type="button"
-          className="odash__market-refresh obk__hero-refresh"
-          onClick={() => load(true)}
-          disabled={refreshing}
-          aria-label="تحديث الحجوزات"
-          title="تحديث الحجوزات"
-        >
-          <Repeat className={refreshing ? 'spin' : ''} />
-        </button>
+        <div className="obk__hero-side">
+          <div className="odash__filter" ref={pickerRef}>
+            <div className="odash__filter-ico"><Store /></div>
+            <div className="odash__filter-main">
+              <span className="odash__filter-label">
+                {selectedSpace ? 'المساحة المختارة' : 'كل المساحات'}
+              </span>
+              <div className="odash__filter-field">
+                <Search className="odash__filter-search-ico" />
+                <input
+                  type="text"
+                  value={query}
+                  placeholder={selectedSpace ? selectedSpace.title : 'ابحث عن مساحة محددة…'}
+                  onFocus={() => setOpenPicker(true)}
+                  onChange={(e) => { setQuery(e.target.value); setOpenPicker(true); }}
+                  aria-label="بحث عن مساحة"
+                />
+                {query || selectedSpace ? (
+                  <button
+                    type="button"
+                    className="odash__filter-clear"
+                    onClick={() => pickSpace('')}
+                    aria-label="إلغاء اختيار المساحة"
+                  >
+                    <X />
+                  </button>
+                ) : (
+                  <ChevronDown className="odash__filter-caret" />
+                )}
+              </div>
+            </div>
+
+            {openPicker && (
+              <div className="odash__filter-menu" role="listbox">
+                <button type="button" role="option" className="odash__filter-item is-all" onClick={() => pickSpace('')}>
+                  <Building2 /> كل المساحات
+                </button>
+                {filteredPicker.map((s) => (
+                  <button
+                    type="button"
+                    role="option"
+                    key={s.id}
+                    className={`odash__filter-item${String(s.id) === String(spaceId) ? ' is-active' : ''}`}
+                    onClick={() => pickSpace(String(s.id))}
+                  >
+                    <Building2 />
+                    <span>
+                      <b>{s.title}</b>
+                      <small>{s.location || `تتسع لـ ${s.capacity} شخص`}</small>
+                    </span>
+                  </button>
+                ))}
+                {filteredPicker.length === 0 && (
+                  <span className="odash__filter-empty">لا توجد مساحات تطابق بحثك.</span>
+                )}
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            className="odash__market-refresh obk__hero-refresh"
+            onClick={() => load(true)}
+            disabled={refreshing}
+            aria-label="تحديث الحجوزات"
+            title="تحديث الحجوزات"
+          >
+            <Repeat className={refreshing ? 'spin' : ''} />
+          </button>
+        </div>
       </div>
 
       {loading && bookings.length === 0 ? (
@@ -441,86 +439,7 @@ export default function Bookings({ data }) {
         </div>
       ) : (
         <>
-          <section className="odash__section obk__spaces-sec" ref={pickerRef}>
-            <div className="odash__section-head">
-              <div>
-                <h2><Building2 /> إحصائيات كل مساحة</h2>
-                <p className="obk__day-sub">اختر مساحة لتعرض كل الأقسام أدناه — التقويم والطلبات والسجل — حجوزاتها فقط.</p>
-              </div>
-            </div>
-
-            <div className="odash__filter">
-              <div className="odash__filter-ico"><Store /></div>
-              <div className="odash__filter-main">
-                <span className="odash__filter-label">
-                  {selectedSpace ? 'إحصاءات مساحة ' : 'تُعرض الإحصاءات لكل المساحات'}
-                </span>
-                <div className="odash__filter-field">
-                  <Search className="odash__filter-search-ico" />
-                  <input
-                    type="text"
-                    value={query}
-                    placeholder={selectedSpace ? selectedSpace.title : 'ابحث عن مساحة محددة…'}
-                    onFocus={() => setOpenPicker(true)}
-                    onChange={(e) => { setQuery(e.target.value); setOpenPicker(true); }}
-                    aria-label="بحث عن مساحة"
-                  />
-                  {query || selectedSpace ? (
-                    <button
-                      type="button"
-                      className="odash__filter-clear"
-                      onClick={() => pickSpace('')}
-                      aria-label="إلغاء اختيار المساحة"
-                    >
-                      <X />
-                    </button>
-                  ) : (
-                    <ChevronDown className="odash__filter-caret" />
-                  )}
-                </div>
-              </div>
-
-              {openPicker && (
-                <div className="odash__filter-menu" role="listbox">
-                  <button type="button" role="option" className="odash__filter-item is-all" onClick={() => pickSpace('')}>
-                    <Building2 /> كل المساحات
-                  </button>
-                  {filteredPicker.map((s) => (
-                    <button
-                      type="button"
-                      role="option"
-                      key={s.id}
-                      className={`odash__filter-item${String(s.id) === String(spaceId) ? ' is-active' : ''}`}
-                      onClick={() => pickSpace(String(s.id))}
-                    >
-                      <Building2 />
-                      <span>
-                        <b>{s.title}</b>
-                        <small>{s.location || `تتسع لـ ${s.capacity} شخص`}</small>
-                      </span>
-                    </button>
-                  ))}
-                  {filteredPicker.length === 0 && (
-                    <span className="odash__filter-empty">لا توجد مساحات تطابق بحثك.</span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {spaceRows.length > 0 ? (
-              selectedSpace
-                ? renderSpaceStat(selectedSpace, false)
-                : renderSpaceStat(allAgg, true)
-            ) : (
-              renderListState(
-                <Building2 />,
-                'لا توجد مساحات بعد',
-                'أضف مساحة، وعند ورود الحجوزات ستظهر إحصاءات كل مساحة هنا.'
-              )
-            )}
-          </section>
-
-          <section className="odash__stats odash__stats--4">
+          <section className="odash__stats odash__stats--3">
             {summary.map((c) => {
               const Icon = c.icon;
               return (
