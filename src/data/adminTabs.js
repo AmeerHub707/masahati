@@ -1,8 +1,8 @@
-import { LayoutDashboard, Users, Building2, CalendarCheck, Star, Wallet, Send, Settings } from 'lucide-react';
+import { Home, Users, Building2, CalendarCheck, Star, Wallet, Send, Settings } from 'lucide-react';
 
 // تبويبات لوحة تحكم المشرف — مستخدمة في الشريط الجانبي ومكوّنات الصفحات.
 export const ADMIN_TABS = [
-  { id: 'overview', label: 'نظرة عامة', icon: LayoutDashboard },
+  { id: 'overview', label: 'نظرة عامة', icon: Home },
   { id: 'users', label: 'إدارة المستخدمين والملاك', icon: Users },
   { id: 'spaces', label: 'إدارة المساحات', icon: Building2 },
   { id: 'bookings', label: 'الحجوزات والنزاعات', icon: CalendarCheck },
