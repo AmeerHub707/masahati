@@ -2,58 +2,82 @@ import { useState } from 'react';
 import {
   UserCircle2,
   Settings2,
-  KeyRound,
-  Trash2,
-  PauseCircle,
-  AlertTriangle,
-  Mail,
-  AtSign,
-  Server,
   Eye,
   EyeOff,
+  CheckCircle2,
+  AlertCircle,
+  Wrench,
+  Percent,
+  Phone,
 } from 'lucide-react';
-import { SectionCard, SectionHeading, Field, inputCls, btnPrimary, btnDanger } from './ui';
 import useSafeInput from '../../hooks/useSafeInput';
 import { getAdminProfile } from '../../lib/adminAuth';
 
-function InfoNote({ ok, children }) {
+function SettingsMsg({ ok, children }) {
   if (!children) return null;
   return (
     <div
+      className={`dash__msg ${ok ? 'dash__msg--ok' : 'dash__msg--err'}`}
       role={ok ? 'status' : 'alert'}
-      className="mb-4 rounded-xl px-4 py-3 text-sm font-bold"
-      style={
-        ok
-          ? { background: 'rgba(34,197,94,.12)', color: '#15803d' }
-          : { background: 'rgba(239,68,68,.12)', color: '#b91c1c' }
-      }
     >
-      {children}
+      {ok ? <CheckCircle2 /> : <AlertCircle />}
+      <span>{children}</span>
     </div>
+  );
+}
+
+function Toggle({ id, label = '', checked, onChange }) {
+  return (
+    <label htmlFor={id} className="dash__switch">
+      {label && <span>{label}</span>}
+      <input
+        id={id}
+        type="checkbox"
+        role="switch"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        aria-label={label || id}
+      />
+      <span className="track" aria-hidden="true" />
+    </label>
   );
 }
 
 export default function AdminSettings() {
   const profile = getAdminProfile();
+  const initials = (profile?.name || 'م').trim().slice(0, 2) || 'م';
 
-  // البيانات الشخصية
+  // وضع الصيانة
+  const [maintenance, setMaintenance] = useState(false);
+  const [maintMsg, setMaintMsg] = useState({ ok: false, text: '' });
+
+  // Section 1: البيانات الشخصية وكلمة المرور
   const name = useSafeInput(profile?.name || '', { maxLength: 60 });
   const email = useSafeInput(profile?.email || '', { maxLength: 120 });
+  const whatsapp = useSafeInput('', { maxLength: 20 });
+  const [current, setCurrent] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [profileMsg, setProfileMsg] = useState({ ok: false, text: '' });
 
-  // إعدادات المنصة والبريد
+  // Section 2: إعدادات البريد والدعم SMTP
   const supportEmail = useSafeInput('support@masahati.com', { maxLength: 120 });
   const mailerHost = useSafeInput('mail.masahati.com', { maxLength: 120 });
   const mailerPort = useSafeInput('587', { maxLength: 6 });
   const mailerUser = useSafeInput('no-reply@masahati.com', { maxLength: 120 });
   const [mailMsg, setMailMsg] = useState({ ok: false, text: '' });
 
-  // كلمة المرور
-  const [current, setCurrent] = useState('');
-  const [newPass, setNewPass] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [showPw, setShowPw] = useState(false);
-  const [pwMsg, setPwMsg] = useState({ ok: false, text: '' });
+  // Section 3: إعدادات الحجز والعمولة
+  const [commissionRate, setCommissionRate] = useState(10);
+  const [gracePeriod, setGracePeriod] = useState(24);
+  const [autoApprove, setAutoApprove] = useState(false);
+  const [bookingMsg, setBookingMsg] = useState({ ok: false, text: '' });
+
+  const toggleMaintenance = (val) => {
+    setMaintenance(val);
+    setMaintMsg({ ok: true, text: val ? 'تم تفعيل وضع الصيانة.' : 'تم إيقاف وضع الصيانة.' });
+  };
 
   const saveProfile = (e) => {
     e.preventDefault();
@@ -61,7 +85,28 @@ export default function AdminSettings() {
       setProfileMsg({ ok: false, text: 'البريد الإلكتروني غير صحيح.' });
       return;
     }
-    setProfileMsg({ ok: true, text: 'تم حفظ البيانات الشخصية بنجاح.' });
+    const wantsPw = Boolean(current || newPass || confirm);
+    if (wantsPw) {
+      if (!current) {
+        setProfileMsg({ ok: false, text: 'أدخل كلمة المرور الحالية.' });
+        return;
+      }
+      if (newPass.length < 8) {
+        setProfileMsg({ ok: false, text: 'كلمة المرور الجديدة يجب ألا تقل عن 8 أحرف.' });
+        return;
+      }
+      if (newPass !== confirm) {
+        setProfileMsg({ ok: false, text: 'كلمتا المرور غير متطابقتين.' });
+        return;
+      }
+      setCurrent('');
+      setNewPass('');
+      setConfirm('');
+    }
+    setProfileMsg({
+      ok: true,
+      text: wantsPw ? 'تم حفظ الملف الشخصي وتغيير كلمة المرور بنجاح.' : 'تم حفظ الملف الشخصي بنجاح.',
+    });
   };
 
   const saveMailer = (e) => {
@@ -70,154 +115,212 @@ export default function AdminSettings() {
       setMailMsg({ ok: false, text: 'بريد دعم المنصة غير صحيح.' });
       return;
     }
-    setMailMsg({ ok: true, text: 'تم تحديث إعدادات النظام والبريد.' });
+    setMailMsg({ ok: true, text: 'تم تحديث إعدادات البريد والدعم.' });
   };
 
-  const savePassword = (e) => {
+  const saveBooking = (e) => {
     e.preventDefault();
-    if (!current) {
-      setPwMsg({ ok: false, text: 'أدخل كلمة المرور الحالية.' });
+    const rate = Number(commissionRate);
+    const grace = Number(gracePeriod);
+    if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
+      setBookingMsg({ ok: false, text: 'نسبة العمولة يجب أن تكون بين 0 و 100.' });
       return;
     }
-    if (newPass.length < 8) {
-      setPwMsg({ ok: false, text: 'كلمة المرور الجديدة يجب ألا تقل عن 8 أحرف.' });
+    if (!Number.isFinite(grace) || grace < 0) {
+      setBookingMsg({ ok: false, text: 'فترة الإلغاء يجب أن تكون رقماً موجباً.' });
       return;
     }
-    if (newPass !== confirm) {
-      setPwMsg({ ok: false, text: 'كلمتا المرور غير متطابقتين.' });
-      return;
-    }
-    setCurrent('');
-    setNewPass('');
-    setConfirm('');
-    setPwMsg({ ok: true, text: 'تم تغيير كلمة المرور بنجاح.' });
+    setBookingMsg({ ok: true, text: 'تم حفظ إعدادات الحجز والعمولة.' });
   };
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        {/* البيانات الشخصية */}
-        <SectionCard>
-          <SectionHeading icon={UserCircle2} title="البيانات الشخصية" subtitle="معلومات حساب المشرف" />
-          <InfoNote ok={profileMsg.ok}>{profileMsg.text}</InfoNote>
-          <form onSubmit={saveProfile} noValidate>
-            <Field label="الاسم الكامل" htmlFor="adm-name">
-              <input id="adm-name" type="text" value={name.value} onChange={name.onChange} className={inputCls} placeholder="اسمك الكامل" />
-            </Field>
-            <Field label="البريد الإلكتروني" htmlFor="adm-email">
-              <input id="adm-email" type="email" dir="ltr" value={email.value} onChange={email.onChange} className={inputCls} placeholder="you@example.com" />
-            </Field>
-            <div className="flex justify-end">
-              <button type="submit" className={btnPrimary}>
-                حفظ البيانات
-              </button>
-            </div>
-          </form>
-        </SectionCard>
-
-        {/* إعدادات النظام والبريد */}
-        <SectionCard>
-          <SectionHeading icon={Settings2} title="إعدادات النظام" subtitle="بريد الدعم وإعدادات خادم البريد" />
-          <InfoNote ok={mailMsg.ok}>{mailMsg.text}</InfoNote>
-          <form onSubmit={saveMailer} noValidate>
-            <Field label="بريد دعم المنصة" htmlFor="adm-support">
-              <div className="relative">
-                <Mail className="pointer-events-none absolute start-3.5 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
-                <input id="adm-support" type="email" dir="ltr" value={supportEmail.value} onChange={supportEmail.onChange} className="dash__input dash__input--icon" placeholder="support@masahati.com" />
-              </div>
-            </Field>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="خادم البريد (SMTP)" htmlFor="adm-host">
-                <div className="relative">
-                  <Server className="pointer-events-none absolute start-3.5 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
-                  <input id="adm-host" type="text" dir="ltr" value={mailerHost.value} onChange={mailerHost.onChange} className="dash__input dash__input--icon" />
-                </div>
-              </Field>
-              <Field label="المنفذ" htmlFor="adm-port">
-                <input id="adm-port" type="text" dir="ltr" value={mailerPort.value} onChange={mailerPort.onChange} className={inputCls} />
-              </Field>
-            </div>
-            <Field label="اسم المستخدم / المرسل" htmlFor="adm-user">
-              <div className="relative">
-                <AtSign className="pointer-events-none absolute start-3.5 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
-                <input id="adm-user" type="text" dir="ltr" value={mailerUser.value} onChange={mailerUser.onChange} className="dash__input dash__input--icon" />
-              </div>
-            </Field>
-            <div className="flex justify-end">
-              <button type="submit" className={btnPrimary}>
-                حفظ الإعدادات
-              </button>
-            </div>
-          </form>
-        </SectionCard>
-      </div>
-
-      {/* تغيير كلمة المرور */}
-      <SectionCard>
-        <SectionHeading icon={KeyRound} title="تغيير كلمة المرور" subtitle="حافظ على أمان حساب المشرف" />
-        <InfoNote ok={pwMsg.ok}>{pwMsg.text}</InfoNote>
-        <form onSubmit={savePassword} noValidate className="max-w-lg">
-          <Field label="كلمة المرور الحالية" htmlFor="adm-pw-current">
-            <input id="adm-pw-current" type="password" value={current} onChange={(e) => setCurrent(e.target.value)} className={inputCls} placeholder="••••••••" autoComplete="current-password" />
-          </Field>
-          <Field label="كلمة المرور الجديدة" htmlFor="adm-pw-new">
-            <div className="relative">
-              <input id="adm-pw-new" type={showPw ? 'text' : 'password'} value={newPass} onChange={(e) => setNewPass(e.target.value)} className="dash__input dash__input--pw" placeholder="٨ أحرف على الأقل" autoComplete="new-password" />
-              <button
-                type="button"
-                onClick={() => setShowPw((s) => !s)}
-                aria-label={showPw ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
-                className="absolute end-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center"
-                style={{ color: 'var(--text-muted)' }}
-              >
-                {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </Field>
-          <Field label="تأكيد كلمة المرور الجديدة" htmlFor="adm-pw-confirm">
-            <input id="adm-pw-confirm" type={showPw ? 'text' : 'password'} value={confirm} onChange={(e) => setConfirm(e.target.value)} className={inputCls} placeholder="أعد إدخال كلمة المرور" autoComplete="new-password" />
-          </Field>
-          <div className="flex justify-end">
-            <button type="submit" className={btnPrimary}>
-              <KeyRound className="h-4 w-4" />
-              تغيير كلمة المرور
-            </button>
-          </div>
-        </form>
-      </SectionCard>
-
-      {/* منطقة الخطر */}
-      <SectionCard className="border-red-200! shadow-none! dark:border-red-900!">
-        <div className="mb-4 flex items-center gap-3">
-          <span className="st-ico st-ico--red">
-            <AlertTriangle />
-          </span>
+    <div className="dash__settings">
+      {/* شريط علوي: وضع الصيانة */}
+      <section className="dash__section">
+        <div className="dash__section-head">
+          <h2><Wrench /> وضع الصيانة</h2>
+        </div>
+        <div
+          className="dash__form"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}
+        >
           <div>
-            <h3 className="text-lg font-extrabold text-red-600 dark:text-red-400">منطقة الخطر</h3>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>إجراءات خطيرة لا يمكن التراجع عنها بسهولة</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="rounded-2xl border border-red-200 p-4 dark:border-red-900" style={{ background: 'rgba(239,68,68,.06)' }}>
-            <p className="mb-3 text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-              إيقاف النظام مؤقتاً يمنع المستخدمين من إجراء حجوزات جديدة حتى يُعاد التفعيل.
-            </p>
-            <button type="button" className={btnDanger}>
-              <PauseCircle className="h-4 w-4" />
+            <p style={{ margin: 0, fontSize: '.95rem', fontWeight: 800, color: 'var(--text-strong)' }}>
               إيقاف النظام مؤقتاً
-            </button>
-          </div>
-          <div className="rounded-2xl border border-red-200 p-4 dark:border-red-900" style={{ background: 'rgba(239,68,68,.06)' }}>
-            <p className="mb-3 text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-              حذف حساب المشرف نهائياً يزيل الصلاحيات ويوقف الجلسة الحالية. لن يمكنك التراجع.
             </p>
-            <button type="button" className={btnDanger}>
-              <Trash2 className="h-4 w-4" />
-              حذف الحساب
+            <p style={{ margin: '.15rem 0 0', fontSize: '.8rem', color: 'var(--text-muted)' }}>
+              يمنع المستخدمين من إجراء حجوزات جديدة حتى يُعاد التفعيل.
+            </p>
+          </div>
+          <Toggle id="adm-maintenance" checked={maintenance} onChange={toggleMaintenance} />
+        </div>
+        <div style={{ marginTop: '1rem' }}>
+          <SettingsMsg ok={maintMsg.ok}>{maintMsg.text}</SettingsMsg>
+        </div>
+      </section>
+
+      {/* قسم 1: البيانات الشخصية وكلمة المرور */}
+      <section className="dash__section">
+        <div className="dash__section-head">
+          <h2><UserCircle2 /> البيانات الشخصية وكلمة المرور</h2>
+        </div>
+
+        <div className="dash__profile-card">
+          <div className="dash__profile-hero">
+            <div className="dash__photo dash__photo--initials">{initials}</div>
+            <h3 className="dash__photo-name">{profile?.name || 'مدير المنصة'}</h3>
+            <p className="dash__photo-role">مدير المنصة</p>
+          </div>
+
+          <form className="dash__form dash__form--inside" onSubmit={saveProfile} noValidate>
+            <div className="field">
+              <label htmlFor="adm-name">الاسم الكامل</label>
+              <input id="adm-name" type="text" value={name.value} onChange={name.onChange} placeholder="اسمك الكامل" dir="rtl" />
+            </div>
+            <div className="field">
+              <label htmlFor="adm-email">البريد الإلكتروني</label>
+              <input id="adm-email" type="email" dir="ltr" value={email.value} onChange={email.onChange} placeholder="you@example.com" />
+            </div>
+            <div className="field">
+              <label htmlFor="adm-whatsapp">
+                <Phone style={{ width: '.9rem', height: '.9rem', verticalAlign: '-.1em' }} /> رقم واتساب الدعم
+              </label>
+              <input id="adm-whatsapp" type="tel" dir="ltr" value={whatsapp.value} onChange={whatsapp.onChange} placeholder="+970 59 000 0000" />
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--border)', margin: '1.2rem 0 1rem', paddingTop: '1rem' }}>
+              <p style={{ margin: '0 0 .9rem', fontSize: '.82rem', fontWeight: 800, color: 'var(--text-muted)' }}>
+                تغيير كلمة المرور (اختياري)
+              </p>
+            </div>
+
+            <div className="field">
+              <label htmlFor="adm-pw-current">كلمة المرور الحالية</label>
+              <input id="adm-pw-current" type="password" value={current} onChange={(e) => setCurrent(e.target.value)} placeholder="••••••••" autoComplete="current-password" />
+            </div>
+            <div className="field">
+              <label htmlFor="adm-pw-new">كلمة المرور الجديدة</label>
+              <div className="dash__pw-wrap">
+                <input
+                  id="adm-pw-new"
+                  type={showPw ? 'text' : 'password'}
+                  value={newPass}
+                  onChange={(e) => setNewPass(e.target.value)}
+                  placeholder="٨ أحرف على الأقل"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  className="dash__pw-toggle"
+                  onClick={() => setShowPw((s) => !s)}
+                  aria-label={showPw ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                >
+                  {showPw ? <EyeOff /> : <Eye />}
+                </button>
+              </div>
+            </div>
+            <div className="field">
+              <label htmlFor="adm-pw-confirm">تأكيد كلمة المرور الجديدة</label>
+              <input
+                id="adm-pw-confirm"
+                type={showPw ? 'text' : 'password'}
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                placeholder="أعد إدخال كلمة المرور"
+                autoComplete="new-password"
+              />
+            </div>
+            <button type="submit" className="btn-primary">
+              حفظ الملف الشخصي
             </button>
+          </form>
+
+          <div style={{ marginTop: '1rem' }}>
+            <SettingsMsg ok={profileMsg.ok}>{profileMsg.text}</SettingsMsg>
           </div>
         </div>
-      </SectionCard>
+      </section>
+
+      {/* قسم 2: إعدادات البريد والدعم SMTP */}
+      <section className="dash__section">
+        <div className="dash__section-head">
+          <h2><Settings2 /> إعدادات البريد والدعم SMTP</h2>
+        </div>
+
+        <form className="dash__form" onSubmit={saveMailer} noValidate>
+          <SettingsMsg ok={mailMsg.ok}>{mailMsg.text}</SettingsMsg>
+          <div className="field">
+            <label htmlFor="adm-support">بريد دعم المنصة</label>
+            <input id="adm-support" type="email" dir="ltr" value={supportEmail.value} onChange={supportEmail.onChange} placeholder="support@masahati.com" />
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="field">
+              <label htmlFor="adm-host">خادم البريد (SMTP)</label>
+              <input id="adm-host" type="text" dir="ltr" value={mailerHost.value} onChange={mailerHost.onChange} />
+            </div>
+            <div className="field">
+              <label htmlFor="adm-port">المنفذ</label>
+              <input id="adm-port" type="text" dir="ltr" value={mailerPort.value} onChange={mailerPort.onChange} placeholder="587" />
+            </div>
+          </div>
+          <div className="field">
+            <label htmlFor="adm-user">اسم المستخدم / المرسل</label>
+            <input id="adm-user" type="text" dir="ltr" value={mailerUser.value} onChange={mailerUser.onChange} />
+          </div>
+          <button type="submit" className="btn-primary">
+            حفظ إعدادات البريد
+          </button>
+        </form>
+      </section>
+
+      {/* قسم 3: إعدادات الحجز والعمولة */}
+      <section className="dash__section">
+        <div className="dash__section-head">
+          <h2><Percent /> إعدادات الحجز والعمولة</h2>
+        </div>
+
+        <form className="dash__form" onSubmit={saveBooking} noValidate>
+          <SettingsMsg ok={bookingMsg.ok}>{bookingMsg.text}</SettingsMsg>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="field">
+              <label htmlFor="adm-commission">نسبة عمولة المنصة %</label>
+              <input
+                id="adm-commission"
+                type="number"
+                dir="ltr"
+                min="0"
+                max="100"
+                step="0.5"
+                value={commissionRate}
+                onChange={(e) => setCommissionRate(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="adm-grace">فترة إلغاء الحجز (ساعات)</label>
+              <input
+                id="adm-grace"
+                type="number"
+                dir="ltr"
+                min="0"
+                step="1"
+                value={gracePeriod}
+                onChange={(e) => setGracePeriod(e.target.value)}
+              />
+            </div>
+          </div>
+          <div style={{ marginBottom: '1.2rem' }}>
+            <Toggle
+              id="adm-auto-approve"
+              label="تفعيل الموافقة التلقائية على الحجوزات"
+              checked={autoApprove}
+              onChange={setAutoApprove}
+            />
+          </div>
+          <button type="submit" className="btn-primary">
+            حفظ إعدادات الحجز
+          </button>
+        </form>
+      </section>
     </div>
   );
 }
