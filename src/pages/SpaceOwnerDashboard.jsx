@@ -15,6 +15,7 @@ import OwnerOverview from '../components/dashboard/owner/OwnerOverview';
 import Market from '../components/dashboard/owner/Market';
 import MyOffers from '../components/dashboard/owner/MyOffers';
 import Spaces from '../components/dashboard/owner/Spaces';
+import Bookings from '../components/dashboard/owner/Bookings';
 import Reports from '../components/dashboard/owner/Reports';
 import Revenues from '../components/dashboard/owner/Revenues';
 import Settings from '../components/dashboard/Settings';
@@ -175,6 +176,8 @@ export default function SpaceOwnerDashboard() {
         <Market data={data} onProposalSubmitted={handleProposalSubmitted} />
       ) : active === 'offers' ? (
         <MyOffers data={data} />
+      ) : active === 'bookings' ? (
+        <Bookings data={data} />
       ) : active === 'my-spaces' ? (
         <Spaces data={data} />
       ) : active === 'spaces' ? (

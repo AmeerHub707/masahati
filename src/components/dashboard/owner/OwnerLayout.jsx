@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Store, Send, Building2, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Megaphone, ChevronLeft, ChevronRight, Lock, Sparkles, Plus, TrendingUp, Home, BarChart3, Wallet } from 'lucide-react';
+import { Store, Send, Building2, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Megaphone, ChevronLeft, ChevronRight, Lock, Sparkles, Plus, TrendingUp, Home, BarChart3, Wallet, CalendarCheck } from 'lucide-react';
 import MagneticButton from '../../common/MagneticButton';
 import ThemeToggle from '../../common/ThemeToggle';
 import { getCachedPictureUrl } from '../../../lib/profilePicture';
@@ -19,10 +19,11 @@ const NOTIF_ICONS = {
   spark: Sparkles,
 };
 
-// قائمة مخصصة لصاحب المساحة: نظرة عامة، السوق، عروضي، مساحاتي، التقارير، الإيرادات، الإعدادات.
+// قائمة مخصصة لصاحب المساحة: نظرة عامة، السوق، عروضي، مساحاتي، الحجوزات، التقارير، الإيرادات، الإعدادات.
 const TABS = [
   { id: 'overview', label: 'نظرة عامة', icon: Home },
   { id: 'my-spaces', label: 'مساحاتي', icon: Building2 },
+  { id: 'bookings', label: 'الحجوزات', icon: CalendarCheck },
   { id: 'market', label: 'السوق المفتوح', icon: Store },
   { id: 'offers', label: 'عروضي', icon: Send },
   { id: 'reports', label: 'التقارير', icon: BarChart3 },

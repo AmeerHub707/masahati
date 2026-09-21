@@ -532,6 +532,24 @@ export async function fetchOwnerBookings() {
   return listOf(res, 'bookings').map(mapOwnerBooking);
 }
 
+// يؤكّد أو يرفض حجزاً على مساحة المالك. الواجهة غير مفعّلة بعد في الباك إند،
+// لذا تعتمد على نمط «جرّب API ثم الوضع التجريبي» الموجود في باقي الوحدة.
+export async function updateOwnerBookingStatus(bookingId, status) {
+  const res = await request(`/api/owner/bookings/${bookingId}/status`, {
+    method: 'PATCH',
+    auth: true,
+    timeoutMs: REQ_TIMEOUT_MS,
+    body: { status },
+  });
+  const body = res && typeof res === 'object' && res.data && typeof res === 'object' && !Array.isArray(res.data)
+    ? res.data
+    : res || {};
+  return {
+    message: body.message || (status === 'confirmed' ? 'تم تأكيد الحجز.' : 'تم رفض طلب الحجز.'),
+    booking: body.booking ? mapOwnerBooking(body.booking) : null,
+  };
+}
+
 // ----- واجهات التطبيق (API → تجريبي) -----
 export async function loadMarketWithFallback(force = false) {
   if (isOwnerDemo() && !force) {
@@ -739,6 +757,23 @@ export async function loadOwnerBookingsWithFallback(force = false) {
   } catch {
     setDemoFlag(true);
     return { demo: true, bookings: [] };
+  }
+}
+
+export async function setBookingStatusWithFallback(bookingId, status) {
+  if (isOwnerDemo()) {
+    return {
+      demo: true,
+      message: status === 'confirmed' ? 'تم تأكيد الحجز (وضع تجريبي).' : 'تم رفض طلب الحجز (وضع تجريبي).',
+    };
+  }
+  try {
+    const result = await updateOwnerBookingStatus(bookingId, status);
+    setDemoFlag(false);
+    return { demo: false, message: result.message };
+  } catch {
+    setDemoFlag(true);
+    return { demo: true, message: 'تعذّر الوصول للخادم — حُدِّث الحجز محلياً للتجربة.' };
   }
 }
 

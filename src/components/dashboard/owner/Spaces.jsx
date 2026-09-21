@@ -660,52 +660,61 @@ export default function Spaces({ data, autoOpen = false }) {
     <section className="odash__spaces msp">
       {renderBanner()}
 
-      <div className="odash__spaces-head">
-        <div>
-          <h2>{modal ? (modal.mode === 'edit' ? <Building2 /> : <Plus />) : <Building2 />} {modal ? (modal.mode === 'edit' ? 'تعديل المساحة' : 'إضافة مساحة') : 'مساحاتي'}</h2>
+      <div className="obk__hero">
+        <div className="obk__hero-main">
+          <h2>{modal ? (modal.mode === 'edit' ? <Pencil /> : <Plus />) : <Building2 />} {modal ? (modal.mode === 'edit' ? 'تعديل المساحة' : 'إضافة مساحة') : 'مساحاتي'}</h2>
           <p>{modal ? 'املأ بيانات المساحة واحفظها لعرضها في السوق.' : 'أدر مساحاتك، راقب تفاصيلها، وعدّل أو فعّل أي مساحة بسهولة.'}</p>
-        </div>
-        {modal ? (
-          <button type="button" className="odash__spaces-add is-back" onClick={resetModal} aria-label="الرجوع إلى قائمة المساحات">
-            <ArrowRight /> رجوع
-          </button>
-        ) : (
-          <div className="odash__spaces-head-actions">
-            <div className="msp__search">
-              <Search />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="ابحث باسم المساحة…"
-                aria-label="بحث في مساحاتي"
-              />
-              {search && (
-                <button
-                  type="button"
-                  className="msp__search-clear"
-                  onClick={() => setSearch('')}
-                  aria-label="مسح البحث"
-                >
-                  <X />
-                </button>
-              )}
+          {!modal && (
+            <div className="obk__hero-meta">
+              <span className="obk__hero-chip"><Building2 /> {fmtNumber(counts.all)} مساحة</span>
+              <span className="obk__hero-chip is-good"><BadgeCheck /> {fmtNumber(counts.active)} نشطة</span>
+              <span className="obk__hero-chip is-bad"><Ban /> {fmtNumber(counts.inactive)} موقوفة</span>
             </div>
-            <button
-              type="button"
-              className="odash__spaces-refresh"
-              onClick={() => loadSpaces(true)}
-              disabled={refreshing}
-              aria-label="تحديث المساحات"
-              title="تحديث المساحات"
-            >
-              <Repeat className={refreshing ? 'spin' : ''} />
+          )}
+        </div>
+        <div className="obk__hero-side">
+          {modal ? (
+            <button type="button" className="odash__spaces-add is-back" onClick={resetModal} aria-label="الرجوع إلى قائمة المساحات">
+              <ArrowRight /> رجوع
             </button>
-            <button type="button" className="odash__spaces-add" onClick={openCreate}>
-              <Plus /> أضف مساحة
-            </button>
-          </div>
-        )}
+          ) : (
+            <>
+              <div className="msp__search">
+                <Search />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="ابحث باسم المساحة…"
+                  aria-label="بحث في مساحاتي"
+                />
+                {search && (
+                  <button
+                    type="button"
+                    className="msp__search-clear"
+                    onClick={() => setSearch('')}
+                    aria-label="مسح البحث"
+                  >
+                    <X />
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                className="odash__spaces-refresh"
+                onClick={() => loadSpaces(true)}
+                disabled={refreshing}
+                aria-label="تحديث المساحات"
+                title="تحديث المساحات"
+              >
+                <Repeat className={refreshing ? 'spin' : ''} />
+              </button>
+              <button type="button" className="odash__spaces-add" onClick={openCreate}>
+                <Plus /> أضف مساحة
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {!modal && (
