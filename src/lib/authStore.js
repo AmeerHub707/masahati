@@ -1,0 +1,170 @@
+// تخزين المصادقة الحقيقي — يتواصل مع باك إند Laravel على Render.
+// المصادقة عبر Bearer token (Sanctum) يُحفظ في localStorage.
+// التوكن هو المرجع الوحيد لكون الجلسة نشطة؛ لا نعتمد على أي علم إضافي.
+
+import { request, getToken, setToken, clearToken, setUser, clearUser, getUser, ApiError } from './api';
+
+// إعادة التصدير لتسهيل الاستيراد من صفحات المصادقة
+export { request, ApiError };
+
+// ----- حالة الجلسة: مبنية على وجود التوكن فقط -----
+// إصلاح: كان الكود السابق يعتمد على SESSION_KEY بالإضافة إلى التوكن،
+// ما يسمح بإظهار واجهة المسجّل بعد انتهاء صلاحية التوكن في السيرفر.
+// الآن: التوكن هو المرجع الوحيد.
+export function isLoggedIn() {
+  return !!getToken();
+}
+
+// ----- تسجيل الدخول -----
+export async function login(email, password) {
+  const data = await request('/api/login', {
+    method: 'POST',
+    body: { login: email, password },
+  });
+  if (data && data.token) {
+    setToken(data.token);
+    setUser(data.user);
+    return data;
+  }
+  // إصلاح: كان الكود السابق يتجاهل غياب التوكن ويعود بنجاح صامت.
+  // الآن: نرمي خطأ واضح إذا لم يُرجع السيرفر توكناً.
+  throw new ApiError('استجابة الخادم غير متوقعة (لا يوجد توكن).', 500, data);
+}
+
+// ----- تسجيل عميل -----
+export async function registerCustomer(payload) {
+  return request('/api/register/customer', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+// ----- تسجيل صاحب مساحة (يتضمن ملف الوثيقة) -----
+export async function registerOwner(formData) {
+  return request('/api/register/space-owner', {
+    method: 'POST',
+    body: formData,
+    isForm: true,
+  });
+}
+
+// ----- تسجيل الدخول عبر Google -----
+// يرسل id_token (credential من Google Identity Services) إلى الباك إند،
+// مع الدور الاختياري ('customer' | 'space_owner') عند التسجيل. الباك إند يتحقق
+// من الرمز ويعيد Sanctum token يُحفظ مثل أي تسجيل دخول عادي.
+export async function googleLogin(idToken, role) {
+  const data = await request('/api/auth/google', {
+    method: 'POST',
+    body: role ? { id_token: idToken, role } : { id_token: idToken },
+  });
+  if (data && data.token) {
+    setToken(data.token);
+    setUser(data.user);
+    return data;
+  }
+  throw new ApiError('استجابة الخادم غير متوقعة (لا يوجد توكن).', 500, data);
+}
+
+// ----- بيانات المستخدم الحالي -----
+export { getUser, setUser, clearUser };
+
+// ----- تغيير كلمة المرور أثناء تسجيل الدخول (محمي) -----
+export async function changePassword({ oldPassword, newPassword, newPassword_confirmation }) {
+  return request('/api/change-pass', {
+    method: 'POST',
+    auth: true,
+    body: { oldPassword, newPassword, newPassword_confirmation },
+  });
+}
+
+// ----- الملف الشخصي: جلب البيانات الحالية (محمي) -----
+export async function getProfile() {
+  return request('/api/profile', { method: 'GET', auth: true });
+}
+
+// ----- تحديث الملف الشخصي (full_name, phone, email) (محمي، PATCH) -----
+export async function updateProfile({ full_name, phone, email }) {
+  return request('/api/customer/profile', {
+    method: 'PATCH',
+    auth: true,
+    body: { full_name, phone, email },
+  });
+}
+
+// ----- رفع صورة الملف الشخصي لأول مرة (محمي، POST) -----
+// يعيد { profile_picture_url, msg } وفق /api.txt.
+export async function uploadPicture(file) {
+  const fd = new FormData();
+  fd.append('profile_picture', file);
+  return request('/api/uploadPicture', {
+    method: 'POST',
+    auth: true,
+    isForm: true,
+    body: fd,
+  });
+}
+
+// ----- استبدال صورة الملف الشخصي الحالية بأخرى (محمي، PATCH) -----
+export async function updateProfilePicture(file) {
+  const fd = new FormData();
+  fd.append('profile_picture', file);
+  return request('/api/profile/picture', {
+    method: 'PATCH',
+    auth: true,
+    isForm: true,
+    body: fd,
+  });
+}
+
+// ----- تسجيل الخروج -----
+export async function logout() {
+  try {
+    await request('/api/logout', { method: 'POST', auth: true });
+  } catch {
+    /* نمسح التوكن محلياً على أي حال */
+  } finally {
+    clearToken();
+    clearUser();
+  }
+}
+
+// ----- حذف المستخدم (محمي) -----
+export async function deleteUser() {
+  return request('/api/delete-user', { method: 'DELETE', auth: true });
+}
+
+// ----- التحقق من وجود البريد (يُستخدم في نسيت كلمة المرور) -----
+// إصلاح: كان الكود السابق يعامل أي 422 كـ"البريد غير مسجّل"،
+// لكن Laravel يرجع 422 أيضاً لأخطاء صيغة البريد. نفرّق الآن:
+//   - 4xx => نعتبره "غير مسجّل" بأمان.
+//   - 5xx أو خطأ شبكة => نفترض مسجّلاً كي لا نمنع المستخدم.
+export async function isEmailRegistered(email) {
+  try {
+    await request('/api/forgot-password', {
+      method: 'POST',
+      body: { email },
+    });
+    return true;
+  } catch (err) {
+    if (err && err.status >= 400 && err.status < 500) {
+      return false;
+    }
+    return true;
+  }
+}
+
+// ----- المسار بعد تسجيل الدخول/التسجيل -----
+// يعتمد على دور المستخدم المُعاد من الباك إند (`user.role`) ويرسل كل دور
+// إلى لوحة تحكمه الخاصة. لوحتا "العميل" و"صاحب المساحة" تستخدمان نفس
+// الصفحة المؤقتة حالياً، وستنفصلان عند بنائهما تفصيلياً.
+const DASHBOARD_PATHS = {
+  space_owner: '/dashboard/space-owner',
+  customer: '/dashboard/customer',
+};
+
+export function getHomePath(role) {
+  const resolvedRole = role || getUser()?.role;
+  // الدور الناقص/غير المعروف يُرسَل افتراضياً إلى لوحة العميل حتى لا يتعثر
+  // التوجيه في المسار العام '/dashboard' (حلقة إعادة توجيه → شاشة فارغة).
+  return DASHBOARD_PATHS[resolvedRole] || '/dashboard/customer';
+}
