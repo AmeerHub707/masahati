@@ -701,7 +701,7 @@ export default function Spaces({ data, autoOpen = false }) {
               </div>
               <button
                 type="button"
-                className="odash__spaces-refresh"
+                className="odash__market-refresh obk__hero-refresh"
                 onClick={() => loadSpaces(true)}
                 disabled={refreshing}
                 aria-label="تحديث المساحات"

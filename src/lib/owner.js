@@ -548,6 +548,127 @@ export async function fetchOwnerBookings() {
   return listOf(res, 'bookings').map(mapOwnerBooking);
 }
 
+// ----- التقييمات (Reviews) -----
+export function mapOwnerReview(r) {
+  return {
+    id: r.review_id ?? r.id,
+    spaceId: r.space_id ?? null,
+    spaceName: r.space_name ?? '',
+    spaceImage: imageUrl(r.space_image || r.image) || '',
+    rating: Number(r.rating || 0),
+    title: r.title ?? '',
+    comment: r.comment ?? r.text ?? r.review ?? '',
+    customer: r.customer_name ?? r.customer ?? '',
+    customerAvatar: imageUrl(r.customer_avatar || r.avatar) || '',
+    date: r.date || r.created_at || '',
+    createdAt: r.created_at ?? '',
+  };
+}
+
+export async function fetchOwnerReviews(spaceId) {
+  const qs = spaceId ? `?space_id=${encodeURIComponent(spaceId)}` : '';
+  const res = await request(`/api/owner/reviews${qs}`, {
+    method: 'GET',
+    auth: true,
+    timeoutMs: REQ_TIMEOUT_MS,
+  });
+  return listOf(res, 'reviews').map(mapOwnerReview);
+}
+
+function seedOwnerReviews() {
+  const now = new Date();
+  const daysAgo = (n) =>
+    new Date(now.getTime() - n * 86400000).toISOString().slice(0, 16).replace('T', ' ');
+  return [
+    {
+      review_id: 'rev-1',
+      space_id: 'os-1',
+      space_name: 'قاعة العروض الكبرى',
+      space_image: '',
+      customer_name: 'سارة مراد',
+      customer_avatar: '',
+      rating: 5,
+      title: 'قاعة مميزة بكل المقاييس',
+      comment:
+        'استخدمنا القاعة لورشة عمل ثلاثة أيام، كانت الإضاءة الطبيعية والإنترنت السريع مميزان. فريق المنسقين تعاون رائع.',
+      date: daysAgo(2),
+      created_at: daysAgo(2),
+    },
+    {
+      review_id: 'rev-2',
+      space_id: 'os-1',
+      space_name: 'قاعة العروض الكبرى',
+      space_image: '',
+      customer_name: 'أحمد خالد',
+      customer_avatar: '',
+      rating: 4,
+      title: '',
+      comment:
+        'قاعة واسعة ومريحة، نقص القليل من التكييف في الصيف لكن الباقي ممتاز. سنعود بلا شك.',
+      date: daysAgo(5),
+      created_at: daysAgo(5),
+    },
+    {
+      review_id: 'rev-3',
+      space_id: 'os-2',
+      space_name: 'غرفة الاجتماعات الذكية',
+      space_image: '',
+      customer_name: 'محمود عوض',
+      customer_avatar: '',
+      rating: 5,
+      title: 'مثالية للاجتماعات',
+      comment:
+        'الشاشة الكبيرة والكاميرا Zoom عملت بدون أي مشاكل، والموظف الذي رافقنا كان متعاوناً جداً. ننصح بهذه الغرفة.',
+      date: daysAgo(4),
+      created_at: daysAgo(4),
+    },
+    {
+      review_id: 'rev-4',
+      space_id: 'os-3',
+      space_name: 'استوديو المبدعين',
+      space_image: '',
+      customer_name: 'نور الحاج',
+      customer_avatar: '',
+      rating: 3,
+      title: '',
+      comment:
+        'الاستوديو أنيق لكن الأسعار مرتفعة شوية مقارنة بالمنافسين. مملكن تكون خيار جيد للمنتجات النوعية.',
+      date: daysAgo(8),
+      created_at: daysAgo(8),
+    },
+    {
+      review_id: 'rev-5',
+      space_id: 'os-2',
+      space_name: 'غرفة الاجتماعات الذكية',
+      space_image: '',
+      customer_name: 'ليان قاسم',
+      customer_avatar: '',
+      rating: 5,
+      title: 'تجربة مميزة',
+      comment: 'كل شيء كان تمام، من التوصيل للبرمجيات. شكراً لكم.',
+      date: daysAgo(12),
+      created_at: daysAgo(12),
+    },
+  ];
+}
+
+// ----- واجهة التطبيق (API -> تجريبي) -----
+export async function loadReviewsWithFallback(spaceId, force = false) {
+  if (isOwnerDemo() && !force) {
+    const all = seedOwnerReviews().map(mapOwnerReview);
+    return { demo: true, reviews: spaceId ? all.filter((r) => String(r.spaceId) === String(spaceId)) : all };
+  }
+  try {
+    const reviews = await fetchOwnerReviews(spaceId);
+    setDemoFlag(false);
+    return { demo: false, reviews };
+  } catch {
+    setDemoFlag(true);
+    const all = seedOwnerReviews().map(mapOwnerReview);
+    return { demo: true, reviews: spaceId ? all.filter((r) => String(r.spaceId) === String(spaceId)) : all };
+  }
+}
+
 // يؤكّد أو يرفض حجزاً على مساحة المالك. الواجهة غير مفعّلة بعد في الباك إند،
 // لذا تعتمد على نمط «جرّب API ثم الوضع التجريبي» الموجود في باقي الوحدة.
 export async function updateOwnerBookingStatus(bookingId, status) {
@@ -806,18 +927,20 @@ export async function loadOwnerDashboardWithFallback(force = false) {
       offers: store.offers.map(mapMyOffer),
       market,
       bookings: seedOwnerBookings().map(mapOwnerBooking),
+      reviews: seedOwnerReviews().map(mapOwnerReview),
     };
   };
 
   if (isOwnerDemo() && !force) return runDemo();
 
   try {
-    const [spacesApi, offersApi, marketApi, bookingsApi, profileApi] = await Promise.all([
+    const [spacesApi, offersApi, marketApi, bookingsApi, profileApi, reviewsApi] = await Promise.all([
       fetchOwnerSpaces(),
       fetchOwnerOffers(),
       fetchMarketRequests(),
       fetchOwnerBookings().catch(() => []),
       request('/api/profile', { method: 'GET', auth: true, timeoutMs: REQ_TIMEOUT_MS }).catch(() => null),
+      fetchOwnerReviews().catch(() => []),
     ]);
 
     const localUser = getUser() || {};
@@ -844,6 +967,7 @@ export async function loadOwnerDashboardWithFallback(force = false) {
       offers,
       market,
       bookings: bookingsApi,
+      reviews: reviewsApi,
     };
   } catch {
     setDemoFlag(true);

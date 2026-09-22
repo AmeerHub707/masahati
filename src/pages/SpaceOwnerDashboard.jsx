@@ -12,11 +12,13 @@ import { extractPicturePath, resolveNewPictureUrl, getCachedPictureUrl } from '.
 import OwnerLayout from '../components/dashboard/owner/OwnerLayout';
 import DashboardLoading from '../components/dashboard/DashboardLoading';
 import OwnerOverview from '../components/dashboard/owner/OwnerOverview';
+import Reviews from '../components/dashboard/owner/Reviews';
 import Market from '../components/dashboard/owner/Market';
 import Spaces from '../components/dashboard/owner/Spaces';
 import Bookings from '../components/dashboard/owner/Bookings';
 import Financials from '../components/dashboard/owner/Financials';
 import Settings from '../components/dashboard/Settings';
+import OwnerDocumentation from '../components/dashboard/owner/OwnerDocumentation';
 import ScrollProgress from '../components/common/ScrollProgress';
 import Footer from '../components/layout/Footer';
 import WhatsAppBubble from '../components/common/WhatsAppBubble';
@@ -172,6 +174,8 @@ export default function SpaceOwnerDashboard() {
         <OwnerOverview data={data} onNavigate={setActive} />
       ) : active === 'market' ? (
         <Market data={data} onProposalSubmitted={handleProposalSubmitted} onNavigate={setActive} />
+      ) : active === 'reviews' ? (
+        <Reviews data={data} onNavigate={setActive} />
       ) : active === 'bookings' ? (
         <Bookings data={data} />
       ) : active === 'financials' ? (
@@ -181,13 +185,16 @@ export default function SpaceOwnerDashboard() {
       ) : active === 'spaces' ? (
         <Spaces data={data} autoOpen />
       ) : (
-        <Settings
-          user={data?.user}
-          onLogout={handleLogout}
-          onDeleteAccount={handleDeleteAccount}
-          onSaveProfile={handleSaveProfile}
-          onUploadPicture={handleUploadPicture}
-        />
+        <>
+          <Settings
+            user={data?.user}
+            onLogout={handleLogout}
+            onDeleteAccount={handleDeleteAccount}
+            onSaveProfile={handleSaveProfile}
+            onUploadPicture={handleUploadPicture}
+          />
+          <OwnerDocumentation onNavigate={setActive} />
+        </>
       ));
   }
 

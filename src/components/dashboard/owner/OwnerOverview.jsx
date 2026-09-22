@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Store, Building2, MapPin, Clock, Megaphone, Users, CalendarClock, CircleDollarSign, Wallet, CalendarCheck, Gauge, Wifi, Zap, Video, Snowflake, Mic, TrendingUp, TrendingDown, Search, X, ChevronDown, ChevronLeft } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Store, Building2, MapPin, Clock, Megaphone, Users, CalendarClock, CircleDollarSign, Wallet, CalendarCheck, Gauge, Wifi, Zap, Video, Snowflake, Mic, TrendingUp, TrendingDown, Search, X, ChevronDown, ChevronLeft, Sparkles, BarChart3, Target, Star, Wrench, FileText } from 'lucide-react';
 
 const AMENITY_ICONS = {
   internet: Wifi,
@@ -90,9 +90,150 @@ function bookingStatusLabel(status) {
   return BOOKING_STATUS_LABELS[status] || status || 'غير معروف';
 }
 
+// ينشئ اقتراحات ذكية بناءً على بيانات المالك.
+// تعتمد على البيانات الفعلية (مساحات غير نشطة، أسعار، صور، حجوزات، طلبات سوق).
+function generateSuggestions({ spaces, bookings, market }) {
+  const suggestions = [];
+  const allSpaces = (spaces || []).filter((s) => s.is_active !== false);
+  const inactiveSpaces = (spaces || []).filter((s) => s.is_active === false);
+
+  // 1. مساحة غير نشطة → شغّلها لزيادة الظهور
+  if (inactiveSpaces.length > 0) {
+    suggestions.push({
+      id: 'activate-space',
+      icon: <Target />,
+      title: 'فعّل مساحتك لزيادة الوصول',
+      desc: `${inactiveSpaces.length} مساحة متوقفة حالياً — فعّلها الآن وستظهر للعملاء في التدفق الحجزي.`,
+      action: 'my-spaces',
+      actionLabel: 'إدارة المساحات',
+    });
+  }
+
+  // 2. مساحة بدون صورة → أضف صورة
+  const spacesWithoutImage = allSpaces.filter((s) => !s.image);
+  if (spacesWithoutImage.length > 0) {
+    suggestions.push({
+      id: 'add-image',
+      icon: <Store />,
+      title: 'أضف صور لمساحاتك',
+      desc: `${spacesWithoutImage.length} مساحة لا تحتوي على صورة — الصور تزيد معدل الحجز بنسبة 60%.`,
+      action: 'my-spaces',
+      actionLabel: 'إضافة صور',
+    });
+  }
+
+  // 3. لا طلبات سوق مفتوحة → ارفع متطلباتك
+  const openMarket = (market || []).filter((r) => r.status !== 'closed' && r.status !== 'cancelled');
+  if (openMarket.length === 0) {
+    suggestions.push({
+      id: 'no-market',
+      icon: <Megaphone />,
+      title: 'افتح طلباً خاصاً للحجز',
+      desc: 'لم تفتح أي طلبات سوق مفتوحة بعد — انشئ طلباً وسيصل إليك عدة عروض.',
+      action: 'market',
+      actionLabel: 'افتتاح طلب',
+    });
+  }
+
+  // 4. حجوزات قليلة هذا الأسبوع → خفّض السعر أو علن المساحة
+  const confirmedThisWeek = (bookings || []).filter(
+    (b) =>
+      b.status === 'confirmed' || b.status === 'accepted' || b.status === 'completed'
+  ).length;
+  if (confirmedThisWeek === 0 && allSpaces.length > 0) {
+    suggestions.push({
+      id: 'promote-space',
+      icon: <BarChart3 />,
+      title: 'ادعُم مساحتك في الواجهة الرئيسية',
+      desc: 'لم يحصل طلاب على حجز في مساحتك هذا الأسبوع — جرّب تخفيض السعر الساعة أو إضافة مساحة إعلانية.',
+      action: 'market',
+      actionLabel: 'عرض الأسعار',
+    });
+  }
+
+  // 5. طلبات سوق مفتوحة لكن لا عروض → قدّم عرضاً
+  if (openMarket.length > 0 && confirmedThisWeek === 0) {
+    suggestions.push({
+      id: 'submit-offer',
+      icon: <Sparkles />,
+      title: 'قدّم عرضاً على الطلبات المفتوحة',
+      desc: `${openMarket.length} طلب مفتوح ينتظر عروضك — قدّم عرضاً واحصل على أول حجز.`,
+      action: 'market',
+      actionLabel: 'تقديم عرض',
+    });
+  }
+
+  // 6. مساحة نشطة بدون وصف → أضف وصفاً يشرح مميزاتها
+  const spacesNoDescription = allSpaces.filter((s) => !(s.description || '').trim());
+  if (spacesNoDescription.length > 0) {
+    suggestions.push({
+      id: 'add-description',
+      icon: <FileText />,
+      title: 'أضف وصفاً يشرح مميزات مساحتك',
+      desc: `${spacesNoDescription.length} مساحة بدون وصف — الوصف الجيد (الموقع، السعة، المناسب لها) يضاعف احتمالية الحجز.`,
+      action: 'my-spaces',
+      actionLabel: 'تحسين الوصف',
+    });
+  }
+
+  // 7. مساحة نشطة بمرافق شبه معدومة → جهّزها بالمرافق الأساسية
+  const thinAmenitySpaces = allSpaces.filter((s) => (s.amenities || []).length < 2);
+  if (thinAmenitySpaces.length > 0) {
+    suggestions.push({
+      id: 'add-amenities',
+      icon: <Wrench />,
+      title: 'جهّز مساحتك بالمرافق الأساسية',
+      desc: 'الإنترنت والتكييف والبروجيكتور هم أول ما يبحث عنه الطلاب — أضف مرافق لرفع قيمة مساحتك واستقطاب الحجوزات.',
+      action: 'my-spaces',
+      actionLabel: 'إضافة مرافق',
+    });
+  }
+
+  // 8. مساحة نشطة بتقييم منخفض → حسّن تجربة العملاء
+  const weakRatedSpaces = allSpaces.filter((s) => s.rating && s.rating < 4);
+  if (weakRatedSpaces.length > 0) {
+    suggestions.push({
+      id: 'improve-rating',
+      icon: <Star />,
+      title: 'حسّن تقييم مساحتك',
+      desc: `${weakRatedSpaces.length} مساحة بتقييم أقل من 4 — راقب ملاحظات العملاء (النظافة، الإنترنت، التواصل) وارفع جودة التجربة.`,
+      action: 'reviews',
+      actionLabel: 'مراجعة التقييمات',
+    });
+  }
+
+  // 9. مساحة نشطة بدون سعر → حدّد سعر الساعة
+  const unpricedSpaces = allSpaces.filter((s) => Number(s.price_per_hour) <= 0);
+  if (unpricedSpaces.length > 0) {
+    suggestions.push({
+      id: 'set-price',
+      icon: <CircleDollarSign />,
+      title: 'حدّد سعر الساعة لمساحتك',
+      desc: 'المساحات بدون سعر لا تظهر ضمن نتائج البحث بالأسعار — حدّد سعراً تنافسياً يجذب الطلبات ويبني الثقة.',
+      action: 'my-spaces',
+      actionLabel: 'تحديد السعر',
+    });
+  }
+
+  return suggestions;
+}
+
+// خلط عشوائي (Fisher–Yates) — يُستخدم مرة واحدة عند فتح لوحة التحكم.
+function shuffleIds(ids) {
+  const arr = [...ids];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 export default function OwnerOverview({ data, onNavigate }) {
   const stats = data.stats || {};
   const [chartRange, setChartRange] = useState('7d'); // 7d | 14d | 30d | month
+  const [dismissedIds, setDismissedIds] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
 
   const allSpaces = (data.spaces || []).filter((s) => s.is_active !== false);
   const [spaceId, setSpaceId] = useState(''); // '' = كل المساحات
@@ -329,9 +470,45 @@ export default function OwnerOverview({ data, onNavigate }) {
     setOpenPicker(false);
   };
 
+  const suggestions = useMemo(
+    () => generateSuggestions({ spaces: data.spaces, bookings: data.bookings, market: data.market }),
+    [data.spaces, data.bookings, data.market]
+  );
+
+  // ترتيب الاقتراحات يُخلط عشوائياً مرة واحدة عند فتح اللوحة،
+  // ثم يتبقى ثابتاً حتى مع تغيّر البيانات (مقاومة «عمى البانر»).
+  const [orderIds] = useState(() => shuffleIds(suggestions.map((s) => s.id)));
+
+  const visibleSuggestions = useMemo(() => {
+    const byId = new Map(suggestions.map((s) => [s.id, s]));
+    const ordered = orderIds.map((id) => byId.get(id)).filter(Boolean);
+    // أي اقتراح جديد وصل بعد التحميل يُلحق في نهاية الترتيب.
+    suggestions.forEach((s) => {
+      if (!orderIds.includes(s.id)) ordered.push(s);
+    });
+    return ordered.filter((s) => !dismissedIds.includes(s.id));
+  }, [suggestions, orderIds, dismissedIds]);
+
+  const activeIndex = visibleSuggestions.length ? currentIndex % visibleSuggestions.length : 0;
+  const activeSuggestion = visibleSuggestions[activeIndex] || null;
+
+  // تدوير تلقائي كل 6 ثوانٍ: يتوقف عند التحويم/التركيز، ولا يعمل مع اقتراح واحد.
+  useEffect(() => {
+    if (visibleSuggestions.length <= 1 || paused) return undefined;
+    const t = setInterval(() => {
+      setCurrentIndex((i) => (i + 1) % visibleSuggestions.length);
+    }, 6000);
+    return () => clearInterval(t);
+  }, [visibleSuggestions.length, paused]);
+
+  const dismissSuggestion = () => {
+    if (!activeSuggestion) return;
+    setDismissedIds((ids) => (ids.includes(activeSuggestion.id) ? ids : [...ids, activeSuggestion.id]));
+  };
+
   return (
     <>
-      {/* شريط اختيار مساحة محددة — كل المساحات افتراضياً */}
+      {/* بنر الاقتراحات الذكية */}
       <section className="odash__filter" ref={pickerRef}>
         <div className="odash__filter-ico"><Store /></div>
         <div className="odash__filter-main">
@@ -389,6 +566,63 @@ export default function OwnerOverview({ data, onNavigate }) {
           </div>
         )}
       </section>
+
+      {visibleSuggestions.length > 0 && (
+        <motion.div
+          className="odash__sug-banner"
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.32, ease: 'easeOut' }}
+          onPointerEnter={() => setPaused(true)}
+          onPointerLeave={() => setPaused(false)}
+          onFocus={() => setPaused(true)}
+          onBlur={() => setPaused(false)}
+        >
+          {visibleSuggestions.length > 1 && (
+            <div className={`odash__sug-progress${paused ? ' is-paused' : ''}`}>
+              <span key={`${activeIndex}-${activeSuggestion.id}`} className="odash__sug-progress-bar" />
+            </div>
+          )}
+
+          {activeSuggestion && (
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={activeSuggestion.id}
+                className="odash__sug-card"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.24, ease: 'easeOut' }}
+              >
+                <div className="odash__sug-ico">{activeSuggestion.icon}</div>
+                <div className="odash__sug-body">
+                  <h3>{activeSuggestion.title}</h3>
+                  <p>{activeSuggestion.desc}</p>
+                </div>
+                <div className="odash__sug-actions">
+                  <button
+                    type="button"
+                    className="btn-primary odash__sug-btn"
+                    onClick={() => {
+                      onNavigate(activeSuggestion.action);
+                    }}
+                  >
+                    {activeSuggestion.actionLabel}
+                  </button>
+                  <button
+                    type="button"
+                    className="odash__sug-dismiss"
+                    onClick={dismissSuggestion}
+                    aria-label="إخفاء هذا الاقتراح"
+                  >
+                    <X />
+                  </button>
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          )}
+        </motion.div>
+      )}
 
       <section className="odash__stats odash__stats--4">
         {statCards.map((c) => {
@@ -614,7 +848,7 @@ export default function OwnerOverview({ data, onNavigate }) {
                   <span className="odash__opp-offers">{fmtNumber(r.offers_count)} عرض</span>
                   <button
                     type="button"
-                    className="btn-ghost"
+                    className="btn-primary"
                     onClick={() => onNavigate && onNavigate('market', r.id)}
                   >
                     قدّم عرضك
@@ -675,27 +909,6 @@ export default function OwnerOverview({ data, onNavigate }) {
             </div>
           )}
         </div>
-      </section>
-
-      <section className="odash__actions">
-        <button
-          type="button"
-          className="odash__action"
-          onClick={() => onNavigate && onNavigate('market')}
-        >
-          <div className="oa-ico"><Store /></div>
-          <div>
-            <h3>استكشف السوق</h3>
-            <p>طلبات مفتوحة تنتظر عروضك</p>
-          </div>
-        </button>
-        <Link className="odash__action" to="/spaces">
-          <div className="oa-ico"><MapPin /></div>
-          <div>
-            <h3>معاينة المساحات</h3>
-            <p>كما يراها الزوار والطلاب</p>
-          </div>
-        </Link>
       </section>
     </>
   );

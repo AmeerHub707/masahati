@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Store, Megaphone, X, Loader2, Clock, CalendarClock, Users, MapPin,
+  Store, Megaphone, Building2, X, Loader2, Clock, CalendarClock, Users, MapPin,
   CircleDollarSign, Wifi, Zap, Video, Snowflake, Mic, Send, Check, Sparkles, Repeat, ChevronDown, Plus,
 } from 'lucide-react';
 import { loadMarketWithFallback, submitProposalWithFallback, isOwnerDemo } from '../../../lib/owner';
@@ -267,21 +267,30 @@ export default function Market({ data, onProposalSubmitted, onNavigate }) {
     <section className="odash__market">
       {renderBanner()}
 
-      <div className="odash__market-head">
-        <div>
+      <div className="obk__hero">
+        <div className="obk__hero-main">
           <h2><Store /> السوق المفتوح</h2>
           <p>طلبات خاصة نشرها الطلاب — اقرأ الاحتياج وقدّم أفضل عرض من مساحاتك.</p>
+          <div className="obk__hero-meta">
+            <span className={`obk__hero-chip${openReqs.length > 0 ? ' is-good' : ''}`}>
+              <Store /> {fmtNumber(openReqs.length)} طلب مفتوح
+            </span>
+            <span className="obk__hero-chip"><Building2 /> {fmtNumber(spaces.length)} مساحة نشطة</span>
+            <span className="obk__hero-chip"><Send /> {fmtNumber(submitted.length)} عرض قدّمتها</span>
+          </div>
         </div>
-        <button
-          type="button"
-          className="odash__market-refresh"
-          onClick={() => loadMarket(true)}
-          disabled={refreshing}
-          aria-label="تحديث السوق"
-          title="تحديث السوق"
-        >
-          <Repeat className={refreshing ? 'spin' : ''} />
-        </button>
+        <div className="obk__hero-side">
+          <button
+            type="button"
+            className="odash__market-refresh obk__hero-refresh"
+            onClick={() => loadMarket(true)}
+            disabled={refreshing}
+            aria-label="تحديث السوق"
+            title="تحديث السوق"
+          >
+            <Repeat className={refreshing ? 'spin' : ''} />
+          </button>
+        </div>
       </div>
 
       {loading ? (

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Store, Building2, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Megaphone, ChevronLeft, ChevronRight, Lock, Sparkles, Plus, Home, CalendarCheck, Receipt } from 'lucide-react';
+import { Store, Building2, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Megaphone, ChevronLeft, ChevronRight, Lock, Sparkles, Plus, Home, CalendarCheck, Receipt, Star } from 'lucide-react';
 import MagneticButton from '../../common/MagneticButton';
 import ThemeToggle from '../../common/ThemeToggle';
 import { getCachedPictureUrl } from '../../../lib/profilePicture';
@@ -26,6 +26,7 @@ const TABS = [
   { id: 'bookings', label: 'الحجوزات', icon: CalendarCheck },
   { id: 'financials', label: 'المالية', icon: Receipt },
   { id: 'market', label: 'السوق المفتوح', icon: Store },
+  { id: 'reviews', label: 'التقييمات', icon: Star },
   { id: 'settings', label: 'الإعدادات', icon: Settings },
 ];
 

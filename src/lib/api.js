@@ -91,6 +91,7 @@ const RESET_KEYS = [
   'masahati_owner_cache',
   'masahati_owner_demo_v1',
   'masahati_owner_data_v1',
+  'masahati_reviews_demo_v1',
   'masahati_special_requests_demo_v1',
   'masahati_special_requests_data_v1',
   'masahati_special_requests_seen_v1',
