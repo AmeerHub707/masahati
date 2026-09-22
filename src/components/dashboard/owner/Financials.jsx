@@ -5,7 +5,7 @@ import {
   Store, Search, ChevronDown, X, Repeat, Sparkles, Loader2, Printer,
   FileDown, MapPin, Gauge, BadgeCheck, ListChecks, TrendingUp, CalendarDays, BarChart3,
 } from 'lucide-react';
-import { isOwnerDemo, loadOwnerDashboardWithFallback } from '../../../lib/owner';
+import { isOwnerDemo, loadOwnerDashboardWithFallback, belongsToSpace } from '../../../lib/owner';
 
 function fmtNumber(n) {
   return new Intl.NumberFormat('ar-EG').format(n || 0);
@@ -59,12 +59,6 @@ function startClock(b) {
   return m ? `${m[1]}:${m[2]}` : '';
 }
 
-function belongsToSpace(b, sp) {
-  if (!sp) return true;
-  if (b.spaceId != null && sp.id != null && String(b.spaceId) === String(sp.id)) return true;
-  return Boolean(b.spaceName) && b.spaceName === sp.title;
-}
-
 const VIEWS = [
   { id: 'invoices', label: 'الفواتير', icon: Receipt },
   { id: 'bookings', label: 'كل الحجوزات', icon: ListChecks },
@@ -111,7 +105,7 @@ export default function Financials({ data }) {
   const [spaces, setSpaces] = useState(() => data?.spaces || []);
   const [offers, setOffers] = useState(() => data?.offers || []);
   const [demo, setDemo] = useState(() => isOwnerDemo());
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !Array.isArray(data?.bookings));
   const [refreshing, setRefreshing] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [view, setView] = useState('invoices');
@@ -160,10 +154,13 @@ export default function Financials({ data }) {
     }
   }, []);
 
+  // التبويب يعتمد على بيانات اللوحة الأم (لا يعيد تحميل اللوحة كاملة)،
+  // ويُحدَّث من زر الإنعاش الذي يستدعي load(true).
   useEffect(() => {
+    if (Array.isArray(data?.bookings)) return undefined;
     const t = setTimeout(() => load(), 0);
     return () => clearTimeout(t);
-  }, [load]);
+  }, [load, data?.bookings]);
 
   const selectedSpace = spaces.find((s) => String(s.id) === String(spaceId)) || null;
 

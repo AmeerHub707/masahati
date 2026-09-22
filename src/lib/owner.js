@@ -45,8 +45,10 @@ function readDemoStore() {
 function writeDemoStore(payload) {
   try {
     localStorage.setItem(DEMO_DATA_KEY, JSON.stringify(payload));
+    return true;
   } catch {
-    /* التخزين غير متاح */
+    /* التخزين غير متاح أو ممتلئ (صور كبيرة) */
+    return false;
   }
 }
 
@@ -163,6 +165,14 @@ export function mapOwnerBooking(b) {
     customer: b.customer ?? b.customer_name ?? '',
     status: b.status || 'pending',
   };
+}
+
+// يطابق الحجز مع المساحة: بالمعرّف أولاً ثم تجربة اسم المساحة، لأن بعض واجهات
+// الباك إند ترسل space_id فقط أو space_name فقط (تُستخدم في كل تبويبات اللوحة).
+export function belongsToSpace(b, sp) {
+  if (!sp) return true;
+  if (b.spaceId != null && sp.id != null && String(b.spaceId) === String(sp.id)) return true;
+  return Boolean(b.spaceName) && b.spaceName === sp.title;
 }
 
 // ----- بذور الوضع التجريبي -----
@@ -401,9 +411,19 @@ function seedMarketRequests() {
 function demoStore() {
   const existing = readDemoStore();
   if (existing) return existing;
-  const payload = { spaces: seedOwnerSpaces(), offers: seedOwnerOffers() };
+  const payload = { spaces: seedOwnerSpaces(), offers: seedOwnerOffers(), bookingOverrides: {} };
   writeDemoStore(payload);
   return payload;
+}
+
+// يطبّق حالات الحجز المحفوظة محلياً (تأكيد/رفض) على بذور الحجوزات التجريبية،
+// حتى تبقى قرارات المالك ثابتة داخل نفس اليوم بدل إعادة توليدها من جديد.
+function applyBookingOverrides(list) {
+  const store = readDemoStore();
+  if (!store) return list;
+  const overrides = store.bookingOverrides;
+  if (!overrides || typeof overrides !== 'object') return list;
+  return list.map((b) => (overrides[String(b.id)] ? { ...b, status: overrides[String(b.id)] } : b));
 }
 
 // ----- إحصائيات -----
@@ -765,6 +785,7 @@ export async function loadSpacesWithFallback(force = false) {
 }
 
 export async function createSpaceWithFallback(payload) {
+  invalidateDashboardMemo();
   const applyLocal = () => {
     const store = demoStore();
     const space = {
@@ -783,12 +804,17 @@ export async function createSpaceWithFallback(payload) {
       rating: 0,
     };
     store.spaces.unshift(space);
-    writeDemoStore(store);
-    return mapSpace(space);
+    const saved = writeDemoStore(store);
+    return { space: mapSpace(space), saved };
   };
 
   if (isOwnerDemo()) {
-    return { demo: true, message: 'تمت إضافة المساحة (وضع تجريبي).', space: applyLocal() };
+    const { space, saved } = applyLocal();
+    return {
+      demo: true,
+      message: saved ? 'تمت إضافة المساحة (وضع تجريبي).' : 'التخزين المحلي ممتلئ — المساحة لن تُحفظ بعد إعادة التحميل. قلّل عدد صور المساحة أو حجمها.',
+      space,
+    };
   }
   try {
     const result = await createOwnerSpace(payload);
@@ -796,11 +822,17 @@ export async function createSpaceWithFallback(payload) {
     return { demo: false, ...result };
   } catch {
     setDemoFlag(true);
-    return { demo: true, message: 'تعذّر الوصول للخادم — أُضيفت المساحة محلياً للتجربة.', space: applyLocal() };
+    const { space, saved } = applyLocal();
+    return {
+      demo: true,
+      message: saved ? 'تعذّر الوصول للخادم — أُضيفت المساحة محلياً للتجربة.' : 'تعذّر الوصول للخادم والتخزين المحلي ممتلئ — قلّل صور المساحة وأعد المحاولة.',
+      space,
+    };
   }
 }
 
 export async function toggleSpaceActiveWithFallback(spaceId, isActive, space) {
+  invalidateDashboardMemo();
   const applyLocal = () => {
     const store = demoStore();
     const hit = store.spaces.find((s) => String(s.id) === String(spaceId));
@@ -823,32 +855,35 @@ export async function toggleSpaceActiveWithFallback(spaceId, isActive, space) {
 }
 
 export async function updateSpaceWithFallback(spaceId, payload) {
+  invalidateDashboardMemo();
   const applyLocal = () => {
     const store = demoStore();
     const idx = store.spaces.findIndex((s) => String(s.id) === String(spaceId));
     if (idx === -1) throw new Error('المساحة غير موجودة');
-    const merged = {
-      ...store.spaces[idx],
-      title: payload.title || store.spaces[idx].title,
-      description: payload.description ?? store.spaces[idx].description,
-      location: payload.location || store.spaces[idx].location,
-      price_per_hour: Number(payload.price_per_hour || store.spaces[idx].price_per_hour || 0),
-      capacity: Number(payload.capacity || store.spaces[idx].capacity || 0),
-      amenities: Array.isArray(payload.amenities) ? payload.amenities : store.spaces[idx].amenities,
-      internet: payload.internet ?? store.spaces[idx].internet,
-      power: payload.power ?? store.spaces[idx].power,
-      image: payload.image ?? store.spaces[idx].image,
-      gallery: Array.isArray(payload.gallery)
-        ? payload.gallery
-        : (Array.isArray(store.spaces[idx].gallery) ? store.spaces[idx].gallery : []),
-    };
+    const prev = store.spaces[idx];
+    const merged = { ...prev };
+    if (typeof payload.title === 'string' && payload.title.trim() !== '') merged.title = payload.title.trim();
+    if (typeof payload.description === 'string') merged.description = payload.description;
+    if (typeof payload.location === 'string' && payload.location.trim() !== '') merged.location = payload.location.trim();
+    if (payload.price_per_hour !== undefined && payload.price_per_hour !== '') merged.price_per_hour = Number(payload.price_per_hour);
+    if (payload.capacity !== undefined && payload.capacity !== '') merged.capacity = Number(payload.capacity);
+    if (Array.isArray(payload.amenities)) merged.amenities = payload.amenities;
+    if (payload.internet !== undefined) merged.internet = payload.internet;
+    if (payload.power !== undefined) merged.power = payload.power;
+    if (payload.image !== undefined) merged.image = payload.image;
+    if (Array.isArray(payload.gallery)) merged.gallery = payload.gallery;
     store.spaces[idx] = merged;
-    writeDemoStore(store);
-    return mapSpace(merged);
+    const saved = writeDemoStore(store);
+    return { space: mapSpace(merged), saved };
   };
 
   if (isOwnerDemo()) {
-    return { demo: true, message: 'تم تحديث المساحة.', space: applyLocal() };
+    const { space, saved } = applyLocal();
+    return {
+      demo: true,
+      message: saved ? 'تم تحديث المساحة.' : 'التخزين المحلي ممتلئ — التعديل سيختفي بعد إعادة التحميل. قلّل صور المساحة.',
+      space,
+    };
   }
   try {
     const result = await updateOwnerSpace(spaceId, payload);
@@ -856,11 +891,17 @@ export async function updateSpaceWithFallback(spaceId, payload) {
     return { demo: false, ...result };
   } catch {
     setDemoFlag(true);
-    return { demo: true, message: 'تعذّر الوصول للخادم — حُدّثت المساحة محلياً.', space: applyLocal() };
+    const { space, saved } = applyLocal();
+    return {
+      demo: true,
+      message: saved ? 'تعذّر الوصول للخادم — حُدّثت المساحة محلياً.' : 'تعذّر الوصول للخادم والتخزين المحلي ممتلئ — قلّل صور المساحة.',
+      space,
+    };
   }
 }
 
 export async function deleteSpaceWithFallback(spaceId) {
+  invalidateDashboardMemo();
   const applyLocal = () => {
     const store = demoStore();
     const before = store.spaces.length;
@@ -898,10 +939,17 @@ export async function loadOwnerBookingsWithFallback(force = false) {
 }
 
 export async function setBookingStatusWithFallback(bookingId, status) {
+  invalidateDashboardMemo();
   if (isOwnerDemo()) {
+    const store = demoStore();
+    store.bookingOverrides = store.bookingOverrides || {};
+    store.bookingOverrides[String(bookingId)] = status;
+    writeDemoStore(store);
+    const seed = seedOwnerBookings().find((b) => String(b.booking_id) === String(bookingId));
     return {
       demo: true,
       message: status === 'confirmed' ? 'تم تأكيد الحجز (وضع تجريبي).' : 'تم رفض طلب الحجز (وضع تجريبي).',
+      booking: seed ? mapOwnerBooking({ ...seed, status }) : null,
     };
   }
   try {
@@ -910,12 +958,23 @@ export async function setBookingStatusWithFallback(bookingId, status) {
     return { demo: false, message: result.message };
   } catch {
     setDemoFlag(true);
+    const store = demoStore();
+    store.bookingOverrides = store.bookingOverrides || {};
+    store.bookingOverrides[String(bookingId)] = status;
+    writeDemoStore(store);
     return { demo: true, message: 'تعذّر الوصول للخادم — حُدِّث الحجز محلياً للتجربة.' };
   }
 }
 
 // ----- تحميل لوحة المالك كاملة (بالتوازي) مع الكاش -----
-export async function loadOwnerDashboardWithFallback(force = false) {
+// تجنّب التكرار عند فتح الصفحة: أي طلبين متوازيين (اللوحة + تبويب) يشاركان نفس الوعد.
+let dashboardInFlight = null;
+
+function invalidateDashboardMemo() {
+  dashboardInFlight = null;
+}
+
+async function loadOwnerDashboardImpl() {
   const runDemo = () => {
     const store = demoStore();
     const market = seedMarketRequests().map(mapRequest);
@@ -926,12 +985,12 @@ export async function loadOwnerDashboardWithFallback(force = false) {
       spaces: store.spaces.map(mapSpace),
       offers: store.offers.map(mapMyOffer),
       market,
-      bookings: seedOwnerBookings().map(mapOwnerBooking),
+      bookings: applyBookingOverrides(seedOwnerBookings().map(mapOwnerBooking)),
       reviews: seedOwnerReviews().map(mapOwnerReview),
     };
   };
 
-  if (isOwnerDemo() && !force) return runDemo();
+  if (isOwnerDemo()) return runDemo();
 
   try {
     const [spacesApi, offersApi, marketApi, bookingsApi, profileApi, reviewsApi] = await Promise.all([
@@ -973,4 +1032,13 @@ export async function loadOwnerDashboardWithFallback(force = false) {
     setDemoFlag(true);
     return runDemo();
   }
+}
+
+export async function loadOwnerDashboardWithFallback(force = false) {
+  if (!force && dashboardInFlight) return dashboardInFlight;
+  dashboardInFlight = loadOwnerDashboardImpl().then((r) => {
+    dashboardInFlight = null;
+    return r;
+  });
+  return dashboardInFlight;
 }

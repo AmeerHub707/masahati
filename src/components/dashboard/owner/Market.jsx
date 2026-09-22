@@ -41,7 +41,11 @@ export default function Market({ data, onProposalSubmitted, onNavigate }) {
   const [submitting, setSubmitting] = useState(false);
   const [spaceMenuOpen, setSpaceMenuOpen] = useState(false);
   const [submitted, setSubmitted] = useState(() =>
-    (data?.offers || []).filter((o) => o.status === 'pending').map((o) => String(o.requestId))
+    new Set(
+      (data?.offers || [])
+        .filter((o) => o.status === 'pending')
+        .map((o) => String(o.requestId))
+    )
   );
   const [toast, setToast] = useState(null);
 
@@ -161,7 +165,7 @@ export default function Market({ data, onProposalSubmitted, onNavigate }) {
         request_title: modal.title,
       });
       setDemo(result.demo);
-      setSubmitted((prev) => [...prev, String(modal.id)]);
+      setSubmitted((prev) => new Set(prev).add(String(modal.id)));
       if (result.offer && onProposalSubmitted) onProposalSubmitted(result.offer);
       setToast({ msg: result.message, type: result.duplicate ? 'warn' : 'ok' });
       setModal(null);
@@ -173,7 +177,7 @@ export default function Market({ data, onProposalSubmitted, onNavigate }) {
   };
 
   const renderCard = (r, expanded = false) => {
-    const isSubmitted = submitted.includes(String(r.id));
+    const isSubmitted = submitted.has(String(r.id));
     const expired = isRequestExpired(r);
     return (
       <div
@@ -276,7 +280,7 @@ export default function Market({ data, onProposalSubmitted, onNavigate }) {
               <Store /> {fmtNumber(openReqs.length)} طلب مفتوح
             </span>
             <span className="obk__hero-chip"><Building2 /> {fmtNumber(spaces.length)} مساحة نشطة</span>
-            <span className="obk__hero-chip"><Send /> {fmtNumber(submitted.length)} عرض قدّمتها</span>
+            <span className="obk__hero-chip"><Send /> {fmtNumber(submitted.size)} عرض قدّمتها</span>
           </div>
         </div>
         <div className="obk__hero-side">

@@ -78,7 +78,7 @@ const DEFAULT_FORM = {
   photos: [],
 };
 
-export default function Spaces({ data, autoOpen = false }) {
+export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
   const navigate = useNavigate();
   const [spaces, setSpaces] = useState(() => (data?.spaces || []));
   const [demo, setDemo] = useState(() => isOwnerDemo());
@@ -111,13 +111,14 @@ export default function Spaces({ data, autoOpen = false }) {
       const result = await loadSpacesWithFallback(force);
       setSpaces(result.spaces);
       setDemo(result.demo);
+      onSpacesChange?.(result.spaces);
     } catch {
       /* لا نكسر العرض */
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [onSpacesChange]);
 
   useEffect(() => {
     const t = setTimeout(() => loadSpaces(), 0);
@@ -255,15 +256,18 @@ export default function Spaces({ data, autoOpen = false }) {
     setSaving(true);
     try {
       let result;
+      let next;
       if (modal?.mode === 'edit') {
         result = await updateSpaceWithFallback(modal.space.id, readPayload());
         setDemo(result.demo);
-        setSpaces((prev) => prev.map((s) => (s.id === modal.space.id ? result.space : s)));
+        next = spaces.map((s) => (s.id === modal.space.id ? result.space : s));
       } else {
         result = await createSpaceWithFallback(readPayload());
         setDemo(result.demo);
-        setSpaces((prev) => [result.space, ...prev]);
+        next = [result.space, ...spaces];
       }
+      setSpaces(next);
+      onSpacesChange?.(next);
       resetModal();
       setToast({ msg: result.message, type: 'ok' });
     } catch {
@@ -279,9 +283,9 @@ export default function Spaces({ data, autoOpen = false }) {
     try {
       const result = await toggleSpaceActiveWithFallback(space.id, next, space);
       setDemo(result.demo);
-      setSpaces((prev) =>
-        prev.map((s) => (s.id === space.id ? { ...s, is_active: next } : s))
-      );
+      const mapped = spaces.map((s) => (s.id === space.id ? { ...s, is_active: next } : s));
+      setSpaces(mapped);
+      onSpacesChange?.(mapped);
       setToast({ msg: result.message, type: 'ok' });
     } catch {
       setToast({ msg: 'تعذّر تحديث حالة المساحة.', type: 'err' });
@@ -296,7 +300,9 @@ export default function Spaces({ data, autoOpen = false }) {
     try {
       const result = await deleteSpaceWithFallback(deleteTarget.id);
       setDemo(result.demo);
-      setSpaces((prev) => prev.filter((s) => s.id !== deleteTarget.id));
+      const remaining = spaces.filter((s) => s.id !== deleteTarget.id);
+      setSpaces(remaining);
+      onSpacesChange?.(remaining);
       setToast({ msg: result.message, type: 'ok' });
     } catch {
       setToast({ msg: 'تعذّر حذف المساحة.', type: 'err' });

@@ -2,6 +2,9 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Store, Building2, MapPin, Clock, Megaphone, Users, CalendarClock, CircleDollarSign, Wallet, CalendarCheck, Gauge, Wifi, Zap, Video, Snowflake, Mic, TrendingUp, TrendingDown, Search, X, ChevronDown, ChevronLeft, Sparkles, BarChart3, Target, Star, Wrench, FileText } from 'lucide-react';
+import { belongsToSpace } from '../../../lib/owner';
+
+const SUGGESTIONS_KEY = 'masahati.owner-suggestions-dismissed';
 
 const AMENITY_ICONS = {
   internet: Wifi,
@@ -122,16 +125,16 @@ function generateSuggestions({ spaces, bookings, market }) {
     });
   }
 
-  // 3. لا طلبات سوق مفتوحة → ارفع متطلباتك
+  // 3. لا طلبات سوق مفتوحة → جهّز مساحتك لاستقبال أول طلب
   const openMarket = (market || []).filter((r) => r.status !== 'closed' && r.status !== 'cancelled');
   if (openMarket.length === 0) {
     suggestions.push({
       id: 'no-market',
       icon: <Megaphone />,
-      title: 'افتح طلباً خاصاً للحجز',
-      desc: 'لم تفتح أي طلبات سوق مفتوحة بعد — انشئ طلباً وسيصل إليك عدة عروض.',
-      action: 'market',
-      actionLabel: 'افتتاح طلب',
+      title: 'لا توجد طلبات سوق مفتوحة الآن',
+      desc: 'لا توجد طلبات سوق مفتوحة حالياً — تأكد أن مساحتك محدّثة بصور ومرافق وسعر تنافسي لاستقبال أول طلب فور نشره.',
+      action: 'my-spaces',
+      actionLabel: 'إدارة المساحات',
     });
   }
 
@@ -231,7 +234,14 @@ function shuffleIds(ids) {
 export default function OwnerOverview({ data, onNavigate }) {
   const stats = data.stats || {};
   const [chartRange, setChartRange] = useState('7d'); // 7d | 14d | 30d | month
-  const [dismissedIds, setDismissedIds] = useState([]);
+  const [dismissedIds, setDismissedIds] = useState(() => {
+    try {
+      const raw = localStorage.getItem(SUGGESTIONS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
   const [currentIndex, setCurrentIndex] = useState(0);
   const [paused, setPaused] = useState(false);
 
@@ -257,7 +267,7 @@ export default function OwnerOverview({ data, onNavigate }) {
 
   const bookings = data.bookings || [];
   const scopedBookings = selectedSpace
-    ? bookings.filter((b) => b.spaceName && b.spaceName === selectedSpace.title)
+    ? bookings.filter((b) => belongsToSpace(b, selectedSpace))
     : bookings;
   const confirmedBookings = scopedBookings.filter((b) => b.status === 'confirmed' || b.status === 'accepted' || b.status === 'completed');
 
@@ -353,7 +363,7 @@ export default function OwnerOverview({ data, onNavigate }) {
     const totalRev = confirmedBookings.reduce((sum, b) => sum + Number(b.price || 0), 0);
     return allSpaces.map(s => {
       const spaceRev = confirmedBookings
-        .filter(b => b.spaceName === s.title)
+        .filter(b => belongsToSpace(b, s))
         .reduce((sum, b) => sum + Number(b.price || 0), 0);
       const percent = totalRev > 0 ? Math.round((spaceRev / totalRev) * 100) : 0;
       return { ...s, performance: percent, revenue: spaceRev };
@@ -440,8 +450,8 @@ export default function OwnerOverview({ data, onNavigate }) {
     },
     {
       icon: CalendarCheck,
-      label: 'إجمالي الحجوزات',
-      value: fmtNumber(scopedBookings.length),
+      label: 'حجوزات هذا الشهر',
+      value: fmtNumber(bookingGrowth.current),
       trend: bookingGrowth.current > 0 || bookingGrowth.previous > 0 ? bookingGrowth.growth : null,
       trendUp: bookingGrowth.growth >= 0,
       trendLabel: 'عن الشهر السابق',
@@ -505,6 +515,15 @@ export default function OwnerOverview({ data, onNavigate }) {
     if (!activeSuggestion) return;
     setDismissedIds((ids) => (ids.includes(activeSuggestion.id) ? ids : [...ids, activeSuggestion.id]));
   };
+
+  // يحفظ الاقتراحات المُتجاهَلة محلياً حتى لا تظهر بعد إعادة التحميل.
+  useEffect(() => {
+    try {
+      localStorage.setItem(SUGGESTIONS_KEY, JSON.stringify(dismissedIds));
+    } catch {
+      /* التخزين غير متاح */
+    }
+  }, [dismissedIds]);
 
   return (
     <>

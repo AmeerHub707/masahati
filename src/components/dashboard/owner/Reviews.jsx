@@ -50,7 +50,7 @@ export default function Reviews({ data }) {
   const [reviews, setReviews] = useState(() => data?.reviews || []);
   const [spaces, setSpaces] = useState(() => data?.spaces || []);
   const [demo, setDemo] = useState(() => isOwnerDemo());
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !Array.isArray(data?.reviews));
   const [refreshing, setRefreshing] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
@@ -84,10 +84,13 @@ export default function Reviews({ data }) {
     }
   }, []);
 
+  // التبويب يعتمد على بيانات اللوحة الأم (لا يعيد تحميل اللوحة كاملة)،
+  // ويُحدَّث من زر الإنعاش الذي يستدعي load(true).
   useEffect(() => {
+    if (Array.isArray(data?.reviews)) return undefined;
     const t = setTimeout(() => load(), 0);
     return () => clearTimeout(t);
-  }, [load]);
+  }, [load, data?.reviews]);
 
   useEffect(() => {
     const onDocClick = (e) => {

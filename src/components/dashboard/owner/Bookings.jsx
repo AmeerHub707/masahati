@@ -9,6 +9,7 @@ import {
   isOwnerDemo,
   loadOwnerDashboardWithFallback,
   setBookingStatusWithFallback,
+  belongsToSpace,
 } from '../../../lib/owner';
 
 function fmtNumber(n) {
@@ -52,14 +53,6 @@ function dayKeyOf(date) {
   return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
 }
 
-// يطابق الحجز مع المساحة بالمعرّف أولاً ثم بالاسم: بعض واجهات الباك إند ترسل
-// space_id بدون space_name، ما يجعل إحصاءات المساحة تظهر صفراً بلا هذا التطابق.
-function belongsToSpace(b, sp) {
-  if (!sp) return true;
-  if (b.spaceId != null && sp.id != null && String(b.spaceId) === String(sp.id)) return true;
-  return Boolean(b.spaceName) && b.spaceName === sp.title;
-}
-
 // يقرأ وقت البدء من الحجز (ساعة:دقيقة) مع تجاهل الثواني إن وُجدت.
 function startClock(b) {
   const m = String(b.timeFrom || b.time || '').match(/(\d{1,2}):(\d{2})/);
@@ -82,11 +75,11 @@ const VIEWS = [
   { id: 'history', label: 'سجل الحجوزات', icon: History },
 ];
 
-export default function Bookings({ data }) {
+export default function Bookings({ data, onStatusChange }) {
   const [bookings, setBookings] = useState(() => data?.bookings || []);
   const [spaces, setSpaces] = useState(() => data?.spaces || []);
   const [demo, setDemo] = useState(() => isOwnerDemo());
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !Array.isArray(data?.bookings));
   const [refreshing, setRefreshing] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [view, setView] = useState('calendar');
@@ -138,10 +131,13 @@ export default function Bookings({ data }) {
     }
   }, []);
 
+  // التبويب يعتمد على بيانات اللوحة الأم (لا يعيد تحميل اللوحة كاملة)،
+  // ويُحدَّث من زر الإنعاش الذي يستدعي load(true).
   useEffect(() => {
+    if (Array.isArray(data?.bookings)) return undefined;
     const t = setTimeout(() => load(), 0);
     return () => clearTimeout(t);
-  }, [load]);
+  }, [load, data?.bookings]);
 
   const todayKey = localDayKey(new Date());
 
@@ -227,13 +223,14 @@ export default function Bookings({ data }) {
       setBookings((prev) =>
         prev.map((x) => (String(x.id) === String(b.id) ? { ...x, status } : x))
       );
+      onStatusChange?.(b.id, status);
       setToast({ msg: result.message, type: status === 'confirmed' ? 'ok' : 'warn' });
     } catch {
       setToast({ msg: 'تعذّر تحديث حالة الحجز.', type: 'err' });
     } finally {
       setBusyId(null);
     }
-  }, [busyId]);
+  }, [busyId, onStatusChange]);
 
   const byDay = useMemo(() => {
     const map = {};

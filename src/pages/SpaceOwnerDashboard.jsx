@@ -101,6 +101,18 @@ export default function SpaceOwnerDashboard() {
     navigate('/');
   }, [navigate]);
 
+  // إعادة المحاولة من شاشة الخطأ: تحميل قسري (تجاوز الكاش) يحدّث الصفحة فعلياً.
+  const handleRetry = useCallback(async () => {
+    setStatus('loading');
+    try {
+      const result = await loadOwnerDashboardWithFallback(true);
+      setData(result);
+      setStatus('ready');
+    } catch {
+      setStatus('error');
+    }
+  }, []);
+
   const handleDeleteAccount = useCallback(async () => {
     const confirmed = await requestDeleteConfirm();
     if (!confirmed) return;
@@ -154,6 +166,26 @@ export default function SpaceOwnerDashboard() {
     setData((prev) => (prev ? { ...prev, offers: [offer, ...(prev.offers || [])] } : prev));
   }, []);
 
+  // يوصل تغييرات المساحات (إضافة/تعديل/حذف/إيقاف) من تبويب «مساحاتي»
+  // إلى بيانات اللوحة كاملة حتى تبقى كل التبويبات متزامنة بدون إعادة تحميل.
+  const handleSpacesChange = useCallback((next) => {
+    setData((prev) => (prev ? { ...prev, spaces: next } : prev));
+  }, []);
+
+  // يوصل قرار تأكيد/رفض الحجز (من تبويب الحجوزات) للوحة كاملة حتى تنعكس
+  // التغييرات في النظرة العامة والإيرادات مباشرة.
+  const handleBookingStatusChange = useCallback((bookingId, status) => {
+    setData((prev) => {
+      if (!prev || !Array.isArray(prev.bookings)) return prev;
+      return {
+        ...prev,
+        bookings: prev.bookings.map((b) =>
+          String(b.id) === String(bookingId) ? { ...b, status } : b
+        ),
+      };
+    });
+  }, []);
+
   let tabContent;
   if (status === 'loading') {
     tabContent = null;
@@ -163,7 +195,7 @@ export default function SpaceOwnerDashboard() {
         <div className="st-svg"><AlertCircle /></div>
         <h3>تعذّر تحميل البيانات</h3>
         <p>تحقق من اتصالك ثم أعد المحاولة، أو جرّب بالضغط على زر الإنعاش.</p>
-        <button type="button" className="btn-ghost" onClick={() => setStatus('loading')}>
+        <button type="button" className="btn-ghost" onClick={handleRetry}>
           إعادة المحاولة
         </button>
       </div>
@@ -177,13 +209,13 @@ export default function SpaceOwnerDashboard() {
       ) : active === 'reviews' ? (
         <Reviews data={data} onNavigate={setActive} />
       ) : active === 'bookings' ? (
-        <Bookings data={data} />
+        <Bookings data={data} onStatusChange={handleBookingStatusChange} />
       ) : active === 'financials' ? (
         <Financials data={data} />
       ) : active === 'my-spaces' ? (
-        <Spaces data={data} />
+        <Spaces data={data} onSpacesChange={handleSpacesChange} />
       ) : active === 'spaces' ? (
-        <Spaces data={data} autoOpen />
+        <Spaces data={data} autoOpen onSpacesChange={handleSpacesChange} />
       ) : (
         <>
           <Settings
