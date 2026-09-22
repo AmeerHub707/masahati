@@ -22,7 +22,6 @@ import {
   Tooltip,
   BarChart,
   Bar,
-  Legend,
 } from 'recharts';
 import { adminStats, revenueTrend, adminActivities, recentRegistrations } from '../../data/adminMockData';
 import { StatCard, SectionCard, SectionHeading, StatusBadge, Avatar } from './ui';
@@ -64,21 +63,25 @@ function chartTooltipStyle() {
 export default function AdminOverview() {
   const stats = adminStats;
 
+  const sparkTrace = (v) => [v * 0.72, v * 0.79, v * 0.76, v * 0.85, v * 0.92, v];
+  const revenueSpark = revenueTrend.map((d) => d.revenue);
+  const bookingsSpark = revenueTrend.map((d) => d.bookings);
+
   const cards = [
-    { icon: Users, label: 'إجمالي المستخدمين', value: stats.totalUsers, tone: 'orange', hint: '+4.2%' },
-    { icon: Building2, label: 'مالكو المساحات', value: stats.spaceOwners, tone: 'violet', hint: '+1.8%' },
-    { icon: MapPin, label: 'المساحات المسجلة', value: stats.registeredSpaces, tone: 'blue', hint: '+2.5%' },
-    { icon: CalendarCheck, label: 'حجوزات الشهر', value: stats.monthlyBookings, tone: 'green', hint: '+6.1%' },
-    { icon: Wallet, label: 'الإيرادات', value: `${stats.totalRevenue} ش.ج`, tone: 'amber', hint: '+8.9%' },
-    { icon: ShieldAlert, label: 'النزاعات المفتوحة', value: stats.openDisputes, tone: 'red', hint: 'تحتاج متابعة' },
+    { icon: Users, label: 'إجمالي المستخدمين', value: stats.totalUsers, tone: 'orange', trend: 'up', hint: '+4.2%', spark: sparkTrace(stats.totalUsers) },
+    { icon: Building2, label: 'مالكو المساحات', value: stats.spaceOwners, tone: 'violet', trend: 'up', hint: '+1.8%', spark: sparkTrace(stats.spaceOwners) },
+    { icon: MapPin, label: 'المساحات المسجلة', value: stats.registeredSpaces, tone: 'blue', trend: 'up', hint: '+2.5%', spark: sparkTrace(stats.registeredSpaces) },
+    { icon: CalendarCheck, label: 'حجوزات الشهر', value: stats.monthlyBookings, tone: 'green', trend: 'up', hint: '+6.1%', spark: bookingsSpark },
+    { icon: Wallet, label: 'الإيرادات', value: stats.totalRevenue, currency: 'ش.ج', tone: 'amber', trend: 'up', hint: '+8.9%', spark: revenueSpark },
+    { icon: ShieldAlert, label: 'النزاعات المفتوحة', value: stats.openDisputes, tone: 'red', trend: 'warn', hint: 'تحتاج متابعة', spark: sparkTrace(stats.openDisputes) },
   ];
 
   return (
     <div className="space-y-6">
       {/* بطاقات المؤشرات الست */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {cards.map((c) => (
-          <StatCard key={c.label} {...c} />
+          <StatCard key={c.label} {...c} commas />
         ))}
       </div>
 
@@ -102,8 +105,8 @@ export default function AdminOverview() {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="opacity-40 dark:opacity-20" />
                 <XAxis dataKey="month" tick={{ fontSize: 10, fontFamily: "'Cairo', sans-serif" }} />
-                <YAxis tick={{ fontSize: 10 }} width={40} />
-                <Tooltip contentStyle={chartTooltipStyle()} formatter={(v) => [`${v} ش.ج`, 'الإيراد']} />
+                <YAxis tick={{ fontSize: 10 }} width={72} tickFormatter={(v) => `${v.toLocaleString('en-US')} ش.ج`} />
+                <Tooltip contentStyle={chartTooltipStyle()} formatter={(v) => [`${v.toLocaleString('en-US')} ش.ج`, 'الإيراد']} />
                 <Area
                   type="monotone"
                   dataKey="revenue"
@@ -128,9 +131,8 @@ export default function AdminOverview() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="opacity-40 dark:opacity-20" />
                 <XAxis dataKey="month" tick={{ fontSize: 10, fontFamily: "'Cairo', sans-serif" }} />
                 <YAxis tick={{ fontSize: 10 }} width={40} />
-                <Tooltip contentStyle={chartTooltipStyle()} formatter={(v) => [v, 'حجز']} cursor={{ fill: 'rgba(249,115,22,0.08)' }} />
+                <Tooltip contentStyle={chartTooltipStyle()} formatter={(v) => [v, 'الحجوزات']} cursor={{ fill: 'rgba(249,115,22,0.08)' }} />
                 <Bar dataKey="bookings" fill="#fb923c" radius={[6, 6, 0, 0]} maxBarSize={28} />
-                <Legend wrapperStyle={{ fontFamily: "'Cairo', sans-serif", fontSize: 12 }} />
               </BarChart>
             </ResponsiveContainer>
           </div>

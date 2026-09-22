@@ -33,26 +33,76 @@ export function SectionHeading({ icon: Icon, title, subtitle, action }) {
 }
 
 const statTones = {
-  orange: 'st-ico--orange',
-  amber: 'st-ico--amber',
-  green: 'st-ico--green',
-  blue: 'st-ico--blue',
-  red: 'st-ico--red',
-  violet: 'st-ico--violet',
+  orange: 'bg-orange-100 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400',
+  amber: 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400',
+  green: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400',
+  blue: 'bg-blue-100 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400',
+  red: 'bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400',
+  violet: 'bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400',
 };
 
-export function StatCard({ icon: Icon, label, value, hint, tone = 'orange' }) {
+function sparkPoints(data) {
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const range = max - min || 1;
+  return data
+    .map((d, i) => `${(i / (data.length - 1)) * 100},${40 - ((d - min) / range) * 32}`)
+    .join(' ');
+}
+
+export function StatCard({ icon: Icon, label, value, hint, tone = 'orange', currency, trend = 'up', spark, commas = false }) {
   const cls = statTones[tone] || statTones.orange;
+  const isWarn = trend === 'warn';
+  const isUp = trend === 'up';
   return (
-    <div className="dash__stat">
-      <div className={`st-ico ${cls}`}>
-        <Icon />
+    <div
+      className={`relative overflow-hidden rounded-xl border bg-white p-4 transition-all duration-200 hover:shadow-md dark:bg-[#1c1c22] ${
+        isWarn ? 'border-amber-200/50 hover:border-amber-400' : 'border-[var(--border)] hover:border-amber-300'
+      }`}
+    >
+      {spark && spark.length > 1 && (
+        <svg
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-10 w-full"
+          viewBox="0 0 100 40"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <polyline
+            points={sparkPoints(spark)}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            vectorEffect="non-scaling-stroke"
+            className="text-amber-500/20"
+          />
+        </svg>
+      )}
+      <div className="relative flex items-start justify-between gap-3">
+        <span className="text-sm font-semibold leading-snug" style={{ color: 'var(--text-strong)' }}>{label}</span>
+        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${cls}`}>
+          <Icon />
+        </span>
       </div>
-      <div className="flex items-baseline gap-1.5">
-        <DashCountUp value={value} />
-        {hint && <span className="text-xs font-bold" style={{ color: 'var(--text-muted)' }}>{hint}</span>}
+      <div className="relative mt-3 flex flex-wrap items-center gap-2">
+        <span className="text-2xl font-bold leading-none" style={{ color: 'var(--accent)' }}>
+          <DashCountUp value={value} commas={commas} />
+          {currency && <span className="mr-1 font-normal text-sm text-gray-500 dark:text-gray-400">{currency}</span>}
+        </span>
+        {isWarn ? (
+          <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
+            {hint}
+          </span>
+        ) : (
+          <span
+            dir="ltr"
+            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+              isUp ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+            }`}
+          >
+            {isUp ? '↑' : '↓'} {hint}
+          </span>
+        )}
       </div>
-      <span>{label}</span>
     </div>
   );
 }
