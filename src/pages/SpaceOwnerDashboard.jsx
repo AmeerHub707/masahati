@@ -13,11 +13,9 @@ import OwnerLayout from '../components/dashboard/owner/OwnerLayout';
 import DashboardLoading from '../components/dashboard/DashboardLoading';
 import OwnerOverview from '../components/dashboard/owner/OwnerOverview';
 import Market from '../components/dashboard/owner/Market';
-import MyOffers from '../components/dashboard/owner/MyOffers';
 import Spaces from '../components/dashboard/owner/Spaces';
 import Bookings from '../components/dashboard/owner/Bookings';
-import Reports from '../components/dashboard/owner/Reports';
-import Revenues from '../components/dashboard/owner/Revenues';
+import Financials from '../components/dashboard/owner/Financials';
 import Settings from '../components/dashboard/Settings';
 import ScrollProgress from '../components/common/ScrollProgress';
 import Footer from '../components/layout/Footer';
@@ -174,18 +172,14 @@ export default function SpaceOwnerDashboard() {
         <OwnerOverview data={data} onNavigate={setActive} />
       ) : active === 'market' ? (
         <Market data={data} onProposalSubmitted={handleProposalSubmitted} onNavigate={setActive} />
-      ) : active === 'offers' ? (
-        <MyOffers data={data} />
       ) : active === 'bookings' ? (
         <Bookings data={data} />
+      ) : active === 'financials' ? (
+        <Financials data={data} />
       ) : active === 'my-spaces' ? (
         <Spaces data={data} />
       ) : active === 'spaces' ? (
         <Spaces data={data} autoOpen />
-      ) : active === 'reports' ? (
-        <Reports data={data} />
-      ) : active === 'revenues' ? (
-        <Revenues data={data} />
       ) : (
         <Settings
           user={data?.user}

@@ -535,7 +535,7 @@ export default function OwnerOverview({ data, onNavigate }) {
                 <button
                   type="button"
                   className="odash__show-all odash__schedule-all"
-                  onClick={() => onNavigate && onNavigate('revenues')}
+                  onClick={() => onNavigate && onNavigate('bookings')}
                 >
                   كل الحجوزات ({fmtNumber(todaysBookings.length)}) — عرض السجل
                 </button>

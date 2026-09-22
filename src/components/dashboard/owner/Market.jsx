@@ -197,7 +197,7 @@ export default function Market({ data, onProposalSubmitted, onNavigate }) {
             <div className="odash__market-meta">
               <span><CalendarClock /> {r.schedule_label || 'مرة واحدة'}</span>
               <span><Clock /> {r.preferred_time || 'وقت مرن'}</span>
-              <span><Users /> {fmtNumber(r.capacity)} شخص</span>
+              <span className="odash__market-cap"><Users /> {fmtNumber(r.capacity)} شخص</span>
               {r.area && <span><MapPin /> {r.area}</span>}
             </div>
             {r.amenities.length > 0 && (

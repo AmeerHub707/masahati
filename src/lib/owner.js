@@ -282,6 +282,7 @@ function seedOwnerBookings() {
   const spaces = [
     { name: 'قاعة العروض الكبرى', rate: 150 },
     { name: 'غرفة الاجتماعات الذكية', rate: 100 },
+    { name: 'استوديو المبدعين', rate: 200 },
   ];
   const customers = ['أحمد خالد', 'سارة مراد', 'ليان قاسم', 'محمود عوض', 'نور الحاج'];
 

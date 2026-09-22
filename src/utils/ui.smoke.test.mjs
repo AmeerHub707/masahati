@@ -284,11 +284,13 @@ report('O4 Overview four stat cards', ownerEl.querySelectorAll('.odash__stat').l
 report('O5 Navigate to market tab', await clickOwnerByText('السوق المفتوح'), 'no click');
 report('O6 Market feed renders', await waitForOwnerText('قاعة محاضرات لدورة تدريبية أسبوعية') || await waitForOwnerText('السوق المفتوح'), 'market content absent');
 
-report('O7 Navigate to offers tab', await clickOwnerByText('عروضي'), 'no click');
-report('O8 Offers list renders', await waitForOwnerText('بانتظار الرد') && await waitForOwnerText('قاعة محاضرات'), 'offers content absent');
+report('O7 Navigate to financials tab', await clickOwnerByText('المالية'), 'no click');
+report('O8 Financials renders', await waitForOwnerText('الفواتير') && await waitForOwnerText('تقرير الأداء'), 'financials content absent');
+report('O8a Open performance report', await clickOwnerByText('تقرير الأداء'), 'no click');
+report('O8b Spaces comparison chart renders', await waitForOwnerText('مقارنة الأداء') && !!ownerEl.querySelector('.fin__chart'), 'chart absent');
 
 report('O9 Navigate to spaces tab', await clickOwnerByText('مساحاتي'), 'no click');
-report('O10 Spaces list renders', await waitForOwnerText('قاعة العروض الكبرى'), 'spaces content absent');
+report('O10 Spaces list renders', await waitForOwnerText('أضف مساحة') && await waitForOwnerText('قاعة العروض الكبرى'), 'spaces content absent');
 
 // إضافة مساحة جدبدة من النموذج
 report('O11 Add-space button present', !!ownerEl.querySelector('.odash__spaces-add'), 'no button');
