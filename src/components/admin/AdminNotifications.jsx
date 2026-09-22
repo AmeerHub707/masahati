@@ -7,7 +7,6 @@ import useSafeInput from '../../hooks/useSafeInput';
 const audiences = [
   { id: 'all', label: 'جميع المستخدمين' },
   { id: 'owners', label: 'مالكو المساحات فقط' },
-  { id: 'students', label: 'الطلاب' },
   { id: 'freelancers', label: 'الفريلانسرز' },
   { id: 'specific', label: 'مستخدم محدد' },
 ];
@@ -15,7 +14,6 @@ const audiences = [
 const audienceBadge = {
   all: 'كل المستخدمين',
   owners: 'الملاك',
-  students: 'الطلاب',
   freelancers: 'الفريلانسرز',
   specific: 'مستخدم محدد',
 };

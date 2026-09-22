@@ -28,13 +28,12 @@ import {
 
 const roleOptions = [
   { id: 'all', label: 'كل الحسابات' },
-  { id: 'student', label: 'طلاب' },
   { id: 'freelancer', label: 'فريلانسرز' },
   { id: 'owner', label: 'ملاك' },
 ];
 
-const roleLabel = { student: 'طالب', freelancer: 'فريلانسر', owner: 'صاحب مساحة' };
-const roleTone = { student: 'blue', freelancer: 'violet', owner: 'orange' };
+const roleLabel = { freelancer: 'فريلانسر', owner: 'صاحب مساحة' };
+const roleTone = { freelancer: 'violet', owner: 'orange' };
 
 export default function AdminUsers() {
   const [users, setUsers] = useState(adminUsers);
@@ -75,7 +74,7 @@ export default function AdminUsers() {
       if (u.status === 'suspended') acc.suspended += 1;
       return acc;
     },
-    { total: 0, student: 0, freelancer: 0, owner: 0, suspended: 0 }
+    { total: 0, freelancer: 0, owner: 0, suspended: 0 }
   );
 
   return (
@@ -84,7 +83,7 @@ export default function AdminUsers() {
         <SectionHeading
           icon={Users}
           title="إدارة المستخدمين والملاك"
-          subtitle={`${counts.total} حساب · ${counts.student} طالب · ${counts.freelancer} فريلانسر · ${counts.owner} مالك · ${counts.suspended} موقوف`}
+          subtitle={`${counts.total} حساب · ${counts.freelancer} فريلانسر · ${counts.owner} مالك · ${counts.suspended} موقوف`}
         />
 
         {/* شريط البحث والتصفية */}

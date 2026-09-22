@@ -36,13 +36,11 @@ const activityMeta = {
 };
 
 const roleLabel = {
-  student: 'طالب',
   freelancer: 'فريلانسر',
   owner: 'صاحب مساحة',
 };
 
 const roleTone = {
-  student: 'blue',
   freelancer: 'violet',
   owner: 'orange',
 };

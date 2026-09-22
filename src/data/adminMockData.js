@@ -30,18 +30,18 @@ export const revenueTrend = [
 ];
 
 export const adminUsers = [
-  { id: 1, name: 'أحمد العمري', email: 'ahmad.omari@mail.com', phone: '+970 59 100 2001', role: 'student', status: 'active', verified: true, joined: '2025-02-14', bookings: 12 },
+  { id: 1, name: 'أحمد العمري', email: 'ahmad.omari@mail.com', phone: '+970 59 100 2001', role: 'freelancer', status: 'active', verified: true, joined: '2025-02-14', bookings: 12 },
   { id: 2, name: 'سارة النجار', email: 'sara.najjar@mail.com', phone: '+970 59 100 2002', role: 'freelancer', status: 'active', verified: true, joined: '2025-03-02', bookings: 34 },
   { id: 3, name: 'خالد المصري', email: 'khaled.masri@mail.com', phone: '+970 59 100 2003', role: 'owner', status: 'active', verified: true, joined: '2024-11-20', bookings: 0 },
-  { id: 4, name: 'ليان أبو خليل', email: 'layan.abukhalil@mail.com', phone: '+970 59 100 2004', role: 'student', status: 'suspended', verified: false, joined: '2025-05-11', bookings: 2 },
+  { id: 4, name: 'ليان أبو خليل', email: 'layan.abukhalil@mail.com', phone: '+970 59 100 2004', role: 'freelancer', status: 'suspended', verified: false, joined: '2025-05-11', bookings: 2 },
   { id: 5, name: 'محمد دويدار', email: 'mohammad.dweidar@mail.com', phone: '+970 59 100 2005', role: 'freelancer', status: 'active', verified: true, joined: '2025-01-08', bookings: 41 },
-  { id: 6, name: 'نور شعبان', email: 'noor.shaban@mail.com', phone: '+970 59 100 2006', role: 'student', status: 'active', verified: false, joined: '2025-09-01', bookings: 3 },
+  { id: 6, name: 'نور شعبان', email: 'noor.shaban@mail.com', phone: '+970 59 100 2006', role: 'freelancer', status: 'active', verified: false, joined: '2025-09-01', bookings: 3 },
   { id: 7, name: 'راني الشوا', email: 'rami.shawwa@mail.com', phone: '+970 59 100 2007', role: 'owner', status: 'suspended', verified: true, joined: '2024-08-15', bookings: 0 },
   { id: 8, name: 'ديما الجمل', email: 'dima.jamal@mail.com', phone: '+970 59 100 2008', role: 'freelancer', status: 'active', verified: true, joined: '2025-04-25', bookings: 18 },
-  { id: 9, name: 'عمر سكيك', email: 'omar.skaik@mail.com', phone: '+970 59 100 2009', role: 'student', status: 'active', verified: true, joined: '2025-06-17', bookings: 7 },
+  { id: 9, name: 'عمر سكيك', email: 'omar.skaik@mail.com', phone: '+970 59 100 2009', role: 'freelancer', status: 'active', verified: true, joined: '2025-06-17', bookings: 7 },
   { id: 10, name: 'هبة الرنتيسي', email: 'heba.rantisi@mail.com', phone: '+970 59 100 2010', role: 'owner', status: 'active', verified: false, joined: '2025-09-12', bookings: 0 },
   { id: 11, name: 'يوسف بعلوشة', email: 'youssef.baalusha@mail.com', phone: '+970 59 100 2011', role: 'freelancer', status: 'suspended', verified: true, joined: '2024-12-30', bookings: 9 },
-  { id: 12, name: 'ريم قشطة', email: 'reem.qashta@mail.com', phone: '+970 59 100 2012', role: 'student', status: 'active', verified: true, joined: '2025-07-03', bookings: 22 },
+  { id: 12, name: 'ريم قشطة', email: 'reem.qashta@mail.com', phone: '+970 59 100 2012', role: 'freelancer', status: 'active', verified: true, joined: '2025-07-03', bookings: 22 },
 ];
 
 export const adminSpaces = [
@@ -53,7 +53,7 @@ export const adminSpaces = [
   { id: 6, name: 'ركن المبرمجين', neighborhood: 'غزة - الجلاء', owner: 'ليان أبو خليل', price: 18, status: 'pending', rating: 0, bookings: 0, capacity: 10 },
   { id: 7, name: 'مركز ريادة الأعمال', neighborhood: 'غزة - النصر', owner: 'ديما الجمل', price: 25, status: 'active', rating: 4.7, bookings: 389, capacity: 40 },
   { id: 8, name: 'رِواء للاستوديوهات', neighborhood: 'غزة - الشجاعية', owner: 'محمود عرفات', price: 22, status: 'active', rating: 4.3, bookings: 205, capacity: 20 },
-  { id: 9, name: 'فضاء الطلاب', neighborhood: 'غزة - الرمال', owner: 'نور شعبان', price: 8, status: 'suspended', rating: 3.9, bookings: 88, capacity: 14 },
+  { id: 9, name: 'فضاء المبدعين', neighborhood: 'غزة - الرمال', owner: 'نور شعبان', price: 8, status: 'suspended', rating: 3.9, bookings: 88, capacity: 14 },
   { id: 10, name: 'المكتب المستقل', neighborhood: 'غزة - تل الهوا', owner: 'عمر سكيك', price: 35, status: 'pending', rating: 0, bookings: 0, capacity: 6 },
 ];
 
@@ -64,7 +64,7 @@ export const adminBookings = [
   { id: 204, ref: '#BK-1024', user: 'ديما الجمل', space: 'مساحة العمل الوسطى', date: '2026-09-20', time: '09:00 - 14:00', hours: 5, amount: 75, status: 'disputed' },
   { id: 205, ref: '#BK-1025', user: 'ريم قشطة', space: 'رِواء للاستوديوهات', date: '2026-09-20', time: '16:00 - 19:00', hours: 3, amount: 66, status: 'completed' },
   { id: 206, ref: '#BK-1026', user: 'عمر سكيك', space: 'مكتب المبدعين', date: '2026-09-21', time: '08:00 - 16:00', hours: 8, amount: 160, status: 'confirmed' },
-  { id: 207, ref: '#BK-1027', user: 'نور شعبان', space: 'فضاء الطلاب', date: '2026-09-21', time: '10:00 - 12:00', hours: 2, amount: 16, status: 'confirmed' },
+  { id: 207, ref: '#BK-1027', user: 'نور شعبان', space: 'فضاء المبدعين', date: '2026-09-21', time: '10:00 - 12:00', hours: 2, amount: 16, status: 'confirmed' },
   { id: 208, ref: '#BK-1028', user: 'سارة النجار', space: 'مركز ريادة الأعمال', date: '2026-09-22', time: '09:00 - 13:00', hours: 4, amount: 100, status: 'disputed' },
   { id: 209, ref: '#BK-1029', user: 'يوسف بعلوشة', space: 'مساحة المهندسين', date: '2026-09-22', time: '14:00 - 18:00', hours: 4, amount: 48, status: 'completed' },
   { id: 210, ref: '#BK-1030', user: 'أحمد العمري', space: 'استوديو الأناقة', date: '2026-09-23', time: '11:00 - 15:00', hours: 4, amount: 120, status: 'confirmed' },
@@ -74,7 +74,7 @@ export const adminDisputes = [
   { id: 1, ref: '#DIS-041', bookingRef: '#BK-1024', user: 'ديما الجمل', space: 'مساحة العمل الوسطى', issue: 'الإنترنت كان منقطعاً طوال الحجز، وطلبت استرداد المبلغ.', amount: 75, status: 'open', opened: '2026-09-20' },
   { id: 2, ref: '#DIS-042', bookingRef: '#BK-1028', user: 'سارة النجار', space: 'مركز ريادة الأعمال', issue: 'اختلاف في عدد الساعات المحسوبة مقابل ما تم حجزه.', amount: 100, status: 'open', opened: '2026-09-21' },
   { id: 3, ref: '#DIS-043', bookingRef: '#BK-1005', user: 'محمد دويدار', space: 'ركن المبرمجين', issue: 'المساحة لم تكن جاهزة في الموعد المحدد، وأُجّل الحجز ساعتين.', amount: 90, status: 'resolved', opened: '2026-09-12' },
-  { id: 4, ref: '#DIS-044', bookingRef: '#BK-1012', user: 'ليان أبو خليل', space: 'فضاء الطلاب', issue: 'ارتفاع سعر مفاجئ بعد تأكيد الحجز.', amount: 32, status: 'closed', opened: '2026-09-08' },
+  { id: 4, ref: '#DIS-044', bookingRef: '#BK-1012', user: 'ليان أبو خليل', space: 'فضاء المبدعين', issue: 'ارتفاع سعر مفاجئ بعد تأكيد الحجز.', amount: 32, status: 'closed', opened: '2026-09-08' },
   { id: 5, ref: '#DIS-045', bookingRef: '#BK-1018', user: 'عمر سكيك', space: 'مكتب المبدعين', issue: 'تلف أحد الأجهزة أثناء الاستخدام وطلب إعادة النظر في الخطأ.', amount: 60, status: 'open', opened: '2026-09-19' },
 ];
 
@@ -83,7 +83,7 @@ export const adminReviews = [
   { id: 2, user: 'سارة النجار', space: 'مساحة المهندسين', rating: 4, text: 'المكان نظيف والعمل فيه مريح، لكن الكراسي تحتاج تجديد.', date: '2026-09-14', visible: true, flagged: false },
   { id: 3, user: 'مجهول', space: 'مكتب المبدعين', rating: 1, text: 'أسوأ تجربة! إدارة فاشلة ومكان غير صحي، لا تتعبوا نفسكم.', date: '2026-09-13', visible: true, flagged: true },
   { id: 4, user: 'ريم قشطة', space: 'رِواء للاستوديوهات', rating: 5, text: 'إضاءة طبيعية رائعة ومناسب للتصوير الفوتوغرافي.', date: '2026-09-11', visible: true, flagged: false },
-  { id: 5, user: 'يوسف بعلوشة', space: 'فضاء الطلاب', rating: 2, text: 'صوت مزعج من الشارع ولا توجد عزل، غير مناسب للعمل المكثف.', date: '2026-09-09', visible: true, flagged: true },
+  { id: 5, user: 'يوسف بعلوشة', space: 'فضاء المبدعين', rating: 2, text: 'صوت مزعج من الشارع ولا توجد عزل، غير مناسب للعمل المكثف.', date: '2026-09-09', visible: true, flagged: true },
   { id: 6, user: 'أحمد العمري', space: 'مركز ريادة الأعمال', rating: 5, text: 'بيئة مثالية لفرق العمل، شبكة قوية وخدمة ممتازة.', date: '2026-09-07', visible: true, flagged: false },
   { id: 7, user: 'نور شعبان', space: 'استوديو الأناقة', rating: 4, text: 'تجربة جيدة عموماً، ينقصها القليل من معدات الصوت.', date: '2026-09-05', visible: true, flagged: false },
   { id: 8, user: 'مجهول', space: 'مساحة العمل الوسطى', rating: 5, text: 'مكان رائع، الإنترنت سريع والقهوة مجانية. سأعود كل أسبوع!', date: '2026-09-03', visible: true, flagged: true },
@@ -93,11 +93,11 @@ export const adminNotifications = [
   { id: 1, title: 'صيانة مجدولة للنظام', body: 'ستتوقف المنصة يوم الجمعة من 2 إلى 4 صباحاً لصيانة دورية.', target: 'all', sentAt: '2026-09-18 09:00', sentBy: 'admin' },
   { id: 2, title: 'إضافة ميزة حجز جماعي', body: 'أصبح بإمكان مساحات العمل استقبال حجوزات جماعية تصل إلى 20 شخصاً.', target: 'owners', sentAt: '2026-09-15 14:30', sentBy: 'admin' },
   { id: 3, title: 'تحديث سياسة الاسترداد', body: 'تم تحديث سياسة الاسترداد؛ يمكن طلب الاسترداد خلال 24 ساعة من الحجز.', target: 'all', sentAt: '2026-09-10 11:00', sentBy: 'admin' },
-  { id: 4, title: 'ندعوك لورشة عمل مجانية', body: 'ورشة بعنوان "التسويق الرقمي لرواد الأعمال" يوم الخميس القادم.', target: 'students', sentAt: '2026-09-06 16:45', sentBy: 'admin' },
+  { id: 4, title: 'ندعوك لورشة عمل مجانية', body: 'ورشة بعنوان "التسويق الرقمي لرواد الأعمال" يوم الخميس القادم.', target: 'freelancers', sentAt: '2026-09-06 16:45', sentBy: 'admin' },
 ];
 
 export const adminActivities = [
-  { id: 1, icon: 'user', text: 'سجّل حساب جديد: نور شعبان (طالب)', time: 'منذ 12 دقيقة' },
+  { id: 1, icon: 'user', text: 'سجّل حساب جديد: نور شعبان (فريلانسر)', time: 'منذ 12 دقيقة' },
   { id: 2, icon: 'space', text: 'تم رفع مساحة جديدة "ركن المبرمجين" بانتظار المراجعة', time: 'منذ 45 دقيقة' },
   { id: 3, icon: 'booking', text: 'تأكيد حجز #BK-1022 من محمد دويدار', time: 'منذ ساعة' },
   { id: 4, icon: 'dispute', text: 'فتح نزاع جديد #DIS-045 على مساحة "مكتب المبدعين"', time: 'منذ ساعتين' },
@@ -106,9 +106,9 @@ export const adminActivities = [
 ];
 
 export const recentRegistrations = [
-  { id: 1, name: 'نور شعبان', role: 'student', time: 'منذ 12 دقيقة' },
+  { id: 1, name: 'نور شعبان', role: 'freelancer', time: 'منذ 12 دقيقة' },
   { id: 2, name: 'هبة الرنتيسي', role: 'owner', time: 'منذ 35 دقيقة' },
-  { id: 3, name: 'عمر سكيك', role: 'student', time: 'منذ ساعة' },
+  { id: 3, name: 'عمر سكيك', role: 'freelancer', time: 'منذ ساعة' },
   { id: 4, name: 'ديما الجمل', role: 'freelancer', time: 'منذ 3 ساعات' },
   { id: 5, name: 'محمد دويدار', role: 'freelancer', time: 'منذ 5 ساعات' },
 ];
