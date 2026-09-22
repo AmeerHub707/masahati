@@ -29,19 +29,44 @@ export const revenueTrend = [
   { month: 'سبتمبر', revenue: 24150, bookings: 617 },
 ];
 
+const spark = (seed) => Array.from({ length: 7 }, (_, i) => {
+  const wave = Math.round(Math.sin(i * 1.9 + seed) * 4);
+  return Math.max(0, Math.round(seed + wave + i * 0.8));
+});
+
 export const adminUsers = [
-  { id: 1, name: 'أحمد العمري', email: 'ahmad.omari@mail.com', phone: '+970 59 100 2001', role: 'freelancer', status: 'active', verified: true, joined: '2025-02-14', bookings: 12 },
-  { id: 2, name: 'سارة النجار', email: 'sara.najjar@mail.com', phone: '+970 59 100 2002', role: 'freelancer', status: 'active', verified: true, joined: '2025-03-02', bookings: 34 },
-  { id: 3, name: 'خالد المصري', email: 'khaled.masri@mail.com', phone: '+970 59 100 2003', role: 'owner', status: 'active', verified: true, joined: '2024-11-20', bookings: 0 },
-  { id: 4, name: 'ليان أبو خليل', email: 'layan.abukhalil@mail.com', phone: '+970 59 100 2004', role: 'freelancer', status: 'suspended', verified: false, joined: '2025-05-11', bookings: 2 },
-  { id: 5, name: 'محمد دويدار', email: 'mohammad.dweidar@mail.com', phone: '+970 59 100 2005', role: 'freelancer', status: 'active', verified: true, joined: '2025-01-08', bookings: 41 },
-  { id: 6, name: 'نور شعبان', email: 'noor.shaban@mail.com', phone: '+970 59 100 2006', role: 'freelancer', status: 'active', verified: false, joined: '2025-09-01', bookings: 3 },
-  { id: 7, name: 'راني الشوا', email: 'rami.shawwa@mail.com', phone: '+970 59 100 2007', role: 'owner', status: 'suspended', verified: true, joined: '2024-08-15', bookings: 0 },
-  { id: 8, name: 'ديما الجمل', email: 'dima.jamal@mail.com', phone: '+970 59 100 2008', role: 'freelancer', status: 'active', verified: true, joined: '2025-04-25', bookings: 18 },
-  { id: 9, name: 'عمر سكيك', email: 'omar.skaik@mail.com', phone: '+970 59 100 2009', role: 'freelancer', status: 'active', verified: true, joined: '2025-06-17', bookings: 7 },
-  { id: 10, name: 'هبة الرنتيسي', email: 'heba.rantisi@mail.com', phone: '+970 59 100 2010', role: 'owner', status: 'active', verified: false, joined: '2025-09-12', bookings: 0 },
-  { id: 11, name: 'يوسف بعلوشة', email: 'youssef.baalusha@mail.com', phone: '+970 59 100 2011', role: 'freelancer', status: 'suspended', verified: true, joined: '2024-12-30', bookings: 9 },
-  { id: 12, name: 'ريم قشطة', email: 'reem.qashta@mail.com', phone: '+970 59 100 2012', role: 'freelancer', status: 'active', verified: true, joined: '2025-07-03', bookings: 22 },
+  { id: 1, name: 'أحمد العمري', email: 'ahmad.omari@mail.com', phone: '+970 59 100 2001', role: 'freelancer', status: 'active', verified: true, joined: '2025-02-14', lastActive: 'منذ 5 دقائق', online: true, bookings: 12, activity: spark(3) },
+  { id: 2, name: 'سارة النجار', email: 'sara.najjar@mail.com', phone: '+970 59 100 2002', role: 'freelancer', status: 'active', verified: true, joined: '2025-03-02', lastActive: 'قبل ساعة', online: true, bookings: 34, activity: spark(7) },
+  { id: 3, name: 'خالد المصري', email: 'khaled.masri@mail.com', phone: '+970 59 100 2003', role: 'owner', status: 'active', verified: true, joined: '2024-11-20', lastActive: 'قبل 3 ساعات', online: false, bookings: 0, activity: spark(1) },
+  { id: 4, name: 'ليان أبو خليل', email: 'layan.abukhalil@mail.com', phone: '+970 59 100 2004', role: 'owner', status: 'active', verified: false, joined: '2025-05-11', lastActive: 'قبل 25 دقيقة', online: true, bookings: 2, activity: spark(2) },
+  { id: 5, name: 'محمد دويدار', email: 'mohammad.dweidar@mail.com', phone: '+970 59 100 2005', role: 'freelancer', status: 'active', verified: true, joined: '2025-01-08', lastActive: 'متصلاً الآن', online: true, bookings: 41, activity: spark(8) },
+  { id: 6, name: 'نور شعبان', email: 'noor.shaban@mail.com', phone: '+970 59 100 2006', role: 'freelancer', status: 'review', verified: false, joined: '2025-09-01', lastActive: 'قبل 10 دقائق', online: true, bookings: 3, activity: spark(2) },
+  { id: 7, name: 'راني الشوا', email: 'rami.shawwa@mail.com', phone: '+970 59 100 2007', role: 'owner', status: 'suspended', verified: true, joined: '2024-08-15', lastActive: 'قبل 12 ساعة', online: false, bookings: 0, activity: spark(1) },
+  { id: 8, name: 'ديما الجمل', email: 'dima.jamal@mail.com', phone: '+970 59 100 2008', role: 'freelancer', status: 'active', verified: true, joined: '2025-04-25', lastActive: 'قبل ساعتين', online: false, bookings: 18, activity: spark(5) },
+  { id: 9, name: 'عمر سكيك', email: 'omar.skaik@mail.com', phone: '+970 59 100 2009', role: 'freelancer', status: 'active', verified: true, joined: '2025-06-17', lastActive: 'قبل يوم', online: false, bookings: 7, activity: spark(3) },
+  { id: 10, name: 'هبة الرنتيسي', email: 'heba.rantisi@mail.com', phone: '+970 59 100 2010', role: 'owner', status: 'active', verified: false, joined: '2025-09-12', lastActive: 'قبل 40 دقيقة', online: true, bookings: 0, activity: spark(1) },
+  { id: 11, name: 'يوسف بعلوشة', email: 'youssef.baalusha@mail.com', phone: '+970 59 100 2011', role: 'freelancer', status: 'suspended', verified: true, joined: '2024-12-30', lastActive: 'قبل 3 أيام', online: false, bookings: 9, activity: spark(3) },
+  { id: 12, name: 'ريم قشطة', email: 'reem.qashta@mail.com', phone: '+970 59 100 2012', role: 'freelancer', status: 'active', verified: true, joined: '2025-07-03', lastActive: 'قبل 30 دقيقة', online: true, bookings: 22, activity: spark(5) },
+  { id: 13, name: 'محمود عرفات', email: 'mahmoud.arafat@mail.com', phone: '+970 59 100 2013', role: 'owner', status: 'review', verified: false, joined: '2026-09-16', lastActive: 'قبل 8 دقائق', online: true, bookings: 0, activity: spark(1) },
+  { id: 14, name: 'أمل حسان', email: 'amal.hassan@mail.com', phone: '+970 59 100 2014', role: 'freelancer', status: 'review', verified: false, joined: '2026-09-15', lastActive: 'منذ 20 دقيقة', online: true, bookings: 1, activity: spark(2) },
+  { id: 15, name: 'باسم عودة', email: 'bassem.awda@mail.com', phone: '+970 59 100 2015', role: 'freelancer', status: 'active', verified: true, joined: '2025-03-30', lastActive: 'قبل 6 ساعات', online: false, bookings: 15, activity: spark(4) },
+  { id: 16, name: 'جنى المصري', email: 'jana.masri@mail.com', phone: '+970 59 100 2016', role: 'freelancer', status: 'active', verified: true, joined: '2025-05-22', lastActive: 'قبل 50 دقيقة', online: true, bookings: 27, activity: spark(6) },
+  { id: 17, name: 'حسام النابلسي', email: 'hossam.nabulsi@mail.com', phone: '+970 59 100 2017', role: 'owner', status: 'suspended', verified: true, joined: '2024-10-05', lastActive: 'قبل أسبوع', online: false, bookings: 0, activity: spark(1) },
+  { id: 18, name: 'دلال سليم', email: 'dallal.salim@mail.com', phone: '+970 59 100 2018', role: 'freelancer', status: 'active', verified: true, joined: '2025-08-09', lastActive: 'قبل ساعتين', online: false, bookings: 11, activity: spark(3) },
+  { id: 19, name: 'زين الحلبي', email: 'zain.halabi@mail.com', phone: '+970 59 100 2019', role: 'owner', status: 'active', verified: true, joined: '2025-01-27', lastActive: 'قبل 15 دقيقة', online: true, bookings: 0, activity: spark(1) },
+  { id: 20, name: 'سمير هواري', email: 'sameer.hawari@mail.com', phone: '+970 59 100 2020', role: 'freelancer', status: 'review', verified: false, joined: '2026-09-18', lastActive: 'قبل 5 دقائق', online: true, bookings: 0, activity: spark(1) },
+  { id: 21, name: 'شروق صالح', email: 'shorouq.saleh@mail.com', phone: '+970 59 100 2021', role: 'freelancer', status: 'active', verified: true, joined: '2025-04-03', lastActive: 'قبل 4 ساعات', online: false, bookings: 19, activity: spark(5) },
+  { id: 22, name: 'طارق عاشور', email: 'tareq.ashour@mail.com', phone: '+970 59 100 2022', role: 'freelancer', status: 'active', verified: true, joined: '2025-06-28', lastActive: 'متصلاً الآن', online: true, bookings: 8, activity: spark(3) },
+  { id: 23, name: 'عالية النجار', email: 'alia.najjar@mail.com', phone: '+970 59 100 2023', role: 'owner', status: 'active', verified: true, joined: '2025-02-11', lastActive: 'قبل ساعة', online: false, bookings: 0, activity: spark(1) },
+  { id: 24, name: 'غدير شحادة', email: 'ghadeer.shahada@mail.com', phone: '+970 59 100 2024', role: 'freelancer', status: 'active', verified: true, joined: '2025-09-25', lastActive: 'قبل 35 دقيقة', online: true, bookings: 6, activity: spark(2) },
+  { id: 25, name: 'فادي أبو ريا', email: 'fadi.aburaya@mail.com', phone: '+970 59 100 2025', role: 'freelancer', status: 'suspended', verified: true, joined: '2025-01-18', lastActive: 'قبل 5 أيام', online: false, bookings: 13, activity: spark(4) },
+  { id: 26, name: 'كارولين حداد', email: 'caroline.haddad@mail.com', phone: '+970 59 100 2026', role: 'freelancer', status: 'active', verified: true, joined: '2025-07-19', lastActive: 'قبل 2 ساعة', online: false, bookings: 24, activity: spark(6) },
+  { id: 27, name: 'لؤي قاسم', email: 'loay.kassem@mail.com', phone: '+970 59 100 2027', role: 'owner', status: 'review', verified: false, joined: '2026-09-20', lastActive: 'قبل 12 دقيقة', online: true, bookings: 0, activity: spark(1) },
+  { id: 28, name: 'منى الشيخ', email: 'mona.sheikh@mail.com', phone: '+970 59 100 2028', role: 'freelancer', status: 'active', verified: true, joined: '2025-03-15', lastActive: 'قبل 3 ساعات', online: false, bookings: 31, activity: spark(7) },
+  { id: 29, name: 'نادر سلامة', email: 'nader.salama@mail.com', phone: '+970 59 100 2029', role: 'freelancer', status: 'active', verified: true, joined: '2025-05-29', lastActive: 'قبل يوم', online: false, bookings: 5, activity: spark(2) },
+  { id: 30, name: 'هشام جرادات', email: 'hesham.jaradat@mail.com', phone: '+970 59 100 2030', role: 'owner', status: 'active', verified: true, joined: '2024-09-10', lastActive: 'قبل 45 دقيقة', online: true, bookings: 0, activity: spark(1) },
+  { id: 31, name: 'وفاء نصار', email: 'wafaa.nassar@mail.com', phone: '+970 59 100 2031', role: 'freelancer', status: 'active', verified: true, joined: '2025-08-21', lastActive: 'قبل 20 دقيقة', online: true, bookings: 14, activity: spark(4) },
+  { id: 32, name: 'ياسين داوود', email: 'yaseen.dawood@mail.com', phone: '+970 59 100 2032', role: 'freelancer', status: 'review', verified: false, joined: '2026-09-21', lastActive: 'قبل 3 دقائق', online: true, bookings: 0, activity: spark(1) },
 ];
 
 export const adminSpaces = [
