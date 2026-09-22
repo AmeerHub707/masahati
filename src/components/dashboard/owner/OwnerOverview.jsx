@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { Store, Building2, MapPin, Clock, Megaphone, Users, CalendarClock, CircleDollarSign, Wallet, CalendarCheck, Gauge, Wifi, Zap, Video, Snowflake, Mic, TrendingUp, TrendingDown, Search, X, ChevronDown, ChevronLeft } from 'lucide-react';
 
 const AMENITY_ICONS = {
@@ -419,7 +420,7 @@ export default function OwnerOverview({ data, onNavigate }) {
           </div>
 
           <div className="odash__chart">
-            <div className="odash__chart-ranges">
+            <div className="filterbar filterbar--sm">
               {CHART_RANGES.map((r) => (
                 <button
                   type="button"
@@ -428,7 +429,14 @@ export default function OwnerOverview({ data, onNavigate }) {
                   onClick={() => setChartRange(r.id)}
                   aria-pressed={chartRange === r.id}
                 >
-                  {r.label}
+                  {chartRange === r.id && (
+                    <motion.span
+                      layoutId="filterbar-owner-ranges"
+                      className="filterbar-pill"
+                      transition={{ type: 'spring', stiffness: 480, damping: 38, mass: 0.9 }}
+                    />
+                  )}
+                  <span className="filterbar-label">{r.label}</span>
                 </button>
               ))}
             </div>

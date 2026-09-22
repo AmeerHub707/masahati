@@ -603,7 +603,6 @@ export default function LoginPage() {
           line-height: 1.6;
           color: rgba(255,255,255,0.72);
         }
-        .role-modal__segment { margin-bottom: 1.1rem; }
         .role-modal__hint {
           margin: 0;
           font-size: 0.78rem;
@@ -616,44 +615,6 @@ export default function LoginPage() {
           font-weight: 700;
           color: var(--accent);
         }
-
-        /* مقسم الأدوار (نفس الهوية البصرية لصفحة إنشاء الحساب) */
-        .segment {
-          position: relative;
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          direction: rtl;
-          background: rgba(255,255,255,0.08);
-          border: 1.5px solid rgba(255,255,255,0.18);
-          border-radius: 999px;
-          padding: 0.3rem;
-        }
-        .segment__thumb {
-          position: absolute;
-          top: 0.3rem; bottom: 0.3rem; right: 0.3rem;
-          width: calc(50% - 0.3rem);
-          background: linear-gradient(180deg, #fb923c, var(--accent) 60%, var(--accent-hover));
-          border-radius: 999px;
-          transition: transform .28s var(--ease);
-          z-index: 0;
-        }
-        .segment__opt {
-          position: relative;
-          z-index: 1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.45rem;
-          padding: 0.55rem 0.5rem;
-          border: none;
-          background: transparent;
-          cursor: pointer;
-          font-size: 0.9rem;
-          font-weight: 600;
-          color: rgba(255,255,255,0.7);
-          transition: color .2s var(--ease);
-        }
-        .segment__opt.active { color: #fff; }
 
         /* ===== ضبط دقيق للهواتف ===== */
         @media (max-width: 600px) {
@@ -861,11 +822,11 @@ export default function LoginPage() {
             <p className="role-modal__sub">لم نجد بريدك مسجلاً بعد. اختر نوع الحساب لإنشائه:</p>
 
             {/* مقسم اختيار الدور — نفس الهوية البصرية لصفحة إنشاء الحساب */}
-            <div className="segment role-modal__segment">
-              <span className="segment__thumb" aria-hidden="true"></span>
+            <div className="filterbar filterbar--auth role-modal__segment">
+              <span className="filterbar-thumb" aria-hidden="true"></span>
               <button
                 type="button"
-                className={`segment__opt active`}
+                className="is-active"
                 onClick={() => handleRolePick('customer')}
               >
                 <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-[2] stroke-linecap-round stroke-linejoin-round">
@@ -876,7 +837,6 @@ export default function LoginPage() {
               </button>
               <button
                 type="button"
-                className={`segment__opt`}
                 onClick={() => handleRolePick('space_owner')}
               >
                 <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-[2] stroke-linecap-round stroke-linejoin-round">

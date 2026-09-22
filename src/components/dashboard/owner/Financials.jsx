@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { motion } from 'framer-motion';
 import {
   Wallet, Receipt, CircleDollarSign, CalendarCheck, Clock, Building2,
   Store, Search, ChevronDown, X, Repeat, Sparkles, Loader2, Printer,
@@ -417,7 +418,7 @@ export default function Financials({ data }) {
             })}
           </section>
 
-          <div className="obk__tabs" role="group" aria-label="أقسام المالية">
+          <div className="filterbar" role="group" aria-label="أقسام المالية">
             {VIEWS.map((v) => {
               const Icon = v.icon;
               const on = view === v.id;
@@ -429,10 +430,17 @@ export default function Financials({ data }) {
                   onClick={() => setView(v.id)}
                   aria-pressed={on}
                 >
+                  {on && (
+                    <motion.span
+                      layoutId="filterbar-financials"
+                      className="filterbar-pill"
+                      transition={{ type: 'spring', stiffness: 480, damping: 38, mass: 0.9 }}
+                    />
+                  )}
                   <Icon />
-                  <span>{v.label}</span>
+                  <span className="filterbar-label">{v.label}</span>
                   {v.id === 'invoices' && invoices.length > 0 && (
-                    <b className="obk__tab-count">{fmtNumber(invoices.length)}</b>
+                    <b className="filterbar-count">{fmtNumber(invoices.length)}</b>
                   )}
                 </button>
               );
@@ -616,7 +624,7 @@ export default function Financials({ data }) {
                   </div>
 
                   <div className="odash__chart fin__chart">
-                    <div className="odash__chart-ranges">
+                    <div className="filterbar filterbar--sm">
                       {REPORT_METRICS.map((m) => (
                         <button
                           type="button"
@@ -625,7 +633,14 @@ export default function Financials({ data }) {
                           onClick={() => setReportMetric(m.id)}
                           aria-pressed={reportMetric === m.id}
                         >
-                          {m.label}
+                          {reportMetric === m.id && (
+                            <motion.span
+                              layoutId="filterbar-fin-metrics"
+                              className="filterbar-pill"
+                              transition={{ type: 'spring', stiffness: 480, damping: 38, mass: 0.9 }}
+                            />
+                          )}
+                          <span className="filterbar-label">{m.label}</span>
                         </button>
                       ))}
                     </div>

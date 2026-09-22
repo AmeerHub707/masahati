@@ -420,46 +420,6 @@ export default function SignupPage() {
           color: rgba(255,255,255,0.72);
         }
 
-        /* Segmented Control */
-        .segment {
-          position: relative;
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          direction: rtl;
-          background: rgba(255,255,255,0.08);
-          border: 1.5px solid rgba(255,255,255,0.18);
-          border-radius: 999px;
-          padding: 0.3rem;
-          margin-bottom: 1.05rem;
-        }
-        .segment__thumb {
-          position: absolute;
-          top: 0.3rem; bottom: 0.3rem; right: 0.3rem;
-          width: calc(50% - 0.3rem);
-          background: linear-gradient(180deg, #fb923c, var(--accent) 60%, var(--accent-hover));
-          border-radius: 999px;
-          transition: transform .28s var(--ease);
-          z-index: 0;
-        }
-        .segment.owner .segment__thumb { transform: translateX(-100%); }
-        .segment__opt {
-          position: relative;
-          z-index: 1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.45rem;
-          padding: 0.55rem 0.5rem;
-          border: none;
-          background: transparent;
-          cursor: pointer;
-          font-size: 0.9rem;
-          font-weight: 600;
-          color: rgba(255,255,255,0.7);
-          transition: color .2s var(--ease);
-        }
-        .segment__opt.active { color: #fff; }
-
         /* Fields */
         .field { margin-bottom: 0.5rem; }
         .field label { display: block; font-size: 0.82rem; margin-bottom: 0.35rem; font-weight: 600; color: rgba(255,255,255,0.9); }
@@ -572,7 +532,6 @@ export default function SignupPage() {
           .field label { font-size: 0.85rem; }
           .btn { font-size: 1.02rem; padding: 0.9rem 1rem; min-height: 52px; }
           .otp-box { font-size: 1.4rem; }
-          .segment__opt { padding: 0.7rem 0.5rem; font-size: 0.95rem; min-height: 48px; }
           .file-upload-box { padding: 1rem; min-height: 48px; }
           .back-home { padding: 0.6rem 1rem; min-height: 44px; }
           .auth-wrapper { padding: calc(env(safe-area-inset-top) + 0.5rem) 0.75rem calc(env(safe-area-inset-bottom) + 0.5rem); }
@@ -627,11 +586,11 @@ export default function SignupPage() {
               </p>
 
               {/* Segmented Role Selector */}
-              <div className={`segment ${role === 'space_owner' ? 'owner' : ''}`}>
-                <span className="segment__thumb" aria-hidden="true"></span>
+              <div className="filterbar filterbar--auth" data-owner={role === 'space_owner'}>
+                <span className="filterbar-thumb" aria-hidden="true"></span>
                 <button
                   type="button"
-                  className={`segment__opt ${role === 'customer' ? 'active' : ''}`}
+                  className={`${role === 'customer' ? 'is-active' : ''}`}
                   onClick={() => setRole('customer')}
                 >
                   <GraduationCap size={18} />
@@ -639,7 +598,7 @@ export default function SignupPage() {
                 </button>
                 <button
                   type="button"
-                  className={`segment__opt ${role === 'space_owner' ? 'active' : ''}`}
+                  className={`${role === 'space_owner' ? 'is-active' : ''}`}
                   onClick={() => setRole('space_owner')}
                 >
                   <Building2 size={18} />

@@ -648,7 +648,7 @@ export default function Requests({ onAcceptOffer, onOffersChange, view: viewProp
 
         <div className="dash__req-field">
           <label>المرافق المطلوبة</label>
-          <div className="dash__req-chips is-selectable">
+          <div className="filterbar filterbar--chips">
             {Object.entries(AMENITY_LABELS).map(([key, label]) => {
               const Icon = AMENITY_ICONS[key];
               const on = form.amenities.includes(key);

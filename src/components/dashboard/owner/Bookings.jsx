@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { motion } from 'framer-motion';
 import {
   CalendarCheck, CalendarDays, History, ListChecks, ChevronRight, ChevronLeft,
   Loader2, Sparkles, X, Repeat, BadgeCheck, AlarmClock,
@@ -452,7 +453,7 @@ export default function Bookings({ data }) {
             })}
           </section>
 
-          <div className="obk__tabs" role="group" aria-label="أقسام الحجوزات">
+          <div className="filterbar" role="group" aria-label="أقسام الحجوزات">
             {VIEWS.map((v) => {
               const Icon = v.icon;
               const on = view === v.id;
@@ -464,10 +465,17 @@ export default function Bookings({ data }) {
                   onClick={() => setView(v.id)}
                   aria-pressed={on}
                 >
+                  {on && (
+                    <motion.span
+                      layoutId="filterbar-bookings"
+                      className="filterbar-pill"
+                      transition={{ type: 'spring', stiffness: 480, damping: 38, mass: 0.9 }}
+                    />
+                  )}
                   <Icon />
-                  <span>{v.label}</span>
+                  <span className="filterbar-label">{v.label}</span>
                   {v.id === 'requests' && pendingBookings.length > 0 && (
-                    <b className="obk__tab-count">{fmtNumber(pendingBookings.length)}</b>
+                    <b className="filterbar-count">{fmtNumber(pendingBookings.length)}</b>
                   )}
                 </button>
               );

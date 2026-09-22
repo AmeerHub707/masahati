@@ -718,7 +718,7 @@ export default function Spaces({ data, autoOpen = false }) {
       </div>
 
       {!modal && (
-        <div className="msp__filters" role="group" aria-label="تصفية المساحات حسب الحالة">
+        <div className="filterbar" role="group" aria-label="تصفية المساحات حسب الحالة">
           {FILTERS.map((f) => {
             const on = filter === f.id;
             return (
@@ -731,13 +731,13 @@ export default function Spaces({ data, autoOpen = false }) {
               >
                 {on && (
                   <motion.span
-                    layoutId="mspFilterPill"
-                    className="msp__filters-pill"
+                    layoutId="filterbar-spaces"
+                    className="filterbar-pill"
                     transition={{ type: 'spring', stiffness: 480, damping: 38, mass: 0.9 }}
                   />
                 )}
-                <span className="msp__filters-label">{f.label}</span>
-                <span className="msp__filters-count">{counts[f.id]}</span>
+                <span className="filterbar-label">{f.label}</span>
+                <span className="filterbar-count">{counts[f.id]}</span>
               </button>
             );
           })}
