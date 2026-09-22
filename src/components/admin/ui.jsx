@@ -1,4 +1,4 @@
-import { X, Star } from 'lucide-react';
+import { ArrowLeft, X, Star } from 'lucide-react';
 import DashCountUp from '../dashboard/DashCountUp';
 
 // مكوّنات واجهة مشتركة للوحة تحكم المشرف — مبنية على نظام تصميم dash__ (لوحة المستخدم).
@@ -32,13 +32,22 @@ export function SectionHeading({ icon: Icon, title, subtitle, action }) {
   );
 }
 
+export function ViewAllButton({ onClick, label = 'عرض الكل' }) {
+  return (
+    <button type="button" className="dash__show-all" onClick={onClick}>
+      {label}
+      <ArrowLeft className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
 const statTones = {
-  orange: 'bg-orange-100 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400',
-  amber: 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400',
-  green: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400',
-  blue: 'bg-blue-100 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400',
-  red: 'bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400',
-  violet: 'bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400',
+  orange: 'bg-orange-50 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400',
+  amber: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400',
+  green: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400',
+  blue: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400',
+  red: 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400',
+  violet: 'bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400',
 };
 
 function sparkPoints(data) {
@@ -46,7 +55,7 @@ function sparkPoints(data) {
   const min = Math.min(...data);
   const range = max - min || 1;
   return data
-    .map((d, i) => `${(i / (data.length - 1)) * 100},${40 - ((d - min) / range) * 32}`)
+    .map((d, i) => `${(i / (data.length - 1)) * 100},${36 - ((d - min) / range) * 28}`)
     .join(' ');
 }
 
@@ -56,13 +65,13 @@ export function StatCard({ icon: Icon, label, value, hint, tone = 'orange', curr
   const isUp = trend === 'up';
   return (
     <div
-      className={`relative overflow-hidden rounded-xl border bg-white p-4 transition-all duration-200 hover:shadow-md dark:bg-[#1c1c22] ${
-        isWarn ? 'border-amber-200/50 hover:border-amber-400' : 'border-[var(--border)] hover:border-amber-300'
+      className={`group relative overflow-hidden rounded-xl border bg-white p-4 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-orange-500/10 dark:bg-[#1c1c22] ${
+        isWarn ? 'border-amber-300/80 dark:border-amber-500/30' : 'border-[var(--border)]'
       }`}
     >
       {spark && spark.length > 1 && (
         <svg
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-10 w-full"
+          className="pointer-events-none absolute inset-x-0 bottom-2 h-9 w-full"
           viewBox="0 0 100 40"
           preserveAspectRatio="none"
           aria-hidden="true"
@@ -78,15 +87,23 @@ export function StatCard({ icon: Icon, label, value, hint, tone = 'orange', curr
         </svg>
       )}
       <div className="relative flex items-start justify-between gap-3">
-        <span className="text-sm font-semibold leading-snug" style={{ color: 'var(--text-strong)' }}>{label}</span>
-        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${cls}`}>
+        <div className="flex items-center gap-2">
+          {isWarn && (
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500"></span>
+            </span>
+          )}
+          <span className="text-base font-bold leading-snug text-slate-800 dark:text-slate-100">{label}</span>
+        </div>
+        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-transform duration-300 group-hover:scale-110 ${cls}`}>
           <Icon />
         </span>
       </div>
       <div className="relative mt-3 flex flex-wrap items-center gap-2">
         <span className="text-2xl font-bold leading-none" style={{ color: 'var(--accent)' }}>
           <DashCountUp value={value} commas={commas} />
-          {currency && <span className="mr-1 font-normal text-sm text-gray-500 dark:text-gray-400">{currency}</span>}
+          {currency && <span className="mr-1 font-normal text-sm text-slate-500 dark:text-slate-400">{currency}</span>}
         </span>
         {isWarn ? (
           <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">

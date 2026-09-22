@@ -24,7 +24,7 @@ import {
   Bar,
 } from 'recharts';
 import { adminStats, revenueTrend, adminActivities, recentRegistrations } from '../../data/adminMockData';
-import { StatCard, SectionCard, SectionHeading, StatusBadge, Avatar } from './ui';
+import { StatCard, SectionCard, SectionHeading, StatusBadge, Avatar, ViewAllButton } from './ui';
 
 const activityMeta = {
   user: { icon: UserPlus, tone: 'green' },
@@ -58,7 +58,7 @@ function chartTooltipStyle() {
   };
 }
 
-export default function AdminOverview() {
+export default function AdminOverview({ onNavigate = () => {} }) {
   const stats = adminStats;
 
   const sparkTrace = (v) => [v * 0.72, v * 0.79, v * 0.76, v * 0.85, v * 0.92, v];
@@ -140,13 +140,18 @@ export default function AdminOverview() {
       {/* الأنشطة والتسجيلات */}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <SectionCard>
-          <SectionHeading icon={Activity} title="أحدث أنشطة المنصة" subtitle="نظرة سريعة على آخر الأحداث" />
-          <ul className="space-y-3">
+          <SectionHeading
+            icon={Activity}
+            title="أحدث أنشطة المنصة"
+            subtitle="نظرة سريعة على آخر الأحداث"
+            action={<ViewAllButton onClick={() => onNavigate('bookings')} />}
+          />
+          <ul className="space-y-3 pb-3">
             {adminActivities.map((a) => {
               const meta = activityMeta[a.icon] || activityMeta.user;
               const Icon = meta.icon;
               return (
-                <li key={a.id} className="flex items-start gap-3">
+                <li key={a.id} className="flex items-start gap-3 rounded-xl px-2 py-1 transition-colors hover:bg-orange-50/70 dark:hover:bg-white/5">
                   <span className={`st-ico st-ico--${meta.tone}`}>
                     <Icon />
                   </span>
@@ -161,7 +166,12 @@ export default function AdminOverview() {
         </SectionCard>
 
         <SectionCard>
-          <SectionHeading icon={UserPlus} title="أحدث التسجيلات" subtitle="مستخدمون جدد انضموا مؤخراً" />
+          <SectionHeading
+            icon={UserPlus}
+            title="أحدث التسجيلات"
+            subtitle="مستخدمون جدد انضموا مؤخراً"
+            action={<ViewAllButton onClick={() => onNavigate('users')} />}
+          />
           <div className="overflow-x-auto">
             <table className="dash__table min-w-[24rem] text-sm">
               <thead>

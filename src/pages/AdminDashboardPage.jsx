@@ -12,7 +12,6 @@ import AdminNotifications from '../components/admin/AdminNotifications';
 import AdminSettings from '../components/admin/AdminSettings';
 import DashboardLoading from '../components/dashboard/DashboardLoading';
 import ScrollProgress from '../components/common/ScrollProgress';
-import WhatsAppBubble from '../components/common/WhatsAppBubble';
 import { isAdminLoggedIn, adminLogout } from '../lib/adminAuth';
 
 const TAB_COMPONENTS = {
@@ -61,11 +60,10 @@ export default function AdminDashboardPage() {
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.28, ease: 'easeOut' }}
           >
-            <ActiveComponent />
+            <ActiveComponent onNavigate={setActiveTab} />
           </motion.div>
         </AnimatePresence>
       </AdminLayout>
-      <WhatsAppBubble />
     </div>
   );
 }

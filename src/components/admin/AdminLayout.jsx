@@ -1,10 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, LogOut, Menu, X, Bell, MapPin, Check, Clock, FileText } from 'lucide-react';
 import { getAdminProfile } from '../../lib/adminAuth';
 import { ADMIN_TABS } from '../../data/adminTabs';
-import MagneticButton from '../common/MagneticButton';
 import ThemeToggle from '../common/ThemeToggle';
 
 function useDates() {
@@ -266,13 +264,6 @@ export default function AdminLayout({ active, onNavigate, onLogout, children }) 
                 document.body
               )}
             </div>
-
-            <MagneticButton>
-              <Link className="dash__logout-top" to="/spaces">
-                <MapPin />
-                <span>تصفح المساحات</span>
-              </Link>
-            </MagneticButton>
           </header>
 
           <main className="dash__content">{children}</main>
