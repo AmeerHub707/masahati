@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Store, Building2, MapPin, Clock, Megaphone, Users, CalendarClock, CircleDollarSign, Wallet, CalendarCheck, Gauge, Wifi, Zap, Video, Snowflake, Mic, TrendingUp, TrendingDown, Search, X, ChevronDown, ChevronLeft, Sparkles, BarChart3, Target, Star, Wrench, FileText } from 'lucide-react';
 import { belongsToSpace } from '../../../lib/owner';
+import ChartBars from './ChartBars';
 
 const SUGGESTIONS_KEY = 'masahati.owner-suggestions-dismissed';
 
@@ -704,26 +705,18 @@ export default function OwnerOverview({ data, onNavigate }) {
                       </span>
                     ))}
                   </div>
-                  <div className="odash__chart-plot">
-                    <div className="odash__chart-grid">
-                      {[1, 0.75, 0.5, 0.25, 0].map((f) => (
-                        <i key={f} style={{ top: `${(1 - f) * 100}%` }} />
-                      ))}
-                    </div>
-                    <div className={`odash__chart-bars${revenueChart.days >= 14 ? ' is-dense' : ''}`}>
-                      {revenueChart.points.map((p) => {
-                        const h = revenueChart.max > 0 ? Math.max(4, (p.value / revenueChart.max) * 100) : 4;
-                        const isToday = chartRange !== 'month' && p.key === localDayKey(new Date());
-                        return (
-                          <div className={`odash__chart-col${isToday ? ' is-today' : ''}`} key={p.key} title={`${fmtMoney(p.value)} ش.ج`}>
-                            <span className="odash__chart-val">{p.value > 0 ? fmtMoney(p.value) : ''}</span>
-                            <div className="odash__chart-bar" style={{ height: `${h}%` }} />
-                            <span className={`odash__chart-x${p.showLabel ? '' : ' is-hidden'}`}>{p.label}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  <ChartBars
+                    points={revenueChart.points.map((p) => ({
+                      ...p,
+                      key: p.key,
+                      isToday: chartRange !== 'month' && p.key === localDayKey(new Date()),
+                    }))}
+                    max={revenueChart.max}
+                    dense={revenueChart.days >= 14}
+                    barClassName={(p) => (p.isToday ? ' is-today' : '')}
+                    xHidden={(p) => !p.showLabel}
+                    tip={(p) => `${p.label} — ${fmtMoney(p.value)} ش.ج`}
+                  />
                 </div>
 
                 <div className="odash__chart-foot">

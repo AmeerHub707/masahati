@@ -6,6 +6,7 @@ import {
   FileDown, MapPin, Gauge, BadgeCheck, ListChecks, TrendingUp, CalendarDays, BarChart3,
 } from 'lucide-react';
 import { isOwnerDemo, loadOwnerDashboardWithFallback, belongsToSpace } from '../../../lib/owner';
+import ChartBars from './ChartBars';
 
 function fmtNumber(n) {
   return new Intl.NumberFormat('ar-EG').format(n || 0);
@@ -652,26 +653,16 @@ export default function Financials({ data }) {
                               </span>
                             ))}
                           </div>
-                          <div className="odash__chart-plot">
-                            <div className="odash__chart-grid">
-                              {[1, 0.75, 0.5, 0.25, 0].map((f) => (
-                                <i key={f} style={{ top: `${(1 - f) * 100}%` }} />
-                              ))}
-                            </div>
-                            <div className="odash__chart-bars">
-                              {reportChart.points.map((p) => {
-                                const h = reportChart.max > 0 ? Math.max(4, (p.value / reportChart.max) * 100) : 4;
-                                const isTop = reportChart.top && reportChart.top.id === p.id;
-                                return (
-                                  <div className={`odash__chart-col${isTop ? ' is-top' : ''}`} key={p.id} title={`${p.label} — ${p.display}`}>
-                                    <span className="odash__chart-val">{p.display}</span>
-                                    <div className="odash__chart-bar" style={{ height: `${h}%` }} />
-                                    <span className="odash__chart-x">{p.label}</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
+                          <ChartBars
+                            points={reportChart.points.map((p) => ({
+                              ...p,
+                              key: p.id,
+                              isTop: reportChart.top && reportChart.top.id === p.id,
+                            }))}
+                            max={reportChart.max}
+                            barClassName={(p) => (p.isTop ? ' is-top' : '')}
+                            tip={(p) => `${p.label} — ${p.display}`}
+                          />
                         </div>
 
                         <div className="odash__chart-foot">
