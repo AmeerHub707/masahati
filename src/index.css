@@ -1844,6 +1844,8 @@ html.dark .odash__market-toast.is-warn{background:rgba(113,63,18,.85);border-col
 .odash__perf-val{font-size:.85rem;color:var(--text-muted);}
 .odash__perf-val b{color:#ea580c;font-size:1.1rem;margin:0 4px 0 0;}
 
+html.dark .odash__perf-val{color:#c7c7cf;}
+html.dark .odash__perf-val b{color:#fb923c;}
 html.dark .odash__perf-card{background:#1c1c22;border-color:var(--border);}
 html.dark .odash__perf-info h3{color:var(--text-strong);}
 html.dark .odash__ring-bg{stroke:rgba(255,255,255,.1);}
@@ -2168,6 +2170,19 @@ html.dark .odash__notif-badge{border-color:var(--surface-2);}
 .odash__hero-note p{margin:0;font-size:.78rem;color:rgba(255,255,255,.85);line-height:1.6;text-shadow:none;}
 
 .odash__stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.6rem;}
+
+/* هيكل تحميل (skeleton) لبطاقات الإحصاءات */
+.odash__stat-skel{background:#fff;border:1px solid var(--border);border-radius:var(--radius-card);padding:1.1rem;display:flex;align-items:center;gap:.9rem;}
+.odash__stat-skel-ico{width:2.6rem;height:2.6rem;border-radius:.8rem;flex:none;}
+.odash__stat-skel-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:.5rem;}
+.odash__skel{position:relative;overflow:hidden;background:rgba(100,116,139,.14);border-radius:.6rem;}
+.odash__skel::after{content:'';position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(255,255,255,.6),transparent);animation:odash-shimmer 1.5s infinite;}
+.odash__skel--title{height:1.05rem;width:46%;}
+.odash__skel--sub{height:.8rem;width:72%;}
+@keyframes odash-shimmer{100%{transform:translateX(100%);}}
+html.dark .odash__stat-skel{background:#1c1c22;border-color:var(--border);}
+html.dark .odash__skel{background:rgba(255,255,255,.09);}
+html.dark .odash__skel::after{background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent);}
 
 /* شريط اختيار مساحة محددة لمحاسبة الإحصاءات */
 .odash__filter{display:flex;align-items:flex-start;gap:1rem;background:#fff;border:1px solid var(--border);
@@ -2973,6 +2988,9 @@ html.dark .odash__space-card,
 html.dark .odash__opp{background:#1c1c22;border-color:var(--border);}
 html.dark .odash__space-card.is-inactive{opacity:.8;}
 html.dark .odash__section-head h2{color:var(--text-strong);}
+
+/* أوصاف الأقسام في لوحة المساحات — رمادي مريح في الوضع الداكن بدلاً من الأبيض */
+html.dark .odash__section-head p{color:#c7c7cf;}
 html.dark .odash__market-card.is-submitted{background:rgba(249,115,22,.1);}
 html.dark .odash__market-body h3,
 html.dark .odash__space-body h3,

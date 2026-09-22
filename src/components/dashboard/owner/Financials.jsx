@@ -1,12 +1,14 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   Wallet, Receipt, CircleDollarSign, CalendarCheck, Clock, Building2,
-  Store, Search, ChevronDown, X, Repeat, Sparkles, Loader2, Printer,
+  X, Repeat, Sparkles, Printer,
   FileDown, MapPin, Gauge, BadgeCheck, ListChecks, TrendingUp, CalendarDays, BarChart3,
 } from 'lucide-react';
 import { isOwnerDemo, loadOwnerDashboardWithFallback, belongsToSpace } from '../../../lib/owner';
 import ChartBars from './ChartBars';
+import SpacePicker from './SpacePicker';
+import StatCardsSkeleton from './StatCardsSkeleton';
 
 function fmtNumber(n) {
   return new Intl.NumberFormat('ar-EG').format(n || 0);
@@ -112,18 +114,7 @@ export default function Financials({ data }) {
   const [view, setView] = useState('invoices');
   const [reportMetric, setReportMetric] = useState('revenue');
   const [spaceId, setSpaceId] = useState(''); // '' = كل المساحات
-  const [query, setQuery] = useState('');
-  const [openPicker, setOpenPicker] = useState(false);
-  const pickerRef = useRef(null);
   const [printDoc, setPrintDoc] = useState(null); // { type:'invoice', id } | { type:'invoices' } | { type:'report' }
-
-  useEffect(() => {
-    const onDocClick = (e) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target)) setOpenPicker(false);
-    };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, []);
 
   useEffect(() => {
     if (!printDoc) return undefined;
@@ -131,12 +122,6 @@ export default function Financials({ data }) {
     window.addEventListener('afterprint', afterPrint);
     return () => window.removeEventListener('afterprint', afterPrint);
   }, [printDoc]);
-
-  const pickSpace = useCallback((id) => {
-    setSpaceId(id);
-    setQuery('');
-    setOpenPicker(false);
-  }, []);
 
   const load = useCallback(async (force = false) => {
     if (force) setRefreshing(true);
@@ -164,10 +149,6 @@ export default function Financials({ data }) {
   }, [load, data?.bookings]);
 
   const selectedSpace = spaces.find((s) => String(s.id) === String(spaceId)) || null;
-
-  const filteredPicker = query
-    ? spaces.filter((s) => (s.title || '').toLowerCase().includes(query.toLowerCase()))
-    : spaces;
 
   const scopedBookings = selectedSpace
     ? bookings.filter((b) => belongsToSpace(b, selectedSpace))
@@ -325,63 +306,12 @@ export default function Financials({ data }) {
           </div>
         </div>
         <div className="obk__hero-side">
-          <div className="odash__filter" ref={pickerRef}>
-            <div className="odash__filter-ico"><Store /></div>
-            <div className="odash__filter-main">
-              <span className="odash__filter-label">
-                {selectedSpace ? 'تُعرض المالية لـ ' : 'تُعرض المالية لكل المساحات'}
-              </span>
-              <div className="odash__filter-field">
-                <Search className="odash__filter-search-ico" />
-                <input
-                  type="text"
-                  value={query}
-                  placeholder={selectedSpace ? selectedSpace.title : 'ابحث عن مساحة محددة…'}
-                  onFocus={() => setOpenPicker(true)}
-                  onChange={(e) => { setQuery(e.target.value); setOpenPicker(true); }}
-                  aria-label="بحث عن مساحة"
-                />
-                {query || selectedSpace ? (
-                  <button
-                    type="button"
-                    className="odash__filter-clear"
-                    onClick={() => pickSpace('')}
-                    aria-label="إلغاء اختيار المساحة"
-                  >
-                    <X />
-                  </button>
-                ) : (
-                  <ChevronDown className="odash__filter-caret" />
-                )}
-              </div>
-            </div>
-
-            {openPicker && (
-              <div className="odash__filter-menu" role="listbox">
-                <button type="button" role="option" className="odash__filter-item is-all" onClick={() => pickSpace('')}>
-                  <Building2 /> كل المساحات
-                </button>
-                {filteredPicker.map((s) => (
-                  <button
-                    type="button"
-                    role="option"
-                    key={s.id}
-                    className={`odash__filter-item${String(s.id) === String(spaceId) ? ' is-active' : ''}`}
-                    onClick={() => pickSpace(String(s.id))}
-                  >
-                    <Building2 />
-                    <span>
-                      <b>{s.title}</b>
-                      <small>{s.location || `تتسع لـ ${s.capacity} شخص`}</small>
-                    </span>
-                  </button>
-                ))}
-                {filteredPicker.length === 0 && (
-                  <span className="odash__filter-empty">لا توجد مساحات تطابق بحثك.</span>
-                )}
-              </div>
-            )}
-          </div>
+          <SpacePicker
+            spaces={spaces}
+            spaceId={spaceId}
+            onPick={setSpaceId}
+            label={(sel) => (sel ? 'تُعرض المالية لـ ' : 'تُعرض المالية لكل المساحات')}
+          />
           <button
             type="button"
             className="odash__market-refresh obk__hero-refresh"
@@ -396,11 +326,7 @@ export default function Financials({ data }) {
       </div>
 
       {loading && bookings.length === 0 ? (
-        <div className="odash__state">
-          <div className="ost-svg"><Loader2 className="spin" /></div>
-          <h3>جارٍ تحميل المالية…</h3>
-          <p>نحسب فواتيرك ومؤشرات الأداء من أحدث بيانات لوحتك.</p>
-        </div>
+        <StatCardsSkeleton cols={4} />
       ) : (
         <>
           <section className="odash__stats odash__stats--4">

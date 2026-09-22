@@ -1,10 +1,12 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Store, Building2, Search, X, ChevronDown, Star, MessageSquare,
-  Repeat, Sparkles, Loader2,
+  Building2, Star, MessageSquare, X,
+  Repeat, Sparkles,
 } from 'lucide-react';
 import { isOwnerDemo, loadOwnerDashboardWithFallback } from '../../../lib/owner';
+import SpacePicker from './SpacePicker';
+import StatCardsSkeleton from './StatCardsSkeleton';
 
 const STAR_VALUES = [1, 2, 3, 4, 5];
 
@@ -55,18 +57,11 @@ export default function Reviews({ data }) {
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   const [spaceId, setSpaceId] = useState(''); // '' = كل المساحات
-  const [query, setQuery] = useState('');
-  const [openPicker, setOpenPicker] = useState(false);
   const [ratingFilter, setRatingFilter] = useState('all');
-  const pickerRef = useRef(null);
 
   const allSpaces = (spaces || []).filter((s) => s.is_active !== false);
 
   const selectedSpace = allSpaces.find((s) => String(s.id) === String(spaceId)) || null;
-
-  const filteredPicker = query
-    ? allSpaces.filter((s) => (s.title || '').toLowerCase().includes(query.toLowerCase()))
-    : allSpaces;
 
   const load = useCallback(async (force = false) => {
     if (force) setRefreshing(true);
@@ -86,25 +81,11 @@ export default function Reviews({ data }) {
 
   // التبويب يعتمد على بيانات اللوحة الأم (لا يعيد تحميل اللوحة كاملة)،
   // ويُحدَّث من زر الإنعاش الذي يستدعي load(true).
-  useEffect(() => {
+useEffect(() => {
     if (Array.isArray(data?.reviews)) return undefined;
     const t = setTimeout(() => load(), 0);
     return () => clearTimeout(t);
   }, [load, data?.reviews]);
-
-  useEffect(() => {
-    const onDocClick = (e) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target)) setOpenPicker(false);
-    };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, []);
-
-  const pickSpace = (id) => {
-    setSpaceId(id);
-    setQuery('');
-    setOpenPicker(false);
-  };
 
   const scopedReviews = useMemo(() => {
     if (!spaceId) return reviews;
@@ -182,63 +163,12 @@ export default function Reviews({ data }) {
           </div>
         </div>
         <div className="obk__hero-side">
-          <div className="odash__filter" ref={pickerRef}>
-            <div className="odash__filter-ico"><Store /></div>
-            <div className="odash__filter-main">
-              <span className="odash__filter-label">
-                {selectedSpace ? 'تُعرض تقييمات ' : 'تُعرض تقييمات كل المساحات'}
-              </span>
-              <div className="odash__filter-field">
-                <Search className="odash__filter-search-ico" />
-                <input
-                  type="text"
-                  value={query}
-                  placeholder={selectedSpace ? selectedSpace.title : 'ابحث عن مساحة محددة…'}
-                  onFocus={() => setOpenPicker(true)}
-                  onChange={(e) => { setQuery(e.target.value); setOpenPicker(true); }}
-                  aria-label="بحث عن مساحة"
-                />
-                {query || selectedSpace ? (
-                  <button
-                    type="button"
-                    className="odash__filter-clear"
-                    onClick={() => pickSpace('')}
-                    aria-label="إلغاء اختيار المساحة"
-                  >
-                    <X />
-                  </button>
-                ) : (
-                  <ChevronDown className="odash__filter-caret" />
-                )}
-              </div>
-            </div>
-
-            {openPicker && (
-              <div className="odash__filter-menu" role="listbox">
-                <button type="button" role="option" className="odash__filter-item is-all" onClick={() => pickSpace('')}>
-                  <Building2 /> كل المساحات
-                </button>
-                {filteredPicker.map((s) => (
-                  <button
-                    type="button"
-                    role="option"
-                    key={s.id}
-                    className={`odash__filter-item${String(s.id) === String(spaceId) ? ' is-active' : ''}`}
-                    onClick={() => pickSpace(String(s.id))}
-                  >
-                    <Building2 />
-                    <span>
-                      <b>{s.title}</b>
-                      <small>{s.location || `تتسع لـ ${s.capacity} شخص`}</small>
-                    </span>
-                  </button>
-                ))}
-                {filteredPicker.length === 0 && (
-                  <span className="odash__filter-empty">لا توجد مساحات تطابق بحثك.</span>
-                )}
-              </div>
-            )}
-          </div>
+          <SpacePicker
+            spaces={allSpaces}
+            spaceId={spaceId}
+            onPick={setSpaceId}
+            label={(sel) => (sel ? 'تُعرض تقييمات ' : 'تُعرض تقييمات كل المساحات')}
+          />
           <button
             type="button"
             className="odash__market-refresh obk__hero-refresh"
@@ -253,11 +183,7 @@ export default function Reviews({ data }) {
       </div>
 
       {loading && reviews.length === 0 ? (
-        <div className="odash__state">
-          <div className="ost-svg"><Loader2 className="spin" /></div>
-          <h3>جارٍ تحميل التقييمات…</h3>
-          <p>نعرض تقييمات العملاء على مساحاتك.</p>
-        </div>
+        <StatCardsSkeleton cols={3} />
       ) : (
         <>
           <section className="odash__stats odash__stats--3">

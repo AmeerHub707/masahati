@@ -1,9 +1,9 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Store, Building2, MapPin, Clock, Megaphone, Users, CalendarClock, CircleDollarSign, Wallet, CalendarCheck, Gauge, Wifi, Zap, Video, Snowflake, Mic, TrendingUp, TrendingDown, Search, X, ChevronDown, ChevronLeft, Sparkles, BarChart3, Target, Star, Wrench, FileText } from 'lucide-react';
+import { Store, Building2, MapPin, Clock, Megaphone, Users, CalendarClock, CircleDollarSign, Wallet, CalendarCheck, Gauge, Wifi, Zap, Video, Snowflake, Mic, TrendingUp, TrendingDown, X, ChevronLeft, Sparkles, BarChart3, Target, Star, Wrench, FileText } from 'lucide-react';
 import { belongsToSpace } from '../../../lib/owner';
 import ChartBars from './ChartBars';
+import SpacePicker from './SpacePicker';
 
 const SUGGESTIONS_KEY = 'masahati.owner-suggestions-dismissed';
 
@@ -248,23 +248,8 @@ export default function OwnerOverview({ data, onNavigate }) {
 
   const allSpaces = (data.spaces || []).filter((s) => s.is_active !== false);
   const [spaceId, setSpaceId] = useState(''); // '' = كل المساحات
-  const [query, setQuery] = useState('');
-  const [openPicker, setOpenPicker] = useState(false);
-  const pickerRef = useRef(null);
 
   const selectedSpace = allSpaces.find((s) => String(s.id) === String(spaceId)) || null;
-
-  const filteredPicker = query
-    ? allSpaces.filter((s) => (s.title || '').toLowerCase().includes(query.toLowerCase()))
-    : allSpaces;
-
-  useEffect(() => {
-    const onDocClick = (e) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target)) setOpenPicker(false);
-    };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, []);
 
   const bookings = data.bookings || [];
   const scopedBookings = selectedSpace
@@ -475,12 +460,6 @@ export default function OwnerOverview({ data, onNavigate }) {
     },
   ];
 
-  const pickSpace = (id) => {
-    setSpaceId(id);
-    setQuery('');
-    setOpenPicker(false);
-  };
-
   const suggestions = useMemo(
     () => generateSuggestions({ spaces: data.spaces, bookings: data.bookings, market: data.market }),
     [data.spaces, data.bookings, data.market]
@@ -529,63 +508,12 @@ export default function OwnerOverview({ data, onNavigate }) {
   return (
     <>
       {/* بنر الاقتراحات الذكية */}
-      <section className="odash__filter" ref={pickerRef}>
-        <div className="odash__filter-ico"><Store /></div>
-        <div className="odash__filter-main">
-          <span className="odash__filter-label">
-            {selectedSpace ? 'تُعرض الإحصاءات لـ ' : 'تُعرض الإحصاءات لكل المساحات'}
-          </span>
-          <div className="odash__filter-field">
-            <Search className="odash__filter-search-ico" />
-            <input
-              type="text"
-              value={query}
-              placeholder={selectedSpace ? selectedSpace.title : 'ابحث عن مساحة محددة…'}
-              onFocus={() => setOpenPicker(true)}
-              onChange={(e) => { setQuery(e.target.value); setOpenPicker(true); }}
-              aria-label="بحث عن مساحة"
-            />
-            {query || selectedSpace ? (
-              <button
-                type="button"
-                className="odash__filter-clear"
-                onClick={() => pickSpace('')}
-                aria-label="إلغاء اختيار المساحة"
-              >
-                <X />
-              </button>
-            ) : (
-              <ChevronDown className="odash__filter-caret" />
-            )}
-          </div>
-        </div>
-
-        {openPicker && (
-          <div className="odash__filter-menu" role="listbox">
-            <button type="button" role="option" className="odash__filter-item is-all" onClick={() => pickSpace('')}>
-              <Building2 /> كل المساحات
-            </button>
-            {filteredPicker.map((s) => (
-              <button
-                type="button"
-                role="option"
-                key={s.id}
-                className={`odash__filter-item${String(s.id) === String(spaceId) ? ' is-active' : ''}`}
-                onClick={() => pickSpace(String(s.id))}
-              >
-                <Building2 />
-                <span>
-                  <b>{s.title}</b>
-                  <small>{s.location || `تتسع لـ ${s.capacity} شخص`}</small>
-                </span>
-              </button>
-            ))}
-            {filteredPicker.length === 0 && (
-              <span className="odash__filter-empty">لا توجد مساحات تطابق بحثك.</span>
-            )}
-          </div>
-        )}
-      </section>
+      <SpacePicker
+        spaces={allSpaces}
+        spaceId={spaceId}
+        onPick={setSpaceId}
+        label={(sel) => (sel ? 'تُعرض الإحصاءات لـ ' : 'تُعرض الإحصاءات لكل المساحات')}
+      />
 
       {visibleSuggestions.length > 0 && (
         <motion.div
@@ -892,17 +820,17 @@ export default function OwnerOverview({ data, onNavigate }) {
             const circumference = 2 * Math.PI * radius;
             const offset = circumference - (s.performance / 100) * circumference;
             return (
-              <Link to={`/ads/${s.id}`} className="odash__perf-card" key={s.id} style={{ textDecoration: 'none', color: 'inherit' }}>
+              <div className="odash__perf-card" key={s.id}>
                 <div className="odash__perf-ring">
-                  <svg width="80" height="80" className="odash__ring-svg">
+                  <svg width="80" height="80" className="odash__ring-svg" role="img" aria-label={`نسبة مساهمة ${s.title}: ${s.performance}٪`}>
                     <circle className="odash__ring-bg" cx="40" cy="40" r={radius} />
                     <circle 
                       className="odash__ring-fill" 
                       cx="40" cy="40" r={radius} 
                       style={{ strokeDasharray: `${circumference} ${circumference}`, strokeDashoffset: offset }}
                     />
-                    <span className="odash__ring-text">{s.performance}٪</span>
                   </svg>
+                  <span className="odash__ring-text">{s.performance}٪</span>
                 </div>
                 <div className="odash__perf-info">
                   <h3>{s.title}</h3>
@@ -910,7 +838,7 @@ export default function OwnerOverview({ data, onNavigate }) {
                     <b>{fmtMoney(s.revenue)}</b> <small>ش.ج</small>
                   </div>
                 </div>
-              </Link>
+              </div>
             );
           })}
           {spacePerformance.length === 0 && (

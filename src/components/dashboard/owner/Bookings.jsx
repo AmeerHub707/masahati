@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   CalendarCheck, CalendarDays, History, ListChecks, ChevronRight, ChevronLeft,
   Loader2, Sparkles, X, Repeat, BadgeCheck, AlarmClock,
-  Building2, Check, Store, Search, ChevronDown,
+  Building2, Check,
 } from 'lucide-react';
 import {
   isOwnerDemo,
@@ -11,6 +11,8 @@ import {
   setBookingStatusWithFallback,
   belongsToSpace,
 } from '../../../lib/owner';
+import SpacePicker from './SpacePicker';
+import StatCardsSkeleton from './StatCardsSkeleton';
 
 function fmtNumber(n) {
   return new Intl.NumberFormat('ar-EG').format(n || 0);
@@ -91,29 +93,12 @@ export default function Bookings({ data, onStatusChange }) {
   const [busyId, setBusyId] = useState(null);
   const [toast, setToast] = useState(null);
   const [spaceId, setSpaceId] = useState(''); // '' = كل المساحات
-  const [query, setQuery] = useState('');
-  const [openPicker, setOpenPicker] = useState(false);
-  const pickerRef = useRef(null);
 
   useEffect(() => {
     if (!toast) return undefined;
     const id = setTimeout(() => setToast(null), 4200);
     return () => clearTimeout(id);
   }, [toast]);
-
-  useEffect(() => {
-    const onDocClick = (e) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target)) setOpenPicker(false);
-    };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, []);
-
-  const pickSpace = useCallback((id) => {
-    setSpaceId(id);
-    setQuery('');
-    setOpenPicker(false);
-  }, []);
 
   const load = useCallback(async (force = false) => {
     if (force) setRefreshing(true);
@@ -191,11 +176,6 @@ export default function Bookings({ data, onStatusChange }) {
       .sort((a, b) => String(a.timeFrom || a.time || '').localeCompare(String(b.timeFrom || b.time || '')));
   }, [scopedBookings]);
 
-  const filteredPicker = query
-    ? spaceRows.filter((s) => (s.title || '').toLowerCase().includes(query.toLowerCase()))
-    : spaceRows;
-
-  // البطاقة العلوية تتغيّر حسب المساحة المختارة: إحصاءات المساحة فقط عند اختيارها.
   const summary = useMemo(() => {
     const scoped = selectedSpace
       ? {
@@ -359,63 +339,12 @@ export default function Bookings({ data, onStatusChange }) {
           </div>
         </div>
         <div className="obk__hero-side">
-          <div className="odash__filter" ref={pickerRef}>
-            <div className="odash__filter-ico"><Store /></div>
-            <div className="odash__filter-main">
-              <span className="odash__filter-label">
-                {selectedSpace ? 'المساحة المختارة' : 'كل المساحات'}
-              </span>
-              <div className="odash__filter-field">
-                <Search className="odash__filter-search-ico" />
-                <input
-                  type="text"
-                  value={query}
-                  placeholder={selectedSpace ? selectedSpace.title : 'ابحث عن مساحة محددة…'}
-                  onFocus={() => setOpenPicker(true)}
-                  onChange={(e) => { setQuery(e.target.value); setOpenPicker(true); }}
-                  aria-label="بحث عن مساحة"
-                />
-                {query || selectedSpace ? (
-                  <button
-                    type="button"
-                    className="odash__filter-clear"
-                    onClick={() => pickSpace('')}
-                    aria-label="إلغاء اختيار المساحة"
-                  >
-                    <X />
-                  </button>
-                ) : (
-                  <ChevronDown className="odash__filter-caret" />
-                )}
-              </div>
-            </div>
-
-            {openPicker && (
-              <div className="odash__filter-menu" role="listbox">
-                <button type="button" role="option" className="odash__filter-item is-all" onClick={() => pickSpace('')}>
-                  <Building2 /> كل المساحات
-                </button>
-                {filteredPicker.map((s) => (
-                  <button
-                    type="button"
-                    role="option"
-                    key={s.id}
-                    className={`odash__filter-item${String(s.id) === String(spaceId) ? ' is-active' : ''}`}
-                    onClick={() => pickSpace(String(s.id))}
-                  >
-                    <Building2 />
-                    <span>
-                      <b>{s.title}</b>
-                      <small>{s.location || `تتسع لـ ${s.capacity} شخص`}</small>
-                    </span>
-                  </button>
-                ))}
-                {filteredPicker.length === 0 && (
-                  <span className="odash__filter-empty">لا توجد مساحات تطابق بحثك.</span>
-                )}
-              </div>
-            )}
-          </div>
+          <SpacePicker
+            spaces={spaceRows}
+            spaceId={spaceId}
+            onPick={setSpaceId}
+            label={(sel) => (sel ? 'المساحة المختارة' : 'كل المساحات')}
+          />
           <button
             type="button"
             className="odash__market-refresh obk__hero-refresh"
@@ -430,11 +359,7 @@ export default function Bookings({ data, onStatusChange }) {
       </div>
 
       {loading && bookings.length === 0 ? (
-        <div className="odash__state">
-          <div className="ost-svg"><Loader2 className="spin" /></div>
-          <h3>جارٍ تحميل الحجوزات…</h3>
-          <p>نعرض تقويم حجوزاتك وطلباتك الحالية.</p>
-        </div>
+        <StatCardsSkeleton cols={3} />
       ) : (
         <>
           <section className="odash__stats odash__stats--3">
