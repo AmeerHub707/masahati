@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 
 // أعمدة الرسم البياني مع تسمية عائمة تتبع مؤشر الماوس بدل قيمة ثابتة فوق العمود.
 // يبقى الرصيص داخل حدود الرسم أفقيّاً، ويظهر أعلى المؤشر مباشرة.
@@ -9,6 +10,7 @@ export default function ChartBars({
   barClassName,
   xHidden,
   tip,
+  animate = false,
 }) {
   const plotRef = useRef(null);
   const [pos, setPos] = useState(null); // { x, y, text }
@@ -34,7 +36,7 @@ export default function ChartBars({
         ))}
       </div>
       <div className={`odash__chart-bars${dense ? ' is-dense' : ''}`}>
-        {points.map((p) => {
+        {points.map((p, i) => {
           const h = max > 0 ? Math.max(4, (p.value / max) * 100) : 4;
           return (
             <div
@@ -43,7 +45,17 @@ export default function ChartBars({
               onMouseMove={(e) => handleMove(e, p)}
               onMouseLeave={() => setPos(null)}
             >
-              <div className="odash__chart-bar" style={{ height: `${h}%` }} />
+              <motion.div
+                className="odash__chart-bar"
+                style={{ height: `${h}%`, transformOrigin: 'bottom' }}
+                initial={animate ? { scaleY: 0 } : false}
+                animate={animate ? { scaleY: 1 } : undefined}
+                transition={
+                  animate
+                    ? { duration: 0.5, delay: Math.min(i * 0.045, 0.6), ease: [0.22, 1, 0.36, 1] }
+                    : undefined
+                }
+              />
               {xHidden && xHidden(p) ? (
                 <span className="odash__chart-x is-hidden">{p.label}</span>
               ) : (

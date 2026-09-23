@@ -1,7 +1,7 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Store, Building2, MapPin, Clock, Megaphone, Users, CalendarClock, CircleDollarSign, Wallet, CalendarCheck, Gauge, Wifi, Zap, Video, Snowflake, Mic, TrendingUp, TrendingDown, X, ChevronLeft, Sparkles, BarChart3, Target, Star, Wrench, FileText } from 'lucide-react';
-import { belongsToSpace } from '../../../lib/owner';
+import { Store, Building2, MapPin, Clock, Megaphone, Users, CalendarClock, CircleDollarSign, Wallet, CalendarCheck, Gauge, Wifi, Zap, Video, Snowflake, Mic, TrendingUp, TrendingDown, X, ChevronLeft, Sparkles, BarChart3, Target, Star, Wrench, FileText, ListChecks, Loader2, Check } from 'lucide-react';
+import { belongsToSpace, setBookingStatusWithFallback } from '../../../lib/owner';
 import ChartBars from './ChartBars';
 import SpacePicker from './SpacePicker';
 
@@ -232,7 +232,7 @@ function shuffleIds(ids) {
   return arr;
 }
 
-export default function OwnerOverview({ data, onNavigate }) {
+export default function OwnerOverview({ data, onNavigate, onStatusChange }) {
   const stats = data.stats || {};
   const [chartRange, setChartRange] = useState('7d'); // 7d | 14d | 30d | month
   const [dismissedIds, setDismissedIds] = useState(() => {
@@ -245,6 +245,7 @@ export default function OwnerOverview({ data, onNavigate }) {
   });
   const [currentIndex, setCurrentIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [busyId, setBusyId] = useState('');
 
   const allSpaces = (data.spaces || []).filter((s) => s.is_active !== false);
   const [spaceId, setSpaceId] = useState(''); // '' = كل المساحات
@@ -265,7 +266,26 @@ export default function OwnerOverview({ data, onNavigate }) {
       .sort((a, c) => String(a.timeFrom || a.time || '').localeCompare(String(c.timeFrom || c.time || '')));
   }, [scopedBookings]);
 
-  const visibleSchedule = todaysBookings.slice(0, 4);
+  const visibleSchedule = todaysBookings.filter((b) => b.status !== 'pending').slice(0, 3);
+
+  // طلبات اليوم المعلّقة تظهر في قسم «طلبات بانتظار الرد» مع أزرار القرار،
+  // بينما يعرض «جدول اليوم» الحجوزات المؤكَّدة/الملغاة فقط.
+  const todaysPending = todaysBookings.filter((b) => b.status === 'pending');
+  const visibleRequests = todaysPending.slice(0, 3);
+
+  // نفس منطق تأكيد/رفض طلب الحجز في تبويب الحجوزات: تحديث عبر الباك إند ثم مزامنة اللوحة.
+  const handleRequestStatus = useCallback(async (b, status) => {
+    if (busyId) return;
+    setBusyId(b.id);
+    try {
+      await setBookingStatusWithFallback(b.id, status);
+      onStatusChange?.(b.id, status);
+    } catch {
+      /* يبقى الحجز كما هو عند فشل التحديث */
+    } finally {
+      setBusyId(null);
+    }
+  }, [busyId, onStatusChange]);
 
   // بيانات الرسم البياني لإجمالي الإيرادات: 7/14/30 يوماً أو 6 أشهر.
   const revenueChart = useMemo(() => {
@@ -641,6 +661,7 @@ export default function OwnerOverview({ data, onNavigate }) {
                     }))}
                     max={revenueChart.max}
                     dense={revenueChart.days >= 14}
+                    animate
                     barClassName={(p) => (p.isToday ? ' is-today' : '')}
                     xHidden={(p) => !p.showLabel}
                     tip={(p) => `${p.label} — ${fmtMoney(p.value)} ش.ج`}
@@ -713,7 +734,7 @@ export default function OwnerOverview({ data, onNavigate }) {
                   );
                 })}
               </div>
-              {todaysBookings.length > 4 && (
+              {todaysBookings.length > 3 && (
                 <button
                   type="button"
                   className="odash__show-all odash__schedule-all"
@@ -728,6 +749,73 @@ export default function OwnerOverview({ data, onNavigate }) {
               <div className="ost-svg"><CalendarClock /></div>
               <h3>لا توجد حجوزات اليوم</h3>
               <p>عند وصول أول حجز اليوم سيظهر هنا بمكانه في جدولك.</p>
+            </div>
+          )}
+        </section>
+
+        {/* طلبات اليوم بانتظار الرد */}
+        <section className="odash__section odash__section--requests">
+          {todaysPending.length > 0 ? (
+            <>
+              <div className="odash__schedule odash__requests">
+                {visibleRequests.map((b) => (
+                  <div className={`odash__schedule-row is-pending`} key={`req-${b.id}`}>
+                    <span className="odash__schedule-time">
+                      {b.timeFrom ? (
+                        <>
+                          <b>{b.timeFrom}</b>
+                          {b.timeTo && <small>إلى {b.timeTo}</small>}
+                        </>
+                      ) : (
+                        <small>{b.time || 'وقت غير محدد'}</small>
+                      )}
+                    </span>
+                    <span className="odash__schedule-line" />
+                    <span className="odash__schedule-main">
+                      <b>{b.customer || 'عميل'}</b>
+                      <small><Building2 /> {b.spaceName || 'مساحة غير محددة'}</small>
+                      <small className="odash__schedule-extra">
+                        <Clock /> {fmtNumber(b.hours)} ساعات
+                        <CircleDollarSign /> {fmtMoney(b.price)} ش.ج
+                      </small>
+                    </span>
+                    <span className="odash__req-actions">
+                      <button
+                        type="button"
+                        className="obk__act is-ok"
+                        onClick={() => handleRequestStatus(b, 'confirmed')}
+                        disabled={busyId === b.id}
+                      >
+                        {busyId === b.id ? <Loader2 className="spin" /> : <Check />}
+                        تأكيد
+                      </button>
+                      <button
+                        type="button"
+                        className="obk__act is-danger"
+                        onClick={() => handleRequestStatus(b, 'cancelled')}
+                        disabled={busyId === b.id}
+                      >
+                        <X /> رفض
+                      </button>
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {todaysPending.length > 3 && (
+                <button
+                  type="button"
+                  className="odash__show-all odash__schedule-all"
+                  onClick={() => onNavigate && onNavigate('bookings')}
+                >
+                  كل الطلبات ({fmtNumber(todaysPending.length)}) — عرض السجل
+                </button>
+              )}
+            </>
+          ) : (
+            <div className="odash__state">
+              <div className="ost-svg"><ListChecks /></div>
+              <h3>لا توجد طلبات بانتظار الرد</h3>
+              <p>طلبات الحجز الجديدة التي تحتاج تأكيداً أو رفضاً ستظهر هنا.</p>
             </div>
           )}
         </section>

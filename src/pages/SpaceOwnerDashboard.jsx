@@ -203,7 +203,7 @@ export default function SpaceOwnerDashboard() {
   } else {
     tabContent = data &&
       (active === 'overview' ? (
-        <OwnerOverview data={data} onNavigate={setActive} />
+        <OwnerOverview data={data} onNavigate={setActive} onStatusChange={handleBookingStatusChange} />
       ) : active === 'market' ? (
         <Market data={data} onProposalSubmitted={handleProposalSubmitted} onNavigate={setActive} />
       ) : active === 'reviews' ? (
