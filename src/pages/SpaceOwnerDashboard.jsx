@@ -23,6 +23,7 @@ import ScrollProgress from '../components/common/ScrollProgress';
 import Footer from '../components/layout/Footer';
 import WhatsAppBubble from '../components/common/WhatsAppBubble';
 import { AlertCircle, Trash2 } from 'lucide-react';
+import { useDialogA11y } from '../lib/dialogA11y';
 
 export default function SpaceOwnerDashboard() {
   const navigate = useNavigate();
@@ -32,6 +33,8 @@ export default function SpaceOwnerDashboard() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const deleteResolve = useRef(null);
+  const mountedRef = useRef(true);
+  const deleteDialogRef = useDialogA11y({ open: deleteOpen, onClose: () => { if (!deleting) closeDelete(false); } });
 
   // حماية الدور: لوحة المالك خاصة بصاحب المساحة فقط.
   useEffect(() => {
@@ -40,6 +43,12 @@ export default function SpaceOwnerDashboard() {
       navigate('/dashboard/customer', { replace: true });
     }
   }, [navigate]);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const requestDeleteConfirm = useCallback(() => {
     return new Promise((resolve) => {
@@ -106,10 +115,11 @@ export default function SpaceOwnerDashboard() {
     setStatus('loading');
     try {
       const result = await loadOwnerDashboardWithFallback(true);
+      if (!mountedRef.current) return;
       setData(result);
       setStatus('ready');
     } catch {
-      setStatus('error');
+      if (mountedRef.current) setStatus('error');
     }
   }, []);
 
@@ -119,10 +129,13 @@ export default function SpaceOwnerDashboard() {
     setDeleting(true);
     try {
       await deleteUser();
+    } catch {
+      // فشل الحذف لا يترك المستخدم عالقاً: نكمّل تسجيل الخروج والعودة للرئيسية.
     } finally {
       clearOwnerCache();
       await logout();
     }
+    if (mountedRef.current) setDeleting(false);
     navigate('/');
   }, [navigate, requestDeleteConfirm]);
 
@@ -231,7 +244,7 @@ export default function SpaceOwnerDashboard() {
   }
 
   return (
-    <div className="min-h-screen font-['Cairo'] text-zinc-900 dir-rtl">
+    <div className="odash__page-root">
       <DashboardLoading done={status !== 'loading'} />
       <ScrollProgress />
       <OwnerLayout
@@ -261,6 +274,8 @@ export default function SpaceOwnerDashboard() {
       {deleteOpen && (
         <div className="modal-overlay delete-confirm__overlay" onClick={() => closeDelete(false)}>
           <div
+            ref={deleteDialogRef}
+            tabIndex={-1}
             className="modal-box delete-confirm"
             onClick={(e) => e.stopPropagation()}
             role="dialog"

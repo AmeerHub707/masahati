@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   Wallet, Receipt, CircleDollarSign, CalendarCheck, Clock, Building2,
@@ -10,12 +10,16 @@ import ChartBars from './ChartBars';
 import SpacePicker from './SpacePicker';
 import StatCardsSkeleton from './StatCardsSkeleton';
 
+const numFmt = new Intl.NumberFormat('ar-EG');
+const moneyFmt = new Intl.NumberFormat('ar-EG', { maximumFractionDigits: 0 });
+const dayFmt = new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' });
+
 function fmtNumber(n) {
-  return new Intl.NumberFormat('ar-EG').format(n || 0);
+  return numFmt.format(n || 0);
 }
 
 function fmtMoney(n) {
-  return new Intl.NumberFormat('ar-EG', { maximumFractionDigits: 0 }).format(Math.round(n || 0));
+  return moneyFmt.format(Math.round(n || 0));
 }
 
 function isConfirmed(status) {
@@ -54,7 +58,7 @@ function fmtDayTitle(key) {
   if (!m) return '';
   const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
   if (Number.isNaN(d.getTime())) return '';
-  return new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' }).format(d);
+  return dayFmt.format(d);
 }
 
 function startClock(b) {
@@ -115,6 +119,15 @@ export default function Financials({ data }) {
   const [reportMetric, setReportMetric] = useState('revenue');
   const [spaceId, setSpaceId] = useState(''); // '' = كل المساحات
   const [printDoc, setPrintDoc] = useState(null); // { type:'invoice', id } | { type:'invoices' } | { type:'report' }
+  const mountedRef = useRef(true);
+  const printTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      clearTimeout(printTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!printDoc) return undefined;
@@ -128,6 +141,7 @@ export default function Financials({ data }) {
     else setLoading(true);
     try {
       const result = await loadOwnerDashboardWithFallback(force);
+      if (!mountedRef.current) return;
       setBookings(result.bookings || []);
       setSpaces(result.spaces || []);
       setOffers(result.offers || []);
@@ -135,8 +149,10 @@ export default function Financials({ data }) {
     } catch {
       /* لا نكسر العرض */
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (mountedRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
@@ -262,7 +278,13 @@ export default function Financials({ data }) {
 
   const doPrint = (doc) => {
     setPrintDoc(doc);
-    setTimeout(() => window.print(), 200);
+    clearTimeout(printTimerRef.current);
+    printTimerRef.current = setTimeout(() => {
+      window.print();
+      // بعض المتصفحات لا تُطلق afterprint عند إلغاء نافذة الطباعة،
+      // فنُفرغ الغطاء فور إغلاق الحوار حتى لا يعلق العرض.
+      if (mountedRef.current) setPrintDoc(null);
+    }, 200);
   };
 
   const invoiceToPrint = printDoc?.type === 'invoice'
@@ -282,7 +304,7 @@ export default function Financials({ data }) {
   return (
     <section className="fin">
       {demo && !bannerDismissed && (
-        <div className="odash__banner">
+        <div className="odash__banner" role="status">
           <Sparkles />
           <p>
             <b>وضع تجريبي</b> — تُشتق الفواتير والتقارير من بيانات لوحتك الحالية.

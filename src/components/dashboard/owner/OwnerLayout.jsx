@@ -40,7 +40,6 @@ export default function OwnerLayout({
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [failedSrc, setFailedSrc] = useState('');
-  const [tips, setTips] = useState({ show: false, top: 0, left: 0 });
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef(null);
   const btnRef = useRef(null);
@@ -89,6 +88,21 @@ export default function OwnerLayout({
     );
   };
 
+  // يغلق لوحة الإشعارات بزر Escape ويعيد التركيز لزر الجرس.
+  useEffect(() => {
+    if (!notifOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setNotifOpen(false);
+        btnRef.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [notifOpen]);
+
+  // إغلاق لوحة الإشعارات بالنقر خارجها.
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false);
@@ -133,12 +147,6 @@ export default function OwnerLayout({
 
   const close = () => setOpen(false);
 
-  const showCollapseTip = (e) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    setTips({ show: true, top: r.top + r.height / 2 - 14, left: Math.max(8, r.left - 132) });
-  };
-  const hideCollapseTip = () => setTips((t) => (t.show ? { ...t, show: false } : t));
-
   const initials =
     (user?.name || 'م')
       .trim()
@@ -163,36 +171,32 @@ export default function OwnerLayout({
     <div className="odash">
       <div className="odash__layout">
         {/* الشريط الجانبي */}
-        <aside className={`odash__side${open ? ' open' : ''}${collapsed ? ' collapsed' : ''} ${collapsed ? 'w-16' : 'w-64'}`}>
+        <aside className={`odash__side${open ? ' open' : ''}${collapsed ? ' collapsed' : ''}`}>
           <div className="odash__side-header">
             {collapsed ? (
-              <div className="flex flex-col items-center gap-3">
+              <div className="odash__side-marks">
                 <button
                   type="button"
-                  className="odash__collapse-btn relative inline-flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100 text-orange-600 transition hover:bg-orange-500 hover:text-white"
+                  className="odash__collapse-btn"
                   onClick={() => setCollapsed((c) => !c)}
-                  onMouseEnter={showCollapseTip}
-                  onMouseLeave={hideCollapseTip}
-                  onFocus={showCollapseTip}
-                  onBlur={hideCollapseTip}
                   aria-label="فتح الشريط الجانبي"
                 >
-                  <ChevronLeft className="h-5 w-5" />
+                  <ChevronLeft />
                 </button>
-                <img src="/Mlogo.jpeg" alt="مساحاتي" className="h-10 w-10 object-contain" draggable={false} />
+                <img src="/Mlogo.jpeg" alt="مساحاتي" className="odash__side-mark" draggable={false} />
               </div>
             ) : (
-              <div className="flex w-full items-center gap-1 px-1">
-                <span className="flex items-center gap-2">
-                  <img src="/Logo.png" alt="مساحاتي" className="h-9 w-auto object-contain" />
+              <div className="odash__side-headline">
+                <span className="odash__side-logo">
+                  <img src="/Logo.png" alt="مساحاتي" />
                 </span>
                 <button
                   type="button"
-                  className="odash__collapse-btn ms-auto inline-flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100 text-orange-600 transition hover:bg-orange-500 hover:text-white"
+                  className="odash__collapse-btn is-auto"
                   onClick={() => setCollapsed((c) => !c)}
                   aria-label="طيّ الشريط الجانبي"
                 >
-                  <ChevronRight className="h-5 w-5" />
+                  <ChevronRight />
                 </button>
               </div>
             )}
@@ -237,21 +241,6 @@ export default function OwnerLayout({
           </nav>
         </aside>
 
-        {/* تلميح فتح الشريط الجانبي (عبر بوابة لتجاوز قصّ المحتوى) */}
-        {collapsed &&
-          createPortal(
-            tips.show && (
-              <span
-                className="pointer-events-none fixed whitespace-nowrap rounded-full bg-gray-900 px-2.5 py-1 text-xs font-bold text-white shadow-lg"
-                style={{ top: tips.top, left: tips.left }}
-                role="tooltip"
-              >
-                فتح الشريط الجانبي
-              </span>
-            ),
-            document.body
-          )}
-
         {/* الستارة الخلفية للجوال */}
         <div className={`odash__scrim${open ? ' show' : ''}`} onClick={close} aria-hidden="true" />
 
@@ -283,6 +272,7 @@ export default function OwnerLayout({
                 onClick={() => setNotifOpen((o) => !o)}
                 aria-label="الإشعارات"
                 aria-expanded={notifOpen}
+                aria-controls="odash-notif-panel"
               >
                 <Bell />
                 {notifications.some((n) => !n.read) && (
@@ -294,7 +284,7 @@ export default function OwnerLayout({
 
               {createPortal(
                 notifOpen && (
-                  <div className="odash__notif-panel" style={{ position: 'fixed', top: panelPos.top, left: panelPos.left }}>
+                  <div className="odash__notif-panel" id="odash-notif-panel" role="dialog" aria-label="الإشعارات" style={{ position: 'fixed', top: panelPos.top, left: panelPos.left }}>
                     <div className="odash__notif-header">
                       <h3>الإشعارات</h3>
                       <button
@@ -317,8 +307,16 @@ export default function OwnerLayout({
                           return (
                             <li
                               key={n.id}
+                              role="button"
+                              tabIndex={0}
                               className={`odash__notif-item${n.read ? '' : ' is-unread'}`}
                               onClick={() => handleMarkOneRead(n.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  handleMarkOneRead(n.id);
+                                }
+                              }}
                             >
                               <span className="odash__notif-icon">
                                 <Icon />

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Store, Building2, MapPin, Clock, Megaphone, Users, CalendarClock, CircleDollarSign, Wallet, CalendarCheck, Gauge, Wifi, Zap, Video, Snowflake, Mic, TrendingUp, TrendingDown, X, ChevronLeft, Sparkles, BarChart3, Target, Star, Wrench, FileText, ListChecks, Loader2, Check } from 'lucide-react';
 import { belongsToSpace, setBookingStatusWithFallback } from '../../../lib/owner';
@@ -26,12 +26,15 @@ function timeAgo(iso) {
   return days <= 30 ? `منذ ${days} يوم` : `منذ ${Math.round(days / 30)} شهر`;
 }
 
+const numFmt = new Intl.NumberFormat('ar-EG');
+const moneyFmt = new Intl.NumberFormat('ar-EG', { maximumFractionDigits: 0 });
+
 function fmtNumber(n) {
-  return new Intl.NumberFormat('ar-EG').format(n || 0);
+  return numFmt.format(n || 0);
 }
 
 function fmtMoney(n) {
-  return new Intl.NumberFormat('ar-EG', { maximumFractionDigits: 0 }).format(n || 0);
+  return moneyFmt.format(n || 0);
 }
 
 // شهور التقويم كـ 'YYYY-MM' لتصنيف الحجوزات حسب شهر الإيراد.
@@ -246,17 +249,29 @@ export default function OwnerOverview({ data, onNavigate, onStatusChange }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const [busyId, setBusyId] = useState('');
+  const mountedRef = useRef(true);
 
-  const allSpaces = (data.spaces || []).filter((s) => s.is_active !== false);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const allSpaces = useMemo(() => (data.spaces || []).filter((s) => s.is_active !== false), [data.spaces]);
   const [spaceId, setSpaceId] = useState(''); // '' = كل المساحات
 
   const selectedSpace = allSpaces.find((s) => String(s.id) === String(spaceId)) || null;
 
-  const bookings = data.bookings || [];
-  const scopedBookings = selectedSpace
-    ? bookings.filter((b) => belongsToSpace(b, selectedSpace))
-    : bookings;
-  const confirmedBookings = scopedBookings.filter((b) => b.status === 'confirmed' || b.status === 'accepted' || b.status === 'completed');
+  // يُشتق scopedBookings مرة واحدة فقط عند تغيّر المساحة المختارة أو البيانات
+  // بدل إعادة التصفية في كل عرض (data trees قد تكون كبيرة في ملفات العرض).
+  const scopedBookings = useMemo(
+    () => (selectedSpace ? (data.bookings || []).filter((b) => belongsToSpace(b, selectedSpace)) : data.bookings || []),
+    [selectedSpace, data.bookings]
+  );
+  const confirmedBookings = useMemo(
+    () => scopedBookings.filter((b) => b.status === 'confirmed' || b.status === 'accepted' || b.status === 'completed'),
+    [scopedBookings]
+  );
 
   // جدول اليوم: حجوزات مطابقة لتاريخ اليوم، مرتبة حسب وقت البداية.
   const todaysBookings = useMemo(() => {
@@ -279,11 +294,11 @@ export default function OwnerOverview({ data, onNavigate, onStatusChange }) {
     setBusyId(b.id);
     try {
       await setBookingStatusWithFallback(b.id, status);
-      onStatusChange?.(b.id, status);
+      if (mountedRef.current) onStatusChange?.(b.id, status);
     } catch {
       /* يبقى الحجز كما هو عند فشل التحديث */
     } finally {
-      setBusyId(null);
+      if (mountedRef.current) setBusyId(null);
     }
   }, [busyId, onStatusChange]);
 
@@ -857,7 +872,7 @@ export default function OwnerOverview({ data, onNavigate, onStatusChange }) {
                     {r.budget > 0 && (
                       <span className="odash__opp-budget"><CircleDollarSign /> حتى {fmtNumber(r.budget)} ش.ج</span>
                     )}
-                    {r.amenities.length > 0 && (
+                    {Array.isArray(r.amenities) && r.amenities.length > 0 && (
                       <div className="odash__opp-chips">
                         {r.amenities.slice(0, 4).map((a) => {
                           const Icon = AMENITY_ICONS[a];

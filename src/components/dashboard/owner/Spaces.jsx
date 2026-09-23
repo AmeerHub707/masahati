@@ -16,6 +16,7 @@ import {
   isOwnerDemo,
 } from '../../../lib/owner';
 import { AMENITY_LABELS } from '../../../lib/requests';
+import { useDialogA11y } from '../../../lib/dialogA11y';
 
 const AMENITY_KEYS = Object.keys(AMENITY_LABELS);
 
@@ -25,8 +26,10 @@ const FILTERS = [
   { id: 'inactive', label: 'موقوفة' },
 ];
 
+const numFmt = new Intl.NumberFormat('ar-EG');
+
 function fmtNumber(n) {
-  return new Intl.NumberFormat('ar-EG').format(n || 0);
+  return numFmt.format(n || 0);
 }
 
 const MAX_PHOTOS = 6;
@@ -82,7 +85,7 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
   const navigate = useNavigate();
   const [spaces, setSpaces] = useState(() => (data?.spaces || []));
   const [demo, setDemo] = useState(() => isOwnerDemo());
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !Array.isArray(data?.spaces));
   const [refreshing, setRefreshing] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [filter, setFilter] = useState('all');
@@ -97,6 +100,16 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState(null);
+  const mountedRef = useRef(true);
+
+  const spaceDialogRef = useDialogA11y({ open: !!modal, onClose: () => { if (!saving) resetModal(); } });
+  const deleteDialogRef = useDialogA11y({ open: !!deleteTarget, onClose: () => { if (!deleting) setDeleteTarget(null); } });
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -109,21 +122,27 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
     else setLoading(true);
     try {
       const result = await loadSpacesWithFallback(force);
+      if (!mountedRef.current) return;
       setSpaces(result.spaces);
       setDemo(result.demo);
       onSpacesChange?.(result.spaces);
     } catch {
       /* لا نكسر العرض */
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (mountedRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [onSpacesChange]);
 
+  // تبويب المساحات يستقبل بيانات حديثة من اللوحة الأم؛ لا نعيد تحميلها
+  // إلا عند الضغط على الإنعاش (يعيد الجلب قَسْراً).
   useEffect(() => {
+    if (Array.isArray(data?.spaces)) return undefined;
     const t = setTimeout(() => loadSpaces(), 0);
     return () => clearTimeout(t);
-  }, [loadSpaces]);
+  }, [loadSpaces, data?.spaces]);
 
   // ----- تصفية وعدّ -----
   const counts = useMemo(() => {
@@ -266,14 +285,15 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
         setDemo(result.demo);
         next = [result.space, ...spaces];
       }
+      if (!mountedRef.current) return;
       setSpaces(next);
       onSpacesChange?.(next);
       resetModal();
       setToast({ msg: result.message, type: 'ok' });
     } catch {
-      setToast({ msg: 'تعذّر حفظ المساحة. حاول مجدداً.', type: 'err' });
+      if (mountedRef.current) setToast({ msg: 'تعذّر حفظ المساحة. حاول مجدداً.', type: 'err' });
     } finally {
-      setSaving(false);
+      if (mountedRef.current) setSaving(false);
     }
   };
 
@@ -282,15 +302,16 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
     const next = space.is_active === false;
     try {
       const result = await toggleSpaceActiveWithFallback(space.id, next, space);
+      if (!mountedRef.current) return;
       setDemo(result.demo);
       const mapped = spaces.map((s) => (s.id === space.id ? { ...s, is_active: next } : s));
       setSpaces(mapped);
       onSpacesChange?.(mapped);
       setToast({ msg: result.message, type: 'ok' });
     } catch {
-      setToast({ msg: 'تعذّر تحديث حالة المساحة.', type: 'err' });
+      if (mountedRef.current) setToast({ msg: 'تعذّر تحديث حالة المساحة.', type: 'err' });
     } finally {
-      setTogglingId(null);
+      if (mountedRef.current) setTogglingId(null);
     }
   };
 
@@ -299,16 +320,19 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
     setDeleting(true);
     try {
       const result = await deleteSpaceWithFallback(deleteTarget.id);
+      if (!mountedRef.current) return;
       setDemo(result.demo);
       const remaining = spaces.filter((s) => s.id !== deleteTarget.id);
       setSpaces(remaining);
       onSpacesChange?.(remaining);
       setToast({ msg: result.message, type: 'ok' });
     } catch {
-      setToast({ msg: 'تعذّر حذف المساحة.', type: 'err' });
+      if (mountedRef.current) setToast({ msg: 'تعذّر حذف المساحة.', type: 'err' });
     } finally {
-      setDeleting(false);
-      setDeleteTarget(null);
+      if (mountedRef.current) {
+        setDeleting(false);
+        setDeleteTarget(null);
+      }
     }
   };
 
@@ -316,7 +340,7 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
   const renderBanner = () => {
     if (!demo || bannerDismissed) return null;
     return (
-      <div className="odash__banner">
+      <div className="odash__banner" role="status">
         <Sparkles />
         <p>
           <b>وضع تجريبي</b> — واجهة الخادم (API) غير مفعّلة بعد، البيانات أدناه للتجربة
@@ -434,9 +458,12 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
     return (
       <div className="msp__form-panel">
         <form
+          ref={spaceDialogRef}
           className="msp__form"
           role="dialog"
-          aria-label={isEdit ? 'تعديل المساحة' : 'إضافة مساحة'}
+          aria-modal="true"
+          aria-labelledby="msp-form-title"
+          tabIndex={-1}
           onSubmit={(e) => { e.preventDefault(); if (!saving) handleSave(); }}
           noValidate
         >
@@ -446,7 +473,7 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
 
           <div className="msp__form-head">
             <span className="odash__modal-ico">{isEdit ? <Pencil /> : <Building2 />}</span>
-            <h3>{isEdit ? 'تعديل المساحة' : 'أضف مساحة جديدة'}</h3>
+            <h3 id="msp-form-title">{isEdit ? 'تعديل المساحة' : 'أضف مساحة جديدة'}</h3>
             <p className="odash__modal-sub">
               {isEdit
                 ? 'حدّث تفاصيل المساحة وستُحفظ مباشرة.'
@@ -795,7 +822,7 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
 
       {deleteTarget && (
         <div className="modal-overlay odash__modal-overlay" onClick={() => { if (!deleting) setDeleteTarget(null); }}>
-          <div className="modal-box odash__modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="تأكيد حذف المساحة">
+          <div className="modal-box odash__modal" ref={deleteDialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="تأكيد حذف المساحة">
             <span className="odash__modal-ico msp__modal-ico-danger"><Trash2 /></span>
             <h3>حذف المساحة؟</h3>
             <p className="odash__modal-sub">

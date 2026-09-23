@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Store, Megaphone, Building2, X, Loader2, Clock, CalendarClock, Users, MapPin,
   CircleDollarSign, Wifi, Zap, Video, Snowflake, Mic, Send, Check, Sparkles, Repeat, ChevronDown, Plus,
 } from 'lucide-react';
 import { loadMarketWithFallback, submitProposalWithFallback, isOwnerDemo } from '../../../lib/owner';
 import { isRequestOpen, isRequestExpired, AMENITY_LABELS } from '../../../lib/requests';
+import { useDialogA11y } from '../../../lib/dialogA11y';
+import { AnimatePresence, motion } from 'framer-motion';
 
 const AMENITY_ICONS = {
   internet: Wifi,
@@ -14,8 +16,10 @@ const AMENITY_ICONS = {
   microphone: Mic,
 };
 
+const numFmt = new Intl.NumberFormat('ar-EG');
+
 function fmtNumber(n) {
-  return new Intl.NumberFormat('ar-EG').format(n || 0);
+  return numFmt.format(n || 0);
 }
 
 function timeAgo(iso) {
@@ -32,7 +36,7 @@ function timeAgo(iso) {
 export default function Market({ data, onProposalSubmitted, onNavigate }) {
   const [market, setMarket] = useState(() => (data?.market || []));
   const [demo, setDemo] = useState(() => isOwnerDemo());
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !Array.isArray(data?.market));
   const [refreshing, setRefreshing] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [modal, setModal] = useState(null); // الطلب الذي نقدّم عرضاً عليه
@@ -48,6 +52,17 @@ export default function Market({ data, onProposalSubmitted, onNavigate }) {
     )
   );
   const [toast, setToast] = useState(null);
+  const mountedRef = useRef(true);
+
+  // إغلاق يُستدعى لاحقاً (عند Escape)؛ لذا نمرّر دالة كسول لتجنّب الـ TDZ
+  // لأن closeForm معرّفة أدناه في نفس نطاق المكوّن.
+  const proposalDialogRef = useDialogA11y({ open: !!modal, trap: false, onClose: () => closeForm() });
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const spaces = (data?.spaces || []).filter((s) => s.is_active !== false);
   const selectedSpace = spaces.find((s) => String(s.id) === String(form.space_id));
@@ -74,20 +89,25 @@ export default function Market({ data, onProposalSubmitted, onNavigate }) {
     else if (!silent) setLoading(true);
     try {
       const result = await loadMarketWithFallback(force);
+      if (!mountedRef.current) return;
       setMarket(result.requests);
       setDemo(result.demo);
     } catch {
       /* لا نكسر العرض */
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (mountedRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
+  // السوق يستقبل طلبات حديثة من اللوحة الأم؛ نترك التحميل لأول فتحة للبيانات فقط.
   useEffect(() => {
+    if (Array.isArray(data?.market)) return undefined;
     const t = setTimeout(() => loadMarket(), 0);
     return () => clearTimeout(t);
-  }, [loadMarket]);
+  }, [loadMarket, data?.market]);
 
   useEffect(() => {
     // إنعاش خفيف في الخلفية: لا يرمش الواجهة ولا يفتح نافذة التحميل،
@@ -164,15 +184,16 @@ export default function Market({ data, onProposalSubmitted, onNavigate }) {
         currency: 'ش.ج',
         request_title: modal.title,
       });
+      if (!mountedRef.current) return;
       setDemo(result.demo);
       setSubmitted((prev) => new Set(prev).add(String(modal.id)));
       if (result.offer && onProposalSubmitted) onProposalSubmitted(result.offer);
       setToast({ msg: result.message, type: result.duplicate ? 'warn' : 'ok' });
       setModal(null);
     } catch {
-      setToast({ msg: 'تعذّر إرسال العرض. حاول مجدداً.', type: 'err' });
+      if (mountedRef.current) setToast({ msg: 'تعذّر إرسال العرض. حاول مجدداً.', type: 'err' });
     } finally {
-      setSubmitting(false);
+      if (mountedRef.current) setSubmitting(false);
     }
   };
 
@@ -204,7 +225,7 @@ export default function Market({ data, onProposalSubmitted, onNavigate }) {
               <span className="odash__market-cap"><Users /> {fmtNumber(r.capacity)} شخص</span>
               {r.area && <span><MapPin /> {r.area}</span>}
             </div>
-            {r.amenities.length > 0 && (
+            {Array.isArray(r.amenities) && r.amenities.length > 0 && (
               <div className="odash__market-chips">
                 {r.amenities.slice(0, 4).map((a) => {
                   const Icon = AMENITY_ICONS[a];
@@ -252,7 +273,7 @@ export default function Market({ data, onProposalSubmitted, onNavigate }) {
   const renderBanner = () => {
     if (!demo || bannerDismissed) return null;
     return (
-      <div className="odash__banner">
+      <div className="odash__banner" role="status">
         <Sparkles />
         <p>
           <b>وضع تجريبي</b> — واجهة الخادم (API) غير مفعّلة بعد، البيانات أدناه للتجربة
@@ -309,10 +330,26 @@ export default function Market({ data, onProposalSubmitted, onNavigate }) {
           <h3>لا توجد طلبات مفتوحة حالياً</h3>
           <p>نحدّث القائمة تلقائياً كل دقيقة — عد لاحقاً، أو استخدم زر التحديث أعلاه لعرض أحدث الطلبات.</p>
         </div>
-      ) : modal ? (
-        <div className="odash__market-single">
-          {renderCard(modal, true)}
-          <div className="odash__market-form">
+      ) : (
+        <AnimatePresence mode="wait" initial={false}>
+          {modal ? (
+            <motion.div
+              key="proposal"
+              className="odash__market-single"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+            >
+              {renderCard(modal, true)}
+              <motion.div
+                className="odash__market-form"
+                ref={proposalDialogRef}
+                tabIndex={-1}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.28, delay: 0.06, ease: 'easeOut' }}
+              >
             <div className="odash__market-form-head">
               <button type="button" className="odash__market-close-form" onClick={closeForm} disabled={submitting} aria-label="إغلاق">
                 <X />
@@ -337,6 +374,7 @@ export default function Market({ data, onProposalSubmitted, onNavigate }) {
                     <button
                       type="button"
                       className={`odash__space-pick-btn${spaceMenuOpen ? ' is-open' : ''}`}
+                      data-autofocus
                       onClick={() => setSpaceMenuOpen((v) => !v)}
                       aria-haspopup="listbox"
                       aria-expanded={spaceMenuOpen}
@@ -438,12 +476,21 @@ export default function Market({ data, onProposalSubmitted, onNavigate }) {
                 </div>
               </>
             )}
-          </div>
-        </div>
-      ) : (
-        <div className="odash__market-grid">
-          {openReqs.map((r) => renderCard(r))}
-        </div>
+            </motion.div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="feed"
+              className="odash__market-grid"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              {openReqs.map((r) => renderCard(r))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       )}
 
       {toast && (

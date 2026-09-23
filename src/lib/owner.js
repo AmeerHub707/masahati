@@ -993,14 +993,30 @@ async function loadOwnerDashboardImpl() {
   if (isOwnerDemo()) return runDemo();
 
   try {
-    const [spacesApi, offersApi, marketApi, bookingsApi, profileApi, reviewsApi] = await Promise.all([
+    // نعالج كل واجهة على حدة: فشل نقطة واحدة لا يُسقط بقية البيانات
+    // (كالتقييمات أو الحجوزات). فقط إذا فشلت جميع النقاط ننتقل للوضع التجريبي كاملاً.
+    const settled = await Promise.allSettled([
       fetchOwnerSpaces(),
       fetchOwnerOffers(),
       fetchMarketRequests(),
-      fetchOwnerBookings().catch(() => []),
-      request('/api/profile', { method: 'GET', auth: true, timeoutMs: REQ_TIMEOUT_MS }).catch(() => null),
-      fetchOwnerReviews().catch(() => []),
+      fetchOwnerBookings(),
+      request('/api/profile', { method: 'GET', auth: true, timeoutMs: REQ_TIMEOUT_MS }),
+      fetchOwnerReviews(),
     ]);
+
+    if (!settled.some((r) => r.status === 'fulfilled')) {
+      setDemoFlag(true);
+      return runDemo();
+    }
+
+    const pick = (i, fallback) =>
+      settled[i] && settled[i].status === 'fulfilled' ? settled[i].value : fallback;
+    const spacesApi = pick(0, []);
+    const offersApi = pick(1, []);
+    const marketApi = pick(2, []);
+    const bookingsApi = pick(3, []);
+    const profileApi = pick(4, null);
+    const reviewsApi = pick(5, []);
 
     const localUser = getUser() || {};
     const p = profileApi && typeof profileApi === 'object' ? profileApi : {};

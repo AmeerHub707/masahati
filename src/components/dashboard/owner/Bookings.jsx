@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   CalendarCheck, CalendarDays, History, ListChecks, ChevronRight, ChevronLeft,
@@ -14,8 +14,10 @@ import {
 import SpacePicker from './SpacePicker';
 import StatCardsSkeleton from './StatCardsSkeleton';
 
+const numFmt = new Intl.NumberFormat('ar-EG');
+
 function fmtNumber(n) {
-  return new Intl.NumberFormat('ar-EG').format(n || 0);
+  return numFmt.format(n || 0);
 }
 
 function isConfirmed(status) {
@@ -62,12 +64,14 @@ function startClock(b) {
   return `${m[1]}:${m[2]}`;
 }
 
+const dayFmt = new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' });
+
 function fmtDayTitle(key) {
   const m = String(key || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!m) return '';
   const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
   if (Number.isNaN(d.getTime())) return '';
-  return new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' }).format(d);
+  return dayFmt.format(d);
 }
 
 const VIEWS = [
@@ -93,6 +97,13 @@ export default function Bookings({ data, onStatusChange }) {
   const [busyId, setBusyId] = useState(null);
   const [toast, setToast] = useState(null);
   const [spaceId, setSpaceId] = useState(''); // '' = كل المساحات
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -105,14 +116,17 @@ export default function Bookings({ data, onStatusChange }) {
     else setLoading(true);
     try {
       const result = await loadOwnerDashboardWithFallback(force);
+      if (!mountedRef.current) return;
       setBookings(result.bookings || []);
       setSpaces(result.spaces || []);
       setDemo(result.demo);
     } catch {
       /* لا نكسر العرض */
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (mountedRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
@@ -200,15 +214,16 @@ export default function Bookings({ data, onStatusChange }) {
     setBusyId(b.id);
     try {
       const result = await setBookingStatusWithFallback(b.id, status);
+      if (!mountedRef.current) return;
       setBookings((prev) =>
         prev.map((x) => (String(x.id) === String(b.id) ? { ...x, status } : x))
       );
       onStatusChange?.(b.id, status);
       setToast({ msg: result.message, type: status === 'confirmed' ? 'ok' : 'warn' });
     } catch {
-      setToast({ msg: 'تعذّر تحديث حالة الحجز.', type: 'err' });
+      if (mountedRef.current) setToast({ msg: 'تعذّر تحديث حالة الحجز.', type: 'err' });
     } finally {
-      setBusyId(null);
+      if (mountedRef.current) setBusyId(null);
     }
   }, [busyId, onStatusChange]);
 
@@ -316,7 +331,7 @@ export default function Bookings({ data, onStatusChange }) {
   return (
     <section className="odash__bookings obk">
       {demo && !bannerDismissed && (
-        <div className="odash__banner">
+        <div className="odash__banner" role="status">
           <Sparkles />
           <p>
             <b>وضع تجريبي</b> — تُبنى الحجوزات أدناه من بيانات تجريبية حول تاريخ اليوم.

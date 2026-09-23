@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   Building2, Star, MessageSquare, X,
@@ -17,8 +17,10 @@ const RATING_VIEWS = [
   { id: 'low', label: 'منخفضة (١–٢)' },
 ];
 
+const numFmt = new Intl.NumberFormat('ar-EG');
+
 function fmtNumber(n) {
-  return new Intl.NumberFormat('ar-EG').format(n || 0);
+  return numFmt.format(n || 0);
 }
 
 function fmtDate(iso) {
@@ -58,6 +60,13 @@ export default function Reviews({ data }) {
 
   const [spaceId, setSpaceId] = useState(''); // '' = كل المساحات
   const [ratingFilter, setRatingFilter] = useState('all');
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const allSpaces = (spaces || []).filter((s) => s.is_active !== false);
 
@@ -68,14 +77,17 @@ export default function Reviews({ data }) {
     else setLoading(true);
     try {
       const result = await loadOwnerDashboardWithFallback(force);
+      if (!mountedRef.current) return;
       setReviews(result.reviews || []);
       setSpaces(result.spaces || []);
       setDemo(result.demo);
     } catch {
       /* لا نكسر العرض */
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (mountedRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
@@ -138,7 +150,7 @@ useEffect(() => {
   return (
     <section className="odash__reviews obk">
       {demo && !bannerDismissed && (
-        <div className="odash__banner">
+        <div className="odash__banner" role="status">
           <Sparkles />
           <p>
             <b>وضع تجريبي</b> — تُبنى التقييمات أدناه من بيانات لوحتك الحالية.
@@ -288,11 +300,11 @@ useEffect(() => {
                     <div className="odash__review-body">
                       <div className="odash__review-topline">
                         <b>{r.customer || 'عميل'}</b>
-                        <div className="flex items-center gap-0.5 text-amber-400">
+                        <div className="odash__review-stars">
                           {STAR_VALUES.map((i) => (
                             <Star
                               key={i}
-                              className={`h-3.5 w-3.5 ${i <= Number(r.rating || 0) ? 'fill-current' : 'text-zinc-300'}`}
+                              className={`odash__review-star${i <= Number(r.rating || 0) ? ' is-filled' : ''}`}
                             />
                           ))}
                         </div>
