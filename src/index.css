@@ -486,6 +486,117 @@ a.cta-contact__row:hover{background:rgba(255,255,255,.14);border-color:rgba(255,
   50%{transform:translateX(-2%);}
 }
 
+.msp__pick-map {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  height: auto;
+}
+
+.msp__map-container {
+  height: 300px !important;
+  width: 100%;
+  box-shadow: 0 8px 24px -8px rgba(0,0,0,0.15);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.msp__map-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.msp__map-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.msp__map-field label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.msp__map-field input {
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-field);
+  font-family: inherit;
+  font-size: 0.9rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.msp__map-field input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(249,115,22,0.15);
+}
+
+.msp__location-actions {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.msp__location-actions .msp__locate {
+  flex: 0 1 auto !important;
+  width: auto !important;
+  font-size: 0.85rem;
+  padding: 0.6rem 1rem;
+  margin-bottom: 0;
+}
+
+.msp__location-actions .btn-primary {
+  flex: 0 1 auto !important;
+  width: auto !important;
+  font-size: 0.85rem;
+  padding: 0.6rem 1.2rem;
+  min-height: 40px;
+}
+
+.msp__locate {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.7rem 1.2rem;
+  background: var(--surface);
+  color: var(--text-strong);
+  font-weight: 700;
+  font-size: 0.9rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-field);
+  cursor: pointer;
+  transition: all 0.2s var(--ease);
+  margin-bottom: 0.5rem;
+}
+
+.msp__locate:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px -4px rgba(249,115,22,0.3);
+}
+
+.msp__locate svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  transition: transform 0.3s var(--ease);
+}
+
+.msp__locate:hover svg {
+  transform: rotate(15deg) scale(1.1);
+}
+
 /* ═══════════════════════════════════════════
    Responsive
    ═══════════════════════════════════════════ */

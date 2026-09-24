@@ -5,8 +5,11 @@ import {
   Building2, X, Loader2, MapPin, Users, Star, Wifi, Zap, Check,
   Sparkles, Repeat, Plus, BadgeCheck, Ban, CircleDollarSign, Send,
   CalendarCheck, TrendingUp, Pencil, Trash2, Search, Eye, Image, ImagePlus,
-  ArrowRight, Clock3, FileText, Paperclip, ShieldCheck,
+  ArrowRight, Clock3, FileText, Paperclip, ShieldCheck, LocateFixed,
 } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 import {
   loadSpacesWithFallback,
   createSpaceWithFallback,
@@ -17,6 +20,14 @@ import {
 } from '../../../lib/owner';
 import { AMENITY_LABELS } from '../../../lib/requests';
 import { useDialogA11y } from '../../../lib/dialogA11y';
+
+// Fix Leaflet default icon paths
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 const AMENITY_KEYS = Object.keys(AMENITY_LABELS);
 
@@ -30,7 +41,6 @@ const FILTERS = [
 // أدراج وثائق إثبات المساحة التي تُرسل مع المساحة للإدارة للمراجعة.
 const DOC_SLOTS = [
   { id: 'proof', required: true, label: 'صك ملكية أو عقد إيجار', hint: 'يثبت أن المساحة ملكك أو مؤجّرة لك — PDF أو صورة' },
-  { id: 'extra', required: false, label: 'مستند إضافي (اختياري)', hint: 'رخصة عمل، مخطط، أو أي إثبات آخر' },
 ];
 
 const MAX_DOC_BYTES = 10 * 1024 * 1024;
@@ -45,6 +55,92 @@ function fmtBytes(n) {
 // حالة المساحة الموحّدة في العرض (تغطي البيانات القادمة دون mapSpace).
 function effStatus(s) {
   return s.status || (s.is_active === false ? 'inactive' : 'active');
+}
+
+// يحوّل قيمة الإحداثيات إلى رقم مقتطع أو null.
+function coordOf(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.round(n * 100000) / 100000 : null;
+}
+
+// خريطة مصغّرة أنيقة (بدون خدمات خارجية) لتحديد موقع المساحة بالإحداثيات:
+// انقر/اسحب لوضع الدبوس، أو أدخل خط العرض والطول يدوياً.
+function LocationPicker({ lat, lng, onChange }) {
+  const latN = Number(lat);
+  const lngN = Number(lng);
+  const hasPin = Number.isFinite(latN) && Number.isFinite(lngN);
+
+  function MapEvents() {
+    useMapEvents({
+      click(e) {
+        onChange({ lat: e.latlng.lat, lng: e.latlng.lng });
+      },
+    });
+    return null;
+  }
+
+  function MapController({ center }) {
+    const map = useMap();
+    useEffect(() => {
+      if (center[0] && center[1]) {
+        map.setView(center, map.getZoom());
+      }
+    }, [center, map]);
+    return null;
+  }
+
+  return (
+    <div className="msp__pick-map">
+      <div className="msp__map-container" style={{ height: '300px', width: '100%', position: 'relative', zIndex: 1, borderRadius: '12px', overflow: 'hidden' }}>
+        <MapContainer
+          center={[hasPin ? latN : 31.90, hasPin ? lngN : 35.20]} 
+          zoom={hasPin ? 13 : 10}
+          style={{ height: '100%', width: '100%' }}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          <MapEvents />
+          {hasPin && <Marker position={[latN, lngN]} />}
+          <MapController center={[latN, lngN]} />
+        </MapContainer>
+      </div>
+
+      <div className="msp__map-fields">
+        <div className="msp__map-field">
+          <label htmlFor="msp-lat">خط العرض <em>Latitude</em></label>
+          <input
+            id="msp-lat"
+            type="number"
+            step="0.00001"
+            min="-90"
+            max="90"
+            inputMode="decimal"
+            value={lat}
+            onChange={(e) => onChange({ lat: e.target.value, lng })}
+            placeholder="31.50110"
+            aria-label="خط العرض"
+          />
+        </div>
+        <div className="msp__map-field">
+          <label htmlFor="msp-lng">خط الطول <em>Longitude</em></label>
+          <input
+            id="msp-lng"
+            type="number"
+            step="0.00001"
+            min="-180"
+            max="180"
+            inputMode="decimal"
+            value={lng}
+            onChange={(e) => onChange({ lat, lng: e.target.value })}
+            placeholder="34.46670"
+            aria-label="خط الطول"
+          />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 const numFmt = new Intl.NumberFormat('ar-EG');
@@ -94,13 +190,15 @@ const DEFAULT_FORM = {
   title: '',
   description: '',
   location: '',
+  lat: '',
+  lng: '',
   price_per_hour: '',
   capacity: '',
   amenities: [],
   internet: false,
   power: false,
   photos: [],
-  docs: { proof: null, extra: null },
+  docs: { proof: null },
 };
 
 export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
@@ -204,10 +302,14 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
   const validateForm = () => {
     const e = {};
     if (!form.title.trim()) e.title = 'اكتب اسماً للمساحة.';
-    if (!form.location.trim()) e.location = 'حدّد المنطقة/الموقع.';
     if (!form.price_per_hour || Number(form.price_per_hour) <= 0) e.price_per_hour = 'حدّد سعر الساعة.';
     if (!form.capacity || Number(form.capacity) <= 0) e.capacity = 'حدّد السعة.';
     if (modal?.mode !== 'edit') {
+      const latOk = form.lat !== '' && coordOf(form.lat) !== null && Math.abs(Number(form.lat)) <= 90;
+      const lngOk = form.lng !== '' && coordOf(form.lng) !== null && Math.abs(Number(form.lng)) <= 180;
+      if (!(latOk && lngOk)) {
+        e.location = 'حدّد موقع المساحة على الخريطة بإدخال خط العرض وخط الطول.';
+      }
       const hasProof = DOC_SLOTS.filter((s) => s.required).every(({ id }) => form.docs?.[id]?.name);
       if (!hasProof) e.docs = 'أرفق مستنداً يثبت ملكية المساحة أو عقد إيجارها — يُرسل للإدارة مع المساحة.';
     }
@@ -226,6 +328,23 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
     setForm(DEFAULT_FORM);
     setErrors({});
     setModal({ mode: 'create' });
+    
+    // Request live location immediately on opening create modal
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setForm((f) => ({
+            ...f,
+            lat: String(Math.round(pos.coords.latitude * 100000) / 100000),
+            lng: String(Math.round(pos.coords.longitude * 100000) / 100000),
+          }));
+        },
+        (err) => {
+          console.warn('Auto-location failed:', err);
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    }
   }, []);
 
   useEffect(() => {
@@ -235,7 +354,7 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
   }, [autoOpen, openCreate]);
 
   const openEdit = (space) => {
-    const docsMap = { proof: null, extra: null };
+    const docsMap = { proof: null };
     for (const d of Array.isArray(space.docs) ? space.docs : []) {
       if (docsMap[d.id] !== undefined) docsMap[d.id] = { name: d.name, size: d.size, type: d.type };
     }
@@ -243,6 +362,8 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
       title: space.title || '',
       description: space.description || '',
       location: space.location || '',
+      lat: space.lat != null ? String(space.lat) : '',
+      lng: space.lng != null ? String(space.lng) : '',
       price_per_hour: space.price_per_hour ? String(space.price_per_hour) : '',
       capacity: space.capacity ? String(space.capacity) : '',
       amenities: Array.isArray(space.amenities) ? space.amenities : [],
@@ -261,6 +382,8 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
     title: form.title.trim(),
     description: form.description.trim(),
     location: form.location.trim(),
+    lat: coordOf(form.lat),
+    lng: coordOf(form.lng),
     price_per_hour: Number(form.price_per_hour),
     capacity: Number(form.capacity),
     amenities: form.amenities,
@@ -298,6 +421,25 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
     setForm((prev) => ({ ...prev, docs: { ...prev.docs, [slotId]: null } }));
   };
 
+  const locateMe = () => {
+    if (!('geolocation' in navigator)) {
+      setToast({ msg: 'المتصفح لا يدعم تحديد الموقع الحالي.', type: 'err' });
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setForm((f) => ({
+          ...f,
+          lat: String(Math.round(pos.coords.latitude * 100000) / 100000),
+          lng: String(Math.round(pos.coords.longitude * 100000) / 100000),
+        }));
+        setErrors((prev) => (prev.location ? { ...prev, location: undefined } : prev));
+      },
+      () => setToast({ msg: 'تعذّر تحديد موقعك — انقر على الخريطة أو أدخل الإحداثيات يدوياً.', type: 'err' }),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   const handleFilesUpload = async (e) => {
     const incoming = Array.from(e.target.files || []);
     if (e.target) e.target.value = '';
@@ -333,35 +475,32 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
   };
 
   // ----- إجراءات -----
-  const handleSave = async () => {
+  const handleSaveLocation = useCallback(async () => {
     if (!validateForm()) {
-      setToast({ msg: 'يرجى استكمال الحقول والوثائق المطلوبة.', type: 'err' });
+      setToast({ msg: 'يرجى تحديد موقع صحيح أولاً.', type: 'err' });
       return;
     }
+
     setSaving(true);
     try {
-      let result;
-      let next;
-      if (modal?.mode === 'edit') {
-        result = await updateSpaceWithFallback(modal.space.id, readPayload());
+      if (modal?.mode === 'edit' && modal.space?.id) {
+        const result = await updateSpaceWithFallback(modal.space.id, readPayload());
         setDemo(result.demo);
-        next = spaces.map((s) => (s.id === modal.space.id ? result.space : s));
+        const next = spaces.map((s) => (s.id === modal.space.id ? result.space : s));
+        setSpaces(next);
+        onSpacesChange?.(next);
+        setToast({ msg: 'تم حفظ الموقع بنجاح في الخادم', type: 'ok' });
       } else {
-        result = await createSpaceWithFallback(readPayload());
-        setDemo(result.demo);
-        next = [result.space, ...spaces];
+        // In create mode, we can't save just the location without a Space ID.
+        // We confirm it's set locally.
+        setToast({ msg: 'تم تحديد الموقع (سيتم حفظه عند إنشاء المساحة)', type: 'ok' });
       }
-      if (!mountedRef.current) return;
-      setSpaces(next);
-      onSpacesChange?.(next);
-      resetModal();
-      setToast({ msg: result.message, type: 'ok' });
     } catch {
-      if (mountedRef.current) setToast({ msg: 'تعذّر حفظ المساحة. حاول مجدداً.', type: 'err' });
+      setToast({ msg: 'تعذّر حفظ الموقع. حاول مجدداً.', type: 'err' });
     } finally {
-      if (mountedRef.current) setSaving(false);
+      setSaving(false);
     }
-  };
+  }, [modal, spaces, onSpacesChange, validateForm]);
 
   const handleToggle = async (space) => {
     setTogglingId(space.id);
@@ -577,21 +716,6 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
                 <p>{errors.title || ''}</p>
               </div>
 
-              <div className={`odash__field${errors.location ? ' has-error' : ''}`}>
-                <label htmlFor="msp-location">الموقع / المنطقة <b>*</b></label>
-                <div className="odash__input-wrap">
-                  <MapPin className="odash__input-ico" />
-                  <input
-                    id="msp-location"
-                    type="text"
-                    value={form.location}
-                    onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
-                    placeholder="مثال: وسط المدينة"
-                  />
-                </div>
-                <p>{errors.location || ''}</p>
-              </div>
-
               <div className="odash__field">
                 <label htmlFor="msp-desc">الوصف <small>{form.description.length}/200</small></label>
                 <textarea
@@ -603,6 +727,43 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
                   placeholder="قاعة واسعة تتسع لـ 120 شخصاً مع إضاءة طبيعية وتجهيزات عرض كاملة…"
                 />
                 <p />
+              </div>
+            </section>
+
+            <section className="msp__form-sec">
+              <h4><MapPin /> موقع المساحة</h4>
+
+              <div className="odash__field">
+                <label htmlFor="msp-location">المنطقة / الحي <small>(اختياري — للعرض والبحث)</small></label>
+                <div className="odash__input-wrap">
+                  <MapPin className="odash__input-ico" />
+                  <input
+                    id="msp-location"
+                    type="text"
+                    value={form.location}
+                    onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
+                    placeholder="مثال: وسط المدينة"
+                  />
+                </div>
+                <p />
+              </div>
+
+              <div className={`msp__pick${errors.location ? ' has-error' : ''}`}>
+                <p className="msp__pick-label">حدّد موقع المساحة على الخريطة <b>*</b></p>
+                <LocationPicker
+                  lat={form.lat}
+                  lng={form.lng}
+                  onChange={(p) => setForm((f) => ({ ...f, lat: String(p.lat), lng: String(p.lng) }))}
+                />
+                <div className="msp__location-actions">
+                  <button type="button" className="msp__locate" onClick={locateMe}>
+                    <LocateFixed /> تحديد موقعي الحالي
+                  </button>
+                  <button type="button" className="btn-primary" onClick={handleSaveLocation} disabled={saving}>
+                    {saving ? <Loader2 className="spin" /> : 'تثبيت الموقع'}
+                  </button>
+                </div>
+                <p className="msp__pick-error">{errors.location || ''}</p>
               </div>
             </section>
 

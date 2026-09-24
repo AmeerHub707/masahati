@@ -116,6 +116,12 @@ function normalizeSpaceDocs(docs) {
     }));
 }
 
+// يقرّب إحداثيات (خط عرض/طول) إلى 5 خانات عشرية، أو يعيد null عند غيابها.
+function coordOf(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.round(n * 100000) / 100000 : null;
+}
+
 export function mapSpace(s) {
   const img = imageUrl(s.image) || '';
   const gallery = Array.isArray(s.gallery)
@@ -127,6 +133,8 @@ export function mapSpace(s) {
     title: s.title ?? '',
     description: s.description ?? '',
     location: s.location ?? '',
+    lat: coordOf(s.lat ?? s.latitude ?? s.lat_f ?? s.latitude_f),
+    lng: coordOf(s.lng ?? s.longitude ?? s.lng_f ?? s.longitude_f ?? s.lon ?? s.long),
     image: img,
     gallery,
     price_per_hour: Number(s.price_per_hour ?? s.price ?? 0),
@@ -236,6 +244,8 @@ function seedOwnerSpaces() {
       title: 'قاعة العروض الكبرى',
       description: 'قاعة واسعة تتسع لـ 120 شخصاً بإضاءة طبيعية ومسرح صغير.',
       location: 'وسط المدينة',
+      lat: 31.5011,
+      lng: 34.4667,
       image: '',
       price_per_hour: 150,
       capacity: 120,
@@ -251,6 +261,8 @@ function seedOwnerSpaces() {
       title: 'غرفة الاجتماعات الذكية',
       description: 'غرفة اجتماعات بـ 10 مقاعد مع شاشة عرض وكاميرا Zoom.',
       location: 'المنطقة الشرقية',
+      lat: 31.5022,
+      lng: 34.4688,
       image: '',
       price_per_hour: 100,
       capacity: 10,
@@ -266,6 +278,8 @@ function seedOwnerSpaces() {
       title: 'استوديو المبدعين',
       description: 'استوديو إنتاج ملوّن حديث لتصوير المحتوى والعروض.',
       location: 'حي السعادة',
+      lat: 31.5088,
+      lng: 34.4772,
       image: '',
       price_per_hour: 200,
       capacity: 15,
@@ -525,6 +539,8 @@ export async function createOwnerSpace(payload) {
       title: payload.title,
       description: payload.description,
       location: payload.location,
+      lat: coordOf(payload.lat),
+      lng: coordOf(payload.lng),
       price_per_hour: payload.price_per_hour,
       capacity: payload.capacity,
       amenities: payload.amenities,
@@ -565,6 +581,8 @@ body: {
       title: payload.title,
       description: payload.description,
       location: payload.location,
+      lat: coordOf(payload.lat),
+      lng: coordOf(payload.lng),
       price_per_hour: payload.price_per_hour,
       capacity: payload.capacity,
       amenities: payload.amenities,
@@ -828,6 +846,8 @@ export async function createSpaceWithFallback(payload) {
       title: payload.title || 'مساحة جديدة',
       description: payload.description || '',
       location: payload.location || '',
+      lat: coordOf(payload.lat),
+      lng: coordOf(payload.lng),
       image: payload.image || '',
       gallery: Array.isArray(payload.gallery) ? payload.gallery : (payload.image ? [payload.image] : []),
       price_per_hour: Number(payload.price_per_hour || 0),
@@ -909,6 +929,8 @@ export async function updateSpaceWithFallback(spaceId, payload) {
     if (payload.power !== undefined) merged.power = payload.power;
     if (payload.image !== undefined) merged.image = payload.image;
     if (Array.isArray(payload.gallery)) merged.gallery = payload.gallery;
+    if (payload.lat !== undefined) merged.lat = coordOf(payload.lat);
+    if (payload.lng !== undefined) merged.lng = coordOf(payload.lng);
     if (payload.docs !== undefined) merged.docs = Array.isArray(payload.docs) ? payload.docs : [];
     store.spaces[idx] = merged;
     const saved = writeDemoStore(store);
