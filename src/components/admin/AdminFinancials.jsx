@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Wallet, Percent, HandCoins, TrendingUp, ReceiptText, ChevronDown } from 'lucide-react';
+import { Wallet, Percent, HandCoins, TrendingUp, ReceiptText, ChevronDown, ChevronLeft } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from 'recharts';
 import { financialRangeData, commissionBreakdown } from '../../data/adminMockData';
 import { StatCard, SectionCard, SectionHeading, MiniRow, Pill } from './ui';
@@ -201,6 +201,17 @@ export default function AdminFinancials() {
                 const net = t.amount - comm;
                 return (
                   <tr key={t.id} className="border-b transition hover:bg-orange-50/50 dark:hover:bg-white/[0.03]" style={{ borderColor: 'var(--border)' }}>
+                    <td className="py-3 pe-3 text-center">
+                      <button
+                        type="button"
+                        title="عرض التفاصيل"
+                        aria-label="عرض التفاصيل"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg transition hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-500/10 dark:hover:text-orange-400"
+                        onClick={() => alert(`عرض تفاصيل المعاملة ${t.id}`)}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                    </td>
                     <td className="py-3 pe-3 font-extrabold"><span dir="ltr">{t.id}</span></td>
                     <td className="py-3 pe-3">{t.space}</td>
                     <td className="py-3 pe-3">{t.owner}</td>
