@@ -169,12 +169,23 @@ export default function AdminFinancials() {
 
       {/* معاملات حديثة */}
       <SectionCard>
-        <SectionHeading icon={ReceiptText} title="معاملات حديثة" subtitle="آخر الحجوزات والدفعات" />
+        <div className="dash__section-head mb-4 flex flex-wrap items-center justify-between gap-3" style={{ marginBottom: '1rem' }}>
+          <div className="flex items-center gap-3">
+            <span className="st-ico"><ReceiptText /></span>
+            <div>
+              <h2 style={{ margin: 0, display: 'block' }}>معاملات حديثة</h2>
+              <p className="m-0 text-sm" style={{ margin: '.1rem 0 0', fontSize: '.82rem', color: 'var(--text-muted)' }}>آخر الحجوزات والدفعات</p>
+            </div>
+          </div>
+          <a href="#" className="inline-flex items-center gap-1 text-sm font-extrabold transition hover:text-orange-600" style={{ color: 'var(--accent)' }}>
+            عرض الكل ←
+          </a>
+        </div>
         <div className="overflow-x-auto">
           <table className="dash__table min-w-[48rem] text-sm">
             <thead>
               <tr className="border-b text-xs" style={{ borderColor: 'var(--border)' }}>
-                {['رقم الحجز', 'المساحة', 'المالك', 'المبلغ', 'العمولة (12%)', 'صافي الملاك', 'التاريخ', 'الحالة'].map((h) => (
+                {['الإجراءات', 'رقم الحجز', 'المساحة', 'المالك', 'المبلغ', 'العمولة (12%)', 'صافي الملاك', 'التاريخ', 'الحالة'].map((h) => (
                   <th key={h} className="whitespace-nowrap pb-3 pe-3 font-extrabold" style={{ color: 'var(--text-muted)' }}>{h}</th>
                 ))}
               </tr>
