@@ -314,9 +314,12 @@ report('O12 Add-space modal opens', await waitForOwnerText('أضف مساحة ج
 const ownerTitleFilled = await setOwnerInputValue('input[placeholder^="مثال: قاعة"]', 'جناح جديد');
 report('O13 Fill space title', ownerTitleFilled && ownerEl.querySelector('input[placeholder^="مثال: قاعة"]')?.value === 'جناح جديد', 'title not set');
 await setOwnerInputValue('input[placeholder^="مثال: وسط المدينة"]', 'غزة');
-await setOwnerInputValue('input[placeholder^="مثال: 120"]', '90');
-await setOwnerInputValue('input[placeholder^="مثال: 30"]', '25');
-const proofAttached = await setOwnerFile('input[aria-label="صك ملكية أو عقد إيجار"]', 'deed.pdf');
+  await setOwnerInputValue('input[placeholder^="مثال: 120"]', '90');
+  await setOwnerInputValue('input[placeholder^="مثال: 30"]', '25');
+  const latFilled = await setOwnerInputValue('input[aria-label="خط العرض"]', '31.50110');
+  const lngFilled = await setOwnerInputValue('input[aria-label="خط الطول"]', '34.46670');
+  report('O13c Space coordinates set (lat/lng)', latFilled && lngFilled, 'lat/lng not set');
+  const proofAttached = await setOwnerFile('input[aria-label="صك ملكية أو عقد إيجار"]', 'deed.pdf');
 report('O13b Proof-of-space doc attached', proofAttached && !!ownerEl.querySelector('.msp__doc-chip'), 'doc not attached');
 const clickedSubmit = await clickOwnerByText('إرسال للمراجعة');
 report('O14 Submit new space for admin review', clickedSubmit && (await waitForOwnerText('تمت إضافة المساحة') || await waitForOwnerText('جناح جديد')), 'toast/card absent');

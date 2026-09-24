@@ -542,25 +542,6 @@ export default function OwnerOverview({ data, onNavigate, onStatusChange }) {
 
   return (
     <>
-      {/* زر الوصول السريع لإنشاء إعلان مُبثث للعملاء — مرئي من نظرة المالك العامة */}
-      <motion.div
-        className="odash__ad-quick"
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, ease: 'easeOut' }}
-      >
-        <button
-          type="button"
-          className="btn-primary odash__ad-quick-btn"
-          onClick={() => onNavigate('ads')}
-          aria-label="إنشاء إعلان وإرساله للعملاء"
-        >
-          <Megaphone />
-          <span>أرسل إعلاناً للعملاء</span>
-        </button>
-        <p className="odash__ad-quick-hint">أنشئ إعلاناً يُبث مباشرة لجميع العملاء على المنصة.</p>
-      </motion.div>
-
       {/* بنر الاقتراحات الذكية */}
       <SpacePicker
         spaces={allSpaces}

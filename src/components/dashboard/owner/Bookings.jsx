@@ -479,6 +479,8 @@ export default function Bookings({ data, onStatusChange }) {
                 </button>
               </div>
 
+              <div className="obk__cal-body">
+                <div className="obk__cal-cal">
               <div className="obk__cal-week" role="row" aria-label="أسماء الأيام">
                 {ARABIC_DAYS_SHORT.map((d) => (
                   <span key={d}>{d}</span>
@@ -518,12 +520,7 @@ export default function Bookings({ data, onStatusChange }) {
                   );
                 })}
               </div>
-
-              <div className="obk__legend">
-                <span><i className="is-ok" /> مؤكَّد</span>
-                <span><i className="is-pending" /> قيد الانتظار</span>
-                <span><i className="is-today" /> اليوم</span>
-              </div>
+                </div>
 
               <div className="obk__day-list">
                 <div className="odash__section-head">
@@ -531,9 +528,14 @@ export default function Bookings({ data, onStatusChange }) {
                     <h2><CalendarDays /> حجوزات اليوم المحدد</h2>
                     <p className="obk__day-sub">{dayTitle}</p>
                   </div>
-                  {selectedBookings.length > 0 && (
-                    <span className="obk__day-count">{fmtNumber(selectedBookings.length)} حجز</span>
-                  )}
+{selectedBookings.length > 0 && (
+                  <span className="obk__day-count">{fmtNumber(selectedBookings.length)} حجز</span>
+                )}
+              </div>
+                <div className="obk__legend">
+                  <span><i className="is-ok" /> مؤكَّد</span>
+                  <span><i className="is-pending" /> قيد الانتظار</span>
+                  <span><i className="is-today" /> اليوم</span>
                 </div>
                 {selectedBookings.length > 0 ? (
                   <div className="obk__rows">
@@ -546,6 +548,7 @@ export default function Bookings({ data, onStatusChange }) {
                     <p>ستظهر حجوزات هذا اليوم بمجرد ورودها من الباك إند.</p>
                   </div>
                 )}
+              </div>
               </div>
             </section>
           )}

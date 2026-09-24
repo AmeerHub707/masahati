@@ -444,6 +444,13 @@ report('5.1c mapSpace normalizes proof docs', owner.mapSpace({ space_id: 13, doc
   && owner.mapSpace({ space_id: 13, docs: { proof: { name: 'deed.pdf', size: 2048 } } }).docs[0].name === 'deed.pdf'
   && owner.mapSpace({ space_id: 13, docs: [{ id: 'extra', name: 'lic.pdf' }] }).docs[0].id === 'extra');
 
+report('5.1d mapSpace maps lat/lng and sanitizes invalid coords', owner.mapSpace({ space_id: 13, latitude: 31.50113, longitude: 34.46675 }).lat === 31.50113
+  && owner.mapSpace({ space_id: 13, latitude: 31.50113, longitude: 34.46675 }).lng === 34.46675
+  && owner.mapSpace({ space_id: 13, lat: 31.5, lon: 34.4 }).lat === 31.5
+  && owner.mapSpace({ space_id: 13, lat: 31.5, lon: 34.4 }).lng === 34.4
+  && owner.mapSpace({ space_id: 13 }).lat === null
+  && owner.mapSpace({ space_id: 13 }).lng === null);
+
 report('5.2 mapMyOffer maps offer fields', owner.mapMyOffer({ offer_id: 88, request_title: 'طلب X', price_per_hour: 150, hours: 3, status: 'accepted' }).requestTitle === 'طلب X'
   && owner.mapMyOffer({ offer_id: 88, price_per_hour: 150, hours: 3 }).duration_hours === 3
   && owner.mapMyOffer({ offer_id: 88, status: 'accepted' }).status === 'accepted');
@@ -503,9 +510,10 @@ report('5.18 duplicate proposal rejected', propDup.duplicate === true && /سبق
 report('5.19 owner offers now include the new one', (await owner.loadOwnerOffersWithFallback()).offers.some((o) => o.requestTitle === 'قاعة اختبار'));
 
 // إضافة مساحة في الوضع التجريبي
-const newSpace = await owner.createSpaceWithFallback({ title: 'جناح جديد', location: 'غزة', price_per_hour: 90, capacity: 25, amenities: ['internet'], docs: [{ id: 'proof', name: 'deed.pdf', size: 2048, type: 'application/pdf' }] });
+const newSpace = await owner.createSpaceWithFallback({ title: 'جناح جديد', location: 'غزة', latitude: 31.50113, longitude: 34.46675, price_per_hour: 90, capacity: 25, amenities: ['internet'], docs: [{ id: 'proof', name: 'deed.pdf', size: 2048, type: 'application/pdf' }] });
 report('5.20 add space sends pending for admin review', newSpace.demo === true && newSpace.space.title === 'جناح جديد' && newSpace.space.status === 'pending' && newSpace.space.is_active === false);
 report('5.20b proof docs attached to new space', newSpace.space.docs?.[0]?.id === 'proof' && newSpace.space.docs?.[0]?.name === 'deed.pdf');
+report('5.20c new space keeps lat/lng coordinates', newSpace.space.lat === 31.50113 && newSpace.space.lng === 34.46675);
 const spacesAfterAdd = (await owner.loadSpacesWithFallback()).spaces;
 report('5.21 new space first in list', spacesAfterAdd[0].title === 'جناح جديد' && spacesAfterAdd.length === 4);
 

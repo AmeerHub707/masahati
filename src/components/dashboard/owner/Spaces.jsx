@@ -65,35 +65,37 @@ function coordOf(v) {
 
 // خريطة مصغّرة أنيقة (بدون خدمات خارجية) لتحديد موقع المساحة بالإحداثيات:
 // انقر/اسحب لوضع الدبوس، أو أدخل خط العرض والطول يدوياً.
+function MapEvents({ onChange }) {
+  useMapEvents({
+    click(e) {
+      onChange({ lat: e.latlng.lat, lng: e.latlng.lng });
+    },
+  });
+  return null;
+}
+
+function MapController({ center }) {
+  const map = useMap();
+  useEffect(() => {
+    if (center[0] && center[1]) {
+      map.setView(center, map.getZoom());
+    }
+  }, [center, map]);
+  return null;
+}
+
 function LocationPicker({ lat, lng, onChange }) {
-  const latN = Number(lat);
-  const lngN = Number(lng);
+  const latRaw = lat === '' || lat == null ? '' : lat;
+  const lngRaw = lng === '' || lng == null ? '' : lng;
+  const latN = latRaw === '' ? NaN : Number(latRaw);
+  const lngN = lngRaw === '' ? NaN : Number(lngRaw);
   const hasPin = Number.isFinite(latN) && Number.isFinite(lngN);
-
-  function MapEvents() {
-    useMapEvents({
-      click(e) {
-        onChange({ lat: e.latlng.lat, lng: e.latlng.lng });
-      },
-    });
-    return null;
-  }
-
-  function MapController({ center }) {
-    const map = useMap();
-    useEffect(() => {
-      if (center[0] && center[1]) {
-        map.setView(center, map.getZoom());
-      }
-    }, [center, map]);
-    return null;
-  }
 
   return (
     <div className="msp__pick-map">
       <div className="msp__map-container" style={{ height: '300px', width: '100%', position: 'relative', zIndex: 1, borderRadius: '12px', overflow: 'hidden' }}>
         <MapContainer
-          center={[hasPin ? latN : 31.90, hasPin ? lngN : 35.20]} 
+          center={[hasPin ? latN : 31.90, hasPin ? lngN : 35.20]}
           zoom={hasPin ? 13 : 10}
           style={{ height: '100%', width: '100%' }}
         >
@@ -101,7 +103,7 @@ function LocationPicker({ lat, lng, onChange }) {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          <MapEvents />
+          <MapEvents onChange={onChange} />
           {hasPin && <Marker position={[latN, lngN]} />}
           <MapController center={[latN, lngN]} />
         </MapContainer>
@@ -299,7 +301,7 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
     }));
   };
 
-  const validateForm = () => {
+  const validateForm = useCallback(() => {
     const e = {};
     if (!form.title.trim()) e.title = 'اكتب اسماً للمساحة.';
     if (!form.price_per_hour || Number(form.price_per_hour) <= 0) e.price_per_hour = 'حدّد سعر الساعة.';
@@ -315,7 +317,7 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
     }
     setErrors(e);
     return Object.keys(e).length === 0;
-  };
+  }, [form, modal]);
 
   const resetModal = () => {
     setModal(null);
@@ -378,7 +380,7 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
     setModal({ mode: 'edit', space });
   };
 
-  const readPayload = () => ({
+  const readPayload = useCallback(() => ({
     title: form.title.trim(),
     description: form.description.trim(),
     location: form.location.trim(),
@@ -400,7 +402,7 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
         type: form.docs[id].type || 'file',
       })),
     status: 'pending',
-  });
+  }), [form]);
 
   const handleDocUpload = (slotId, e) => {
     const file = e.target.files?.[0];
@@ -475,6 +477,38 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
   };
 
   // ----- إجراءات -----
+  // الحفظ النهائي للنموذج: إنشاء مساحة جديدة (تُرسل للمراجعة) أو تعديل مساحة قائمة.
+  const handleSave = async () => {
+    if (!validateForm()) {
+      setToast({ msg: 'يرجى إكمال الحقول المطلوبة قبل الإرسال.', type: 'err' });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      if (modal?.mode === 'edit' && modal.space?.id) {
+        const result = await updateSpaceWithFallback(modal.space.id, readPayload());
+        setDemo(result.demo);
+        const next = spaces.map((s) => (s.id === modal.space.id ? result.space : s));
+        setSpaces(next);
+        onSpacesChange?.(next);
+        setToast({ msg: 'تم حفظ التعديلات بنجاح.', type: 'ok' });
+      } else {
+        const result = await createSpaceWithFallback(readPayload());
+        setDemo(result.demo);
+        const next = [result.space, ...spaces];
+        setSpaces(next);
+        onSpacesChange?.(next);
+        setToast({ msg: 'تمت إضافة المساحة — أُرسلت للإدارة للمراجعة.', type: 'ok' });
+      }
+      resetModal();
+    } catch {
+      setToast({ msg: 'تعذّر حفظ المساحة. حاول مجدداً.', type: 'err' });
+    } finally {
+      if (mountedRef.current) setSaving(false);
+    }
+  };
+
   const handleSaveLocation = useCallback(async () => {
     if (!validateForm()) {
       setToast({ msg: 'يرجى تحديد موقع صحيح أولاً.', type: 'err' });
@@ -500,7 +534,7 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
     } finally {
       setSaving(false);
     }
-  }, [modal, spaces, onSpacesChange, validateForm]);
+  }, [modal, spaces, onSpacesChange, validateForm, readPayload]);
 
   const handleToggle = async (space) => {
     setTogglingId(space.id);
@@ -601,6 +635,9 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
             {s.power && <span><Zap /> كهرباء</span>}
             {(s.gallery?.length || 0) > 1 && (
               <span className="msp__card-meta-chip"><Image /> {s.gallery.length} صور</span>
+            )}
+            {s.lat != null && s.lng != null && (
+              <span className="msp__card-meta-chip" title="إحداثيات المساحة (خط العرض، خط الطول)"><MapPin /> {s.lat}، {s.lng}</span>
             )}
             {docCount > 0 && (
               <span className="msp__card-meta-chip"><FileText /> {docCount} {docCount === 1 ? 'وثيقة' : 'وثائق'}</span>

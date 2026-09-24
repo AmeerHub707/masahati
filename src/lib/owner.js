@@ -846,8 +846,8 @@ export async function createSpaceWithFallback(payload) {
       title: payload.title || 'مساحة جديدة',
       description: payload.description || '',
       location: payload.location || '',
-      lat: coordOf(payload.lat),
-      lng: coordOf(payload.lng),
+      lat: coordOf(payload.lat ?? payload.latitude ?? payload.lat_f ?? payload.latitude_f),
+      lng: coordOf(payload.lng ?? payload.longitude ?? payload.lng_f ?? payload.longitude_f ?? payload.lon ?? payload.long),
       image: payload.image || '',
       gallery: Array.isArray(payload.gallery) ? payload.gallery : (payload.image ? [payload.image] : []),
       price_per_hour: Number(payload.price_per_hour || 0),
@@ -929,8 +929,8 @@ export async function updateSpaceWithFallback(spaceId, payload) {
     if (payload.power !== undefined) merged.power = payload.power;
     if (payload.image !== undefined) merged.image = payload.image;
     if (Array.isArray(payload.gallery)) merged.gallery = payload.gallery;
-    if (payload.lat !== undefined) merged.lat = coordOf(payload.lat);
-    if (payload.lng !== undefined) merged.lng = coordOf(payload.lng);
+    if (payload.lat !== undefined || payload.latitude !== undefined) merged.lat = coordOf(payload.lat ?? payload.latitude ?? payload.lat_f ?? payload.latitude_f);
+    if (payload.lng !== undefined || payload.longitude !== undefined || payload.lon !== undefined) merged.lng = coordOf(payload.lng ?? payload.longitude ?? payload.lng_f ?? payload.longitude_f ?? payload.lon ?? payload.long);
     if (payload.docs !== undefined) merged.docs = Array.isArray(payload.docs) ? payload.docs : [];
     store.spaces[idx] = merged;
     const saved = writeDemoStore(store);

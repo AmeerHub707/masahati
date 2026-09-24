@@ -344,11 +344,10 @@ export default function VerifyOtpPage() {
           width: 100%; background: linear-gradient(180deg, #fb923c, var(--accent) 60%, var(--accent-hover));
           color: #fff; font-weight: 700; font-size: 1rem; padding: 0.8rem 1rem;
           border: none; border-radius: var(--radius-field); cursor: pointer;
-          box-shadow: 0 12px 26px -10px rgba(249,115,22,0.6);
-          transition: all .18s var(--ease);
+          transition: all 0.18s var(--ease);
           margin-top: 0.5rem;
         }
-        .btn:hover { transform: translateY(-2px); filter: brightness(1.04); }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 12px 26px -10px rgba(249,115,22,0.6); filter: brightness(1.04); }
 
         .state-wrap { text-align: center; padding: 1rem 0; }
         .state-wrap h2 { color: #fff; font-size: 1.6rem; margin: 0 0 0.5rem; }

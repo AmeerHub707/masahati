@@ -505,11 +505,10 @@ export default function LoginPage() {
           border: none;
           border-radius: var(--radius-field);
           cursor: pointer;
-          box-shadow: 0 12px 26px -10px rgba(249,115,22,0.6);
           transition: all 0.18s var(--ease);
           margin-top: 0.2rem;
         }
-        .btn:hover { transform: translateY(-2px); filter: brightness(1.04); }
+        .btn:hover { transform: translateY(-2px); filter: brightness(1.04); box-shadow: 0 12px 26px -10px rgba(249,115,22,0.6); }
 
         /* ===== فصل + زر تسجيل الدخول عبر Google ===== */
         .google-divider {

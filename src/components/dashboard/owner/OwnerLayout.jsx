@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Store, Building2, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Megaphone, ChevronLeft, ChevronRight, Lock, Sparkles, Plus, Home, CalendarCheck, Receipt, Star } from 'lucide-react';
-import MagneticButton from '../../common/MagneticButton';
+import { Store, Building2, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Megaphone, ChevronLeft, ChevronRight, Lock, Sparkles, Home, CalendarCheck, Receipt, Star } from 'lucide-react';
 import ThemeToggle from '../../common/ThemeToggle';
 import { getCachedPictureUrl } from '../../../lib/profilePicture';
 import { loadNotificationsWithFallback, markAllNotificationsReadWithFallback } from '../../../lib/notifications';
@@ -337,17 +336,6 @@ export default function OwnerLayout({
                 document.body
               )}
             </div>
-
-            <MagneticButton>
-              <button
-                type="button"
-                className="odash__cta"
-                onClick={() => handleNavClick('spaces')}
-              >
-                <Plus />
-                <span>أضف مساحة</span>
-              </button>
-            </MagneticButton>
           </header>
 
           <main className={`odash__content${active === 'market' ? ' odash__content--market' : ''}`}>
