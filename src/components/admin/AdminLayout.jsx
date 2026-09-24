@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronLeft, ChevronRight, LogOut, Menu, X, Bell, MapPin, Check, Clock, FileText } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, LogOut, Menu, X, ChevronDown } from 'lucide-react';
 import { getAdminProfile } from '../../lib/adminAuth';
-import { ADMIN_TABS } from '../../data/adminTabs';
+import { ADMIN_TABS, ADMIN_NOTIF_TABS } from '../../data/adminTabs';
 import ThemeToggle from '../common/ThemeToggle';
 
 function useDates() {
@@ -27,56 +28,35 @@ function useDates() {
   return { gregorian, hijri };
 }
 
-const INITIAL_NOTIFS = [
-  { id: 1, text: 'طلب مراجعة مساحة جديدة "ركن المبرمجين"', time: 'منذ 12 دقيقة', read: false, icon: FileText },
-  { id: 2, text: 'فتح نزاع جديد #DIS-045 على "مكتب المبدعين"', time: 'منذ ساعتين', read: false, icon: Clock },
-  { id: 3, text: 'تأكيد حجز جديد #BK-1022 من محمد دويدار', time: 'منذ ساعة', read: false, icon: Check },
-  { id: 4, text: 'تحديث سياسة الاسترداد يُتاح للمستخدمين', time: 'أمس', read: true, icon: MapPin },
-];
-
-export default function AdminLayout({ active, onNavigate, onLogout, children }) {
+export default function AdminLayout({ active, notifSub = null, unreadCount = 0, onNavigate, onLogout, children }) {
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const [notifOpen, setNotifOpen] = useState(false);
+  // تفتح القائمة الفرعية تلقائياً عند فتح الصفحة على تبويب الإشعارات (رفش مباشر/إشارة).
+  const [notifOpen, setNotifOpen] = useState(() => active === 'notifications');
   const [tips, setTips] = useState({ show: false, top: 0, left: 0 });
-  const [panelPos, setPanelPos] = useState({ top: 0, left: 0 });
-  const notifRef = useRef(null);
-  const btnRef = useRef(null);
-  const [notifications, setNotifications] = useState(INITIAL_NOTIFS);
+  const navigate = useNavigate();
   const { gregorian, hijri } = useDates();
   const profile = getAdminProfile();
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    if (!notifOpen || !btnRef.current) return;
-    const update = () => {
-      const r = btnRef.current.getBoundingClientRect();
-      setPanelPos({ top: r.bottom + 6, left: r.left });
-    };
-    update();
-    window.addEventListener('scroll', update, { passive: true });
-    window.addEventListener('resize', update);
-    return () => {
-      window.removeEventListener('scroll', update);
-      window.removeEventListener('resize', update);
-    };
-  }, [notifOpen]);
 
   const close = () => setOpen(false);
 
   const activeLabel = ADMIN_TABS.find((t) => t.id === active)?.label || 'لوحة تحكم المشرف';
 
-  const unread = notifications.filter((n) => !n.read).length;
+  const toggleGroup = () => {
+    if (collapsed) {
+      setCollapsed(false);
+      return;
+    }
+    setNotifOpen((o) => !o);
+  };
 
   const navigateTo = (id) => {
     onNavigate(id);
+    close();
+  };
+
+  const goNotif = (path) => {
+    navigate(path);
     close();
   };
 
@@ -142,6 +122,50 @@ export default function AdminLayout({ active, onNavigate, onLogout, children }) 
           <nav className="dash__nav" aria-label="قائمة لوحة المشرف">
             {ADMIN_TABS.map((tab) => {
               const Icon = tab.icon;
+              if (tab.group) {
+                const subActive = active === 'notifications' && notifSub;
+                return (
+                  <div key={tab.id} className={`dash__nav-group${notifOpen ? ' is-open' : ''}`}>
+                    <button
+                      type="button"
+                      className={`dash__nav-group-btn${active === tab.id ? ' is-active' : ''}`}
+                      onClick={toggleGroup}
+                      aria-expanded={notifOpen}
+                      aria-current={active === tab.id ? 'page' : undefined}
+                      title={collapsed ? tab.label : undefined}
+                    >
+                      <Icon />
+                      {!collapsed && <span>{tab.label}</span>}
+                      {!collapsed && <ChevronDown className="dash__nav-chevron" />}
+                    </button>
+                    {!collapsed && notifOpen && (
+                      <div className="dash__nav-sub" role="group" aria-label={tab.label}>
+                        {ADMIN_NOTIF_TABS.map((sub) => {
+                          const SubIcon = sub.icon;
+                          const isSubActive = subActive === sub.id;
+                          return (
+                            <button
+                              key={sub.id}
+                              type="button"
+                              className={isSubActive ? 'is-active' : ''}
+                              onClick={() => goNotif(sub.path)}
+                              aria-current={isSubActive ? 'page' : undefined}
+                            >
+                              <SubIcon />
+                              <span>{sub.label}</span>
+                              {sub.id === 'inbox' && unreadCount > 0 && (
+                                <span className="dash__nav-badge" title={`${unreadCount} غير مقروء`}>
+                                  {unreadCount}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
               return (
                 <button
                   key={tab.id}
@@ -172,19 +196,9 @@ export default function AdminLayout({ active, onNavigate, onLogout, children }) 
           <div className="mt-auto border-t border-gray-100/60 px-2 pb-2 pt-3 dark:border-[var(--border)]">
             <div className="flex items-center justify-between gap-2">
               <ThemeToggle />
-              <div className="dash__notif-wrap relative" ref={notifRef}>
-                <button
-                  type="button"
-                  ref={btnRef}
-                  className={`dash__notif-btn${notifOpen ? ' is-open' : ''}`}
-                  onClick={() => setNotifOpen((o) => !o)}
-                  aria-label="الإشعارات"
-                  aria-expanded={notifOpen}
-                >
-                  <Bell />
-                  {unread > 0 && <span className="dash__notif-badge">{unread}</span>}
-                </button>
-              </div>
+              <span className="text-xs font-bold" style={{ color: 'var(--text-muted)' }}>
+                {activeLabel}
+              </span>
             </div>
           </div>
         </aside>
@@ -203,50 +217,6 @@ export default function AdminLayout({ active, onNavigate, onLogout, children }) 
             ),
             document.body
           )}
-
-        {/* لوحة الإشعارات */}
-        {createPortal(
-          notifOpen && (
-            <div className="dash__notif-panel" style={{ position: 'fixed', top: panelPos.top, left: panelPos.left }}>
-              <div className="dash__notif-header">
-                <h3>الإشعارات</h3>
-                <button
-                  type="button"
-                  className="dash__notif-mark"
-                  onClick={() => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))}
-                >
-                  قراءة الكل
-                </button>
-              </div>
-              <ul className="dash__notif-list">
-                {notifications.map((n) => {
-                  const Icon = n.icon;
-                  return (
-                    <li
-                      key={n.id}
-                      className={`dash__notif-item${n.read ? '' : ' is-unread'}`}
-                      onClick={() =>
-                        setNotifications((prev) =>
-                          prev.map((item) => (item.id === n.id ? { ...item, read: true } : item))
-                        )
-                      }
-                    >
-                      <span className="dash__notif-icon">
-                        <Icon />
-                      </span>
-                      <div className="dash__notif-body">
-                        <p>{n.text}</p>
-                        <span className="dash__notif-time">{n.time}</span>
-                      </div>
-                      {!n.read && <span className="dash__notif-dot" />}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ),
-          document.body
-        )}
 
         {/* الستارة الخلفية للجوال */}
         <div className={`dash__scrim${open ? ' show' : ''}`} onClick={close} aria-hidden="true" />

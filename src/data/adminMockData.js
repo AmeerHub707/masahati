@@ -115,10 +115,34 @@ export const adminReviews = [
 ];
 
 export const adminNotifications = [
-  { id: 1, title: 'صيانة مجدولة للنظام', body: 'ستتوقف المنصة يوم الجمعة من 2 إلى 4 صباحاً لصيانة دورية.', target: 'all', sentAt: '2026-09-18 09:00', sentBy: 'admin' },
-  { id: 2, title: 'إضافة ميزة حجز جماعي', body: 'أصبح بإمكان مساحات العمل استقبال حجوزات جماعية تصل إلى 20 شخصاً.', target: 'owners', sentAt: '2026-09-15 14:30', sentBy: 'admin' },
-  { id: 3, title: 'تحديث سياسة الاسترداد', body: 'تم تحديث سياسة الاسترداد؛ يمكن طلب الاسترداد خلال 24 ساعة من الحجز.', target: 'all', sentAt: '2026-09-10 11:00', sentBy: 'admin' },
-  { id: 4, title: 'ندعوك لورشة عمل مجانية', body: 'ورشة بعنوان "التسويق الرقمي لرواد الأعمال" يوم الخميس القادم.', target: 'freelancers', sentAt: '2026-09-06 16:45', sentBy: 'admin' },
+  { id: 1, title: 'صيانة مجدولة للنظام', body: 'ستتوقف المنصة يوم الجمعة من 2 إلى 4 صباحاً لصيانة دورية.', target: 'all', sentAt: '2026-09-18 09:00', sentBy: 'admin', opened: 498, total: 1284, channels: ['in_app', 'email'], link: '' },
+  { id: 2, title: 'إضافة ميزة حجز جماعي', body: 'أصبح بإمكان مساحات العمل استقبال حجوزات جماعية تصل إلى 20 شخصاً.', target: 'owners', sentAt: '2026-09-15 14:30', sentBy: 'admin', opened: 96, total: 186, channels: ['in_app'], link: '' },
+  { id: 3, title: 'تحديث سياسة الاسترداد', body: 'تم تحديث سياسة الاسترداد؛ يمكن طلب الاسترداد خلال 24 ساعة من الحجز.', target: 'all', sentAt: '2026-09-10 11:00', sentBy: 'admin', opened: 702, total: 1284, channels: ['in_app', 'email'], link: '/policies/refund' },
+  { id: 4, title: 'ندعوك لورشة عمل مجانية', body: 'ورشة بعنوان "التسويق الرقمي لرواد الأعمال" يوم الخميس القادم.', target: 'renters', sentAt: '2026-09-06 16:45', sentBy: 'admin', opened: 411, total: 1098, channels: ['email'], link: '/events/workshop' },
+];
+
+// عدد المستلمين المقدر لكل جمهور (بيانات وهمية — تُستبدل بنقطة نهاية الباك إند لاحقاً).
+export const audienceRecipients = {
+  all: 1284,
+  owners: 186,
+  renters: 1098,
+};
+
+// تصنيفات إشعارات البريد الوارد التشغيلية + وصف كل فئة.
+export const inboxCategoryMeta = {
+  dispute: { label: 'نزاع', tone: 'red', cta: 'عرض النزاع', path: '/admin/bookings' },
+  space_request: { label: 'طلب مساحة', tone: 'blue', cta: 'مراجعة المساحة', path: '/admin/spaces' },
+  report: { label: 'بلاغ', tone: 'violet', cta: 'مراجعة البلاغ', path: '/admin/reviews' },
+};
+
+// إشعارات البريد الوارد (مهام تشغيلية تتطلب إجراءً من المشرف).
+export const adminInbox = [
+  { id: 1, category: 'dispute', title: 'فتح نزاع جديد #DIS-045', body: 'على مساحة "مكتب المبدعين" — الحجز #BK-1018 بقيمة 60 ش.ج.', time: 'منذ ساعتين', read: false },
+  { id: 2, category: 'space_request', title: 'طلب مراجعة مساحة جديدة "ركن المبرمجين"', body: 'قدمتها ليان أبو خليل وتبلغ سعتها 10 مقاعد.', time: 'منذ 45 دقيقة', read: false },
+  { id: 3, category: 'report', title: 'بلاغ عن مراجعة غير لائقة', body: 'محدد كـ"مخالف" على مساحة "مكتب المبدعين".', time: 'منذ 3 ساعات', read: false },
+  { id: 4, category: 'dispute', title: 'نزاع #DIS-041 بانتظار قرارك', body: 'بخصوص مساحة "مساحة العمل الوسطى" بقيمة 75 ش.ج.', time: 'أمس', read: true },
+  { id: 5, category: 'space_request', title: 'مساحة جديدة "المكتب المستقل" بانتظار الاعتماد', body: 'قدمها عمر سكيك بسعة 6 مقاعد ومعدل أسبوعي.', time: 'قبل 5 ساعات', read: false },
+  { id: 6, category: 'report', title: 'تأكيد إغلاق البلاغ', body: 'تم إغلاق البلاغ على مساحة "فضاء المبدعين" دون إجراء.', time: 'منذ يومين', read: true },
 ];
 
 export const adminActivities = [

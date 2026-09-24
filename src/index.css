@@ -1768,3 +1768,73 @@ html.dark .dash__pager-btn.is-active{background:linear-gradient(180deg,#fb923c,v
 .dash__drawer-body{padding:1.4rem;overflow-y:auto;flex:1;scrollbar-width:thin;}
 .dash__drawer-foot{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.6rem;padding:1rem 1.4rem;border-top:1px solid var(--border);}
 html.dark .dash__drawer{background:#1c1c22;border-color:var(--border);}
+
+/* ============ ADMIN — NOTIFICATIONS (accordion + inbox + broadcast) ============ */
+
+/* مجموعة القائمة الفرعية القابلة للطيّ في الشريط الجانبي */
+.dash__nav-group{display:flex;flex-direction:column;gap:.15rem;}
+.dash__nav-group.is-open{gap:.2rem;}
+.dash__nav-chevron{margin-inline-start:auto;width:1rem;height:1rem;flex:none;transition:transform .2s var(--ease);}
+.dash__nav-group.is-open .dash__nav-chevron{transform:rotate(180deg);}
+.dash__nav-sub{
+  display:flex;flex-direction:column;gap:.15rem;position:relative;
+  margin-inline-start:.7rem;padding-inline-start:1.1rem;
+  border-inline-start:2px solid rgba(0,0,0,.09);
+}
+.dash__nav-sub button{
+  padding-inline-start:.25rem;font-size:.875rem;min-height:38px;font-weight:700;
+  position:relative;border-radius:.7rem;
+}
+.dash__nav-sub button svg{width:1rem;height:1rem;}
+.dash__nav-sub button.is-active{
+  background:rgba(249,115,22,.08);color:#ea580c;font-weight:700;
+}
+.dash__nav-sub button.is-active::after{
+  content:"";position:absolute;inset-inline-start:-.35rem;top:50%;transform:translateY(-50%);
+  height:1.4rem;width:.34rem;border-radius:99px;background:var(--accent);
+}
+html.dark .dash__nav-sub{border-inline-start-color:rgba(255,255,255,.12);}
+html.dark .dash__nav-sub button.is-active{background:rgba(249,115,22,.16);color:#fb923c;}
+
+/* شارة العد (غير المقروء) داخل قائمة الشريط الجانبي وحبوب الفلاتر */
+.dash__nav-badge{
+  min-width:1.15rem;height:1.15rem;padding:0 .32rem;margin-inline-start:auto;flex:none;
+  display:inline-flex;align-items:center;justify-content:center;line-height:1;
+  font-size:.68rem;font-weight:800;color:#fff;background:linear-gradient(135deg,#ef4444,#dc2626);
+  border-radius:999px;box-shadow:0 2px 6px rgba(239,68,68,.5);
+}
+.dash__nav-sub .dash__nav-badge{margin-inline-start:auto;}
+
+/* بطاقة إشعار وارد (تشغيلي) */
+.dash__notif-card{
+  display:flex;align-items:flex-start;gap:.85rem;background:#fff;
+  border:1px solid var(--border);border-radius:var(--radius-card);
+  padding:1rem 1.1rem;transition:border-color .2s,box-shadow .2s,background .2s;
+}
+.dash__notif-card:hover{border-color:#fed7aa;box-shadow:var(--shadow-lg);}
+.dash__notif-card.is-unread{background:rgba(249,115,22,.06);border-color:rgba(249,115,22,.28);}
+.dash__notif-card.is-selected{border-color:var(--accent);box-shadow:0 0 0 3px rgba(249,115,22,.18);}
+.dash__notif-card .dash__check{margin-top:.4rem;}
+.dash__notif-card-body{flex:1;min-width:0;}
+.dash__notif-card-body h4{margin:0 0 .15rem;font-size:.95rem;font-weight:800;color:var(--text-strong);}
+.dash__notif-card-body p{margin:0;font-size:.84rem;line-height:1.6;color:var(--text-muted);}
+.dash__notif-card-unread{flex:none;width:.55rem;height:.55rem;border-radius:50%;background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.18);}
+.dash__notif-card-actions{display:flex;flex-direction:column;align-items:flex-end;gap:.45rem;flex:none;}
+.dash__notif-cta{
+  display:inline-flex;align-items:center;gap:.4rem;min-height:38px;padding:.35rem .9rem;border:none;border-radius:999px;
+  background:linear-gradient(180deg,#fb923c,var(--accent) 60%,var(--accent-hover));color:#fff;
+  font-family:'Cairo',sans-serif;font-size:.78rem;font-weight:800;cursor:pointer;
+  box-shadow:0 10px 20px -10px rgba(249,115,22,.6);transition:transform .18s var(--ease),filter .18s,box-shadow .18s;
+}
+.dash__notif-cta:hover{transform:translateY(-1px);filter:brightness(1.05);}
+.dash__notif-cta svg{width:.85rem;height:.85rem;flex:none;}
+
+/* شارة معدل التفاعل في سجل الإشعارات الجماعية */
+.badge--green{background:rgba(34,197,94,.14);color:#15803d;}
+
+html.dark .dash__notif-card{background:#1c1c22;border-color:var(--border);}
+html.dark .dash__notif-card.is-unread{background:rgba(249,115,22,.14);border-color:rgba(249,115,22,.32);}
+html.dark .dash__notif-card-body h4{color:var(--text-strong);}
+html.dark .dash__notif-card-body p{color:var(--text-muted);}
+html.dark .dash__notif-card.is-selected{border-color:var(--accent);}
+html.dark .badge--green{background:rgba(34,197,94,.16);color:#4ade80;}

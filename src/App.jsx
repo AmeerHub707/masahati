@@ -42,8 +42,8 @@ export default function App() {
       <Route path="/dashboard/customer" element={<RequireAuth><DashboardPage /></RequireAuth>} />
       <Route path="/dashboard/space-owner" element={<RequireAuth><DashboardPage /></RequireAuth>} />
       
-      {/* لوحة تحكم المشرف */}
-      <Route path="/admin" element={<AdminDashboardPage />} />
+      {/* لوحة تحكم المشرف — مسار شامل واحد حتى لا يُعاد تركيب الصفحة بين التبويبات */}
+      <Route path="/admin/*" element={<AdminDashboardPage />} />
       
       {/* مسار احتياطي للصفحات غير الموجودة 404 */}
       <Route path="*" element={<LandingPage />} />
