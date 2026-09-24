@@ -1,12 +1,10 @@
 import { useState } from 'react';
 import {
   UserCircle2,
-  Settings2,
   Eye,
   EyeOff,
   CheckCircle2,
   AlertCircle,
-  Wrench,
   Percent,
   Phone,
 } from 'lucide-react';
@@ -47,10 +45,6 @@ export default function AdminSettings() {
   const profile = getAdminProfile();
   const initials = (profile?.name || 'م').trim().slice(0, 2) || 'م';
 
-  // وضع الصيانة
-  const [maintenance, setMaintenance] = useState(false);
-  const [maintMsg, setMaintMsg] = useState({ ok: false, text: '' });
-
   // Section 1: البيانات الشخصية وكلمة المرور
   const name = useSafeInput(profile?.name || '', { maxLength: 60 });
   const email = useSafeInput(profile?.email || '', { maxLength: 120 });
@@ -61,23 +55,11 @@ export default function AdminSettings() {
   const [showPw, setShowPw] = useState(false);
   const [profileMsg, setProfileMsg] = useState({ ok: false, text: '' });
 
-  // Section 2: إعدادات البريد والدعم SMTP
-  const supportEmail = useSafeInput('support@masahati.com', { maxLength: 120 });
-  const mailerHost = useSafeInput('mail.masahati.com', { maxLength: 120 });
-  const mailerPort = useSafeInput('587', { maxLength: 6 });
-  const mailerUser = useSafeInput('no-reply@masahati.com', { maxLength: 120 });
-  const [mailMsg, setMailMsg] = useState({ ok: false, text: '' });
-
-  // Section 3: إعدادات الحجز والعمولة
+  // Section 2: إعدادات الحجز والعمولة
   const [commissionRate, setCommissionRate] = useState(10);
   const [gracePeriod, setGracePeriod] = useState(24);
   const [autoApprove, setAutoApprove] = useState(false);
   const [bookingMsg, setBookingMsg] = useState({ ok: false, text: '' });
-
-  const toggleMaintenance = (val) => {
-    setMaintenance(val);
-    setMaintMsg({ ok: true, text: val ? 'تم تفعيل وضع الصيانة.' : 'تم إيقاف وضع الصيانة.' });
-  };
 
   const saveProfile = (e) => {
     e.preventDefault();
@@ -109,15 +91,6 @@ export default function AdminSettings() {
     });
   };
 
-  const saveMailer = (e) => {
-    e.preventDefault();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(supportEmail.value.trim())) {
-      setMailMsg({ ok: false, text: 'بريد دعم المنصة غير صحيح.' });
-      return;
-    }
-    setMailMsg({ ok: true, text: 'تم تحديث إعدادات البريد والدعم.' });
-  };
-
   const saveBooking = (e) => {
     e.preventDefault();
     const rate = Number(commissionRate);
@@ -135,30 +108,6 @@ export default function AdminSettings() {
 
   return (
     <div className="dash__settings">
-      {/* شريط علوي: وضع الصيانة */}
-      <section className="dash__section">
-        <div className="dash__section-head">
-          <h2><Wrench /> وضع الصيانة</h2>
-        </div>
-        <div
-          className="dash__form"
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}
-        >
-          <div>
-            <p style={{ margin: 0, fontSize: '.95rem', fontWeight: 800, color: 'var(--text-strong)' }}>
-              إيقاف النظام مؤقتاً
-            </p>
-            <p style={{ margin: '.15rem 0 0', fontSize: '.8rem', color: 'var(--text-muted)' }}>
-              يمنع المستخدمين من إجراء حجوزات جديدة حتى يُعاد التفعيل.
-            </p>
-          </div>
-          <Toggle id="adm-maintenance" checked={maintenance} onChange={toggleMaintenance} />
-        </div>
-        <div style={{ marginTop: '1rem' }}>
-          <SettingsMsg ok={maintMsg.ok}>{maintMsg.text}</SettingsMsg>
-        </div>
-      </section>
-
       {/* قسم 1: البيانات الشخصية وكلمة المرور */}
       <section className="dash__section">
         <div className="dash__section-head">
@@ -241,39 +190,7 @@ export default function AdminSettings() {
         </div>
       </section>
 
-      {/* قسم 2: إعدادات البريد والدعم SMTP */}
-      <section className="dash__section">
-        <div className="dash__section-head">
-          <h2><Settings2 /> إعدادات البريد والدعم SMTP</h2>
-        </div>
-
-        <form className="dash__form" onSubmit={saveMailer} noValidate>
-          <SettingsMsg ok={mailMsg.ok}>{mailMsg.text}</SettingsMsg>
-          <div className="field">
-            <label htmlFor="adm-support">بريد دعم المنصة</label>
-            <input id="adm-support" type="email" dir="ltr" value={supportEmail.value} onChange={supportEmail.onChange} placeholder="support@masahati.com" />
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="field">
-              <label htmlFor="adm-host">خادم البريد (SMTP)</label>
-              <input id="adm-host" type="text" dir="ltr" value={mailerHost.value} onChange={mailerHost.onChange} />
-            </div>
-            <div className="field">
-              <label htmlFor="adm-port">المنفذ</label>
-              <input id="adm-port" type="text" dir="ltr" value={mailerPort.value} onChange={mailerPort.onChange} placeholder="587" />
-            </div>
-          </div>
-          <div className="field">
-            <label htmlFor="adm-user">اسم المستخدم / المرسل</label>
-            <input id="adm-user" type="text" dir="ltr" value={mailerUser.value} onChange={mailerUser.onChange} />
-          </div>
-          <button type="submit" className="btn-primary">
-            حفظ إعدادات البريد
-          </button>
-        </form>
-      </section>
-
-      {/* قسم 3: إعدادات الحجز والعمولة */}
+      {/* قسم 2: إعدادات الحجز والعمولة */}
       <section className="dash__section">
         <div className="dash__section-head">
           <h2><Percent /> إعدادات الحجز والعمولة</h2>
