@@ -436,6 +436,14 @@ report('5.1 mapSpace maps laravel fields', owner.mapSpace({ space_id: 12, title:
   && owner.mapSpace({ space_id: 12, amenities: ['internet', { key: 'ac' }] }).amenities[1] === 'ac'
   && owner.mapSpace({ space_id: 12, status: 'inactive' }).is_active === false);
 
+report('5.1b mapSpace maps pending review status', owner.mapSpace({ space_id: 13, status: 'pending' }).status === 'pending'
+  && owner.mapSpace({ space_id: 13, status: 'pending' }).is_active === false
+  && owner.mapSpace({ space_id: 14, status: 'active' }).is_active === true);
+
+report('5.1c mapSpace normalizes proof docs', owner.mapSpace({ space_id: 13, docs: { proof: { name: 'deed.pdf', size: 2048 } } }).docs[0].id === 'proof'
+  && owner.mapSpace({ space_id: 13, docs: { proof: { name: 'deed.pdf', size: 2048 } } }).docs[0].name === 'deed.pdf'
+  && owner.mapSpace({ space_id: 13, docs: [{ id: 'extra', name: 'lic.pdf' }] }).docs[0].id === 'extra');
+
 report('5.2 mapMyOffer maps offer fields', owner.mapMyOffer({ offer_id: 88, request_title: 'طلب X', price_per_hour: 150, hours: 3, status: 'accepted' }).requestTitle === 'طلب X'
   && owner.mapMyOffer({ offer_id: 88, price_per_hour: 150, hours: 3 }).duration_hours === 3
   && owner.mapMyOffer({ offer_id: 88, status: 'accepted' }).status === 'accepted');
@@ -495,8 +503,9 @@ report('5.18 duplicate proposal rejected', propDup.duplicate === true && /سبق
 report('5.19 owner offers now include the new one', (await owner.loadOwnerOffersWithFallback()).offers.some((o) => o.requestTitle === 'قاعة اختبار'));
 
 // إضافة مساحة في الوضع التجريبي
-const newSpace = await owner.createSpaceWithFallback({ title: 'جناح جديد', location: 'غزة', price_per_hour: 90, capacity: 25, amenities: ['internet'] });
-report('5.20 add space in demo', newSpace.demo === true && newSpace.space.title === 'جناح جديد' && newSpace.space.is_active === true);
+const newSpace = await owner.createSpaceWithFallback({ title: 'جناح جديد', location: 'غزة', price_per_hour: 90, capacity: 25, amenities: ['internet'], docs: [{ id: 'proof', name: 'deed.pdf', size: 2048, type: 'application/pdf' }] });
+report('5.20 add space sends pending for admin review', newSpace.demo === true && newSpace.space.title === 'جناح جديد' && newSpace.space.status === 'pending' && newSpace.space.is_active === false);
+report('5.20b proof docs attached to new space', newSpace.space.docs?.[0]?.id === 'proof' && newSpace.space.docs?.[0]?.name === 'deed.pdf');
 const spacesAfterAdd = (await owner.loadSpacesWithFallback()).spaces;
 report('5.21 new space first in list', spacesAfterAdd[0].title === 'جناح جديد' && spacesAfterAdd.length === 4);
 
@@ -524,6 +533,29 @@ report('5.25 bookings demo returns empty array', bookingsDemo.demo === true && A
 // isOwnerDemo / clearOwnerCache
 owner.clearOwnerCache();
 report('5.26 clearOwnerCache empties cache', owner.readOwnerCache() === null);
+
+// وثائق المالك: رفع مرة واحدة ثم قفل حتى قرار الإدارة
+owner.clearOwnerDocuments();
+const docsNone = owner.readOwnerDocuments();
+report('5.27 docs start as none', docsNone.status === 'none' && owner.canAddSpace(docsNone) === false);
+
+const docSubmit = await owner.submitOwnerDocumentsWithFallback({
+  assets: { name: 'deed.pdf', size: 2048, type: 'application/pdf' },
+  cert: { name: 'cert.png', size: 1024, type: 'image/png' },
+});
+report('5.28 docs submit -> pending', docSubmit.doc.status === 'pending' && docSubmit.locked === false && owner.isDocsLocked(docSubmit.doc) === true);
+
+const docDup = await owner.submitOwnerDocumentsWithFallback({ assets: { name: 'x.pdf', size: 1, type: 'application/pdf' } });
+report('5.29 one-time lock blocks resubmit', docDup.locked === true && owner.readOwnerDocuments().files.assets.name === 'deed.pdf');
+
+owner.writeOwnerDocuments({ ...owner.readOwnerDocuments(), status: 'approved' });
+report('5.30 canAddSpace only when approved', owner.canAddSpace(owner.readOwnerDocuments()) === true && owner.isDocsLocked(owner.readOwnerDocuments()) === true);
+
+owner.writeOwnerDocuments({ ...owner.readOwnerDocuments(), status: 'rejected' });
+report('5.31 rejected unlocks resubmit', owner.isDocsLocked(owner.readOwnerDocuments()) === false);
+
+owner.clearOwnerDocuments();
+report('5.32 clearOwnerDocuments empties', owner.readOwnerDocuments().status === 'none' && owner.readOwnerDocuments().files.assets === undefined);
 
 await server.close();
 

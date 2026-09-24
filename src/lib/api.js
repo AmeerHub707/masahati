@@ -91,6 +91,9 @@ const RESET_KEYS = [
   'masahati_owner_cache',
   'masahati_owner_demo_v1',
   'masahati_owner_data_v1',
+  'masahati_owner_ads_demo_v1',
+  'masahati_owner_ads_data_v1',
+  'masahati_customer_ads_seen_v1',
   'masahati_reviews_demo_v1',
   'masahati_special_requests_demo_v1',
   'masahati_special_requests_data_v1',
@@ -98,6 +101,9 @@ const RESET_KEYS = [
   'masahati_notifications_demo_v1',
   'masahati_notifications_read_v1',
   'masahati_assistant_messages',
+  'masahati_owner_documents_v1',
+  'masahati.owner-docs',
+  'masahati.owner-docs-sent',
 ];
 
 export function resetLocalUserData() {

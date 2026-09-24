@@ -2,13 +2,22 @@
 
 The space owner dashboard (`/dashboard/space-owner`) is **DONE on the frontend** (production API
 calls + a local demo fallback). Owners get: an **overview**, the **open market** feed, **my
-proposals**, **my spaces** management (add + activate/stop), and **settings**.
+proposals**, **my spaces** management (add + activate/stop), **my ADs** broadcast (create/edit/publish/delete
+to all customers), and **settings**.
 
 This document is the contract the backend developer must implement for the parts that are not yet
 covered by `BACKEND_SPECIAL_REQUESTS_BROADCAST_CONTRACT.md` (which already covers the market feed,
 submit-proposal, proposal history and notifications — read it first).
 
 It covers:
+
+6. AD broadcasting — see `BACKEND_OWNER_ADS_CONTRACT.md` for the full spec:
+   - `GET /api/owner/ads` — list owner's ADs
+   - `POST /api/owner/ads` — create an AD (saved as draft)
+   - `PUT /api/owner/ads/{adId}` — edit an AD
+   - `POST /api/owner/ads/{adId}/publish` — publish + broadcast to customers
+   - `DELETE /api/owner/ads/{adId}` — delete an AD
+   - `GET /api/ads/open` — customer-facing feed of published ADs
 
 1. `GET /api/owner/offers` — already specified in the broadcast contract (§4); re-listed here with
    the exact shape the owner UI consumes.

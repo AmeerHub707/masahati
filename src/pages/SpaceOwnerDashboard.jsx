@@ -14,6 +14,7 @@ import DashboardLoading from '../components/dashboard/DashboardLoading';
 import OwnerOverview from '../components/dashboard/owner/OwnerOverview';
 import Reviews from '../components/dashboard/owner/Reviews';
 import Market from '../components/dashboard/owner/Market';
+import OwnerAds from '../components/dashboard/owner/OwnerAds';
 import Spaces from '../components/dashboard/owner/Spaces';
 import Bookings from '../components/dashboard/owner/Bookings';
 import Financials from '../components/dashboard/owner/Financials';
@@ -219,6 +220,8 @@ export default function SpaceOwnerDashboard() {
         <OwnerOverview data={data} onNavigate={setActive} onStatusChange={handleBookingStatusChange} />
       ) : active === 'market' ? (
         <Market data={data} onProposalSubmitted={handleProposalSubmitted} onNavigate={setActive} />
+      ) : active === 'ads' ? (
+        <OwnerAds />
       ) : active === 'reviews' ? (
         <Reviews data={data} onNavigate={setActive} />
       ) : active === 'bookings' ? (

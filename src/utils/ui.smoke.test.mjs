@@ -254,6 +254,18 @@ async function setOwnerInputValue(sel, value) {
   return true;
 }
 
+// يحاكي اختيار مستند من جهاز الاتصال داخل النموذج (حقل ملف مخفي).
+async function setOwnerFile(sel, name) {
+  const input = ownerEl.querySelector(sel);
+  if (!input) return false;
+  const file = new dom.window.File([name], name, { type: 'application/pdf' });
+  Object.defineProperty(input, 'files', { value: [file], configurable: true });
+  input.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+  await flush();
+  await flush();
+  return true;
+}
+
 const ownerRoot = createRoot(ownerEl);
 ownerRoot.render(
   React.createElement(MemoryRouter, { initialEntries: ['/dashboard/space-owner'] },
@@ -294,6 +306,7 @@ report('O10 Spaces list renders', await waitForOwnerText('أضف مساحة') &&
 
 // إضافة مساحة جدبدة من النموذج
 report('O11 Add-space button present', !!ownerEl.querySelector('.odash__spaces-add'), 'no button');
+
 ownerEl.querySelector('.odash__spaces-add')?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
 await flush();
 await flush();
@@ -303,8 +316,10 @@ report('O13 Fill space title', ownerTitleFilled && ownerEl.querySelector('input[
 await setOwnerInputValue('input[placeholder^="مثال: وسط المدينة"]', 'غزة');
 await setOwnerInputValue('input[placeholder^="مثال: 120"]', '90');
 await setOwnerInputValue('input[placeholder^="مثال: 30"]', '25');
-const clickedSubmit = await clickOwnerByText('إضافة المساحة');
-report('O14 Submit new space', clickedSubmit && (await waitForOwnerText('تمت إضافة المساحة') || await waitForOwnerText('جناح جديد')), 'toast/card absent');
+const proofAttached = await setOwnerFile('input[aria-label="صك ملكية أو عقد إيجار"]', 'deed.pdf');
+report('O13b Proof-of-space doc attached', proofAttached && !!ownerEl.querySelector('.msp__doc-chip'), 'doc not attached');
+const clickedSubmit = await clickOwnerByText('إرسال للمراجعة');
+report('O14 Submit new space for admin review', clickedSubmit && (await waitForOwnerText('تمت إضافة المساحة') || await waitForOwnerText('جناح جديد')), 'toast/card absent');
 
 await server.close();
 console.log(`\n===== RESULT: ${pass} passed, ${fail} failed =====`);

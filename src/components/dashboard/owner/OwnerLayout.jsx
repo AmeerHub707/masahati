@@ -19,13 +19,14 @@ const NOTIF_ICONS = {
   spark: Sparkles,
 };
 
-// قائمة مخصصة لصاحب المساحة: نظرة عامة، مساحاتي، الحجوزات، المالية، السوق المفتوح، الإعدادات.
+// قائمة مخصصة لصاحب المساحة: نظرة عامة، مساحاتي، الحجوزات، المالية، السوق المفتوح، الإعلانات، التقييمات، الإعدادات.
 const TABS = [
   { id: 'overview', label: 'نظرة عامة', icon: Home },
   { id: 'my-spaces', label: 'مساحاتي', icon: Building2 },
   { id: 'bookings', label: 'الحجوزات', icon: CalendarCheck },
   { id: 'financials', label: 'المالية', icon: Receipt },
   { id: 'market', label: 'السوق المفتوح', icon: Store },
+  { id: 'ads', label: 'إعلاناتي', icon: Megaphone },
   { id: 'reviews', label: 'التقييمات', icon: Star },
   { id: 'settings', label: 'الإعدادات', icon: Settings },
 ];

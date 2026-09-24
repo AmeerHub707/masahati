@@ -1280,6 +1280,36 @@ html.dark .dash__docs-msg.is-ok{color:#4ade80;}
 html.dark .dash__docs-msg.is-err{color:#fca5a5;}
 html.dark .dash__docs-submitted{background:rgba(22,101,52,.25);color:#4ade80;}
 
+/* رأس حالة الوثائق (badge) */
+.dash__docs-head{display:flex;align-items:center;justify-content:center;gap:.7rem;margin-bottom:1.1rem;}
+.dash__docs-sync{font-size:.75rem;color:var(--text-muted);animation:pulse 1.8s infinite ease-in-out;}
+@keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
+
+/* الصف المقفل بعد الإرسال: بلا أزرار تعديل */
+.dash__docs-row.is-locked{opacity:.92;background:rgba(254,249,195,.45);border-color:#fde68a;}
+html.dark .dash__docs-row.is-locked{background:rgba(113,63,18,.18);border-color:rgba(245,158,11,.4);}
+.dash__docs-missing{display:inline-flex;align-items:center;gap:.3rem;font-size:.78rem;font-weight:800;color:#dc2626;}
+.dash__docs-missing svg{width:1rem;height:1rem;}
+
+/* رسائل حالة الوثائق الخاصة (قيد المراجعة/تحذير) */
+.dash__docs-msg.is-pending{background:rgba(249,115,22,.1);color:#c2410c;}
+.dash__docs-msg.is-warn{background:rgba(245,158,11,.12);color:#b45309;}
+html.dark .dash__docs-msg.is-pending{color:#fdba74;}
+html.dark .dash__docs-msg.is-warn{color:#fcd34d;}
+
+/* بوابة الوثائق في شاشة المساحات: منع الإضافة قبل الاعتماد */
+.dash__docs-gate{display:flex;align-items:center;gap:.9rem;margin-bottom:1rem;
+  background:rgba(249,115,22,.1);border:1.5px solid #fdba74;border-radius:var(--radius-card);
+  padding:.9rem 1.1rem;color:#c2410c;animation:gateIn .25s var(--ease);}
+@keyframes gateIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.dash__docs-gate>svg{width:1.4rem;height:1.4rem;flex:none;color:#f97316;}
+.dash__docs-gate>div{flex:1;min-width:0;}
+.dash__docs-gate b{display:block;font-size:.92rem;font-weight:800;}
+.dash__docs-gate p{margin:.15rem 0 0;font-size:.82rem;line-height:1.6;color:#9a3412;}
+.dash__docs-gate .btn-primary{flex:none;}
+html.dark .dash__docs-gate{background:rgba(249,115,22,.16);border-color:rgba(249,115,22,.45);color:#fdba74;}
+html.dark .dash__docs-gate p{color:#fed7aa;}
+
 /* ╪ذ╪╖╪د┘é╪ر ╪د┘┘à┘┘ ╪د┘╪┤╪«╪╡┘è (╪╡┘ê╪▒╪ر ┘ê╪د╪ص╪»╪ر ┘┘è ╪د┘┘à┘╪ز╪╡┘ + ╪د┘╪ذ┘è╪د┘╪د╪ز ╪د┘╪┤╪«╪╡┘è╪ر) */
 .dash__profile-card{
   max-width:56rem;margin-inline:auto;
@@ -3414,3 +3444,141 @@ html.dark .fin__amount small{color:#a1a1aa;}
   #fin-print{position:absolute;inset:0 auto auto 0;width:100%;display:block;color:#18181b;font-family:'Cairo',sans-serif;}
   @media (max-width:480px){ .fin__print-grid{grid-template-columns:1fr;} }
 }
+
+/* ===== إعلانات المالك (Owner Ads) ===== */
+.odash__ad-quick{margin-bottom:1.4rem;}
+.odash__ad-quick-btn{display:inline-flex;align-items:center;gap:.5rem;font-size:.9rem;}
+.odash__ad-quick-btn svg{width:1rem;height:1rem;}
+.odash__ad-quick-hint{margin-top:.4rem;font-size:.78rem;color:var(--text-muted);}
+
+/* صندوق الإعلانات */
+.oads__card{display:flex;flex-direction:column;background:#fff;border:1px solid var(--border);
+  border-radius:var(--radius-card);overflow:hidden;transition:border-color .2s,box-shadow .2s,transform .2s;
+  box-shadow:0 4px 14px -4px rgba(0,0,0,.05);}
+.oads__card:hover{border-color:#fed7aa;box-shadow:var(--shadow-lg);transform:translateY(-2px);}
+.oads__card-media{position:relative;width:100%;height:140px;overflow:hidden;background:rgba(249,115,22,.05);
+  display:flex;align-items:center;justify-content:center;}
+.oads__card-media img{width:100%;height:100%;object-fit:cover;display:block;}
+.oads__card-media-fallback{width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+  color:var(--accent);font-size:2rem;}
+.oads__card-status{position:absolute;top:.5rem;left:.5rem;font-size:.7rem;font-weight:700;
+  padding:.2rem .6rem;border-radius:999px;display:inline-flex;align-items:center;gap:.25rem;
+  background:rgba(255,255,255,.85);backdrop-filter:blur(4px);}
+.oads__card-status.is-draft{color:#c2410c;background:rgba(251,146,60,.15);}
+.oads__card-status.is-published{color:#16a34a;background:rgba(34,197,94,.15);}
+.oads__card-status.is-archived{color:#dc2626;background:rgba(220,38,38,.15);}
+.oads__card-status svg{width:.7rem;height:.7rem;}
+.oads__card-body{padding:1rem;flex:1;display:flex;flex-direction:column;gap:.5rem;}
+.oads__card-body h3{margin:0;font-size:1rem;font-weight:700;color:var(--text-strong);line-height:1.3;}
+.oads__card-desc{margin:0;font-size:.8rem;color:var(--text-muted);line-height:1.5;display:-webkit-box;
+  -webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.oads__card-target{display:inline-flex;align-items:center;gap:.3rem;font-size:.75rem;font-weight:600;
+  color:var(--accent-text);background:rgba(249,115,22,.08);padding:.2rem .5rem;border-radius:999px;width:fit-content;}
+.oads__card-target svg{width:.7rem;height:.7rem;}
+.oads__link{margin-top:.3rem;font-size:.72rem;color:var(--accent);text-decoration:none;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;cursor:pointer;display:inline-flex;align-items:center;gap:.25rem;
+  transition:opacity .2s;}
+.oads__link:hover{opacity:.8;}
+.oads__link svg{width:.7rem;height:.7rem;}
+.oads__card-meta{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.4rem;font-size:.7rem;color:var(--text-muted);
+  align-items:center;}
+.oads__card-meta span{display:inline-flex;align-items:center;gap:.2rem;}
+.oads__card-meta svg{width:.65rem;height:.65rem;}
+.oads__card-actions{display:flex;align-items:center;gap:.4rem;padding:1rem 1rem 1rem;border-top:1px solid var(--border);}
+.oads__act{display:flex;align-items:center;justify-content:center;width:2rem;height:2.rem;border:none;
+  border-radius:.6rem;background:var(--accent-soft);color:var(--accent);cursor:pointer;
+  transition:all .18s var(--ease);font-size:.8rem;}
+.oads__act:hover{background:var(--accent);color:#fff;transform:translateY(-2px);}
+.oads__act--edit{background:rgba(59,130,246,.1);color:#2563eb;}
+.oads__act--edit:hover{background:#2563eb;color:#fff;}
+.oads__act--delete{background:rgba(220,38,38,.1);color:#dc2626;}
+.oads__act--delete:hover{background:#dc2626;color:#fff;}
+.oads__act svg{width:.8rem;height:.8rem;}
+.oads__act.oads__act--publish{font-weight:700;font-size:.8rem;}
+.oads__act.oads__act--publish svg{width:1rem;height:1rem;}
+
+/* شبكة الإعلانات */
+.oads__grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;}
+
+/* شريط البحث/الإنشاء */
+.oads__hero{align-items:center;}
+.oads__hero h2{gap:.5rem;}
+.oads__hero h2 svg{width:1.3rem;height:1.3rem;}
+
+/* نموذج الإعلان */
+.oads__form-panel{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
+  padding:1rem;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);}
+.oads__form{background:#fff;border-radius:var(--radius-card);width:min(600px,calc(100% - 2rem));
+  max-height:min(90vh,calc(100% - 2rem));overflow-y:auto;box-shadow:var(--shadow);
+  display:flex;flex-direction:column;}
+.oads__form-head{display:flex;align-items:center;gap:.8rem;padding:1.2rem 1.4rem;border-bottom:1px solid var(--border);}
+.oads__form-head .odash__modal-ico{width:2.4rem;height:2.4rem;border-radius:.7rem;display:flex;
+  align-items:center;justify-content:center;background:rgba(249,115,22,.08);color:var(--accent);}
+.oads__form-head .odash__modal-ico svg{width:1.2rem;height:1.2rem;}
+.oads__form-head h3{margin:0;font-size:1.1rem;font-weight:800;flex:1;}
+.oads__form-head .odash__modal-sub{margin:0;font-size:.8rem;color:var(--text-muted);margin-top:.15rem;}
+.oads__form-body{padding:1.4rem;overflow-y:auto;}
+.oads__form-sec{margin-bottom:1.4rem;}
+.oads__form-sec h4{margin:0 0 .7rem;font-size:.85rem;font-weight:700;
+  display:inline-flex;align-items:center;gap:.4rem;color:var(--text-muted);}
+.oads__form-sec h4 svg{width:1rem;height:1rem;}
+.oads__form-hint{margin:.2rem 0 .7rem;font-size:.78rem;color:var(--text-muted);}
+.oads__form-note{margin-top:.3rem;font-size:.72rem;color:var(--text-muted);background:rgba(249,115,22,.05);
+  padding:.4rem .6rem;border-radius:.5rem;}
+.oads__form-foot{display:flex;align-items:center;justify-content:flex-end;gap:.8rem;padding:1rem 1.4rem;
+  border-top:1px solid var(--border);}
+.oads__upload-btn{display:flex;align-items:center;justify-content:center;gap:.5rem;border:1.5px dashed var(--border);
+  border-radius:var(--radius-field);padding:.8rem 1rem;cursor:pointer;font-size:.82rem;font-weight:600;
+  color:var(--text-muted);transition:all .18s;min-height:44px;}
+.oads__upload-btn:hover{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);}
+.oads__upload-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:.6rem;margin-top:.8rem;}
+.oads__upload-thumb{position:relative;width:100%;height:70px;border-radius:.5rem;overflow:hidden;border:1px solid var(--border);}
+.oads__upload-thumb img{width:100%;height:100%;object-fit:cover;}
+.oads__upload-remove{position:absolute;top:.2rem;right:.2rem;width:1.4rem;height:1.4rem;border:none;
+  border-radius:50%;background:rgba(0,0,0,.5);color:#fff;cursor:pointer;display:flex;
+  align-items:center;justify-content:center;}
+.oads__upload-remove svg{width:.7rem;height:.7rem;}
+.oads__upload-hint{display:flex;align-items:center;gap:.4rem;font-size:.75rem;color:var(--text-muted);
+  padding:.6rem;background:var(--accent-soft);border-radius:var(--radius-field);}
+
+.oads__modal-ico-danger{width:2.4rem;height:2.4rem;border-radius:.8rem;flex:none;display:flex;
+  align-items:center;justify-content:center;background:rgba(220,38,38,.1);color:#dc2626;}
+
+/* Dark mode */
+html.dark .oads__card{background:#1c1c22;border-color:var(--border);}
+html.dark .oads__card-media-fallback{color:var(--accent);}
+html.dark .oads__card-body h3{color:#e4e4e7;}
+
+/* حالة «قيد المراجعة» لمساحات المالك */
+.msp__card-status.is-pending{background:rgba(217,119,6,.94);}
+html.dark .msp__card-status.is-pending{background:rgba(217,119,6,.94);}
+.msp__card-pending-note{display:flex;align-items:center;gap:.35rem;margin-top:.55rem;padding:.5rem .6rem;border-radius:.55rem;background:#fff7ed;border:1px dashed #fdba74;color:#9a3412;font-size:.72rem;font-weight:700;}
+.msp__card-pending-note svg{width:.9rem;height:.9rem;flex:none;}
+html.dark .msp__card-pending-note{background:#1c1610;border-color:#7c2d12;color:#fdba74;}
+
+.obk__hero-chip.is-pending{color:#92400e;background:rgba(255,255,255,.8);border-color:rgba(245,158,11,.4);}
+.obk__hero-chip.is-pending svg{color:#f59e0b;}
+html.dark .obk__hero-chip.is-pending{background:rgba(120,53,15,.4);border-color:rgba(245,158,11,.45);color:#fcd34d;}
+html.dark .obk__hero-chip.is-pending svg{color:#fbbf24;}
+
+/* أدراج وثائق إثبات المساحة داخل نموذج المساحة */
+.msp__docs-intro{font-size:.72rem;color:var(--text-muted);font-weight:600;margin:-.2rem 0 .7rem;}
+.msp__doc-row{display:flex;align-items:center;gap:.6rem;padding:.6rem .7rem;border:1px solid var(--border);border-radius:.65rem;margin-bottom:.5rem;background:#fff;}
+.msp__doc-row.has-error{border-color:#dc2626;}
+.msp__doc-info{flex:1;min-width:0;}
+.msp__doc-info b{font-size:.8rem;display:flex;align-items:center;gap:.35rem;}
+.msp__doc-info small{display:block;font-size:.68rem;color:var(--text-muted);font-weight:600;margin-top:.1rem;}
+.msp__req{color:#dc2626;}
+.msp__doc-chip{display:inline-flex;align-items:center;gap:.35rem;max-width:46%;padding:.35rem .55rem;border-radius:.5rem;background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;font-size:.72rem;font-weight:700;}
+.msp__doc-chip svg{width:.9rem;height:.9rem;flex:none;}
+.msp__doc-chip button{border:0;background:none;color:#dc2626;display:inline-flex;cursor:pointer;padding:.1rem;}
+.msp__doc-chip button svg{width:.85rem;height:.85rem;}
+.msp__doc-add{display:inline-flex;align-items:center;gap:.35rem;padding:.4rem .7rem;border-radius:.5rem;background:#fff7ed;border:1px solid #fdba74;color:#9a3412;font-size:.72rem;font-weight:700;cursor:pointer;}
+.msp__doc-add:hover{background:#ffedd5;}
+.msp__doc-add svg{width:.9rem;height:.9rem;}
+.msp__docs-note{font-size:.68rem;color:var(--text-muted);font-weight:600;margin-top:.35rem;}
+.msp__docs-note.is-error{color:#dc2626;}
+html.dark .msp__doc-row{background:#131318;}
+html.dark .msp__doc-chip{background:#0c2f23;border-color:#065f46;color:#6ee7b7;}
+html.dark .msp__doc-add{background:#1c1610;border-color:#7c2d12;color:#fdba74;}
+html.dark .msp__doc-add:hover{background:#271d12;}

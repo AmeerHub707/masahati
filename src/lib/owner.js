@@ -91,11 +91,37 @@ function normalizeAmenities(b) {
     .filter(Boolean);
 }
 
+// حالة المساحة الموحّدة: active | inactive | pending (بانتظار مراجعة الإدارة) | rejected.
+function spaceStatus(s) {
+  const known = ['active', 'inactive', 'pending', 'rejected'];
+  if (typeof s.status === 'string' && known.includes(s.status)) return s.status;
+  return typeof s.is_active === 'boolean' ? (s.is_active ? 'active' : 'inactive') : 'active';
+}
+
+// يعيد وثائق إثبات المساحة بشكل موحّد (قائمة عناصر) مهما وردت كمصفوفة أو ككائن
+// مفاتيحه أسماء الأدراج (proof/extra/…).
+function normalizeSpaceDocs(docs) {
+  const items = Array.isArray(docs)
+    ? docs
+    : docs && typeof docs === 'object'
+      ? Object.entries(docs).map(([id, d]) => ({ id, ...(d || {}) }))
+      : [];
+  return items
+    .filter((d) => d && (d.name || d.file?.name))
+    .map((d) => ({
+      id: d.id ?? d.key ?? '',
+      name: d.name || d.file?.name || 'مستند',
+      size: Number(d.size ?? d.file?.size ?? 0),
+      type: d.type || d.file?.type || 'application/octet-stream',
+    }));
+}
+
 export function mapSpace(s) {
   const img = imageUrl(s.image) || '';
   const gallery = Array.isArray(s.gallery)
     ? s.gallery.map((g) => imageUrl(g)).filter(Boolean)
     : (img ? [img] : []);
+  const status = spaceStatus(s);
   return {
     id: s.space_id ?? s.id,
     title: s.title ?? '',
@@ -108,7 +134,9 @@ export function mapSpace(s) {
     amenities: normalizeAmenities(s),
     internet: s.internet ?? s.has_internet ?? s.wifi ?? null,
     power: s.power ?? s.has_power ?? s.electricity ?? null,
-    is_active: s.is_active ?? (s.status !== 'inactive'),
+    status,
+    is_active: status === 'active',
+    docs: normalizeSpaceDocs(s.docs),
     rating: Math.round(Number(s.rating ?? 0) * 10) / 10,
     stats: s.stats
       ? {
@@ -503,6 +531,10 @@ export async function createOwnerSpace(payload) {
       internet: payload.internet,
       power: payload.power,
       image: payload.image,
+      docs: Array.isArray(payload.docs)
+        ? payload.docs.map((d) => ({ id: d.id, name: d.name, size: Number(d.size || 0), type: d.type || 'file' }))
+        : [],
+      status: 'pending',
     },
   });
   const body = res && typeof res === 'object' && res.data && typeof res.data === 'object' && !Array.isArray(res.data)
@@ -529,7 +561,7 @@ export async function updateOwnerSpace(spaceId, payload) {
     method: 'PUT',
     auth: true,
     timeoutMs: REQ_TIMEOUT_MS,
-    body: {
+body: {
       title: payload.title,
       description: payload.description,
       location: payload.location,
@@ -539,9 +571,12 @@ export async function updateOwnerSpace(spaceId, payload) {
       internet: payload.internet,
       power: payload.power,
       image: payload.image,
+      docs: Array.isArray(payload.docs)
+        ? payload.docs.map((d) => ({ id: d.id, name: d.name, size: Number(d.size || 0), type: d.type || 'file' }))
+        : undefined,
     },
   });
-  const body = res && typeof res === 'object' && res.data && typeof res === 'object' && !Array.isArray(res.data)
+  const body = res && typeof res === 'object' && res.data && typeof res.data === 'object' && !Array.isArray(res.data)
     ? res.data
     : res || {};
   return { message: body.message || 'تم تحديث المساحة.', space: mapSpace(body.space ?? body) };
@@ -800,7 +835,9 @@ export async function createSpaceWithFallback(payload) {
       amenities: payload.amenities || [],
       internet: payload.internet || false,
       power: payload.power || false,
-      is_active: true,
+      is_active: false,
+      status: 'pending',
+      docs: normalizeSpaceDocs(payload.docs),
       rating: 0,
     };
     store.spaces.unshift(space);
@@ -812,7 +849,7 @@ export async function createSpaceWithFallback(payload) {
     const { space, saved } = applyLocal();
     return {
       demo: true,
-      message: saved ? 'تمت إضافة المساحة (وضع تجريبي).' : 'التخزين المحلي ممتلئ — المساحة لن تُحفظ بعد إعادة التحميل. قلّل عدد صور المساحة أو حجمها.',
+      message: saved ? 'أُرسلت المساحة ووثائقها للإدارة للمراجعة (وضع تجريبي).' : 'التخزين المحلي ممتلئ — المساحة لن تُحفظ بعد إعادة التحميل. قلّل عدد صور المساحة أو حجمها.',
       space,
     };
   }
@@ -825,7 +862,7 @@ export async function createSpaceWithFallback(payload) {
     const { space, saved } = applyLocal();
     return {
       demo: true,
-      message: saved ? 'تعذّر الوصول للخادم — أُضيفت المساحة محلياً للتجربة.' : 'تعذّر الوصول للخادم والتخزين المحلي ممتلئ — قلّل صور المساحة وأعد المحاولة.',
+      message: saved ? 'تعذّر الوصول للخادم — أُرسلت المساحة ووثائقها محلياً للمراجعة.' : 'تعذّر الوصول للخادم والتخزين المحلي ممتلئ — قلّل صور المساحة وأعد المحاولة.',
       space,
     };
   }
@@ -872,6 +909,7 @@ export async function updateSpaceWithFallback(spaceId, payload) {
     if (payload.power !== undefined) merged.power = payload.power;
     if (payload.image !== undefined) merged.image = payload.image;
     if (Array.isArray(payload.gallery)) merged.gallery = payload.gallery;
+    if (payload.docs !== undefined) merged.docs = Array.isArray(payload.docs) ? payload.docs : [];
     store.spaces[idx] = merged;
     const saved = writeDemoStore(store);
     return { space: mapSpace(merged), saved };
@@ -963,6 +1001,199 @@ export async function setBookingStatusWithFallback(bookingId, status) {
     store.bookingOverrides[String(bookingId)] = status;
     writeDemoStore(store);
     return { demo: true, message: 'تعذّر الوصول للخادم — حُدِّث الحجز محلياً للتجربة.' };
+  }
+}
+
+// ----- وثائق المالك: تُرفع مرة واحدة ثم تُراجعها الإدارة -----
+const DOCS_KEY = 'masahati_owner_documents_v1';
+const LEGACY_DOCS_KEY = 'masahati.owner-docs';
+const LEGACY_SENT_KEY = 'masahati.owner-docs-sent';
+
+export const DOC_STATUS = {
+  NONE: 'none',
+  PENDING: 'pending',
+  APPROVED: 'approved',
+  REJECTED: 'rejected',
+};
+
+// إضافة مساحة مشروطة باعتماد الإدارة للوثائق.
+export function canAddSpace(doc) {
+  return doc?.status === DOC_STATUS.APPROVED;
+}
+
+// بعد الإرسال تُقفل الوثائق (رفع مرة واحدة) حتى قرار الإدارة؛ الرفض يعيد الفتح.
+export function isDocsLocked(doc) {
+  return doc?.status === DOC_STATUS.PENDING || doc?.status === DOC_STATUS.APPROVED;
+}
+
+// يقرأ {name,size,type} فقط — البايتات لا تُخزَّن في المتصفح.
+function normalizeDocFiles(files) {
+  const out = {};
+  if (files && typeof files === 'object') {
+    for (const id of ['assets', 'cert']) {
+      const f = files[id];
+      const src = f && (f.name || f.file?.name) ? f : null;
+      if (src) {
+        out[id] = {
+          name: src.name || src.file.name,
+          size: Number(src.size ?? src.file?.size ?? 0),
+          type: src.type || src.file?.type || 'file',
+        };
+      }
+    }
+  }
+  return out;
+}
+
+function normalizeDoc(raw) {
+  const d = raw && typeof raw === 'object' && raw.data && typeof raw.data === 'object' && !Array.isArray(raw.data)
+    ? raw.data
+    : (raw && typeof raw === 'object' ? raw : {});
+  return {
+    status: Object.values(DOC_STATUS).includes(d.status) ? d.status : DOC_STATUS.NONE,
+    files: normalizeDocFiles(d.files),
+    note: d.note || d.review_note || d.admin_note || '',
+    submittedAt: d.submitted_at || d.submittedAt || '',
+    reviewedAt: d.reviewed_at || d.reviewedAt || '',
+  };
+}
+
+// هجرة المفاتيح القديمة (نظام الرفع السابق: ملف + علم «أُرسل»).
+function readLegacyDocs() {
+  try {
+    const rawFiles = localStorage.getItem(LEGACY_DOCS_KEY);
+    const files = rawFiles ? JSON.parse(rawFiles) : {};
+    const sent = localStorage.getItem(LEGACY_SENT_KEY) === '1';
+    if (!rawFiles && !sent) return null;
+    return normalizeDoc({
+      status: sent ? DOC_STATUS.PENDING : DOC_STATUS.NONE,
+      files,
+    });
+  } catch {
+    return null;
+  }
+}
+
+export function readOwnerDocuments() {
+  try {
+    const raw = localStorage.getItem(DOCS_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (data && typeof data === 'object') return normalizeDoc(data);
+    }
+  } catch {
+    /* التخزين غير متاح أو تالف */
+  }
+  return readLegacyDocs() || normalizeDoc(null);
+}
+
+export function writeOwnerDocuments(doc) {
+  try {
+    localStorage.setItem(DOCS_KEY, JSON.stringify(normalizeDoc(doc)));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function clearOwnerDocuments() {
+  try {
+    localStorage.removeItem(DOCS_KEY);
+    localStorage.removeItem(LEGACY_DOCS_KEY);
+    localStorage.removeItem(LEGACY_SENT_KEY);
+  } catch {
+    /* التخزين غير متاح */
+  }
+}
+
+export async function fetchOwnerDocuments() {
+  const res = await request('/api/owner/documents', {
+    method: 'GET',
+    auth: true,
+    timeoutMs: REQ_TIMEOUT_MS,
+  });
+  return normalizeDoc(res);
+}
+
+export async function submitOwnerDocuments(entries) {
+  const fd = new FormData();
+  for (const [id, entry] of Object.entries(entries || {})) {
+    if (entry?.file) fd.append(id, entry.file);
+  }
+  const res = await request('/api/owner/documents', {
+    method: 'POST',
+    auth: true,
+    isForm: true,
+    timeoutMs: REQ_TIMEOUT_MS,
+    body: fd,
+  });
+  return normalizeDoc(res);
+}
+
+function docMetaFrom(entries) {
+  const out = {};
+  for (const [id, entry] of Object.entries(entries || {})) {
+    if (entry && entry.name) {
+      out[id] = { name: entry.name, size: Number(entry.size || 0), type: entry.type || 'file' };
+    }
+  }
+  return out;
+}
+
+// ملاحظة: واجهة الوثائق قد لا تزال لدى الباك إند، لذا لا نغيّر عَلَمة العرض
+// التجريبي عند فشلها (خلافاً لبقية الوحدات) حتى لا ينقلب لوحة حيّة كاملة لوضع
+// تجريبي بسبب مسار واحد غير جاهز — المصدر البديل هو التخزين المحلي.
+export async function loadOwnerDocumentsWithFallback(force = false) {
+  if (isOwnerDemo() && !force) return { demo: true, doc: readOwnerDocuments() };
+  try {
+    const doc = await fetchOwnerDocuments();
+    writeOwnerDocuments(doc);
+    return { demo: false, doc };
+  } catch {
+    return { demo: true, doc: readOwnerDocuments() };
+  }
+}
+
+export async function submitOwnerDocumentsWithFallback(entries) {
+  const local = readOwnerDocuments();
+  if (isDocsLocked(local)) {
+    return {
+      demo: isOwnerDemo(),
+      locked: true,
+      doc: local,
+      message: local.status === DOC_STATUS.APPROVED
+        ? 'وثائقك معتمدة بالفعل — يمكنك إضافة المساحات.'
+        : 'وثائقك قيد المراجعة حالياً؛ لا يمكن تعديلها حتى قرار الإدارة.',
+    };
+  }
+
+  const optimistic = normalizeDoc({
+    status: DOC_STATUS.PENDING,
+    files: docMetaFrom(entries),
+    submittedAt: new Date().toISOString().slice(0, 19).replace('T', ' '),
+  });
+
+  if (isOwnerDemo()) {
+    writeOwnerDocuments(optimistic);
+    return {
+      demo: true,
+      locked: false,
+      doc: optimistic,
+      message: 'تم إرسال وثائقك للمراجعة (وضع تجريبي).',
+    };
+  }
+  try {
+    const doc = await submitOwnerDocuments(entries);
+    writeOwnerDocuments(doc);
+    return { demo: false, locked: false, doc, message: 'تم إرسال وثائقك للمراجعة.' };
+  } catch {
+    writeOwnerDocuments(optimistic);
+    return {
+      demo: true,
+      locked: false,
+      doc: optimistic,
+      message: 'تعذّر الوصول للخادم — أُرسلت وثائقك محلياً وسيتم مزامنتها عند توفر الواجهة.',
+    };
   }
 }
 

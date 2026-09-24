@@ -5,7 +5,7 @@ import {
   Building2, X, Loader2, MapPin, Users, Star, Wifi, Zap, Check,
   Sparkles, Repeat, Plus, BadgeCheck, Ban, CircleDollarSign, Send,
   CalendarCheck, TrendingUp, Pencil, Trash2, Search, Eye, Image, ImagePlus,
-  ArrowRight,
+  ArrowRight, Clock3, FileText, Paperclip, ShieldCheck,
 } from 'lucide-react';
 import {
   loadSpacesWithFallback,
@@ -23,8 +23,29 @@ const AMENITY_KEYS = Object.keys(AMENITY_LABELS);
 const FILTERS = [
   { id: 'all', label: 'الكل' },
   { id: 'active', label: 'نشطة' },
+  { id: 'pending', label: 'قيد المراجعة' },
   { id: 'inactive', label: 'موقوفة' },
 ];
+
+// أدراج وثائق إثبات المساحة التي تُرسل مع المساحة للإدارة للمراجعة.
+const DOC_SLOTS = [
+  { id: 'proof', required: true, label: 'صك ملكية أو عقد إيجار', hint: 'يثبت أن المساحة ملكك أو مؤجّرة لك — PDF أو صورة' },
+  { id: 'extra', required: false, label: 'مستند إضافي (اختياري)', hint: 'رخصة عمل، مخطط، أو أي إثبات آخر' },
+];
+
+const MAX_DOC_BYTES = 10 * 1024 * 1024;
+
+function fmtBytes(n) {
+  if (!n) return '';
+  if (n < 1024) return `${n} بايت`;
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} ك.ب`;
+  return `${(n / (1024 * 1024)).toFixed(1)} م.ب`;
+}
+
+// حالة المساحة الموحّدة في العرض (تغطي البيانات القادمة دون mapSpace).
+function effStatus(s) {
+  return s.status || (s.is_active === false ? 'inactive' : 'active');
+}
 
 const numFmt = new Intl.NumberFormat('ar-EG');
 
@@ -79,6 +100,7 @@ const DEFAULT_FORM = {
   internet: false,
   power: false,
   photos: [],
+  docs: { proof: null, extra: null },
 };
 
 export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
@@ -100,6 +122,7 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState(null);
+  const docsInputRefs = useRef({});
   const mountedRef = useRef(true);
 
   const spaceDialogRef = useDialogA11y({ open: !!modal, onClose: () => { if (!saving) resetModal(); } });
@@ -146,15 +169,20 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
 
   // ----- تصفية وعدّ -----
   const counts = useMemo(() => {
-    const active = spaces.filter((s) => s.is_active !== false).length;
-    return { all: spaces.length, active, inactive: spaces.length - active };
+    const pending = spaces.filter((s) => effStatus(s) === 'pending').length;
+    const active = spaces.filter((s) => effStatus(s) === 'active').length;
+    return {
+      all: spaces.length,
+      active,
+      pending,
+      inactive: Math.max(0, spaces.length - active - pending),
+    };
   }, [spaces]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return spaces.filter((s) => {
-      if (filter === 'active' && s.is_active === false) return false;
-      if (filter === 'inactive' && s.is_active !== false) return false;
+      if (filter !== 'all' && effStatus(s) !== filter) return false;
       if (q) {
         const hay = `${s.title} ${s.description} ${s.location}`.toLowerCase();
         if (!hay.includes(q)) return false;
@@ -179,6 +207,10 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
     if (!form.location.trim()) e.location = 'حدّد المنطقة/الموقع.';
     if (!form.price_per_hour || Number(form.price_per_hour) <= 0) e.price_per_hour = 'حدّد سعر الساعة.';
     if (!form.capacity || Number(form.capacity) <= 0) e.capacity = 'حدّد السعة.';
+    if (modal?.mode !== 'edit') {
+      const hasProof = DOC_SLOTS.filter((s) => s.required).every(({ id }) => form.docs?.[id]?.name);
+      if (!hasProof) e.docs = 'أرفق مستنداً يثبت ملكية المساحة أو عقد إيجارها — يُرسل للإدارة مع المساحة.';
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -189,19 +221,24 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
     setErrors({});
   };
 
-  const openCreate = () => {
+  // فتح نموذج الإضافة مباشرة — الوثائق تُرفق داخل النموذج وتُرسل للمراجعة.
+  const openCreate = useCallback(() => {
     setForm(DEFAULT_FORM);
     setErrors({});
     setModal({ mode: 'create' });
-  };
+  }, []);
 
   useEffect(() => {
     if (!autoOpen) return undefined;
     const t = setTimeout(() => openCreate(), 0);
     return () => clearTimeout(t);
-  }, [autoOpen]);
+  }, [autoOpen, openCreate]);
 
   const openEdit = (space) => {
+    const docsMap = { proof: null, extra: null };
+    for (const d of Array.isArray(space.docs) ? space.docs : []) {
+      if (docsMap[d.id] !== undefined) docsMap[d.id] = { name: d.name, size: d.size, type: d.type };
+    }
     setForm({
       title: space.title || '',
       description: space.description || '',
@@ -214,6 +251,7 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
       photos: Array.isArray(space.gallery) && space.gallery.length
         ? space.gallery
         : (space.image ? [space.image] : []),
+      docs: docsMap,
     });
     setErrors({});
     setModal({ mode: 'edit', space });
@@ -230,7 +268,35 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
     power: form.power,
     image: (form.photos || [])[0] || '',
     gallery: form.photos || [],
+    docs: DOC_SLOTS
+      .filter(({ id }) => form.docs?.[id]?.name)
+      .map(({ id }) => ({
+        id,
+        name: form.docs[id].name,
+        size: Number(form.docs[id].size || 0),
+        type: form.docs[id].type || 'file',
+      })),
+    status: 'pending',
   });
+
+  const handleDocUpload = (slotId, e) => {
+    const file = e.target.files?.[0];
+    if (e.target) e.target.value = '';
+    if (!file) return;
+    if (file.size > MAX_DOC_BYTES) {
+      setToast({ msg: 'الملف أكبر من 10 ميجابايت — اختر ملفاً أصغر.', type: 'err' });
+      return;
+    }
+    setForm((prev) => ({
+      ...prev,
+      docs: { ...prev.docs, [slotId]: { name: file.name, size: file.size, type: file.type || 'file' } },
+    }));
+    setErrors((prev) => (prev.docs ? { ...prev, docs: undefined } : prev));
+  };
+
+  const removeDoc = (slotId) => {
+    setForm((prev) => ({ ...prev, docs: { ...prev.docs, [slotId]: null } }));
+  };
 
   const handleFilesUpload = async (e) => {
     const incoming = Array.from(e.target.files || []);
@@ -269,7 +335,7 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
   // ----- إجراءات -----
   const handleSave = async () => {
     if (!validateForm()) {
-      setToast({ msg: 'يرجى استكمال الحقول المطلوبة.', type: 'err' });
+      setToast({ msg: 'يرجى استكمال الحقول والوثائق المطلوبة.', type: 'err' });
       return;
     }
     setSaving(true);
@@ -354,11 +420,14 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
   };
 
   const renderCard = (s) => {
-    const isActive = s.is_active !== false;
+    const status = effStatus(s);
+    const isActive = status === 'active';
+    const isPending = status === 'pending';
     const st = s.stats;
     const extraAmenities = (s.amenities || []).filter(
       (a) => a !== 'internet' && a !== 'electricity'
     );
+    const docCount = (s.docs || []).length;
     return (
       <article className={`msp__card${isActive ? '' : ' is-inactive'}`} key={s.id}>
         <div className="msp__card-media">
@@ -367,9 +436,9 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
           ) : (
             <div className="msp__card-media-fallback"><Building2 /></div>
           )}
-          <span className={`msp__card-status is-${isActive ? 'on' : 'off'}`}>
-            {isActive ? <BadgeCheck /> : <Ban />}
-            {isActive ? 'نشطة' : 'موقوفة'}
+          <span className={`msp__card-status is-${isPending ? 'pending' : (isActive ? 'on' : 'off')}`}>
+            {isPending ? <Clock3 /> : (isActive ? <BadgeCheck /> : <Ban />)}
+            {isPending ? 'قيد المراجعة' : (isActive ? 'نشطة' : 'موقوفة')}
           </span>
           {s.rating > 0 && (
             <span className="msp__card-rating"><Star /> {s.rating}</span>
@@ -382,12 +451,20 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
             <p className="msp__card-loc"><MapPin /> {s.location}</p>
           )}
           {s.description && <p className="msp__card-desc">{s.description}</p>}
+          {isPending && (
+            <p className="msp__card-pending-note">
+              <Clock3 /> بانتظار اعتماد الإدارة — لن تظهر في التصفح حتى ذلك الحين.
+            </p>
+          )}
           <div className="msp__card-meta">
             {s.capacity > 0 && <span><Users /> {fmtNumber(s.capacity)} شخص</span>}
             {s.internet && <span><Wifi /> إنترنت</span>}
             {s.power && <span><Zap /> كهرباء</span>}
             {(s.gallery?.length || 0) > 1 && (
               <span className="msp__card-meta-chip"><Image /> {s.gallery.length} صور</span>
+            )}
+            {docCount > 0 && (
+              <span className="msp__card-meta-chip"><FileText /> {docCount} {docCount === 1 ? 'وثيقة' : 'وثائق'}</span>
             )}
             {extraAmenities.slice(0, 2).map((a) =>
               AMENITY_LABELS[a] ? (
@@ -431,10 +508,10 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
             <button
               type="button"
               className={`msp__icon ${isActive ? 'is-stop' : 'is-start'}`}
-              title={isActive ? 'إيقاف المساحة' : 'تفعيل المساحة'}
-              aria-label={isActive ? 'إيقاف المساحة' : 'تفعيل المساحة'}
+              title={isPending ? 'بانتظار اعتماد الإدارة' : (isActive ? 'إيقاف المساحة' : 'تفعيل المساحة')}
+              aria-label={isPending ? 'بانتظار اعتماد الإدارة' : (isActive ? 'إيقاف المساحة' : 'تفعيل المساحة')}
               onClick={() => handleToggle(s)}
-              disabled={togglingId === s.id}
+              disabled={togglingId === s.id || isPending}
             >
               {togglingId === s.id ? <Loader2 className="spin" /> : (isActive ? <Ban /> : <Check />)}
             </button>
@@ -477,7 +554,7 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
             <p className="odash__modal-sub">
               {isEdit
                 ? 'حدّث تفاصيل المساحة وستُحفظ مباشرة.'
-                : 'ستظهر في تصفح المساحات فور تنشيطها.'}
+                : 'تُرسل المساحة مع وثائق إثبات للإدارة، وتُعتمد قبل الظهور في التصفح.'}
             </p>
           </div>
 
@@ -626,6 +703,50 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
             </section>
 
             <section className="msp__form-sec">
+              <h4><ShieldCheck /> وثائق إثبات المساحة</h4>
+              <p className="msp__docs-intro">
+                أرفق مستندات تثبت مكان المساحة وملكيتك لها — تُرسل مع المساحة للإدارة للمراجعة والاعتماد.
+              </p>
+              {DOC_SLOTS.map((slot) => {
+                const doc = form.docs?.[slot.id];
+                return (
+                  <div
+                    key={slot.id}
+                    className={`msp__doc-row${doc ? ' has-file' : ''}${errors.docs && slot.required && !doc ? ' has-error' : ''}`}
+                  >
+                    <input
+                      ref={(el) => { docsInputRefs.current[slot.id] = el; }}
+                      type="file"
+                      accept="application/pdf,image/*"
+                      hidden
+                      onChange={(e) => handleDocUpload(slot.id, e)}
+                      aria-label={slot.label}
+                    />
+                    <div className="msp__doc-info">
+                      <b>{slot.label} {slot.required && <span className="msp__req">*</span>}</b>
+                      <small>{slot.hint}</small>
+                    </div>
+                    {doc ? (
+                      <span className="msp__doc-chip" title={`${doc.name}${doc.size ? ` — ${fmtBytes(doc.size)}` : ''}`}>
+                        <FileText /> {doc.name}
+                        <button type="button" onClick={() => removeDoc(slot.id)} aria-label="حذف المستند">
+                          <X />
+                        </button>
+                      </span>
+                    ) : (
+                      <button type="button" className="msp__doc-add" onClick={() => docsInputRefs.current[slot.id]?.click()}>
+                        <Paperclip /> اختر ملف
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+              <p className={`msp__docs-note${errors.docs ? ' is-error' : ''}`}>
+                {errors.docs || 'تُحفظ الوثائق مع المساحة وتُعرض على الإدارة قبل الاعتماد.'}
+              </p>
+            </section>
+
+            <section className="msp__form-sec">
               <h4><Sparkles /> المرافق</h4>
               <div className="odash__field">
                 <label>المرافق المتوفرة <small>(اختياري)</small></label>
@@ -677,8 +798,8 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
               إلغاء
             </button>
             <button type="submit" className="btn-primary" disabled={saving}>
-              {saving ? <Loader2 className="spin" /> : (isEdit ? <Send /> : <Plus />)}
-              {saving ? 'جارٍ الحفظ…' : (isEdit ? 'حفظ التغييرات' : 'إضافة المساحة')}
+              {saving ? <Loader2 className="spin" /> : <Send />}
+              {saving ? (isEdit ? 'جارٍ الحفظ…' : 'جارٍ الإرسال…') : (isEdit ? 'حفظ التغييرات' : 'إرسال للمراجعة')}
             </button>
           </div>
         </form>
@@ -696,11 +817,12 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
       <div className="obk__hero">
         <div className="obk__hero-main">
           <h2>{modal ? (modal.mode === 'edit' ? <Pencil /> : <Plus />) : <Building2 />} {modal ? (modal.mode === 'edit' ? 'تعديل المساحة' : 'إضافة مساحة') : 'مساحاتي'}</h2>
-          <p>{modal ? 'املأ بيانات المساحة واحفظها لعرضها في السوق.' : 'أدر مساحاتك، راقب تفاصيلها، وعدّل أو فعّل أي مساحة بسهولة.'}</p>
+          <p>{modal ? 'أرسل بيانات المساحة مع وثائق الإثبات لتراجعها الإدارة.' : 'أضف مساحة مع وثائق إثبات، وتُعرض بعد اعتماد الإدارة. راقب حالتها وعدّل تفاصيلها.'}</p>
           {!modal && (
             <div className="obk__hero-meta">
               <span className="obk__hero-chip"><Building2 /> {fmtNumber(counts.all)} مساحة</span>
               <span className="obk__hero-chip is-good"><BadgeCheck /> {fmtNumber(counts.active)} نشطة</span>
+              {counts.pending > 0 && <span className="obk__hero-chip is-pending"><Clock3 /> {fmtNumber(counts.pending)} بالمراجعة</span>}
               <span className="obk__hero-chip is-bad"><Ban /> {fmtNumber(counts.inactive)} موقوفة</span>
             </div>
           )}
@@ -787,7 +909,7 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
         <div className="odash__state">
           <div className="ost-svg"><Building2 /></div>
           <h3>لا مساحات بعد</h3>
-          <p>أضف مساحتك الأولى لتظهر في التصفح ويصلتها الحجوزات والعروض.</p>
+          <p>أضف مساحتك الأولى ووثائق إثباتها — تظهر في التصفح بعد اعتماد الإدارة.</p>
           <button type="button" className="btn-primary" onClick={openCreate}>
             <Plus /> أضف مساحتك الأولى
           </button>
