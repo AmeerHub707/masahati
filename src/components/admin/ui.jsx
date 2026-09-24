@@ -50,43 +50,17 @@ const statTones = {
   violet: 'bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400',
 };
 
-function sparkPoints(data) {
-  const max = Math.max(...data);
-  const min = Math.min(...data);
-  const range = max - min || 1;
-  return data
-    .map((d, i) => `${(i / (data.length - 1)) * 100},${36 - ((d - min) / range) * 28}`)
-    .join(' ');
-}
-
-export function StatCard({ icon: Icon, label, value, hint, tone = 'orange', currency, trend = 'up', spark, commas = false }) {
+export function StatCard({ icon: Icon, label, value, hint, tone = 'orange', currency, trend = 'up', commas = false }) {
   const cls = statTones[tone] || statTones.orange;
   const isWarn = trend === 'warn';
   const isUp = trend === 'up';
   return (
     <div
-      className={`group relative overflow-hidden rounded-xl border bg-white p-4 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-orange-500/10 dark:bg-[#1c1c22] ${
+      className={`group relative rounded-xl border bg-white p-5 transition-all duration-300 hover:-translate-y-1.5 hover:border-orange-400/40 hover:shadow-xl hover:shadow-orange-500/10 dark:bg-[#1c1c22] ${
         isWarn ? 'border-amber-300/80 dark:border-amber-500/30' : 'border-[var(--border)]'
       }`}
     >
-      {spark && spark.length > 1 && (
-        <svg
-          className="pointer-events-none absolute inset-x-0 bottom-2 h-9 w-full"
-          viewBox="0 0 100 40"
-          preserveAspectRatio="none"
-          aria-hidden="true"
-        >
-          <polyline
-            points={sparkPoints(spark)}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            vectorEffect="non-scaling-stroke"
-            className="text-amber-500/20"
-          />
-        </svg>
-      )}
-      <div className="relative flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           {isWarn && (
             <span className="relative flex h-2.5 w-2.5">
@@ -100,7 +74,7 @@ export function StatCard({ icon: Icon, label, value, hint, tone = 'orange', curr
           <Icon />
         </span>
       </div>
-      <div className="relative mt-3 flex flex-wrap items-center gap-2">
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <span className="text-2xl font-bold leading-none" style={{ color: 'var(--accent)' }}>
           <DashCountUp value={value} commas={commas} />
           {currency && <span className="mr-1 font-normal text-sm text-slate-500 dark:text-slate-400">{currency}</span>}
@@ -220,7 +194,11 @@ export function Pill({ active = false, onClick, children, className = '' }) {
     <button
       type="button"
       onClick={onClick}
-      className={`dash__pill${active ? ' is-active' : ''} ${className}`}
+      className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border px-4 py-2 text-sm font-extrabold transition-all duration-200 [&_svg]:h-4 [&_svg]:w-4 ${
+        active
+          ? 'border-transparent bg-orange-500 text-white shadow-sm shadow-orange-500/20'
+          : 'border-black/15 bg-white text-[var(--text-muted)] hover:border-orange-500 hover:bg-orange-50 hover:text-orange-500 dark:border-[var(--border)] dark:bg-transparent dark:text-[var(--text-muted)] dark:hover:border-orange-500 dark:hover:bg-orange-500/10 dark:hover:text-orange-400'
+      } ${className}`}
     >
       {children}
     </button>

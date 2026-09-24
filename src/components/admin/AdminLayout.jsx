@@ -71,6 +71,8 @@ export default function AdminLayout({ active, onNavigate, onLogout, children }) 
 
   const close = () => setOpen(false);
 
+  const activeLabel = ADMIN_TABS.find((t) => t.id === active)?.label || 'لوحة تحكم المشرف';
+
   const unread = notifications.filter((n) => !n.read).length;
 
   const navigateTo = (id) => {
@@ -165,6 +167,26 @@ export default function AdminLayout({ active, onNavigate, onLogout, children }) 
               {!collapsed && <span>تسجيل الخروج</span>}
             </button>
           </nav>
+
+          {/* أدوات التحكم في الشريط الجانبي */}
+          <div className="mt-auto border-t border-gray-100/60 px-2 pb-2 pt-3 dark:border-[var(--border)]">
+            <div className="flex items-center justify-between gap-2">
+              <ThemeToggle />
+              <div className="dash__notif-wrap relative" ref={notifRef}>
+                <button
+                  type="button"
+                  ref={btnRef}
+                  className={`dash__notif-btn${notifOpen ? ' is-open' : ''}`}
+                  onClick={() => setNotifOpen((o) => !o)}
+                  aria-label="الإشعارات"
+                  aria-expanded={notifOpen}
+                >
+                  <Bell />
+                  {unread > 0 && <span className="dash__notif-badge">{unread}</span>}
+                </button>
+              </div>
+            </div>
+          </div>
         </aside>
 
         {/* تلميح فتح الشريط الجانبي (عبر بوابة لتجاوز قصّ المحتوى) */}
@@ -182,6 +204,50 @@ export default function AdminLayout({ active, onNavigate, onLogout, children }) 
             document.body
           )}
 
+        {/* لوحة الإشعارات */}
+        {createPortal(
+          notifOpen && (
+            <div className="dash__notif-panel" style={{ position: 'fixed', top: panelPos.top, left: panelPos.left }}>
+              <div className="dash__notif-header">
+                <h3>الإشعارات</h3>
+                <button
+                  type="button"
+                  className="dash__notif-mark"
+                  onClick={() => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))}
+                >
+                  قراءة الكل
+                </button>
+              </div>
+              <ul className="dash__notif-list">
+                {notifications.map((n) => {
+                  const Icon = n.icon;
+                  return (
+                    <li
+                      key={n.id}
+                      className={`dash__notif-item${n.read ? '' : ' is-unread'}`}
+                      onClick={() =>
+                        setNotifications((prev) =>
+                          prev.map((item) => (item.id === n.id ? { ...item, read: true } : item))
+                        )
+                      }
+                    >
+                      <span className="dash__notif-icon">
+                        <Icon />
+                      </span>
+                      <div className="dash__notif-body">
+                        <p>{n.text}</p>
+                        <span className="dash__notif-time">{n.time}</span>
+                      </div>
+                      {!n.read && <span className="dash__notif-dot" />}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ),
+          document.body
+        )}
+
         {/* الستارة الخلفية للجوال */}
         <div className={`dash__scrim${open ? ' show' : ''}`} onClick={close} aria-hidden="true" />
 
@@ -192,81 +258,19 @@ export default function AdminLayout({ active, onNavigate, onLogout, children }) 
               type="button"
               className="dash__burger"
               onClick={() => setOpen((o) => !o)}
-              aria-label="فتح القائمة"
+              aria-label={open ? 'إغلاق القائمة' : 'فتح القائمة'}
               aria-expanded={open}
             >
               {open ? <X /> : <Menu />}
             </button>
 
             <div className="dash__title">
-              <h1>{ADMIN_TABS.find((t) => t.id === active)?.label || 'لوحة التحكم'}</h1>
-              <p style={{ display: 'flex', flexWrap: 'wrap', gap: '.4rem' }}>
-                <span>{gregorian}</span>
-                {hijri && <span style={{ color: 'var(--accent)' }}>{`• ${hijri}`}</span>}
-              </p>
-            </div>
-
-            <ThemeToggle />
-
-            <div className="dash__notif-wrap" ref={notifRef}>
-              <button
-                type="button"
-                ref={btnRef}
-                className={`dash__notif-btn${notifOpen ? ' is-open' : ''}`}
-                onClick={() => setNotifOpen((o) => !o)}
-                aria-label="الإشعارات"
-                aria-expanded={notifOpen}
-              >
-                <Bell />
-                {unread > 0 && <span className="dash__notif-badge">{unread}</span>}
-              </button>
-
-              {createPortal(
-                notifOpen && (
-                  <div className="dash__notif-panel" style={{ position: 'fixed', top: panelPos.top, left: panelPos.left }}>
-                    <div className="dash__notif-header">
-                      <h3>الإشعارات</h3>
-                      <button
-                        type="button"
-                        className="dash__notif-mark"
-                        onClick={() => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))}
-                      >
-                        قراءة الكل
-                      </button>
-                    </div>
-                    <ul className="dash__notif-list">
-                      {notifications.map((n) => {
-                        const Icon = n.icon;
-                        return (
-                          <li
-                            key={n.id}
-                            className={`dash__notif-item${n.read ? '' : ' is-unread'}`}
-                            onClick={() =>
-                              setNotifications((prev) =>
-                                prev.map((item) => (item.id === n.id ? { ...item, read: true } : item))
-                              )
-                            }
-                          >
-                            <span className="dash__notif-icon">
-                              <Icon />
-                            </span>
-                            <div className="dash__notif-body">
-                              <p>{n.text}</p>
-                              <span className="dash__notif-time">{n.time}</span>
-                            </div>
-                            {!n.read && <span className="dash__notif-dot" />}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                ),
-                document.body
-              )}
+              <h1>{activeLabel}</h1>
+              <p>{gregorian} · {hijri}</p>
             </div>
           </header>
 
-          <main className="dash__content">{children}</main>
+          <main className="dash__content pt-6">{children}</main>
         </div>
       </div>
     </div>

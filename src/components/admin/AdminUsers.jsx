@@ -56,36 +56,6 @@ const statusMeta = {
   review: { tone: 'amber', label: 'قيد المراجعة', Icon: Clock },
 };
 
-function sparkPoints(data) {
-  const max = Math.max(...data);
-  const min = Math.min(...data);
-  const range = max - min || 1;
-  return data
-    .map((d, i) => `${(i / (data.length - 1)) * 100},${14 - ((d - min) / range) * 10}`)
-    .join(' ');
-}
-
-function RowSpark({ data, tone = '#f97316' }) {
-  return (
-    <svg
-      className="dash__spark"
-      viewBox="0 0 100 16"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      <polyline
-        points={sparkPoints(data)}
-        fill="none"
-        stroke={tone}
-        strokeWidth="2"
-        vectorEffect="non-scaling-stroke"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 function PresenceDot({ online }) {
   return (
     <span
@@ -195,13 +165,11 @@ export default function AdminUsers() {
     return { total, activeFreelancers, owners, pendingVerif, suspended };
   }, [users]);
 
-  const sparkTrace = (v) => [v * 0.7, v * 0.8, v * 0.75, v * 0.86, v * 0.94, v];
-
   const kpis = [
-    { icon: Users, label: 'إجمالي الحسابات', value: counts.total, tone: 'orange', trend: 'up', hint: '+12% هذا الشهر', spark: sparkTrace(counts.total) },
-    { icon: UserCheck, label: 'فريلانسرز نشطون', value: counts.activeFreelancers, tone: 'violet', trend: 'up', hint: '+8% هذا الشهر', spark: sparkTrace(counts.activeFreelancers) },
-    { icon: Building2, label: 'ملاك المساحات', value: counts.owners, tone: 'blue', trend: 'up', hint: '+5% هذا الشهر', spark: sparkTrace(counts.owners) },
-    { icon: ShieldCheck, label: 'بانتظار التحقق', value: counts.pendingVerif, tone: 'amber', trend: 'warn', hint: 'تحتاج مراجعة', spark: sparkTrace(counts.pendingVerif) },
+    { icon: Users, label: 'إجمالي الحسابات', value: counts.total, tone: 'orange', trend: 'up', hint: '+12% هذا الشهر' },
+    { icon: UserCheck, label: 'فريلانسرز نشطون', value: counts.activeFreelancers, tone: 'violet', trend: 'up', hint: '+8% هذا الشهر' },
+    { icon: Building2, label: 'ملاك المساحات', value: counts.owners, tone: 'blue', trend: 'up', hint: '+5% هذا الشهر' },
+    { icon: ShieldCheck, label: 'بانتظار التحقق', value: counts.pendingVerif, tone: 'amber', trend: 'warn', hint: 'تحتاج مراجعة' },
   ];
 
   const toggleSelect = (id) => {
@@ -518,12 +486,7 @@ export default function AdminUsers() {
                         )}
                       </td>
                       <td>
-                        <div className="flex items-end justify-end gap-2">
-                          <span className="num">{u.bookings}</span>
-                          {u.activity && u.activity.length > 1 ? (
-                            <span className="dash__sparkbox"><RowSpark data={u.activity} /></span>
-                          ) : null}
-                        </div>
+                        <span className="num">{u.bookings}</span>
                       </td>
                       <td className="txt-muted text-xs">{u.lastActive}</td>
                       <td className="txt-muted text-xs" dir="ltr">{u.joined}</td>
@@ -707,12 +670,7 @@ export default function AdminUsers() {
                         نشاط الحجوزات
                       </dt>
                       <dd className="m-0">
-                        <div className="flex items-end gap-3">
-                          <svg className="h-10 w-24 flex-1" viewBox="0 0 100 16" preserveAspectRatio="none" aria-hidden="true">
-                            <polyline points={sparkPoints(viewUser.activity)} fill="none" stroke="#f97316" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                          <span className="num text-lg">{viewUser.bookings} حجز</span>
-                        </div>
+                        <span className="num text-lg">{viewUser.bookings} حجز</span>
                       </dd>
                     </div>
                   </div>

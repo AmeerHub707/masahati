@@ -61,17 +61,13 @@ function chartTooltipStyle() {
 export default function AdminOverview({ onNavigate = () => {} }) {
   const stats = adminStats;
 
-  const sparkTrace = (v) => [v * 0.72, v * 0.79, v * 0.76, v * 0.85, v * 0.92, v];
-  const revenueSpark = revenueTrend.map((d) => d.revenue);
-  const bookingsSpark = revenueTrend.map((d) => d.bookings);
-
   const cards = [
-    { icon: Users, label: 'إجمالي المستخدمين', value: stats.totalUsers, tone: 'orange', trend: 'up', hint: '+4.2%', spark: sparkTrace(stats.totalUsers) },
-    { icon: Building2, label: 'مالكو المساحات', value: stats.spaceOwners, tone: 'violet', trend: 'up', hint: '+1.8%', spark: sparkTrace(stats.spaceOwners) },
-    { icon: MapPin, label: 'المساحات المسجلة', value: stats.registeredSpaces, tone: 'blue', trend: 'up', hint: '+2.5%', spark: sparkTrace(stats.registeredSpaces) },
-    { icon: CalendarCheck, label: 'حجوزات الشهر', value: stats.monthlyBookings, tone: 'green', trend: 'up', hint: '+6.1%', spark: bookingsSpark },
-    { icon: Wallet, label: 'الإيرادات', value: stats.totalRevenue, currency: 'ش.ج', tone: 'amber', trend: 'up', hint: '+8.9%', spark: revenueSpark },
-    { icon: ShieldAlert, label: 'النزاعات المفتوحة', value: stats.openDisputes, tone: 'red', trend: 'warn', hint: 'تحتاج متابعة', spark: sparkTrace(stats.openDisputes) },
+    { icon: Users, label: 'إجمالي المستخدمين', value: stats.totalUsers, tone: 'orange', trend: 'up', hint: '+4.2%' },
+    { icon: Building2, label: 'مالكو المساحات', value: stats.spaceOwners, tone: 'violet', trend: 'up', hint: '+1.8%' },
+    { icon: MapPin, label: 'المساحات المسجلة', value: stats.registeredSpaces, tone: 'blue', trend: 'up', hint: '+2.5%' },
+    { icon: CalendarCheck, label: 'حجوزات الشهر', value: stats.monthlyBookings, tone: 'green', trend: 'up', hint: '+6.1%' },
+    { icon: Wallet, label: 'الإيرادات', value: stats.totalRevenue, currency: 'ش.ج', tone: 'amber', trend: 'up', hint: '+8.9%' },
+    { icon: ShieldAlert, label: 'النزاعات المفتوحة', value: stats.openDisputes, tone: 'red', trend: 'warn', hint: 'تحتاج متابعة' },
   ];
 
   return (
