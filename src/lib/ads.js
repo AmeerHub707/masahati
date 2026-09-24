@@ -102,6 +102,7 @@ export function mapAd(a) {
     link: a.link ?? a.url ?? '',
     image: imageUrl(a.image) || '',
     target: a.target ?? 'customers',
+    space_id: a.space_id ?? a.space ?? null,
     status: a.status ?? 'draft', // draft | published | archived
     created_at: a.created_at ?? a.created ?? '',
     sent_at: a.sent_at ?? a.sent_at ?? '',

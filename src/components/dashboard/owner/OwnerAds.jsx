@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Megaphone, Plus, X, Loader2, Send, Tag, Link as LinkIcon, Image as ImageIcon,
-  CalendarClock, Users, Check, Clock, Repeat, BarChart3,
+  CalendarClock, Users, Check, Clock, Repeat, BarChart3, Building2,
   ArrowRight,
 } from 'lucide-react';
 import {
@@ -12,6 +12,7 @@ import {
   publishAdWithFallback,
   deleteAdWithFallback,
 } from '../../../lib/ads';
+import { loadSpacesWithFallback } from '../../../lib/owner';
 import { useDialogA11y } from '../../../lib/dialogA11y';
 
 const numFmt = new Intl.NumberFormat('ar-EG');
@@ -20,8 +21,8 @@ function fmtNumber(n) {
 }
 
 const TARGET_OPTIONS = [
-  { value: 'customers', label: 'جميع العملاء (مشتري المساحات)', desc: 'الإعلان يظهر لكل العملاء على المنصة.' },
-  { value: 'space_customers', label: 'عملاء مساحاتهم فقط', desc: 'يظهر للعملاء الذين حجزوا مساحة لديك.' },
+  { value: 'customers', label: 'جميع العملاء في المنصة', desc: 'الإعلان يظهر لكل العملاء على المنصة.' },
+  { value: 'space_customers', label: 'عملاء مساحاتي', desc: 'يظهر للعملاء الذين حجزوا مساحة لديك.' },
 ];
 
 const STATUS_LABELS = {
@@ -44,6 +45,7 @@ const DEFAULT_FORM = {
   target: 'customers',
   schedule: null,
   photos: [],
+  space_id: '',
 };
 
 const MAX_PHOTOS = 3;
@@ -95,6 +97,7 @@ function timeAgo(iso) {
 
 export default function OwnerAds() {
   const [ads, setAds] = useState(() => []);
+  const [spaces, setSpaces] = useState(() => []);
   const [demo, setDemo] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -148,6 +151,21 @@ export default function OwnerAds() {
     return () => clearTimeout(t);
   }, [loadAds]);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await loadSpacesWithFallback();
+        if (!cancelled) setSpaces(result.spaces || []);
+      } catch {
+        if (!cancelled) setSpaces([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const resetModal = () => {
     setModal(null);
     setForm(DEFAULT_FORM);
@@ -171,6 +189,7 @@ export default function OwnerAds() {
       target: ad?.target || 'customers',
       schedule: ad?.schedule || null,
       photos: [],
+      space_id: ad?.space_id ? String(ad.space_id) : '',
     });
     setErrors({});
     setModal(isEdit);
@@ -189,6 +208,9 @@ export default function OwnerAds() {
     if (form.link && !/^https?:\/\//i.test(form.link)) {
       e.link = 'أدخل رابطاً كاملاً يبدأ بـ https:// أو http://.';
     }
+    if (!form.space_id) {
+      e.space_id = 'اختر المساحة المرتبطة بالإعلان.';
+    }
     setErrors(e);
     console.log('[AD_FORM] Validation Errors:', e);
     return Object.keys(e).length === 0;
@@ -201,6 +223,7 @@ export default function OwnerAds() {
     image: (form.photos && form.photos[0]) || form.image || '',
     target: form.target || 'customers',
     schedule: form.schedule || null,
+    space_id: form.space_id ? String(form.space_id) : null,
   });
 
   const handleFilesUpload = async (e) => {
@@ -420,8 +443,7 @@ export default function OwnerAds() {
   const renderForm = () => {
     const isEdit = modal?.mode === 'edit';
     return (
-      <div className="modal-overlay" style={{ zIndex: 1000, position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-        <div className="oads__form-panel" style={{ zIndex: 1001, position: 'relative', maxWidth: '600px', width: '100%', margin: 'auto' }}>
+      <div className="oads__form-panel">
           <form
             ref={dialogRef}
             className="oads__form"
@@ -447,9 +469,9 @@ export default function OwnerAds() {
             </p>
           </div>
 
-          <div className="oads__form-body space-y-6">
+          <div className="oads__form-body">
             {/* المعلومات الأساسية */}
-            <section className="oads__form-sec flex flex-col gap-4">
+            <section className="oads__form-sec">
               <h4><Megaphone /> المعلومات الأساسية</h4>
 
               <div className={`odash__field ${errors.title ? 'has-error' : ''}`}>
@@ -525,8 +547,38 @@ export default function OwnerAds() {
               )}
             </section>
 
+            {/* المساحة المرتبطة */}
+            <section className="oads__form-sec">
+              <h4><Building2 /> المساحة المرتبطة</h4>
+              <p className="oads__form-hint">اختر المساحة التي يتعلّق بها هذا الإعلان.</p>
+              <div className={`odash__field${errors.space_id ? ' has-error' : ''}`}>
+                <label htmlFor="oads-space">المساحة <b>*</b></label>
+                <div className="odash__input-wrap">
+                  <Building2 className="odash__input-ico" />
+                  <select
+                    id="oads-space"
+                    value={form.space_id}
+                    onChange={(e) => setForm((f) => ({ ...f, space_id: e.target.value }))}
+                  >
+                    <option value="">اختر مساحة…</option>
+                    {spaces.map((s) => (
+                      <option key={s.id} value={String(s.id)}>
+                        {s.title}{s.location ? ` — ${s.location}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p>{errors.space_id || ''}</p>
+              </div>
+              {spaces.length === 0 && (
+                <p className="oads__form-note">
+                  لا توجد مساحات متاحة بعد — أضف مساحة واعتمدها من الإدارة قبل ربطها بإعلان.
+                </p>
+              )}
+            </section>
+
             {/* الصورة */}
-            <section className="oads__form-sec flex flex-col gap-4">
+            <section className="oads__form-sec">
               <h4><ImageIcon /> صورة الإعلان</h4>
               <input
                 ref={fileInputRef}
@@ -542,7 +594,9 @@ export default function OwnerAds() {
                 onClick={() => fileInputRef.current?.click()}
                 disabled={(form.photos || []).length >= MAX_PHOTOS}
               >
-                <ImageIcon /> رفع صورة من جهازك
+                <ImageIcon />
+                <b>{form.photos.length >= MAX_PHOTOS ? 'تم الوصول للحد الأقصى' : 'رفع صورة من جهازك'}</b>
+                <small>اضغط لاختيار صورة الإعلان — تُعرض للعملاء بعد النشر.</small>
               </button>
               {(form.photos || []).length > 0 ? (
                 <div className="oads__upload-grid">
@@ -571,7 +625,6 @@ export default function OwnerAds() {
             </button>
           </div>
         </form>
-      </div>
       </div>
     );
   };
