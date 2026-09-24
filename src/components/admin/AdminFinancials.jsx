@@ -15,6 +15,14 @@ function fmt(n) {
   return n.toLocaleString('en-US');
 }
 
+function fmtDate(d) {
+  return new Date(`${d}T00:00:00`).toLocaleDateString('ar-EG', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
 export default function AdminFinancials() {
   const [range, setRange] = useState('month');
   const [showExport, setShowExport] = useState(false);
@@ -186,16 +194,16 @@ export default function AdminFinancials() {
             <thead>
               <tr className="border-b text-xs" style={{ borderColor: 'var(--border)' }}>
                 {['الإجراءات', 'رقم الحجز', 'المساحة', 'المالك', 'المبلغ', 'العمولة (12%)', 'صافي الملاك', 'التاريخ', 'الحالة'].map((h) => (
-                  <th key={h} className="whitespace-nowrap pb-3 pe-3 font-extrabold" style={{ color: 'var(--text-muted)' }}>{h}</th>
+                  <th key={h} className={`whitespace-nowrap pb-3 pe-3 font-extrabold ${h === 'الإجراءات' || h === 'الحالة' ? 'text-center' : 'text-right'}`} style={{ color: 'var(--text-muted)' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {[
-                { id: '#BK-1021', space: 'استوديو الأناقة', owner: 'أحمد العمري', amount: 120, status: 'مكتمل' },
-                { id: '#BK-1022', space: 'مساحة المهندسين', owner: 'خالد المصري', amount: 108, status: 'مؤكد' },
-                { id: '#BK-1023', space: 'مركز ريادة الأعمال', owner: 'هبة الرنتيسي', amount: 100, status: 'مؤكد' },
-                { id: '#BK-1024', space: 'مساحة العمل الوسطى', owner: 'ديما الجمل', amount: 75, status: 'متنازع' },
+                { id: '#BK-1021', space: 'استوديو الأناقة', owner: 'أحمد العمري', amount: 120, date: '2026-09-18', status: 'مكتمل' },
+                { id: '#BK-1022', space: 'مساحة المهندسين', owner: 'خالد المصري', amount: 108, date: '2026-09-18', status: 'مؤكد' },
+                { id: '#BK-1023', space: 'مركز ريادة الأعمال', owner: 'هبة الرنتيسي', amount: 100, date: '2026-09-17', status: 'مؤكد' },
+                { id: '#BK-1024', space: 'مساحة العمل الوسطى', owner: 'ديما الجمل', amount: 75, date: '2026-09-16', status: 'متنازع' },
               ].map((t) => {
                 const comm = Math.round(t.amount * 0.12);
                 const net = t.amount - comm;
@@ -212,14 +220,14 @@ export default function AdminFinancials() {
                         <ChevronLeft className="h-4 w-4" />
                       </button>
                     </td>
-                    <td className="py-3 pe-3 font-extrabold"><span dir="ltr">{t.id}</span></td>
-                    <td className="py-3 pe-3">{t.space}</td>
-                    <td className="py-3 pe-3">{t.owner}</td>
-                    <td className="py-3 pe-3 font-bold text-amber-600">{t.amount} ش.ج</td>
-                    <td className="py-3 pe-3 font-medium text-orange-500">{comm} ش.ج</td>
-                    <td className="py-3 pe-3 font-medium text-emerald-600">{net} ش.ج</td>
-                    <td className="py-3 pe-3 text-xs" style={{ color: 'var(--text-muted)' }}>2026-09-18</td>
-                    <td className="py-3 pe-3">
+                    <td className="py-3 pe-3 text-right font-extrabold"><span dir="ltr">{t.id}</span></td>
+                    <td className="py-3 pe-3 text-right">{t.space}</td>
+                    <td className="py-3 pe-3 text-right">{t.owner}</td>
+                    <td className="py-3 pe-3 text-right font-bold text-amber-600">{t.amount} ش.ج</td>
+                    <td className="py-3 pe-3 text-right font-medium text-orange-500">{comm} ش.ج</td>
+                    <td className="py-3 pe-3 text-right font-medium text-emerald-600">{net} ش.ج</td>
+                    <td className="py-3 pe-3 text-right text-xs" style={{ color: 'var(--text-muted)' }}>{fmtDate(t.date)}</td>
+                    <td className="py-3 pe-3 text-center">
                       <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-black ${t.status === 'مكتمل' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' : t.status === 'متنازع' ? 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400'}`}>
                         {t.status}
                       </span>
