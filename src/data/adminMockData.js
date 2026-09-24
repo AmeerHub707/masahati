@@ -118,14 +118,14 @@ export const adminNotifications = [
   { id: 1, title: 'صيانة مجدولة للنظام', body: 'ستتوقف المنصة يوم الجمعة من 2 إلى 4 صباحاً لصيانة دورية.', target: 'all', sentAt: '2026-09-18 09:00', sentBy: 'admin', opened: 498, total: 1284, channels: ['in_app', 'email'], link: '' },
   { id: 2, title: 'إضافة ميزة حجز جماعي', body: 'أصبح بإمكان مساحات العمل استقبال حجوزات جماعية تصل إلى 20 شخصاً.', target: 'owners', sentAt: '2026-09-15 14:30', sentBy: 'admin', opened: 96, total: 186, channels: ['in_app'], link: '' },
   { id: 3, title: 'تحديث سياسة الاسترداد', body: 'تم تحديث سياسة الاسترداد؛ يمكن طلب الاسترداد خلال 24 ساعة من الحجز.', target: 'all', sentAt: '2026-09-10 11:00', sentBy: 'admin', opened: 702, total: 1284, channels: ['in_app', 'email'], link: '/policies/refund' },
-  { id: 4, title: 'ندعوك لورشة عمل مجانية', body: 'ورشة بعنوان "التسويق الرقمي لرواد الأعمال" يوم الخميس القادم.', target: 'renters', sentAt: '2026-09-06 16:45', sentBy: 'admin', opened: 411, total: 1098, channels: ['email'], link: '/events/workshop' },
+  { id: 4, title: 'ندعوك لورشة عمل مجانية', body: 'ورشة بعنوان "التسويق الرقمي لرواد الأعمال" يوم الخميس القادم.', target: 'freelancers', sentAt: '2026-09-06 16:45', sentBy: 'admin', opened: 411, total: 1098, channels: ['email'], link: '/events/workshop' },
 ];
 
 // عدد المستلمين المقدر لكل جمهور (بيانات وهمية — تُستبدل بنقطة نهاية الباك إند لاحقاً).
 export const audienceRecipients = {
   all: 1284,
   owners: 186,
-  renters: 1098,
+  freelancers: 1098,
 };
 
 // تصنيفات إشعارات البريد الوارد التشغيلية + وصف كل فئة.
@@ -163,15 +163,15 @@ export const recentRegistrations = [
 ];
 
 export const financialRangeData = {
-  today: { revenue: 920, bookings: 34, commission: 92, payouts: 640 },
-  week: { revenue: 6120, bookings: 138, commission: 612, payouts: 4090 },
-  month: { revenue: 24150, bookings: 517, commission: 2415, payouts: 16420 },
-  year: { revenue: 189400, bookings: 3870, commission: 18940, payouts: 128900 },
+  today: { revenue: 9200, bookings: 42, commission: 1104, payouts: 8096 },
+  week: { revenue: 61200, bookings: 312, commission: 7344, payouts: 53856 },
+  month: { revenue: 241500, bookings: 517, commission: 28980, payouts: 212520 },
+  year: { revenue: 1894000, bookings: 6204, commission: 227280, payouts: 1666720 },
 };
 
 export const commissionBreakdown = [
-  { label: 'حجوزات', amount: 24150 },
-  { label: 'عمولة المنصة (12%)', amount: 2415 },
-  { label: 'مستحقات الملاك', amount: 16420 },
+  { label: 'حجوزات', amount: 241500 },
+  { label: 'عمولة المنصة (12%)', amount: 28980 },
+  { label: 'مستحقات الملاك', amount: 212520 },
   { label: 'مدفوعات معلقة', amount: 8240 },
 ];

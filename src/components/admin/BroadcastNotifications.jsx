@@ -8,14 +8,14 @@ import useSafeInput from '../../hooks/useSafeInput';
 
 const audiences = [
   { id: 'all', label: 'جميع المستخدمين' },
-  { id: 'owners', label: 'مالكو المساحات فقط' },
-  { id: 'renters', label: 'المستأجرون (الفريلانسرز) فقط' },
+  { id: 'owners', label: 'الملاك' },
+  { id: 'freelancers', label: 'الفريلانسرز' },
 ];
 
 const audienceBadge = {
-  all: 'كل المستخدمين',
+  all: 'جميع المستخدمين',
   owners: 'الملاك',
-  renters: 'المستأجرون',
+  freelancers: 'الفريلانسرز',
 };
 
 const channelLabels = {
@@ -439,32 +439,72 @@ export default function BroadcastNotifications() {
         <SectionHeading icon={Sparkles} title="سجل الإشعارات المرسلة" subtitle="آخر الرسائل التي بثتها المنصة" />
 
         {/* فلاتر السجل */}
-        <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-4 space-y-3">
+          {/* Row 1: Search Input (Full Width) */}
           <div className="relative">
-            <Search className="pointer-events-none absolute start-3.5 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
+            <Search className="pointer-events-none absolute start-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input
               type="search"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="ابحث في العنوان أو النص…"
-              className={`${inputCls} dash__input--icon`}
+              placeholder="ابحث بعنوان الإشعار أو المحتوى..."
+              className={`${inputCls} dash__input--icon w-full transition-all duration-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500`}
             />
           </div>
-          <select className={inputCls} value={fTarget} onChange={(e) => setFTarget(e.target.value)}>
-            <option value="all">كل الجماهير</option>
-            <option value="owners">مالكو المساحات</option>
-            <option value="renters">المستأجرون</option>
+
+          {/* Row 2: Target Audience Dropdown (Full Width) */}
+          <select
+            className={`${inputCls} w-full transition-all duration-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500`}
+            value={fTarget}
+            onChange={(e) => setFTarget(e.target.value)}
+          >
+            <option value="all">جميع الجماهير المستهدفة</option>
+            <option value="owners">الملاك</option>
+            <option value="freelancers">الفريلانسرز</option>
           </select>
-          <input type="date" className={inputCls} value={fFrom} onChange={(e) => setFFrom(e.target.value)} aria-label="من تاريخ" />
-          <input type="date" className={inputCls} value={fTo} onChange={(e) => setFTo(e.target.value)} aria-label="حتى تاريخ" />
+
+          {/* Row 3: Date Range Grid (Side-by-Side 2-Column Grid) */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="date-from" className="mb-1.5 block text-xs font-bold text-gray-600 dark:text-gray-400">
+                من تاريخ
+              </label>
+              <input
+                id="date-from"
+                type="date"
+                className={`${inputCls} w-full transition-all duration-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500`}
+                value={fFrom}
+                onChange={(e) => setFFrom(e.target.value)}
+                aria-label="من تاريخ"
+              />
+            </div>
+            <div>
+              <label htmlFor="date-to" className="mb-1.5 block text-xs font-bold text-gray-600 dark:text-gray-400">
+                إلى تاريخ
+              </label>
+              <input
+                id="date-to"
+                type="date"
+                className={`${inputCls} w-full transition-all duration-200 focus:ring-2 focus:ring-orange-500 focus:border-orange-500`}
+                value={fTo}
+                onChange={(e) => setFTo(e.target.value)}
+                aria-label="إلى تاريخ"
+              />
+            </div>
+          </div>
         </div>
 
         {(q || fTarget !== 'all' || fFrom || fTo) && (
-          <div className="mb-4 flex items-center justify-between">
-            <span className="dash__selected-bar">
-              <b>{filteredLog.length}</b> نتيجة مطابقة
+          <div className="mb-4 flex items-center justify-between rounded-xl border border-orange-200 bg-orange-50 px-4 py-2.5 dark:border-orange-500/20 dark:bg-orange-500/10">
+            <span className="text-sm font-bold text-orange-700 dark:text-orange-400">
+              <b className="text-lg">{filteredLog.length}</b> نتيجة مطابقة
             </span>
-            <button type="button" className="dash__toolbtn" onClick={clearFilters}>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-bold text-orange-700 transition-all duration-200 hover:bg-orange-100 dark:text-orange-400 dark:hover:bg-orange-500/20"
+              onClick={clearFilters}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
               إعادة الضبط
             </button>
           </div>
@@ -474,31 +514,31 @@ export default function BroadcastNotifications() {
           <EmptyState
             icon={Megaphone}
             title="لا توجد إشعارات مطابقة"
-            description="كلّت نتائج الفلتر؛ جرّب تعديل البحث أو إعادة الضبط لرؤية الإشعارات المرسلة."
+            description="كل نتائج الفلتر؛ جرّب تعديل البحث أو إعادة الضبط لرؤية الإشعارات المرسلة."
           />
         ) : (
           <ul className="max-h-[46rem] space-y-3 overflow-y-auto pe-1">
             {filteredLog.map((n) => {
               const ChannelIcons = n.channels?.map(channelIcon) || [];
               return (
-                <li key={n.id} className="dash__card dash__card--flush" data-notif-menu>
+                <li key={n.id} className="dash__card dash__card--flush group transition-all duration-300 hover:scale-[1.01] hover:shadow-md hover:border-orange-200 dark:hover:border-orange-500/40" data-notif-menu>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h4 className="flex min-w-0 items-center gap-2.5 text-sm font-extrabold" style={{ color: 'var(--text-strong)' }}>
-                      <span className="st-ico" style={{ width: '2.2rem', height: '2.2rem', borderRadius: '.65rem' }}>
+                      <span className="st-ico group-hover:scale-110 transition-transform duration-300" style={{ width: '2.2rem', height: '2.2rem', borderRadius: '.65rem' }}>
                         <Users />
                       </span>
                       <span className="truncate">{n.title}</span>
                     </h4>
                     <div className="flex flex-none items-center gap-2">
-                      <span className="badge badge--green">
+                      <span className="badge badge--green transition-all duration-200 group-hover:shadow-sm">
                         <Eye className="h-3.5 w-3.5" />
                         {n.opened}/{n.total}
                       </span>
-                      <StatusBadge tone="orange">{audienceBadge[n.target]}</StatusBadge>
+                      <StatusBadge tone="orange">{audienceBadge[n.target] || audienceBadge.freelancers}</StatusBadge>
                       <div className="dash__actions-cell" data-notif-menu>
                         <button
                           type="button"
-                          className="dash__menu-btn"
+                          className="dash__menu-btn transition-all duration-200 hover:scale-110"
                           aria-label="خيارات الإشعار"
                           onClick={(e) => openRowMenu(e, n)}
                         >
@@ -512,12 +552,12 @@ export default function BroadcastNotifications() {
                     <span className="txt-caption">{n.sentAt}</span>
                     <span className="flex items-center gap-2">
                       {ChannelIcons.map((Icon, i) => (
-                        <span key={i} className="badge badge--blue" title={`قناة: ${channelLabels[n.channels[i]]}`}>
+                        <span key={i} className="badge badge--blue transition-all duration-200 hover:scale-105" title={`قناة: ${channelLabels[n.channels[i]]}`}>
                           <Icon />
                         </span>
                       ))}
                       {n.link && (
-                        <span className="badge badge--gray" title={n.link}>
+                        <span className="badge badge--gray transition-all duration-200 hover:scale-105" title={n.link}>
                           <Link2 />
                           رابط
                         </span>
