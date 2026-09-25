@@ -22,7 +22,7 @@ import Settings from '../components/dashboard/Settings';
 import OwnerDocumentation from '../components/dashboard/owner/OwnerDocumentation';
 import ScrollProgress from '../components/common/ScrollProgress';
 import Footer from '../components/layout/Footer';
-import WhatsAppBubble from '../components/common/WhatsAppBubble';
+import OwnerAssistant from '../components/assistant/OwnerAssistant';
 import { AlertCircle, Trash2 } from 'lucide-react';
 import { useDialogA11y } from '../lib/dialogA11y';
 
@@ -272,7 +272,7 @@ export default function SpaceOwnerDashboard() {
         </AnimatePresence>
       </OwnerLayout>
       <Footer />
-      <WhatsAppBubble />
+      <OwnerAssistant data={data} onNavigate={setActive} />
 
       {deleteOpen && (
         <div className="modal-overlay delete-confirm__overlay" onClick={() => closeDelete(false)}>
