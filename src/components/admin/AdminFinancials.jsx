@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Wallet, Percent, HandCoins, TrendingUp, ReceiptText, ChevronDown, ChevronLeft } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from 'recharts';
-import { financialRangeData, commissionBreakdown } from '../../data/adminMockData';
+import { financialRangeData, commissionBreakdown, adminStats } from '../../data/adminMockData';
 import { StatCard, SectionCard, SectionHeading, MiniRow, Pill } from './ui';
 
 const ranges = [
@@ -11,8 +11,13 @@ const ranges = [
   { id: 'year', label: 'السنة' },
 ];
 
+const CUSTOM_RANGE = 'custom';
+const DEFAULT_RANGE = 'month';
+const COMMISSION_RATE = adminStats.platformCommission ?? 0.12;
+const RATE_LABEL = `${Math.round(COMMISSION_RATE * 100)}%`;
+
 function fmt(n) {
-  return n.toLocaleString('en-US');
+  return Number(n || 0).toLocaleString('en-US');
 }
 
 function fmtDate(d) {
@@ -25,38 +30,52 @@ function fmtDate(d) {
 
 export default function AdminFinancials() {
   const [range, setRange] = useState('month');
+  const [custom, setCustom] = useState({ from: '', to: '' });
   const [showExport, setShowExport] = useState(false);
-  const data = financialRangeData[range];
+
+  // النطاق المخصص يحتاج بيانات من نقطة نهاية التقارير — حتى ذلك الحين نستخدم
+  // أحدث نطاق جاهز كبديل آمن بدل قراءة كائن غير موجود (كان يُسقط الصفحة).
+  const dateError = custom.from && custom.to && custom.from > custom.to;
+  const effectiveRange = (range === CUSTOM_RANGE ? DEFAULT_RANGE : range) || DEFAULT_RANGE;
+  const data = financialRangeData[effectiveRange] || financialRangeData[DEFAULT_RANGE];
+
+  const rangeLabel = useMemo(() => {
+    if (range !== CUSTOM_RANGE) return ranges.find((r) => r.id === range)?.label || '';
+    const from = custom.from || '—';
+    const to = custom.to || '—';
+    return `نطاق مخصص (من ${from} إلى ${to})`;
+  }, [range, custom.from, custom.to]);
 
   const cards = [
-    { icon: Wallet, label: 'إجمالي الإيرادات', value: `${data.revenue} ش.ج`, tone: 'green' },
-    { icon: Percent, label: 'عمولة المنصة (12%)', value: `${data.commission} ش.ج`, tone: 'orange' },
-    { icon: HandCoins, label: 'مستحقات الملاك', value: `${data.payouts} ش.ج`, tone: 'violet' },
-    { icon: TrendingUp, label: 'عدد الحجوزات', value: data.bookings, tone: 'blue' },
+    { icon: Wallet, label: 'إجمالي الإيرادات', value: data.revenue, currency: 'ش.ج', tone: 'green', commas: true },
+    { icon: Percent, label: `عمولة المنصة (${RATE_LABEL})`, value: data.commission, currency: 'ش.ج', tone: 'orange', commas: true },
+    { icon: HandCoins, label: 'مستحقات الملاك', value: data.payouts, currency: 'ش.ج', tone: 'violet', commas: true },
+    { icon: TrendingUp, label: 'عدد الحجوزات', value: data.bookings, tone: 'blue', commas: true },
   ];
 
-  const breakdownMap = {
-    today: [
+  const breakdown = useMemo(() => {
+    if (effectiveRange === 'month') {
+      return commissionBreakdown.map((c) => ({
+        label: c.label,
+        value: c.amount,
+        fill: c.label.includes('عمولة')
+          ? '#f97316'
+          : c.label.includes('مستحقات')
+            ? '#8b5cf6'
+            : c.label.includes('مدفوعات')
+              ? '#fbbf24'
+              : '#10b981',
+      }));
+    }
+    return [
       { label: 'الإيرادات', value: data.revenue, fill: '#10b981' },
       { label: 'العمولة', value: data.commission, fill: '#f97316' },
       { label: 'مستحقات الملاك', value: data.payouts, fill: '#8b5cf6' },
-    ],
-    week: [
-      { label: 'الإيرادات', value: data.revenue, fill: '#10b981' },
-      { label: 'العمولة', value: data.commission, fill: '#f97316' },
-      { label: 'مستحقات الملاك', value: data.payouts, fill: '#8b5cf6' },
-    ],
-    month: commissionBreakdown.map((c) => ({
-      label: c.label,
-      value: c.amount,
-      fill: c.label.includes('عمولة') ? '#f97316' : c.label.includes('مستحقات') ? '#8b5cf6' : c.label.includes('حجوزات') || c.label.includes('إيرادات') ? '#10b981' : '#10b981',
-    })),
-    year: [
-      { label: 'الإيرادات', value: data.revenue, fill: '#10b981' },
-      { label: 'العمولة', value: data.commission, fill: '#f97316' },
-      { label: 'مستحقات الملاك', value: data.payouts, fill: '#8b5cf6' },
-    ],
-  };
+    ];
+  }, [data, effectiveRange]);
+
+  const netProfit = Math.max(0, data.commission - (adminStats.payoutsPending || 0));
+  const closeExport = () => setShowExport(false);
 
   return (
     <div className="space-y-6">
@@ -70,7 +89,7 @@ export default function AdminFinancials() {
           ))}
           <Pill
             active={range === 'custom'}
-            onClick={() => setRange('custom')}
+            onClick={() => setRange(CUSTOM_RANGE)}
           >
             نطاق مخصص
           </Pill>
@@ -89,14 +108,14 @@ export default function AdminFinancials() {
               <button
                 type="button"
                 className="w-full px-4 py-2.5 text-sm font-bold text-left transition hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-500/10 dark:hover:text-orange-400"
-                onClick={() => { setShowExport(false); alert('تصدير Excel'); }}
+                onClick={() => { closeExport(); alert('تصدير Excel'); }}
               >
                 Excel
               </button>
               <button
                 type="button"
                 className="w-full px-4 py-2.5 text-sm font-bold text-left transition hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-500/10 dark:hover:text-orange-400"
-                onClick={() => { setShowExport(false); alert('تصدير PDF'); }}
+                onClick={() => { closeExport(); alert('تصدير PDF'); }}
               >
                 PDF
               </button>
@@ -106,16 +125,35 @@ export default function AdminFinancials() {
       </div>
 
       {/* نطاق مخصص — اختيار التاريخ */}
-      {range === 'custom' && (
+      {range === CUSTOM_RANGE && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label htmlFor="custom-from" className="mb-1.5 block text-xs font-bold text-gray-600 dark:text-gray-400">من</label>
-            <input id="custom-from" type="date" className="dash__input w-full" />
+            <input
+              id="custom-from"
+              type="date"
+              className="dash__input w-full"
+              value={custom.from}
+              max={custom.to || undefined}
+              onChange={(e) => setCustom((c) => ({ ...c, from: e.target.value }))}
+            />
           </div>
           <div>
             <label htmlFor="custom-to" className="mb-1.5 block text-xs font-bold text-gray-600 dark:text-gray-400">إلى</label>
-            <input id="custom-to" type="date" className="dash__input w-full" />
+            <input
+              id="custom-to"
+              type="date"
+              className="dash__input w-full"
+              value={custom.to}
+              min={custom.from || undefined}
+              onChange={(e) => setCustom((c) => ({ ...c, to: e.target.value }))}
+            />
           </div>
+          {dateError && (
+            <p role="alert" className="text-xs font-bold text-red-600 sm:col-span-2 dark:text-red-400">
+              تاريخ البداية يجب أن يسبق تاريخ النهاية — يتم عرض أحدث نطاق جاهز بدلاً منه.
+            </p>
+          )}
         </div>
       )}
 
@@ -132,11 +170,11 @@ export default function AdminFinancials() {
           <SectionHeading
             icon={ReceiptText}
             title="توزيع الإيرادات"
-            subtitle={`النطاق المحدد: ${ranges.find((r) => r.id === range)?.label}`}
+            subtitle={`النطاق المحدد: ${rangeLabel}`}
           />
           <div className="h-64" dir="ltr">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={breakdownMap[range]} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <BarChart data={breakdown} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="opacity-40 dark:opacity-20" />
                 <XAxis dataKey="label" tick={{ fontSize: 11, fontFamily: "'Cairo', sans-serif" }} />
                 <YAxis tick={{ fontSize: 10 }} width={40} />
@@ -155,7 +193,7 @@ export default function AdminFinancials() {
                   }}
                 />
                 <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={46}>
-                  {breakdownMap[range].map((entry, index) => (
+                  {breakdown.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.fill || '#10b981'} />
                   ))}
                 </Bar>
@@ -168,9 +206,9 @@ export default function AdminFinancials() {
           <SectionHeading icon={HandCoins} title="ملخص مالي سريع" subtitle="ملخص النطاق المحدد" />
           <ul className="space-y-3">
             <MiniRow tone="green" label="إجمالي الإيرادات" value={`${fmt(data.revenue)} ش.ج`} />
-            <MiniRow tone="orange" label="عمولة المنصة (12%)" value={`${fmt(data.commission)} ش.ج`} />
+            <MiniRow tone="orange" label={`عمولة المنصة (${RATE_LABEL})`} value={`${fmt(data.commission)} ش.ج`} />
             <MiniRow tone="violet" label="مستحقات الملاك" value={`${fmt(data.payouts)} ش.ج`} />
-            <MiniRow tone="sky" label="صافي ربح المنصة" value={`${fmt(data.commission)} ش.ج`} />
+            <MiniRow tone="sky" label="صافي ربح المنصة" value={`${fmt(netProfit)} ش.ج`} />
           </ul>
         </SectionCard>
       </div>
@@ -193,7 +231,7 @@ export default function AdminFinancials() {
           <table className="dash__table min-w-[48rem] text-sm">
             <thead>
               <tr className="border-b text-xs" style={{ borderColor: 'var(--border)' }}>
-                {['الإجراءات', 'رقم الحجز', 'المساحة', 'المالك', 'المبلغ', 'العمولة (12%)', 'صافي الملاك', 'التاريخ', 'الحالة'].map((h) => (
+                {['الإجراءات', 'رقم الحجز', 'المساحة', 'المالك', 'المبلغ', `العمولة (${RATE_LABEL})`, 'صافي المالك', 'التاريخ', 'الحالة'].map((h) => (
                   <th key={h} className={`whitespace-nowrap pb-3 pe-3 font-extrabold ${h === 'الإجراءات' || h === 'الحالة' ? 'text-center' : 'text-right'}`} style={{ color: 'var(--text-muted)' }}>{h}</th>
                 ))}
               </tr>
@@ -205,7 +243,7 @@ export default function AdminFinancials() {
                 { id: '#BK-1023', space: 'مركز ريادة الأعمال', owner: 'هبة الرنتيسي', amount: 100, date: '2026-09-17', status: 'مؤكد' },
                 { id: '#BK-1024', space: 'مساحة العمل الوسطى', owner: 'ديما الجمل', amount: 75, date: '2026-09-16', status: 'متنازع' },
               ].map((t) => {
-                const comm = Math.round(t.amount * 0.12);
+                const comm = Math.round(t.amount * COMMISSION_RATE);
                 const net = t.amount - comm;
                 return (
                   <tr key={t.id} className="border-b transition hover:bg-orange-50/50 dark:hover:bg-white/[0.03]" style={{ borderColor: 'var(--border)' }}>

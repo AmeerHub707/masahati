@@ -31,12 +31,14 @@ function useDates() {
 export default function AdminLayout({ active, notifSub = null, unreadCount = 0, onNavigate, onLogout, children }) {
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  // تفتح القائمة الفرعية تلقائياً عند فتح الصفحة على تبويب الإشعارات (رفش مباشر/إشارة).
-  const [notifOpen, setNotifOpen] = useState(() => active === 'notifications');
+  // null = نتبع التبويب النشط (تُفتح القائمة الفرعية تلقائياً داخل تبويب الإشعارات).
+  const [notifOpenOverride, setNotifOpenOverride] = useState(null);
   const [tips, setTips] = useState({ show: false, top: 0, left: 0 });
   const navigate = useNavigate();
   const { gregorian, hijri } = useDates();
   const profile = getAdminProfile();
+
+  const notifOpen = notifOpenOverride ?? active === 'notifications';
 
   const close = () => setOpen(false);
 
@@ -47,15 +49,17 @@ export default function AdminLayout({ active, notifSub = null, unreadCount = 0, 
       setCollapsed(false);
       return;
     }
-    setNotifOpen((o) => !o);
+    setNotifOpenOverride(!notifOpen);
   };
 
   const navigateTo = (id) => {
+    setNotifOpenOverride(null);
     onNavigate(id);
     close();
   };
 
   const goNotif = (path) => {
+    setNotifOpenOverride(null);
     navigate(path);
     close();
   };

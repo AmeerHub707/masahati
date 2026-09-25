@@ -9,7 +9,8 @@ import {
   Phone,
 } from 'lucide-react';
 import useSafeInput from '../../hooks/useSafeInput';
-import { getAdminProfile } from '../../lib/adminAuth';
+import { getAdminProfile, updateAdminProfile, changeAdminPassword } from '../../lib/adminAuth';
+import { adminStats } from '../../data/adminMockData';
 
 function SettingsMsg({ ok, children }) {
   if (!children) return null;
@@ -42,13 +43,13 @@ function Toggle({ id, label = '', checked, onChange }) {
 }
 
 export default function AdminSettings() {
-  const profile = getAdminProfile();
-  const initials = (profile?.name || 'م').trim().slice(0, 2) || 'م';
+  const [profile, setProfile] = useState(() => getAdminProfile() || {});
+  const initials = (profile.name || 'م').trim().slice(0, 2) || 'م';
 
   // Section 1: البيانات الشخصية وكلمة المرور
-  const name = useSafeInput(profile?.name || '', { maxLength: 60 });
-  const email = useSafeInput(profile?.email || '', { maxLength: 120 });
-  const whatsapp = useSafeInput('', { maxLength: 20 });
+  const name = useSafeInput(profile.name || '', { maxLength: 60 });
+  const email = useSafeInput(profile.email || '', { maxLength: 120 });
+  const whatsapp = useSafeInput(profile.whatsapp || '', { maxLength: 20 });
   const [current, setCurrent] = useState('');
   const [newPass, setNewPass] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -56,14 +57,21 @@ export default function AdminSettings() {
   const [profileMsg, setProfileMsg] = useState({ ok: false, text: '' });
 
   // Section 2: إعدادات الحجز والعمولة
-  const [commissionRate, setCommissionRate] = useState(10);
+  const [commissionRate, setCommissionRate] = useState(() =>
+    Math.round((adminStats.platformCommission ?? 0.12) * 100)
+  );
   const [gracePeriod, setGracePeriod] = useState(24);
   const [autoApprove, setAutoApprove] = useState(false);
   const [bookingMsg, setBookingMsg] = useState({ ok: false, text: '' });
 
   const saveProfile = (e) => {
     e.preventDefault();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())) {
+    const nextEmail = email.value.trim();
+    if (!name.value.trim()) {
+      setProfileMsg({ ok: false, text: 'الاسم الكامل مطلوب.' });
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) {
       setProfileMsg({ ok: false, text: 'البريد الإلكتروني غير صحيح.' });
       return;
     }
@@ -81,14 +89,24 @@ export default function AdminSettings() {
         setProfileMsg({ ok: false, text: 'كلمتا المرور غير متطابقتين.' });
         return;
       }
+    }
+    try {
+      if (wantsPw) changeAdminPassword(current, newPass);
+      const saved = updateAdminProfile({ name: name.value, email: nextEmail, whatsapp: whatsapp.value });
+      setProfile(saved);
+      name.setValue(saved.name);
+      email.setValue(saved.email);
+      whatsapp.setValue(saved.whatsapp || '');
       setCurrent('');
       setNewPass('');
       setConfirm('');
+      setProfileMsg({
+        ok: true,
+        text: wantsPw ? 'تم حفظ الملف الشخصي وتغيير كلمة المرور بنجاح.' : 'تم حفظ الملف الشخصي بنجاح.',
+      });
+    } catch (err) {
+      setProfileMsg({ ok: false, text: err?.message || 'تعذّر حفظ البيانات.' });
     }
-    setProfileMsg({
-      ok: true,
-      text: wantsPw ? 'تم حفظ الملف الشخصي وتغيير كلمة المرور بنجاح.' : 'تم حفظ الملف الشخصي بنجاح.',
-    });
   };
 
   const saveBooking = (e) => {
@@ -117,7 +135,7 @@ export default function AdminSettings() {
         <div className="dash__profile-card">
           <div className="dash__profile-hero">
             <div className="dash__photo dash__photo--initials">{initials}</div>
-            <h3 className="dash__photo-name">{profile?.name || 'مدير المنصة'}</h3>
+            <h3 className="dash__photo-name">{profile.name || 'مدير المنصة'}</h3>
             <p className="dash__photo-role">مدير المنصة</p>
           </div>
 

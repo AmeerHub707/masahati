@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowLeft, X, Star } from 'lucide-react';
 import DashCountUp from '../dashboard/DashCountUp';
 
@@ -265,5 +267,34 @@ export function MiniRow({ tone, label, value }) {
       <span className="lbl">{label}</span>
       <span className="val">{value}</span>
     </li>
+  );
+}
+
+// تلميح عائم يُعرض عبر بوابة على body حتى لا يقصّه أي حاوية overflow
+export function Tip({ label, children }) {
+  const [pos, setPos] = useState(null);
+
+  const measure = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setPos({
+      top: Math.max(8, r.top - 32),
+      left: Math.min(Math.max(8, r.left - 60), Math.max(8, window.innerWidth - 160)),
+    });
+  };
+  const hide = () => setPos(null);
+
+  return (
+    <>
+      <span className="dash__tip-anchor" onPointerEnter={measure} onPointerLeave={hide} onFocus={measure} onBlur={hide}>
+        {children}
+      </span>
+      {pos &&
+        createPortal(
+          <span className="dash__tip" role="tooltip" style={{ top: pos.top, left: pos.left }}>
+            {label}
+          </span>,
+          document.body
+        )}
+    </>
   );
 }

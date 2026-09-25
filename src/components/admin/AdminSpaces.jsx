@@ -25,6 +25,9 @@ const statusMeta = {
   suspended: { label: 'موقوفة', tone: 'red' },
 };
 
+// قيمة بديلة آمنة — بيانات الـ API قد تحتوي حالة غير معرّفة.
+const spaceStatus = (status) => statusMeta[status] || { label: 'غير محدّدة', tone: 'gray' };
+
 const sortOptions = [
   { id: 'newest', label: 'الأحدث' },
   { id: 'rating', label: 'الأعلى تقييماً' },
@@ -110,7 +113,7 @@ export default function AdminSpaces() {
 
   const counts = { all: spaces.length, pending: 0, active: 0, suspended: 0 };
   spaces.forEach((s) => {
-    counts[s.status] += 1;
+    if (counts[s.status] !== undefined) counts[s.status] += 1;
   });
 
   const sorted = [...spaces].sort((a, b) => {
@@ -300,7 +303,7 @@ export default function AdminSpaces() {
                   <span className="st-ico">
                     <Building2 />
                   </span>
-                  <StatusBadge tone={statusMeta[s.status].tone}>{statusMeta[s.status].label}</StatusBadge>
+                  <StatusBadge tone={spaceStatus(s.status).tone}>{spaceStatus(s.status).label}</StatusBadge>
                 </div>
 
                 <h3 className="text-base font-extrabold" style={{ color: 'var(--text-strong)' }}>
@@ -388,7 +391,7 @@ export default function AdminSpaces() {
                       {s.price} ش.ج/ساعة
                     </td>
                     <td className="whitespace-nowrap py-3.5 pe-3">
-                      <StatusBadge tone={statusMeta[s.status].tone}>{statusMeta[s.status].label}</StatusBadge>
+                      <StatusBadge tone={spaceStatus(s.status).tone}>{spaceStatus(s.status).label}</StatusBadge>
                     </td>
                     <td className="py-3.5">
                       <SpaceActions

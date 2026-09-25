@@ -24,6 +24,10 @@ const disputeStatus = {
   closed: { label: 'مغلق', tone: 'gray' },
 };
 
+// قيم بديلة آمنة — بيانات الـ API قد تحتوي حالة غير معرّفة.
+const bookingStatus = (status) => bookingMeta[status] || { label: 'غير محدّدة', tone: 'gray' };
+const disputeStatusMeta = (status) => disputeStatus[status] || { label: 'غير محدّدة', tone: 'gray' };
+
 export default function AdminBookings() {
   const [tab, setTab] = useState('bookings');
   const [disputes, setDisputes] = useState(adminDisputes);
@@ -88,7 +92,7 @@ export default function AdminBookings() {
                     <td style={{ color: 'var(--text-muted)' }}>{b.hours} ساعات</td>
                     <td className="num">{b.amount} ش.ج</td>
                     <td>
-                      <StatusBadge tone={bookingMeta[b.status].tone}>{bookingMeta[b.status].label}</StatusBadge>
+                      <StatusBadge tone={bookingStatus(b.status).tone}>{bookingStatus(b.status).label}</StatusBadge>
                     </td>
                   </tr>
                 ))}
@@ -130,7 +134,7 @@ export default function AdminBookings() {
                         </p>
                       </div>
                     </div>
-                    <StatusBadge tone={disputeStatus[d.status].tone}>{disputeStatus[d.status].label}</StatusBadge>
+                    <StatusBadge tone={disputeStatusMeta(d.status).tone}>{disputeStatusMeta(d.status).label}</StatusBadge>
                   </div>
                   <p className="dash__soft mt-3">{d.issue}</p>
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2">

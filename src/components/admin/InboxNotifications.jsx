@@ -45,14 +45,15 @@ export default function InboxNotifications({ inbox, setInbox }) {
     });
   }, [active, filter]);
 
-  const unreadCount = inbox.filter((n) => !n.read).length;
-  const archivedCount = inbox.filter((n) => n.archived).length;
+  // عدّاد الوارد يستبعد المؤرشف حتى يطابق شارة الشريط الجانبي وما يراه المستخدم.
+  const activeUnreadCount = useMemo(() => active.filter((n) => !n.read).length, [active]);
+  const archivedCount = useMemo(() => inbox.filter((n) => n.archived).length, [inbox]);
 
   const allChecked = filtered.length > 0 && filtered.every((n) => selected.has(n.id));
   const someChecked = !allChecked && filtered.some((n) => selected.has(n.id));
 
   const markAllRead = () => {
-    setInbox((prev) => prev.map((n) => ({ ...n, read: true })));
+    setInbox((prev) => prev.map((n) => (n.archived ? n : { ...n, read: true })));
     setSelected(new Set());
   };
 
@@ -100,7 +101,7 @@ export default function InboxNotifications({ inbox, setInbox }) {
         <SectionHeading
           icon={Inbox}
           title="التنبيهات الواردة"
-          subtitle={`${inbox.length} إشعار · ${unreadCount} غير مقروء`}
+          subtitle={`${active.length} إشعار · ${activeUnreadCount} غير مقروء`}
           action={
             <button type="button" className={btnGhost} onClick={markAllRead}>
               <CheckCheck className="h-4 w-4" />
@@ -122,8 +123,8 @@ export default function InboxNotifications({ inbox, setInbox }) {
                 }}
               >
                 {f.label}
-                {f.id === 'unread' && unreadCount > 0 && (
-                  <span className="dash__nav-badge" style={{ position: 'static' }}>{unreadCount}</span>
+                {f.id === 'unread' && activeUnreadCount > 0 && (
+                  <span className="dash__nav-badge" style={{ position: 'static' }}>{activeUnreadCount}</span>
                 )}
               </Pill>
             ))}

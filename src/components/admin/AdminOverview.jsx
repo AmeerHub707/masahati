@@ -45,6 +45,12 @@ const roleTone = {
   owner: 'orange',
 };
 
+// قيم بديلة آمنة — بيانات الـ API قد تحتوي دوراً غير معرّف.
+const roleOf = (role) => ({
+  label: roleLabel[role] || 'مستخدم',
+  tone: roleTone[role] || 'gray',
+});
+
 function chartTooltipStyle() {
   const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
   return {
@@ -178,20 +184,23 @@ export default function AdminOverview({ onNavigate = () => {} }) {
                 </tr>
               </thead>
               <tbody>
-                {recentRegistrations.map((r) => (
-                  <tr key={r.id}>
-                    <td>
-                      <div className="flex items-center gap-2.5">
-                        <Avatar name={r.name} xs />
-                        <span className="font-bold" style={{ color: 'var(--text-strong)' }}>{r.name}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <StatusBadge tone={roleTone[r.role]}>{roleLabel[r.role]}</StatusBadge>
-                    </td>
-                    <td className="txt-muted text-xs">{r.time}</td>
-                  </tr>
-                ))}
+                {recentRegistrations.map((r) => {
+                  const role = roleOf(r.role);
+                  return (
+                    <tr key={r.id}>
+                      <td>
+                        <div className="flex items-center gap-2.5">
+                          <Avatar name={r.name} xs />
+                          <span className="font-bold" style={{ color: 'var(--text-strong)' }}>{r.name}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <StatusBadge tone={role.tone}>{role.label}</StatusBadge>
+                      </td>
+                      <td className="txt-muted text-xs">{r.time}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

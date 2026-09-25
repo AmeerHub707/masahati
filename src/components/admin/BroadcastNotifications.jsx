@@ -5,6 +5,7 @@ import { Send, Megaphone, Users, Sparkles, Save, Search, MoreVertical, Copy, Rot
 import { adminNotifications, audienceRecipients } from '../../data/adminMockData';
 import { SectionCard, SectionHeading, StatusBadge, EmptyState, Field, inputCls, btnPrimary, btnGhost, Modal } from './ui';
 import useSafeInput from '../../hooks/useSafeInput';
+import { sanitizeUrl } from '../../utils/sanitize';
 
 const audiences = [
   { id: 'all', label: 'جميع المستخدمين' },
@@ -79,14 +80,20 @@ export default function BroadcastNotifications() {
   useEffect(() => {
     if (!menu) return undefined;
     const close = (e) => {
-      if (e.target && !e.target.closest('[data-notif-menu]')) setMenu(null);
+      if (!e.target?.closest?.('[data-notif-menu]')) setMenu(null);
     };
     const onKey = (e) => e.key === 'Escape' && setMenu(null);
+    // القائمة مثبّتة بـ position:fixed — تُغلق عند التمرير حتى لا تنفصل عن الصف.
+    const onScroll = () => setMenu(null);
     window.addEventListener('mousedown', close);
     window.addEventListener('keydown', onKey);
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onScroll);
     return () => {
       window.removeEventListener('mousedown', close);
       window.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onScroll);
     };
   }, [menu]);
 
@@ -123,6 +130,11 @@ export default function BroadcastNotifications() {
       setError('نص الإشعار مطلوب.');
       return false;
     }
+    const rawLink = link.value.trim();
+    if (rawLink && sanitizeUrl(rawLink) !== rawLink) {
+      setError('رابط الإشعار غير صالح — استخدم رابطاً آمناً يبدأ بـ https:// أو مساراً داخلياً.');
+      return false;
+    }
     if (!channels.in_app && !channels.email) {
       setError('اختر قناة إرسال واحدة على الأقل.');
       return false;
@@ -154,8 +166,9 @@ export default function BroadcastNotifications() {
     title.setValue('');
     body.setValue('');
     link.setValue('');
+    setTemplate('');
     setSent(true);
-    setLogMsg('تم إرسال الإشعار بنجاح.');
+    setLogMsg('');
   };
 
   const saveDraft = () => {
@@ -193,13 +206,27 @@ export default function BroadcastNotifications() {
   const openRowMenu = (e, n) => {
     e.stopPropagation();
     const r = e.currentTarget.getBoundingClientRect();
-    const left = Math.max(8, r.left - 182);
-    setMenu({ id: n.id, top: r.bottom + 6, left });
+    const menuWidth = 200;
+    const menuHeight = 160;
+    const padding = 8;
+    const gap = 6;
+    const maxLeft = Math.max(padding, window.innerWidth - menuWidth - padding);
+    const left = Math.min(maxLeft, Math.max(padding, r.left - menuWidth - gap));
+    const below = r.bottom + gap;
+    const above = r.top - menuHeight - gap;
+    const maxTop = Math.max(padding, window.innerHeight - menuHeight - padding);
+    const preferredTop = below + menuHeight <= window.innerHeight - padding ? below : above;
+    const top = Math.min(maxTop, Math.max(padding, preferredTop));
+    setMenu((current) => (current?.id === n.id ? null : { id: n.id, top, left }));
   };
 
   const resend = () => {
     if (!menu) return;
     const n = log.find((x) => x.id === menu.id);
+    if (!n) {
+      setMenu(null);
+      return;
+    }
     setLog((prev) => [
       {
         id: Date.now(),
@@ -223,6 +250,10 @@ export default function BroadcastNotifications() {
   const copyText = async () => {
     if (!menu) return;
     const n = log.find((x) => x.id === menu.id);
+    if (!n) {
+      setMenu(null);
+      return;
+    }
     const text = `${n.title}\n\n${n.body}${n.link ? `\n${n.link}` : ''}`;
     try {
       await navigator.clipboard.writeText(text);
@@ -534,7 +565,7 @@ export default function BroadcastNotifications() {
                         <Eye className="h-3.5 w-3.5" />
                         {n.opened}/{n.total}
                       </span>
-                      <StatusBadge tone="orange">{audienceBadge[n.target] || audienceBadge.freelancers}</StatusBadge>
+                      <StatusBadge tone="orange">{audienceBadge[n.target] || 'غير محدد'}</StatusBadge>
                       <div className="dash__actions-cell" data-notif-menu>
                         <button
                           type="button"
@@ -571,35 +602,39 @@ export default function BroadcastNotifications() {
         )}
       </SectionCard>
 
-      {/* قائمة الخيارات (ثلاث نقاط) */}
-      <AnimatePresence>
-        {menu &&
-          createPortal(
+      {/* قائمة الخيارات (ثلاث نقاط) — AnimatePresence داخل البوابة لأن Framer Motion
+          يتجاهل عناصر createPortal كأبناء فلا تظهر القائمة. */}
+      {menu &&
+        createPortal(
+          <AnimatePresence>
             <motion.div
+              key="notif-row-menu"
               className="dash__menu dash__menu--fixed"
               data-notif-menu
+              role="menu"
+              aria-label="خيارات الإشعار"
               style={{ top: menu.top, left: menu.left }}
               initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.16 }}
             >
-              <button type="button" onClick={resend}>
+              <button type="button" role="menuitem" onClick={resend}>
                 <RotateCcw className="h-4 w-4" />
                 إعادة الإرسال
               </button>
-              <button type="button" onClick={copyText}>
+              <button type="button" role="menuitem" onClick={copyText}>
                 <Copy className="h-4 w-4" />
                 نسخ النص
               </button>
-              <button type="button" className="is-danger" onClick={() => { setDeleteTarget(menu.id); setMenu(null); }}>
+              <button type="button" role="menuitem" className="is-danger" onClick={() => { setDeleteTarget(menu.id); setMenu(null); }}>
                 <Trash2 className="h-4 w-4" />
                 حذف من السجل
               </button>
-            </motion.div>,
-            document.body
-          )}
-      </AnimatePresence>
+            </motion.div>
+          </AnimatePresence>,
+          document.body
+        )}
 
       {/* نافذة تأكيد الإرسال */}
       <Modal open={confirm} onClose={() => setConfirm(false)} title="تأكيد إرسال الإشعار" wide>
@@ -617,7 +652,7 @@ export default function BroadcastNotifications() {
           <ul className="grid grid-cols-2 gap-2 text-sm">
             <li className="dash__mini is-orange">
               <span className="lbl">الجمهور المستهدف</span>
-              <span className="val">{audienceBadge[target]}</span>
+              <span className="val">{audienceBadge[target] || 'غير محدد'}</span>
             </li>
             <li className="dash__mini is-green">
               <span className="lbl">إجمالي المستلمين</span>

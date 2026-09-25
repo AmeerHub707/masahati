@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -15,6 +15,8 @@ import {
   CheckCircle2,
   Trash2,
   Download,
+  Check,
+  RefreshCcw,
   Filter,
   FilterX,
   Building2,
@@ -36,9 +38,39 @@ import {
   btnPrimary,
   Pill,
   Avatar,
+  Tip,
 } from './ui';
 
 const PAGE_SIZE = 10;
+
+const MENU_WIDTH = 176;
+const MENU_HEIGHT = 200;
+const SUBMENU_WIDTH = 168;
+const SUBMENU_HEIGHT = 132;
+const VIEWPORT_PAD = 8;
+const MENU_GAP = 6;
+
+// يضع قائمة ثابتة بجانب مرساة مع البقاء داخل حدود النافذة، ويفتح لليسار افتراضياً (RTL).
+function placeFixed(rect, width, height, prefer = 'left') {
+  const canStart = rect.left - width - MENU_GAP >= VIEWPORT_PAD;
+  const canEnd = rect.right + MENU_GAP + width <= window.innerWidth - VIEWPORT_PAD;
+  let left;
+  if (prefer === 'left' && canStart) left = rect.left - width - MENU_GAP;
+  else if (prefer === 'right' && canEnd) left = rect.right + MENU_GAP;
+  else if (canStart) left = rect.left - width - MENU_GAP;
+  else if (canEnd) left = rect.right + MENU_GAP;
+  else left = rect.left - width - MENU_GAP;
+  left = Math.min(Math.max(VIEWPORT_PAD, left), Math.max(VIEWPORT_PAD, window.innerWidth - width - VIEWPORT_PAD));
+
+  const below = rect.bottom + MENU_GAP;
+  const above = rect.top - height - MENU_GAP;
+  const fitsBelow = below + height <= window.innerHeight - VIEWPORT_PAD;
+  const top = Math.min(
+    Math.max(VIEWPORT_PAD, fitsBelow ? below : above),
+    Math.max(VIEWPORT_PAD, window.innerHeight - height - VIEWPORT_PAD)
+  );
+  return { top, left };
+}
 
 const TABS = [
   { id: 'all', label: 'كل الحسابات' },
@@ -101,18 +133,43 @@ export default function AdminUsers() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [menu, setMenu] = useState(null);
   const [draft, setDraft] = useState(null);
+  const menuRef = useRef(null);
 
   useEffect(() => {
     if (!menu) return undefined;
     const close = (e) => {
-      if (e.target && !e.target.closest('[data-row-menu]')) setMenu(null);
+      if (!e.target?.closest?.('[data-row-menu]')) setMenu(null);
     };
-    const onKey = (e) => e.key === 'Escape' && setMenu(null);
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      if (menu.statusOpen) setMenu((cur) => (cur ? { ...cur, statusOpen: false } : null));
+      else setMenu(null);
+    };
     window.addEventListener('mousedown', close);
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('mousedown', close);
       window.removeEventListener('keydown', onKey);
+    };
+  }, [menu]);
+
+  // تتبّع مرساة الصف أثناء التمرير/resize حتى لا تنفصل القائمة الثابتة عن الصف.
+  useEffect(() => {
+    if (!menu) return undefined;
+    const reposition = () => {
+      const anchor = menu.anchor;
+      if (!anchor || !anchor.isConnected) {
+        setMenu(null);
+        return;
+      }
+      const pos = placeFixed(anchor.getBoundingClientRect(), MENU_WIDTH, MENU_HEIGHT);
+      setMenu((cur) => (cur && cur.top === pos.top && cur.left === pos.left ? cur : { ...cur, ...pos }));
+    };
+    window.addEventListener('resize', reposition);
+    window.addEventListener('scroll', reposition, true);
+    return () => {
+      window.removeEventListener('resize', reposition);
+      window.removeEventListener('scroll', reposition, true);
     };
   }, [menu]);
 
@@ -229,11 +286,16 @@ export default function AdminUsers() {
 
   const handleDelete = () => {
     if (!deleteTarget) return;
-    setUsers((prev) => {
-      const next = prev.filter((u) => u.id !== deleteTarget);
-      setSelected((s) => (next.length === prev.length ? s : new Set(next.map((u) => u.id).filter((id) => s.has(id)))));
+    const id = deleteTarget;
+    setUsers((prev) => prev.filter((u) => u.id !== id));
+    setSelected((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
       return next;
     });
+    setViewUser((v) => (v && v.id === id ? null : v));
+    setMenu((m) => (m && m.id === id ? null : m));
     setDeleteTarget(null);
   };
 
@@ -252,10 +314,32 @@ export default function AdminUsers() {
 
   const openRowMenu = (e, u) => {
     e.stopPropagation();
-    const r = e.currentTarget.getBoundingClientRect();
-    const left = Math.max(8, r.left - 168);
-    setMenu({ id: u.id, top: r.bottom + 6, left });
+    e.preventDefault();
+    const pos = placeFixed(e.currentTarget.getBoundingClientRect(), MENU_WIDTH, MENU_HEIGHT);
+    setMenu((current) => (current?.id === u.id ? null : { id: u.id, anchor: e.currentTarget, ...pos }));
   };
+
+  const toggleStatusMenu = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const rect = menuRef.current?.getBoundingClientRect();
+    const statusPos = rect ? placeFixed(rect, SUBMENU_WIDTH, SUBMENU_HEIGHT) : null;
+    setMenu((cur) =>
+      cur
+        ? cur.statusOpen
+          ? { ...cur, statusOpen: false }
+          : { ...cur, statusOpen: true, statusPos }
+        : cur
+    );
+  };
+
+  const applyStatus = (id, status) => {
+    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, status } : u)));
+    setMenu(null);
+  };
+
+  const menuUser = menu ? users.find((u) => u.id === menu.id) || null : null;
+  const menuIsBlocked = menuUser?.status === 'suspended';
 
   const clearFilters = () => {
     setAdvOpen(false);
@@ -321,7 +405,7 @@ export default function AdminUsers() {
             {hasAdvFilters && <span className="dash__toolbtn-count">{filteredActiveCount()}</span>}
           </button>
 
-          <div className="relative" data-row-menu>
+          <div className="relative">
             <button
               type="button"
               className={`dash__toolbtn${bulkOpen ? ' is-active' : ''}`}
@@ -447,14 +531,15 @@ export default function AdminUsers() {
                 </tr>
               </thead>
               <tbody>
-                {paged.map((u) => {
+                {paged.map((u, i) => {
                   const st = statusMeta[u.status] || statusMeta.active;
                   const StatusIcon = st.Icon;
                   const isSelected = selected.has(u.id);
                   return (
                     <tr
                       key={u.id}
-                      className={`dash__tr-select${isSelected ? ' is-selected' : ''}`}
+                      className={`dash__tr-select dash__row-in${u.status === 'suspended' ? ' dash__tr--muted' : ''}${isSelected ? ' is-selected' : ''}`}
+                      style={{ animationDelay: `${Math.min(i, 9) * 22}ms` }}
                       onClick={() => setViewUser(u)}
                     >
                       <td onClick={(e) => e.stopPropagation()}>
@@ -491,14 +576,19 @@ export default function AdminUsers() {
                       <td className="txt-muted text-xs">{u.lastActive}</td>
                       <td className="txt-muted text-xs" dir="ltr">{u.joined}</td>
                       <td data-row-menu className="dash__actions-cell">
-                        <button
-                          type="button"
-                          className="dash__menu-btn"
-                          aria-label={`إجراءات ${u.name}`}
-                          onClick={(e) => openRowMenu(e, u)}
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                        </button>
+                        <Tip label={`إجراءات ${u.name}`}>
+                          <button
+                            type="button"
+                            className="dash__menu-btn"
+                            aria-label={`إجراءات ${u.name}`}
+                            aria-haspopup="menu"
+                            aria-expanded={menu?.id === u.id}
+                            aria-controls="admin-user-actions-menu"
+                            onClick={(e) => openRowMenu(e, u)}
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                        </Tip>
                       </td>
                     </tr>
                   );
@@ -559,54 +649,146 @@ export default function AdminUsers() {
         )}
       </SectionCard>
 
-      {/* قائمة إجراءات الصف */}
-      <AnimatePresence>
-        {menu &&
-          createPortal(
+      {/* قائمة إجراءات الصف — AnimatePresence داخل البوابة لأن Framer Motion
+          يتجاهل عناصر createPortal كأبناء (يرشّحها onlyElements) فلا تظهر القائمة. */}
+      {menu &&
+        createPortal(
+          <AnimatePresence>
             <motion.div
+              key="row-menu"
+              ref={menuRef}
+              id="admin-user-actions-menu"
               className="dash__menu dash__menu--fixed"
+              data-row-menu
+              role="menu"
+              aria-label="إجراءات المستخدم"
               style={{ top: menu.top, left: menu.left }}
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
+              initial={{ opacity: 0, y: -6, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, scale: 0.97 }}
               transition={{ duration: 0.16 }}
             >
-              <button type="button" onClick={() => { const t = users.find((u) => u.id === menu.id); setViewUser(t); setMenu(null); }}>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setViewUser(menuUser);
+                  setMenu(null);
+                }}
+              >
                 <Eye className="h-4 w-4" />
                 عرض الملف
               </button>
-              <button type="button" onClick={() => openEdit(users.find((u) => u.id === menu.id))}>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openEdit(menuUser);
+                }}
+              >
                 <Pencil className="h-4 w-4" />
-                تعديل
+                تعديل البيانات
               </button>
-              <button type="button" onClick={() => { toggleSuspend(menu.id); setMenu(null); }}>
-                {users.find((u) => u.id === menu.id)?.status === 'suspended' ? (
+              <button
+                type="button"
+                role="menuitem"
+                className="has-sub"
+                aria-haspopup="menu"
+                aria-expanded={Boolean(menu.statusOpen)}
+                aria-controls="admin-user-status-menu"
+                onClick={toggleStatusMenu}
+              >
+                <RefreshCcw className="h-4 w-4" />
+                تغيير الحالة
+                <ChevronLeft className="dash__menu-caret h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className={menuIsBlocked ? '' : 'is-danger-soft'}
+                onClick={() => {
+                  toggleSuspend(menu.id);
+                  setMenu(null);
+                }}
+              >
+                {menuIsBlocked ? (
                   <>
                     <CheckCircle2 className="h-4 w-4" />
-                    تفعيل الحساب
+                    رفع الحظر
                   </>
                 ) : (
                   <>
                     <Ban className="h-4 w-4" />
-                    إيقاف الحساب
+                    حظر المستخدم
                   </>
                 )}
               </button>
-              <button type="button" className="is-danger" onClick={() => { setDeleteTarget(menu.id); setMenu(null); }}>
+              <span className="dash__menu-sep" role="separator" />
+              <button
+                type="button"
+                role="menuitem"
+                className="is-danger"
+                onClick={() => {
+                  setDeleteTarget(menu.id);
+                  setMenu(null);
+                }}
+              >
                 <Trash2 className="h-4 w-4" />
                 حذف
               </button>
-            </motion.div>,
-            document.body
-          )}
-      </AnimatePresence>
+            </motion.div>
+          </AnimatePresence>,
+          document.body
+        )}
+
+      {/* قائمة تغيير الحالة الفرعية */}
+      {menu?.statusOpen &&
+        createPortal(
+          <AnimatePresence>
+            <motion.div
+              key="row-status-menu"
+              id="admin-user-status-menu"
+              className="dash__menu dash__menu--fixed dash__menu--sub"
+              data-row-menu
+              role="menu"
+              aria-label="تغيير حالة الحساب"
+              style={{ top: menu.statusPos?.top ?? menu.top, left: menu.statusPos?.left ?? menu.left }}
+              initial={{ opacity: 0, x: 6, scale: 0.97 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 6, scale: 0.97 }}
+              transition={{ duration: 0.14 }}
+            >
+              {Object.entries(statusMeta).map(([key, meta]) => {
+                const MetaIcon = meta.Icon;
+                const active = menuUser?.status === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={active}
+                    className={`dash__menu-status is-${meta.tone}${active ? ' is-active' : ''}`}
+                    onClick={() => applyStatus(menu.id, key)}
+                  >
+                    <MetaIcon className="h-4 w-4" />
+                    {meta.label}
+                    {active && <Check className="dash__menu-check h-4 w-4" />}
+                  </button>
+                );
+              })}
+            </motion.div>
+          </AnimatePresence>,
+          document.body
+        )}
 
       {/* نافذة منزلقة لعرض الملف */}
-      <AnimatePresence>
-        {viewUser &&
-          createPortal(
+      {viewUser &&
+        createPortal(
+          <AnimatePresence>
             <>
               <motion.div
+                key="drawer-scrim"
                 className="dash__scrim dash__drawer-scrim"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -614,6 +796,7 @@ export default function AdminUsers() {
                 onClick={() => setViewUser(null)}
               />
               <motion.aside
+                key="drawer"
                 className="dash__drawer"
                 role="dialog"
                 aria-modal="true"
@@ -697,10 +880,10 @@ export default function AdminUsers() {
                   </button>
                 </div>
               </motion.aside>
-            </>,
-            document.body
-          )}
-      </AnimatePresence>
+            </>
+          </AnimatePresence>,
+          document.body
+        )}
 
       {/* نافذة التعديل */}
       <Modal open={Boolean(editTarget)} onClose={() => setEditTarget(null)} title={editTarget ? `تعديل حساب ${editTarget.name}` : 'تعديل الحساب'}>
