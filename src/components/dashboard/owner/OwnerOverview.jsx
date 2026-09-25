@@ -607,7 +607,7 @@ export default function OwnerOverview({ data, onNavigate, onStatusChange }) {
         </motion.div>
       )}
 
-      <section className="odash__stats odash__stats--4">
+      <section className="odash__stats odash__stats--4" data-tour="owner-metrics">
         {statCards.map((c) => {
           const Icon = c.icon;
           return (

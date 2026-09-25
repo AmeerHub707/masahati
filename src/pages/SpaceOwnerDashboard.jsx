@@ -23,6 +23,8 @@ import OwnerDocumentation from '../components/dashboard/owner/OwnerDocumentation
 import ScrollProgress from '../components/common/ScrollProgress';
 import Footer from '../components/layout/Footer';
 import OwnerAssistant from '../components/assistant/OwnerAssistant';
+import OwnerTour from '../components/dashboard/owner/OwnerTour';
+import { hasCompletedOwnerTour, markOwnerTourCompleted } from '../lib/ownerTour';
 import { AlertCircle, Trash2 } from 'lucide-react';
 import { useDialogA11y } from '../lib/dialogA11y';
 
@@ -33,6 +35,10 @@ export default function SpaceOwnerDashboard() {
   const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [loaderDone, setLoaderDone] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
+  const [tourStep, setTourStep] = useState(1);
+  const autoTourCheckedRef = useRef(false);
   const deleteResolve = useRef(null);
   const mountedRef = useRef(true);
   const deleteDialogRef = useDialogA11y({ open: deleteOpen, onClose: () => { if (!deleting) closeDelete(false); } });
@@ -200,6 +206,59 @@ export default function SpaceOwnerDashboard() {
     });
   }, []);
 
+  // ----- جولة تعريفية للوحة المالك -----
+  const tourOwnerId =
+    data?.user?.id ?? data?.user?.user_id ?? getUser()?.id ?? getUser()?.user_id ?? null;
+
+  // مرآة للتبويب النشط + التبويب الذي كانت عليه اللوحة قبل بدء الجولة،
+  // حتى يعود إليه المستخدم عند إنهائها أو تخطيها.
+  const activeRef = useRef(active);
+  const tabBeforeTourRef = useRef('overview');
+  useEffect(() => {
+    activeRef.current = active;
+  }, [active]);
+
+  const handleLoaderHidden = useCallback(() => setLoaderDone(true), []);
+
+  const startTour = useCallback(() => {
+    tabBeforeTourRef.current = activeRef.current;
+    setActive('overview');
+    setTourStep(1);
+    setTourOpen(true);
+  }, []);
+
+  const stopTour = useCallback(() => {
+    setTourOpen(false);
+    setTourStep(1);
+    setActive(tabBeforeTourRef.current);
+  }, []);
+
+  const handleTourFinish = useCallback(() => {
+    markOwnerTourCompleted(tourOwnerId);
+    stopTour();
+  }, [tourOwnerId, stopTour]);
+
+  const handleTourDismiss = useCallback(() => {
+    markOwnerTourCompleted(tourOwnerId);
+    stopTour();
+  }, [tourOwnerId, stopTour]);
+
+  // التشغيل التلقائي مرة واحدة فقط: بعد زوال شاشة التحميل ونجاح جلب البيانات،
+  // وغياب علامة الإنجاز لهذا المالك. التخطي أو إنهاء الجولة يكتبان نفس العلامة.
+  useEffect(() => {
+    if (autoTourCheckedRef.current) return undefined;
+    if (!loaderDone || status !== 'ready') return undefined;
+    autoTourCheckedRef.current = true;
+    if (hasCompletedOwnerTour(tourOwnerId)) return undefined;
+    tabBeforeTourRef.current = activeRef.current;
+    const frame = requestAnimationFrame(() => {
+      setActive('overview');
+      setTourStep(1);
+      setTourOpen(true);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [loaderDone, status, tourOwnerId]);
+
   let tabContent;
   if (status === 'loading') {
     tabContent = null;
@@ -248,13 +307,15 @@ export default function SpaceOwnerDashboard() {
 
   return (
     <div className="odash__page-root">
-      <DashboardLoading done={status !== 'loading'} />
+      <DashboardLoading done={status !== 'loading'} onHidden={handleLoaderHidden} />
       <ScrollProgress />
       <OwnerLayout
         active={active}
         onNavigate={setActive}
         onLogout={handleLogout}
         user={data?.user}
+        tourStep={tourOpen ? tourStep : 0}
+        onStartTour={startTour}
       >
         <AnimatePresence mode="wait" initial={false}>
           {tabContent ? (
@@ -272,7 +333,15 @@ export default function SpaceOwnerDashboard() {
         </AnimatePresence>
       </OwnerLayout>
       <Footer />
-      <OwnerAssistant data={data} onNavigate={setActive} />
+      <OwnerAssistant data={data} onNavigate={setActive} tourActive={tourOpen} />
+      <OwnerTour
+        open={tourOpen}
+        step={tourStep}
+        onStepChange={setTourStep}
+        onFinish={handleTourFinish}
+        onDismiss={handleTourDismiss}
+        onNavigate={setActive}
+      />
 
       {deleteOpen && (
         <div className="modal-overlay delete-confirm__overlay" onClick={() => closeDelete(false)}>

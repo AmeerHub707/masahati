@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 const TOTAL_MS = 2000;
 const EXIT_MS = 420;
 
-export default function DashboardLoading({ done }) {
+export default function DashboardLoading({ done, onHidden }) {
   const [progress, setProgress] = useState(0);
   const [leaving, setLeaving] = useState(false);
   const [hidden, setHidden] = useState(false);
@@ -37,6 +37,14 @@ export default function DashboardLoading({ done }) {
       document.body.classList.remove('no-scroll');
     };
   }, [done]);
+
+  // إشعار واحد عند زوال شاشة التحميل، لبدء الجولة خلفها لا فوقها.
+  const notifiedRef = useRef(false);
+  useEffect(() => {
+    if (!hidden || notifiedRef.current) return;
+    notifiedRef.current = true;
+    onHidden?.();
+  }, [hidden, onHidden]);
 
   if (hidden) return null;
 

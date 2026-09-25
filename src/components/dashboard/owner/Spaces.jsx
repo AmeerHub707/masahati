@@ -1062,7 +1062,7 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
               >
                 <Repeat className={refreshing ? 'spin' : ''} />
               </button>
-              <button type="button" className="odash__spaces-add" onClick={openCreate}>
+              <button type="button" className="odash__spaces-add" onClick={openCreate} data-tour="owner-quick-add">
                 <Plus /> أضف مساحة
               </button>
             </>

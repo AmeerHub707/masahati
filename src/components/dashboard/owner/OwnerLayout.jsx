@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Store, Building2, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Megaphone, ChevronLeft, ChevronRight, Lock, Sparkles, Home, CalendarCheck, Receipt, Star } from 'lucide-react';
+import { Store, Building2, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Megaphone, ChevronLeft, ChevronRight, Lock, Sparkles, Home, CalendarCheck, Receipt, Star, HelpCircle } from 'lucide-react';
 import ThemeToggle from '../../common/ThemeToggle';
 import { getCachedPictureUrl } from '../../../lib/profilePicture';
 import { loadNotificationsWithFallback, markAllNotificationsReadWithFallback } from '../../../lib/notifications';
@@ -35,6 +35,8 @@ export default function OwnerLayout({
   onNavigate,
   onLogout,
   user,
+  tourStep = 0,
+  onStartTour,
   children,
 }) {
   const [open, setOpen] = useState(false);
@@ -145,6 +147,30 @@ export default function OwnerLayout({
     };
   }, [notifOpen]);
 
+  // تنسيق الواجهة مع خطوة الجولة: الشريط الجانبي يُفتح في خطوة التبويبات ويُغلق بعدها،
+  // ولوحة الإشعارات تُغلق، ويُعاد الشريط العلوي إلى أعلى الصفحة عند خطوة الترحيب.
+  // التنفيذ على الإطار التالي حتى يبدأ المسح في الجولة بعد استقرار التغيير.
+  useEffect(() => {
+    if (!tourStep) return undefined;
+    const frame = requestAnimationFrame(() => {
+      setNotifOpen(false);
+      if (tourStep === 1) {
+        setHiddenTop(false);
+        setOpen(false);
+        setCollapsed(false);
+        window.scrollTo({ top: 0, behavior: 'auto' });
+        return;
+      }
+      if (tourStep === 2) {
+        setCollapsed(false);
+        setOpen(true);
+        return;
+      }
+      setOpen(false);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [tourStep]);
+
   const close = () => setOpen(false);
 
   const initials =
@@ -171,7 +197,7 @@ export default function OwnerLayout({
     <div className="odash">
       <div className="odash__layout">
         {/* الشريط الجانبي */}
-        <aside className={`odash__side${open ? ' open' : ''}${collapsed ? ' collapsed' : ''}`}>
+        <aside className={`odash__side${open ? ' open' : ''}${collapsed ? ' collapsed' : ''}`} data-tour="owner-sidebar">
           <div className="odash__side-header">
             {collapsed ? (
               <div className="odash__side-marks">
@@ -246,7 +272,7 @@ export default function OwnerLayout({
 
         {/* الشريط الرئيسي */}
         <div className="odash__main">
-          <header className={`odash__top${hiddenTop ? ' is-hidden' : ''}`}>
+          <header className={`odash__top${hiddenTop ? ' is-hidden' : ''}`} data-tour="owner-header">
             <button
               type="button"
               className="odash__burger"
@@ -261,6 +287,17 @@ export default function OwnerLayout({
               <h1>{active === 'spaces' ? 'أضف مساحة' : (TABS.find((t) => t.id === active)?.label || 'لوحة المالك')}</h1>
               <p>{today}</p>
             </div>
+
+            <button
+              type="button"
+              className="odash__tour-btn"
+              onClick={onStartTour}
+              data-tour="owner-tour-replay"
+              aria-label="عرض جولة تعريفية للوحة التحكم"
+              title="جولة تعريفية"
+            >
+              <HelpCircle />
+            </button>
 
             <ThemeToggle />
 

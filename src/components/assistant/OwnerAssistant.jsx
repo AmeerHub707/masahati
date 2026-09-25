@@ -143,9 +143,9 @@ function buildSuggestionCards(ctxMetrics) {
   return cards;
 }
 
-export default function OwnerAssistant({ data, onNavigate }) {
+export default function OwnerAssistant({ data, onNavigate, tourActive = false }) {
   const [consent, setConsent] = useState(() => readOwnerAssistantConsent());
-  const [open, setOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [messages, setMessages] = useState(readThread);
   const [input, setInput] = useState('');
@@ -154,6 +154,10 @@ export default function OwnerAssistant({ data, onNavigate }) {
   const chatRef = useRef(null);
   const inputRef = useRef(null);
   const consentRef = useRef(null);
+
+  // أثناء جولة التعريف يُبرز زر المساعد فقط، فتبقى اللوحة ولوحة الخصوصية مغلقتين.
+  const open = panelOpen && !tourActive;
+  const settingsVisible = settingsOpen && !tourActive;
 
   // إعادة الضبط عند تغيّر الإذن من الإعدادات.
   const handleConsentChange = useCallback((value) => {
@@ -183,12 +187,12 @@ export default function OwnerAssistant({ data, onNavigate }) {
       },
     ]);
     if (typeof onNavigate === 'function') onNavigate(card.action);
-    setOpen(false);
+    setPanelOpen(false);
   }, [onNavigate]);
 
   // فتح/إغلاق اللوحة وإعادة تركيز حقل الإدخال.
   const toggleOpen = useCallback(() => {
-    setOpen((prev) => {
+    setPanelOpen((prev) => {
       const next = !prev;
       if (next && consent === null) {
         setTimeout(() => consentRef.current?.focus(), 60);
@@ -224,7 +228,7 @@ export default function OwnerAssistant({ data, onNavigate }) {
     const onKey = (e) => {
       if (e.key === 'Escape') {
         setSettingsOpen(false);
-        setOpen(false);
+        setPanelOpen(false);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -290,6 +294,7 @@ export default function OwnerAssistant({ data, onNavigate }) {
         onClick={toggleOpen}
         aria-label="افتح مساعدك الذكي"
         aria-expanded={open}
+        data-tour="owner-assistant"
       >
         <Sparkles />
         {consent && (
@@ -320,17 +325,17 @@ export default function OwnerAssistant({ data, onNavigate }) {
             <div className="oassist-header__actions">
               <button
                 type="button"
-                className={`oassist-header__btn${settingsOpen ? ' is-active' : ''}`}
+                className={`oassist-header__btn${settingsVisible ? ' is-active' : ''}`}
                 onClick={() => setSettingsOpen((v) => !v)}
                 aria-label="إعدادات الخصوصية"
-                aria-expanded={settingsOpen}
+                aria-expanded={settingsVisible}
               >
                 <Settings />
               </button>
               <button
                 type="button"
                 className="oassist-header__close"
-                onClick={() => setOpen(false)}
+                onClick={() => setPanelOpen(false)}
                 aria-label="إغلاق"
               >
                 <X />
@@ -339,7 +344,7 @@ export default function OwnerAssistant({ data, onNavigate }) {
           </header>
 
           <div className="oassist-stage">
-            {settingsOpen && (
+            {settingsVisible && (
               <div className="oassist-settings" role="dialog" aria-label="إعدادات الخصوصية">
                 <button
                   type="button"

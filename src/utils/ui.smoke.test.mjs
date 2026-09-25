@@ -220,8 +220,39 @@ const SpaceOwnerDashboard = (await server.ssrLoadModule('/src/pages/SpaceOwnerDa
 // الدور الآن مالك — حتى تمر بوابة الحماية في SpaceOwnerDashboard
 api.setUser({ name: 'كرم', role: 'space_owner' });
 
+// لا توجد هوية رقمية في الاختبار، لذلك مفتاح الجولة ينتهي بـ «guest».
+const TOUR_KEY = 'masahati.owner-tour.v1.completed:guest';
+dom.window.localStorage.removeItem(TOUR_KEY);
+
 const ownerEl = dom.window.document.createElement('div');
 dom.window.document.body.appendChild(ownerEl);
+
+const doc = dom.window.document;
+
+function clickIn(root, sel) {
+  const el = root.querySelector(sel);
+  if (!el) return false;
+  el.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  return true;
+}
+
+async function waitForNode(sel, timeout = 5000) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeout) {
+    await flush();
+    if (doc.querySelector(sel)) return true;
+  }
+  return false;
+}
+
+async function waitForGone(sel, timeout = 5000) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeout) {
+    await flush();
+    if (!doc.querySelector(sel)) return true;
+  }
+  return false;
+}
 
 async function waitForOwnerText(snippet, timeout = 5000) {
   const t0 = Date.now();
@@ -287,6 +318,59 @@ async function waitForOwnerLoaderGone(timeout = 6000) {
 
 report('O1 Owner dashboard mounts with side nav', await waitForOwnerLoaderGone(), 'loader still visible');
 report('O2 Owner side profile shows المدير name', ownerEl.querySelector('.odash__profile')?.textContent.includes('كرم'), 'owner profile name absent');
+
+// ============================================================
+// جولة التعريف (Owner Tour) — تشغيل تلقائي، تخطي، إعادة، تنقّل بين الخطوات
+// ============================================================
+report('OT1 Tour auto-starts on first visit', await waitForNode('[data-tour-overlay]'), 'tour did not auto-start');
+report('OT2 Tour opens on step 1', !!doc.querySelector('[data-tour-step="1"]'), 'step 1 missing');
+report('OT3 Tour popover is an accessible dialog', doc.querySelector('[data-tour="owner-tour-popover"]')?.getAttribute('aria-modal') === 'true', 'aria-modal missing');
+report('OT4 Header anchor exists', !!ownerEl.querySelector('[data-tour="owner-header"]'), 'header anchor missing');
+report('OT5 Sidebar anchor exists', !!ownerEl.querySelector('[data-tour="owner-sidebar"]'), 'sidebar anchor missing');
+report('OT6 Metrics anchor exists', !!ownerEl.querySelector('[data-tour="owner-metrics"]'), 'metrics anchor missing');
+
+// قناع الإضاءة: الأبيض = تعتيم الخلفية، الأسود = فتحة تُظهر العنصر بلونه الطبيعي.
+// لو انعكس لوناه لأصبح القسم المُشرح معتَّماً وبقيت بقية اللوحة واضحة.
+const maskBase = doc.querySelector('[data-tour-mask="base"]');
+const maskHole = doc.querySelector('[data-tour-mask="hole"]');
+report('OT6a Dim mask polarity is correct', maskBase?.getAttribute('fill') === '#fff' && maskHole?.getAttribute('fill') === '#000', 'spotlight mask is inverted');
+report('OT6b Dim layer is painted through the mask', doc.querySelector('.otour__spotlight rect[mask]')?.getAttribute('mask') === 'url(#otour-spot-mask)', 'dim rect is not masked');
+report('OT6c Spotlight hole covers the header target', Math.round(Number(maskHole?.getAttribute('width'))) > 0, 'hole has no width');
+report('OT7 Skip button closes the tour', clickIn(doc, '[data-tour="owner-tour-skip-text"]') && (await waitForGone('[data-tour-overlay]')), 'tour still open');
+report('OT8 Skip persists completion', dom.window.localStorage.getItem(TOUR_KEY) === '1', 'completion key not written');
+
+report('OT9 Replay button present', !!ownerEl.querySelector('[data-tour="owner-tour-replay"]'), 'replay button missing');
+clickIn(ownerEl, '[data-tour="owner-tour-replay"]');
+await flush();
+report('OT10 Replay reopens the tour at step 1', (await waitForNode('[data-tour-step="1"]')), 'replay did not reopen');
+
+// نتنقل بالخطوات: 1 -> 2 -> 3 -> 4
+for (let i = 0; i < 3; i += 1) {
+  clickIn(doc, '[data-tour="owner-tour-next"]');
+  await flush();
+  await flush();
+}
+report('OT11 Next reaches step 4', (await waitForNode('[data-tour-step="4"]')), 'step 4 not reached');
+report('OT12 Step 4 navigates to my-spaces', (await waitForOwnerText('أضف مساحة')) && !!ownerEl.querySelector('[data-tour="owner-quick-add"]'), 'quick-add anchor missing');
+
+clickIn(doc, '[data-tour="owner-tour-next"]');
+await flush();
+await flush();
+report('OT13 Step 5 targets the assistant', (await waitForNode('[data-tour-step="5"]')) && !!ownerEl.querySelector('[data-tour="owner-assistant"]'), 'assistant anchor missing');
+
+clickIn(doc, '[data-tour="owner-tour-back"]');
+await flush();
+await flush();
+report('OT14 Back returns to step 4', (await waitForNode('[data-tour-step="4"]')), 'back did not work');
+
+clickIn(doc, '[data-tour="owner-tour-next"]');
+await flush();
+await flush();
+await waitForNode('[data-tour-step="5"]');
+clickIn(doc, '[data-tour="owner-tour-finish"]');
+await flush();
+report('OT15 Finish closes the tour', await waitForGone('[data-tour-overlay]'), 'tour still open after finish');
+report('OT16 Loader is gone before the tour is shown', !ownerEl.querySelector('.loading'), 'loader visible');
 
 // نظرة عامة: أربع بطاقات إحصائية جديدة
 report('O3 Overview stats render', await waitForOwnerText('أرباح هذا الشهر') && await waitForOwnerText('طلبات السوق'), 'overview stats absent');
