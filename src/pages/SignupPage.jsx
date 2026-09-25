@@ -17,6 +17,7 @@ import {
 import useGoogleAuth from '../hooks/useGoogleAuth';
 import WhatsAppBubble from '../components/common/WhatsAppBubble';
 import { useForceLight } from '../hooks/useTheme';
+import { checkPassword, getPasswordChecks, PASSWORD_RULES } from '../lib/passwordRules';
 
 export default function SignupPage() {
   useForceLight();
@@ -39,6 +40,7 @@ export default function SignupPage() {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState('');
+  const passwordChecks = getPasswordChecks(formData.password);
 
   // --- Google Auth ---
   const googleBtnRef = useRef(null);
@@ -49,6 +51,10 @@ export default function SignupPage() {
       // أولاً: حاول بدون دور. إذا كان المستخدم مسجلاً بالفعل، يعيد الباك إند
       // دوره الحقيقي من قاعدة البيانات ويُتجاهل مفتاح التسجيل المحدد في الصفحة.
       const data = await googleLogin(credential);
+      if (data.user?.status === 'pending') {
+        navigate('/pending-approval', { replace: true });
+        return;
+      }
       navigate(getHomePath(data.user?.role));
     } catch (err) {
       // إذا لم يكن البريد مسجلاً (409)، أنشئ الحساب بالدور المختار من الصفحة.
@@ -56,6 +62,10 @@ export default function SignupPage() {
         setFormError('');
         try {
           const created = await googleLogin(credential, role);
+          if (created.user?.status === 'pending') {
+            navigate('/pending-approval', { replace: true });
+            return;
+          }
           navigate(getHomePath(created.user?.role));
         } catch (createErr) {
           console.error('Google signup (create) failed:', createErr);
@@ -113,7 +123,8 @@ export default function SignupPage() {
     if (!formData.name.trim()) newErrors.name = 'الرجاء إدخال الاسم الكامل.';
     if (!emailRegex.test(formData.email.trim())) newErrors.email = 'البريد الإلكتروني غير صحيح.';
     if (!phoneRegex.test(formData.phone.trim())) newErrors.phone = 'رقم الهاتف غير صحيح.';
-    if (formData.password.length < 6) newErrors.password = 'كلمة المرور يجب أن تكون 6 أحرف على الأقل.';
+    const passwordIssue = checkPassword(formData.password);
+    if (passwordIssue) newErrors.password = passwordIssue;
     if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'كلمات المرور غير متطابقة.';
 
     if (Object.keys(newErrors).length > 0) {
@@ -445,6 +456,25 @@ export default function SignupPage() {
           font-size: 0.8rem;
         }
 
+        .pw-rules {
+          list-style: none;
+          margin: 0.45rem 0 0;
+          padding: 0;
+          display: grid;
+          gap: 0.2rem;
+        }
+        .pw-rules li {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          font-size: 0.74rem;
+          color: rgba(255,255,255,0.55);
+          transition: color .2s;
+        }
+        .pw-rules li.is-ok { color: #86efac; }
+        .pw-rules li.is-missing { color: rgba(255,255,255,0.55); }
+        .pw-rules li span { font-weight: 700; }
+
         /* Document Upload Field */
         .file-upload-box {
           border: 1.5px dashed rgba(255,255,255,0.5);
@@ -687,10 +717,18 @@ export default function SignupPage() {
                 <input
                   type="password"
                   name="password"
-                  placeholder="٦ أحرف على الأقل"
+                  placeholder="8 أحرف على الأقل مع حرف كبير وصغير ورقم ورمز خاص"
                   value={formData.password}
                   onChange={handleInputChange}
                 />
+                <ul className="pw-rules" aria-live="polite">
+                  {PASSWORD_RULES.map((rule) => (
+                    <li key={rule.id} className={passwordChecks[rule.id] ? 'is-ok' : 'is-missing'}>
+                      <span aria-hidden="true">{passwordChecks[rule.id] ? '✓' : '○'}</span>
+                      {rule.label}
+                    </li>
+                  ))}
+                </ul>
                 <p className="error">{errors.password}</p>
               </div>
 

@@ -9,6 +9,7 @@ import SignupPage from './pages/SignupPage';
 import VerifyOtpPage from './pages/VerifyOtpPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import PendingApprovalPage from './pages/PendingApprovalPage';
 import CustomerDashboard from './pages/CustomerDashboard';
 import SpaceOwnerDashboard from './pages/SpaceOwnerDashboard';
 import AdDetailsPage from './pages/AdDetailsPage';
@@ -58,6 +59,7 @@ export default function App() {
       <Route path="/password-reset" element={<Navigate to="/reset-password" replace />} />
       <Route path="/password-reset/:token" element={<Navigate to="/reset-password" replace />} />
       <Route path="/api/reset-password/:token" element={<ResetPasswordPage />} />
+      <Route path="/pending-approval" element={<PendingApprovalPage />} />
       <Route path="/ads/:id" element={<AdDetailsPage />} />
       <Route path="/dashboard" element={<RequireAuth><Navigate to={getHomePath()} replace /></RequireAuth>} />
       <Route path="/dashboard/customer" element={<RequireAuth><RequireRole role="customer"><CustomerDashboard /></RequireRole></RequireAuth>} />

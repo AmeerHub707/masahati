@@ -165,6 +165,7 @@ export async function askOwnerAssistant(message, context, consent) {
   try {
     const res = await request('/api/assistant/chat', {
       method: 'POST',
+      auth: true,
       body: { message: text, owner_context: context || {} },
       timeoutMs: OWNER_ASSISTANT_TIMEOUT_MS,
     });

@@ -1,6 +1,13 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { request, ApiError } from '../lib/authStore';
+import {
+  checkPassword,
+  getPasswordStrength,
+  strengthLabels,
+  PASSWORD_LENGTH_MESSAGE,
+  PASSWORD_FORMAT_MESSAGE,
+} from '../lib/passwordRules';
 
 // ترجمة رسائل الخطأ الإنجليزية القادمة من Laravel إلى العربية.
 function translateError(msg, status) {
@@ -10,8 +17,10 @@ function translateError(msg, status) {
   if (!msg) return 'حدث خطأ غير متوقع. حاول مرة أخرى.';
   const m = String(msg).toLowerCase();
   if (m.includes('token')) return 'رابط إعادة التعيين غير صالح أو منتهٍ. اطلب رابطاً جديداً.';
+  if (m.includes('password') && (m.includes('format') || m.includes('uppercase') || m.includes('symbol') || m.includes('numeric')))
+    return PASSWORD_FORMAT_MESSAGE;
   if (m.includes('password') && (m.includes('reset') || m.includes('short') || m.includes('min') || m.includes('at least') || m.includes('characters')))
-    return 'كلمة المرور يجب ألا تقل عن 8 أحرف.';
+    return PASSWORD_LENGTH_MESSAGE;
   if (m.includes('mismatch') || m.includes('confirmation'))
     return 'كلمتا المرور غير متطابقتين.';
   if (m.includes('selected email is invalid')) return 'هذا البريد غير صحيح. اطلب رابطاً جديداً.';
@@ -50,17 +59,7 @@ export default function ResetPasswordPage() {
   const [status, setStatus] = useState('idle'); // 'idle' | 'submitting' | 'done' | 'error'
   const [isResetting, setIsResetting] = useState(false);
 
-  const getPasswordStrength = (p) => {
-    let score = 0;
-    if (p.length >= 8) score++;
-    if (p.length >= 12) score++;
-    if (/[a-z]/.test(p) && /[A-Z]/.test(p)) score++;
-    if (/\d/.test(p)) score++;
-    if (/[^A-Za-z0-9]/.test(p)) score++;
-    return Math.min(score, 4);
-  };
   const passwordScore = getPasswordStrength(password);
-  const strengthLabels = ['—', 'ضعيف', 'متوسط', 'جيد', 'ممتاز'];
 
   const validate = () => {
     let valid = true;
@@ -73,8 +72,9 @@ export default function ResetPasswordPage() {
       setEmailError('الرجاء إدخال بريدك الإلكتروني.');
       valid = false;
     }
-    if (password.length < 8) {
-      setPasswordError('كلمة المرور يجب ألا تقل عن 8 أحرف.');
+    const passwordIssue = checkPassword(password);
+    if (passwordIssue) {
+      setPasswordError(passwordIssue);
       valid = false;
     }
     if (password !== confirmPassword) {

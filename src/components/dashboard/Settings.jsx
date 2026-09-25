@@ -3,6 +3,7 @@ import { LogOut, User, Pencil, HelpCircle, KeyRound, Eye, EyeOff, CheckCircle2, 
 import { changePassword, ApiError, getUser, setUser } from '../../lib/authStore';
 import { getCachedPictureUrl } from '../../lib/profilePicture';
 import useSafeInput from '../../hooks/useSafeInput';
+import { checkPassword, PASSWORD_LENGTH_MESSAGE, PASSWORD_FORMAT_MESSAGE } from '../../lib/passwordRules';
 
 function initialsOf(name) {
   return (name || 'م').trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('') || 'م';
@@ -12,8 +13,10 @@ function translatePasswordError(msg) {
   if (!msg) return 'حدث خطأ غير متوقع. حاول مرة أخرى.';
   const m = String(msg).toLowerCase();
   if (m.includes('current') || m.includes('كلمة المرور الحالية')) return 'كلمة المرور الحالية غير صحيحة.';
+  if (m.includes('password') && (m.includes('format') || m.includes('uppercase') || m.includes('symbol') || m.includes('numeric')))
+    return PASSWORD_FORMAT_MESSAGE;
   if (m.includes('password') && (m.includes('short') || m.includes('min') || m.includes('at least') || m.includes('characters')))
-    return 'كلمة المرور الجديدة يجب ألا تقل عن 8 أحرف.';
+    return PASSWORD_LENGTH_MESSAGE;
   if (m.includes('mismatch') || m.includes('confirmation')) return 'كلمتا المرور غير متطابقتين.';
   return msg;
 }
@@ -123,8 +126,9 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
       setPwLoading(false);
       return;
     }
-    if (newPassword.length < 8) {
-      setPwError('كلمة المرور الجديدة يجب ألا تقل عن 8 أحرف.');
+    const newPasswordIssue = checkPassword(newPassword);
+    if (newPasswordIssue) {
+      setPwError(newPasswordIssue);
       setPwLoading(false);
       return;
     }

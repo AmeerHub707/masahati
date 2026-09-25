@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { login, googleLogin, getHomePath, ApiError } from '../lib/authStore';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { login, googleLogin, getHomePath, ApiError, consumeSessionExpired } from '../lib/authStore';
 import useGoogleAuth from '../hooks/useGoogleAuth';
 import { useForceLight } from '../hooks/useTheme';
 
@@ -14,7 +14,13 @@ export default function LoginPage() {
   });
   const [errors, setErrors] = useState({ identifier: '', password: '' });
   const [loading, setLoading] = useState(false);
-  const [formError, setFormError] = useState('');
+  const [searchParams] = useSearchParams();
+  const [formError, setFormError] = useState(() => {
+    if (consumeSessionExpired() || searchParams.get('expired') === 'true') {
+      return 'انتهت صلاحية جلستك، يرجى تسجيل الدخول مرة أخرى.';
+    }
+    return '';
+  });
   const [showPassword, setShowPassword] = useState(false);
 
   const toggleShowPassword = () => setShowPassword((s) => !s);
@@ -35,6 +41,10 @@ export default function LoginPage() {
     //    (عميل / صاحب مساحة) ثم نسجّل عبر Google بالدور المختار.
     try {
       const data = await googleLogin(credential);
+      if (data.user?.status === 'pending') {
+        navigate('/pending-approval', { replace: true });
+        return;
+      }
       navigate(getHomePath(data.user?.role));
     } catch (err) {
       if (
@@ -58,6 +68,10 @@ export default function LoginPage() {
     setRoleModalLoading(true);
     try {
       const created = await googleLogin(pendingCredential, role);
+      if (created.user?.status === 'pending') {
+        navigate('/pending-approval', { replace: true });
+        return;
+      }
       navigate(getHomePath(created.user?.role));
     } catch (err) {
       console.error('Google signup failed:', err);
@@ -123,6 +137,10 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const data = await login(identifier, formData.password);
+      if (data.user?.status === 'pending') {
+        navigate('/pending-approval', { replace: true });
+        return;
+      }
       navigate(getHomePath(data.user?.role));
     } catch (err) {
       if (err instanceof ApiError && (err.status === 401 || err.status === 422)) {

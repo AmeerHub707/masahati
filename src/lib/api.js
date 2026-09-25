@@ -118,6 +118,35 @@ export function resetLocalUserData() {
   }
 }
 
+export const SESSION_EXPIRED_KEY = 'masahati_session_expired';
+
+export function consumeSessionExpired() {
+  try {
+    const raw = sessionStorage.getItem(SESSION_EXPIRED_KEY);
+    if (!raw) return false;
+    sessionStorage.removeItem(SESSION_EXPIRED_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+let sessionExpiryRedirected = false;
+
+function expireSession() {
+  if (sessionExpiryRedirected) return;
+  sessionExpiryRedirected = true;
+  try {
+    sessionStorage.setItem(SESSION_EXPIRED_KEY, '1');
+  } catch {
+    /* التخزين غير متاح */
+  }
+  if (typeof window === 'undefined' || !window.location) return;
+  const path = window.location.pathname;
+  if (path === '/login' || path === '/signup') return;
+  window.location.assign('/login?expired=true');
+}
+
 class ApiError extends Error {
   constructor(message, status, data) {
     super(message);
@@ -149,10 +178,8 @@ export async function request(path, options = {}) {
   const { method = 'GET', body, auth = false, isForm = false, timeoutMs = DEFAULT_TIMEOUT_MS } = options;
 
   const headers = { Accept: 'application/json' };
-  if (auth) {
-    const token = getToken();
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-  }
+  const sentToken = auth ? getToken() : null;
+  if (sentToken) headers['Authorization'] = `Bearer ${sentToken}`;
 
   let payload;
   if (isForm) {
@@ -195,10 +222,11 @@ export async function request(path, options = {}) {
   }
 
   if (!res.ok) {
-    // 401 على مسار محمي => نلغي الجلسة المحلية.
-    if (res.status === 401 && auth) {
+    // 401 على طلب يحمل توكناً => نلغي الجلسة المحلية (زائر بلا توكن لا يُحال).
+    if (res.status === 401 && sentToken) {
       clearToken();
       clearUser();
+      expireSession();
     }
     throw new ApiError(
       extractErrorMessage(data, `تعذر إتمام الطلب (${res.status}).`),

@@ -1,14 +1,18 @@
 // اختبار تكاملي للطبقة الواقعية: api / authStore / dashboard
 // تحت بيئة jsdom + mock fetch، عبر محمّل Vite SSR لتحويل import.meta.env.
 // يُشغَّل عبر: node --experimental-vm-modules src/utils/integration.test.mjs
-import { JSDOM } from 'jsdom';
+import { JSDOM, VirtualConsole } from 'jsdom';
 
+const virtualConsole = new VirtualConsole();
+virtualConsole.on('jsdomError', () => {});
 const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
   url: 'http://localhost:5173',
+  virtualConsole,
 });
 globalThis.window = dom.window;
 globalThis.document = dom.window.document;
 globalThis.localStorage = dom.window.localStorage;
+globalThis.sessionStorage = dom.window.sessionStorage;
 Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true });
 
 let pass = 0;
@@ -37,6 +41,7 @@ const authStore = await server.ssrLoadModule('/src/lib/authStore.js');
 const dashboard = await server.ssrLoadModule('/src/lib/dashboard.js');
 const requests = await server.ssrLoadModule('/src/lib/requests.js');
 const notifications = await server.ssrLoadModule('/src/lib/notifications.js');
+const passwordRules = await server.ssrLoadModule('/src/lib/passwordRules.js');
 
 const TOKEN = 'tok-test-123';
 const BASE = api.BASE_URL;
@@ -564,6 +569,123 @@ report('5.31 rejected unlocks resubmit', owner.isDocsLocked(owner.readOwnerDocum
 
 owner.clearOwnerDocuments();
 report('5.32 clearOwnerDocuments empties', owner.readOwnerDocuments().status === 'none' && owner.readOwnerDocuments().files.assets === undefined);
+
+// ============================================================
+// القسم 6: passwordRules + انتهاء صلاحية الجلسة
+// ============================================================
+console.log('\n===== 6) passwordRules + session expiry =====');
+
+const prCheck = (p) => passwordRules.getPasswordChecks(p);
+
+report('6.1 PASSWORD_MIN_LENGTH is 8', passwordRules.PASSWORD_MIN_LENGTH === 8);
+report(
+  '6.2 messages are non-empty strings',
+  typeof passwordRules.PASSWORD_LENGTH_MESSAGE === 'string' &&
+    passwordRules.PASSWORD_LENGTH_MESSAGE.length > 0 &&
+    typeof passwordRules.PASSWORD_FORMAT_MESSAGE === 'string' &&
+    passwordRules.PASSWORD_FORMAT_MESSAGE.length > 0
+);
+report(
+  '6.3 format message documents the exact backend set',
+  passwordRules.PASSWORD_FORMAT_MESSAGE.includes('@$!%*?&')
+);
+
+// تطابق حرفي مع سلوك الباك المقيس حيّاً: هذه العيّنات قُبلت/رُفضت فعلياً.
+const backendAccepted = ['Abcdef12@', 'Abcdef12!', 'Abcdef1@', 'Abcdefg1@', 'Abcdef12!@#'];
+const backendRejected = ['123', 'Abcdef12#', 'Abcdef12-', 'Abcdef12 ', 'abcdef1@', 'ABCDEF1@'];
+report(
+  '6.4 backend-accepted passwords all valid',
+  backendAccepted.every((p) => prCheck(p).isValid === true),
+  backendAccepted,
+  backendAccepted.filter((p) => !prCheck(p).isValid)
+);
+report(
+  '6.5 backend-rejected passwords all invalid',
+  backendRejected.every((p) => prCheck(p).isValid === false),
+  backendRejected,
+  backendRejected.filter((p) => prCheck(p).isValid)
+);
+
+report('6.6 length rule (7 rejected, 8 accepted)', prCheck('Ab1@').hasMinLength === false && prCheck('Abcde1@').hasMinLength === false && prCheck('Abcdef1@').hasMinLength === true);
+report('6.7 uppercase rule', prCheck('abcdef1@').hasUpperCase === false && prCheck('Abcdef1@').hasUpperCase === true);
+report('6.8 lowercase rule', prCheck('ABCDEF1@').hasLowerCase === false && prCheck('Abcdef1@').hasLowerCase === true);
+report('6.9 digit rule', prCheck('Abcdefg@').hasNumber === false && prCheck('Abcdef1@').hasNumber === true);
+report(
+  '6.10 special rule is literally [@$!%*?&]',
+  prCheck('Abcdef12#').hasSpecialChar === false &&
+    prCheck('Abcdef12-').hasSpecialChar === false &&
+    prCheck('Abcdef12 ').hasSpecialChar === false &&
+    '@$!%*?&'.split('').every((ch) => prCheck(`Abcdef12${ch}`).hasSpecialChar === true)
+);
+
+report('6.11 checkPassword returns "" when valid', passwordRules.checkPassword('Abcdef1@') === '');
+
+const ruleLabels = Object.fromEntries(passwordRules.PASSWORD_RULES.map((r) => [r.id, r.label]));
+const weakMsg = passwordRules.checkPassword('123');
+report(
+  '6.12 checkPassword names only the failed rules',
+  weakMsg.includes(ruleLabels.hasMinLength) &&
+    weakMsg.includes(ruleLabels.hasUpperCase) &&
+    weakMsg.includes(ruleLabels.hasLowerCase) &&
+    weakMsg.includes(ruleLabels.hasSpecialChar) &&
+    !weakMsg.includes(ruleLabels.hasNumber),
+  '123 fails length/upper/lower/special but already has a digit',
+  weakMsg
+);
+
+report(
+  '6.13 getPasswordStrength bounded 0..4',
+  passwordRules.getPasswordStrength('') === 0 &&
+    passwordRules.getPasswordStrength('Abcdef1@') >= 3 &&
+    passwordRules.getPasswordStrength('Abcdef12!@#') === 4
+);
+report('6.14 strengthLabels covers 0..4', Array.isArray(passwordRules.strengthLabels) && passwordRules.strengthLabels.length === 5);
+report(
+  '6.15 non-string input is safe',
+  passwordRules.getPasswordChecks(null).isValid === false &&
+    passwordRules.checkPassword(undefined).length > 0 &&
+    passwordRules.getPasswordStrength(null) === 0
+);
+
+dom.window.sessionStorage.setItem(api.SESSION_EXPIRED_KEY, '1');
+report(
+  '6.16 consumeSessionExpired is one-shot',
+  api.consumeSessionExpired() === true && api.consumeSessionExpired() === false
+);
+
+// 401 بلا توكن = زائر غير مسجّل: لا تُرفع علامة انتهاء ولا يُمسح مستخدم محلي.
+resetStorage();
+dom.window.sessionStorage.clear();
+api.setUser({ name: 'زائر', role: 'customer' });
+globalThis.fetch = async () => ({
+  ok: false,
+  status: 401,
+  text: async () => JSON.stringify({ message: 'Unauthenticated.' }),
+});
+let anonErr = null;
+try {
+  await api.request('/api/dashboard', { auth: true });
+} catch (e) {
+  anonErr = e;
+}
+report(
+  '6.17 anonymous 401 does not raise session expiry',
+  anonErr instanceof api.ApiError && anonErr.status === 401 && api.consumeSessionExpired() === false
+);
+report('6.18 anonymous 401 keeps local user', api.getUser() !== null);
+
+// 401 مع توكن = انتهاء جلسة حقيقي: مسح كامل + علامة للصفحة.
+resetStorage();
+dom.window.sessionStorage.clear();
+api.setToken('tok-expired-999');
+api.setUser({ name: 'سعيد', role: 'space_owner' });
+try {
+  await api.request('/api/dashboard', { auth: true });
+} catch {
+  /* متوقع */
+}
+report('6.19 401 with token clears the session', api.getToken() === null && api.getUser() === null);
+report('6.20 401 with token flags expiry for the login page', api.consumeSessionExpired() === true);
 
 await server.close();
 

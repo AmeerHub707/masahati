@@ -2,11 +2,11 @@
 // المصادقة عبر Bearer token (Sanctum) يُحفظ في localStorage.
 // التوكن هو المرجع الوحيد لكون الجلسة نشطة؛ لا نعتمد على أي علم إضافي.
 
-import { request, getToken, setToken, setUser, clearUser, getUser, ApiError, resetLocalUserData } from './api';
+import { request, getToken, setToken, setUser, clearUser, getUser, ApiError, resetLocalUserData, consumeSessionExpired } from './api';
 import { extractPicturePath } from './profilePicture';
 
 // إعادة التصدير لتسهيل الاستيراد من صفحات المصادقة
-export { request, ApiError };
+export { request, ApiError, consumeSessionExpired };
 
 // ----- حالة الجلسة: مبنية على وجود التوكن فقط -----
 // إصلاح: كان الكود السابق يعتمد على SESSION_KEY بالإضافة إلى التوكن،
@@ -162,11 +162,14 @@ export { getUser, setUser, clearUser };
 
 // ----- تغيير كلمة المرور أثناء تسجيل الدخول (محمي) -----
 export async function changePassword({ oldPassword, newPassword, newPassword_confirmation }) {
-  return request('/api/change-pass', {
+  const data = await request('/api/change-pass', {
     method: 'POST',
     auth: true,
     body: { oldPassword, newPassword, newPassword_confirmation },
   });
+  const payload = data && data.data && typeof data.data === 'object' ? data.data : data;
+  if (payload && payload.token) setToken(payload.token);
+  return data;
 }
 
 // ----- الملف الشخصي: جلب البيانات الحالية (محمي) -----
