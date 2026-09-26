@@ -122,6 +122,37 @@ async function waitForLoaderGone(timeout = 6000) {
 const appEl = dom.window.document.createElement('div');
 dom.window.document.body.appendChild(appEl);
 
+// لا توجد هوية رقمية في الاختبار، لذلك مفتاح جولة العميل ينتهي بـ «guest».
+const CUSTOMER_TOUR_KEY = 'masahati.customer-tour.v1.completed:guest';
+dom.window.localStorage.removeItem(CUSTOMER_TOUR_KEY);
+
+const doc = dom.window.document;
+
+function clickIn(root, sel) {
+  const el = root.querySelector(sel);
+  if (!el) return false;
+  el.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  return true;
+}
+
+async function waitForNode(sel, timeout = 5000) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeout) {
+    await flush();
+    if (doc.querySelector(sel)) return true;
+  }
+  return false;
+}
+
+async function waitForGone(sel, timeout = 5000) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeout) {
+    await flush();
+    if (!doc.querySelector(sel)) return true;
+  }
+  return false;
+}
+
 // ----- المنطق -----
 console.log('\n===== UI: CustomerDashboard mount + data flow =====');
 const root = createRoot(appEl);
@@ -139,6 +170,70 @@ report('U1 Dashboard mounts without crashing', !appEl.querySelector('.loading') 
 const hasOverview = appEl.textContent.includes('حجوزات قادمة') || appEl.textContent.includes('تصفح المساحات') || appEl.textContent.includes('بياناتك');
 report('U2 Overview section content rendered (stats/actions)', hasOverview, appEl.textContent.slice(0, 120));
 report('U3 Profile name shown from API', appEl.querySelector('.dash__side')?.textContent.includes('كرم') || appEl.querySelector('.dash__top')?.textContent.includes('كرم') || appEl.textContent.includes('كرم'), appEl.textContent.slice(0, 80));
+
+// ============================================================
+// جولة التعريف للوحة العميل + المساعد الذكي
+// ============================================================
+console.log('\n===== UI: Customer tour + assistant =====');
+report('CT1 Tour auto-starts on first visit', await waitForNode('[data-tour-overlay]'), 'tour did not auto-start');
+report('CT2 Tour opens on step 1', !!doc.querySelector('[data-tour-step="1"]'), 'step 1 missing');
+report('CT3 Tour popover is an accessible dialog', doc.querySelector('[data-tour="customer-tour-popover"]')?.getAttribute('aria-modal') === 'true', 'aria-modal missing');
+report('CT4 Header anchor exists', !!appEl.querySelector('[data-tour="customer-header"]'), 'header anchor missing');
+report('CT5 Sidebar anchor exists', !!appEl.querySelector('[data-tour="customer-sidebar"]'), 'sidebar anchor missing');
+report('CT6 Metrics anchor exists', !!appEl.querySelector('[data-tour="customer-metrics"]'), 'metrics anchor missing');
+report('CT7 Quick-action anchor exists', !!appEl.querySelector('[data-tour="customer-quick-action"]'), 'quick-action anchor missing');
+
+// نفس قاعدة قناع الإضاءة في لوحة المالك: الأبيض = تعتيم، الأسود = فتحة.
+const cMaskBase = doc.querySelector('[data-tour-mask="base"]');
+const cMaskHole = doc.querySelector('[data-tour-mask="hole"]');
+report('CT8 Dim mask polarity is correct', cMaskBase?.getAttribute('fill') === '#fff' && cMaskHole?.getAttribute('fill') === '#000', 'spotlight mask is inverted');
+
+// المساعد الذكي موجود كزر عائم على لوحة العميل.
+report('CA1 Assistant bubble present', !!appEl.querySelector('[data-tour="customer-assistant"]'), 'assistant bubble missing');
+report('CA2 WhatsApp floating bubble replaced by the assistant', !doc.querySelector('.wa-bubble'), 'standalone WhatsApp bubble (.wa-bubble) still present');
+
+// الخطوة 5 تبرز المساعد نفسه.
+for (let i = 0; i < 4; i += 1) {
+  clickIn(doc, '[data-tour="customer-tour-next"]');
+  await flush();
+  await flush();
+}
+report('CT9 Step 5 targets the assistant', (await waitForNode('[data-tour-step="5"]')) && !!appEl.querySelector('[data-tour="customer-assistant"]'), 'assistant step missing');
+
+// زر الرجوع يرجع خطوة.
+clickIn(doc, '[data-tour="customer-tour-back"]');
+await flush();
+await flush();
+report('CT10 Back returns to step 4', await waitForNode('[data-tour-step="4"]'), 'back did not work');
+
+// «تم» يغلق الجولة ويكتب علامة الإنجاز.
+clickIn(doc, '[data-tour="customer-tour-next"]');
+await flush();
+report('CT11 Finish closes the tour', clickIn(doc, '[data-tour="customer-tour-finish"]') && (await waitForGone('[data-tour-overlay]')), 'tour still open after finish');
+report('CT12 Finish persists completion', dom.window.localStorage.getItem(CUSTOMER_TOUR_KEY) === '1', 'completion key not written');
+
+// إعادة الجولة من زر المساعدة في الشريط العلوي.
+report('CT13 Replay button present', !!appEl.querySelector('[data-tour="customer-tour-replay"]'), 'replay button missing');
+clickIn(appEl, '[data-tour="customer-tour-replay"]');
+await flush();
+report('CT14 Replay reopens at step 1', await waitForNode('[data-tour-step="1"]'), 'replay did not reopen');
+report('CT15 Skip closes and persists', clickIn(doc, '[data-tour="customer-tour-skip-text"]') && (await waitForGone('[data-tour-overlay]')) && dom.window.localStorage.getItem(CUSTOMER_TOUR_KEY) === '1', 'skip failed');
+report('CT16 Tour left the overview tab intact', appEl.querySelector('.dash__stats') !== null, 'overview tab not restored');
+
+// المساعد:Without consent لا ح 입력 ولا رد ذكي.
+clickIn(appEl, '[data-tour="customer-assistant"]');
+await flush();
+await flush();
+report('CA3 Assistant panel opens on consent screen', appEl.textContent.includes('خصوصيتك أولاً'), 'consent screen absent');
+report('CA4 Assistant offers both consent choices', appEl.textContent.includes('الوضع المحلي فقط') && appEl.textContent.includes('شارك بياناتي مع الذكاء'), 'consent choices absent');
+const grantBtn = Array.from(appEl.querySelectorAll('button')).find((b) => b.textContent.includes('الوضع المحلي فقط'));
+grantBtn?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+await flush();
+await flush();
+report('CA5 Consent choice unlocks the chat', appEl.querySelector('.cassist-inputbar input') !== null, 'chat input absent after consent');
+report('CA6 Suggestion cards render from live data', appEl.querySelectorAll('.cassist-card').length > 0, 'no suggestion cards');
+report('CA7 Customer assistant uses its own classes, not the owner\'s', appEl.querySelector('.cassist') !== null && appEl.querySelector('.oassist') === null, 'customer assistant is styled with owner classes');
+report('CA8 Customer bubble is not the owner bubble element', appEl.querySelector('.cassist-bubble') !== null && appEl.querySelector('.oassist-bubble') === null, 'customer bubble still uses owner bubble class');
 
 async function clickByText(txt) {
   const nodes = Array.from(appEl.querySelectorAll('button, a, [role=tab], li, span'));
@@ -227,32 +322,7 @@ dom.window.localStorage.removeItem(TOUR_KEY);
 const ownerEl = dom.window.document.createElement('div');
 dom.window.document.body.appendChild(ownerEl);
 
-const doc = dom.window.document;
-
-function clickIn(root, sel) {
-  const el = root.querySelector(sel);
-  if (!el) return false;
-  el.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
-  return true;
-}
-
-async function waitForNode(sel, timeout = 5000) {
-  const t0 = Date.now();
-  while (Date.now() - t0 < timeout) {
-    await flush();
-    if (doc.querySelector(sel)) return true;
-  }
-  return false;
-}
-
-async function waitForGone(sel, timeout = 5000) {
-  const t0 = Date.now();
-  while (Date.now() - t0 < timeout) {
-    await flush();
-    if (!doc.querySelector(sel)) return true;
-  }
-  return false;
-}
+// تُستخدم أدوات الجولة العامة (doc / clickIn / waitForNode / waitForGone) المعرّفة أعلى.
 
 async function waitForOwnerText(snippet, timeout = 5000) {
   const t0 = Date.now();
@@ -322,6 +392,8 @@ report('O2 Owner side profile shows المدير name', ownerEl.querySelector('.
 // ============================================================
 // جولة التعريف (Owner Tour) — تشغيل تلقائي، تخطي، إعادة، تنقّل بين الخطوات
 // ============================================================
+report('OA1 Owner assistant keeps its own classes (not the customer\'s)', ownerEl.querySelector('.oassist') !== null && ownerEl.querySelector('.cassist') === null, 'owner assistant is styled with customer classes');
+report('OA2 Owner assistant bubble is still the owner element', ownerEl.querySelector('.oassist-bubble') !== null && ownerEl.querySelector('.cassist-bubble') === null, 'owner bubble class was changed');
 report('OT1 Tour auto-starts on first visit', await waitForNode('[data-tour-overlay]'), 'tour did not auto-start');
 report('OT2 Tour opens on step 1', !!doc.querySelector('[data-tour-step="1"]'), 'step 1 missing');
 report('OT3 Tour popover is an accessible dialog', doc.querySelector('[data-tour="owner-tour-popover"]')?.getAttribute('aria-modal') === 'true', 'aria-modal missing');
@@ -334,7 +406,7 @@ report('OT6 Metrics anchor exists', !!ownerEl.querySelector('[data-tour="owner-m
 const maskBase = doc.querySelector('[data-tour-mask="base"]');
 const maskHole = doc.querySelector('[data-tour-mask="hole"]');
 report('OT6a Dim mask polarity is correct', maskBase?.getAttribute('fill') === '#fff' && maskHole?.getAttribute('fill') === '#000', 'spotlight mask is inverted');
-report('OT6b Dim layer is painted through the mask', doc.querySelector('.otour__spotlight rect[mask]')?.getAttribute('mask') === 'url(#otour-spot-mask)', 'dim rect is not masked');
+report('OT6b Dim layer is painted through the mask', doc.querySelector('.otour__spotlight rect[mask]')?.getAttribute('mask') === 'url(#owner-tour-spot-mask)', 'dim rect is not masked');
 report('OT6c Spotlight hole covers the header target', Math.round(Number(maskHole?.getAttribute('width'))) > 0, 'hole has no width');
 report('OT7 Skip button closes the tour', clickIn(doc, '[data-tour="owner-tour-skip-text"]') && (await waitForGone('[data-tour-overlay]')), 'tour still open');
 report('OT8 Skip persists completion', dom.window.localStorage.getItem(TOUR_KEY) === '1', 'completion key not written');

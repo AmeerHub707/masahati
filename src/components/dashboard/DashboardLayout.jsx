@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { Home, CalendarCheck, Heart, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Megaphone, ChevronLeft, ChevronRight, ChevronDown, Lock, Sparkles, Plus, List } from 'lucide-react';
+import { Home, CalendarCheck, Heart, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Megaphone, ChevronLeft, ChevronRight, ChevronDown, Lock, Sparkles, Plus, List, HelpCircle } from 'lucide-react';
 import MagneticButton from '../common/MagneticButton';
 import ThemeToggle from '../common/ThemeToggle';
 import { getCachedPictureUrl } from '../../lib/profilePicture';
@@ -37,6 +37,8 @@ export default function DashboardLayout({
   children,
   requestsView,
   onRequestsViewChange,
+  tourStep = 0,
+  onStartTour,
 }) {
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -138,6 +140,30 @@ export default function DashboardLayout({
     };
   }, [notifOpen]);
 
+  // تنسيق الواجهة مع خطوة الجولة: الشريط الجانبي يُفتح في خطوة التبويبات ويُغلق بعدها،
+  // ولوحة الإشعارات تُغلق، ويُعاد الشريط العلوي إلى أعلى الصفحة عند خطوة الترحيب.
+  // التنفيذ على الإطار التالي حتى يبدأ المسح في الجولة بعد استقرار التغيير.
+  useEffect(() => {
+    if (!tourStep) return undefined;
+    const frame = requestAnimationFrame(() => {
+      setNotifOpen(false);
+      if (tourStep === 1) {
+        setHiddenTop(false);
+        setOpen(false);
+        setCollapsed(false);
+        window.scrollTo({ top: 0, behavior: 'auto' });
+        return;
+      }
+      if (tourStep === 2) {
+        setCollapsed(false);
+        setOpen(true);
+        return;
+      }
+      setOpen(false);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [tourStep]);
+
   const close = () => setOpen(false);
 
   const showCollapseTip = (e) => {
@@ -174,7 +200,7 @@ export default function DashboardLayout({
     <div className="dash">
       <div className="dash__layout">
         {/* الشريط الجانبي */}
-        <aside className={`dash__side${open ? ' open' : ''}${collapsed ? ' collapsed' : ''} ${collapsed ? 'w-16' : 'w-64'}`}>
+        <aside className={`dash__side${open ? ' open' : ''}${collapsed ? ' collapsed' : ''} ${collapsed ? 'w-16' : 'w-64'}`} data-tour="customer-sidebar">
           <div className="dash__side-header">
             {collapsed ? (
               <div className="flex flex-col items-center gap-3">
@@ -334,7 +360,7 @@ export default function DashboardLayout({
 
         {/* الشريط الرئيسي */}
         <div className="dash__main">
-          <header className={`dash__top${hiddenTop ? ' is-hidden' : ''}`}>
+          <header className={`dash__top${hiddenTop ? ' is-hidden' : ''}`} data-tour="customer-header">
             <button
               type="button"
               className="dash__burger"
@@ -349,6 +375,17 @@ export default function DashboardLayout({
               <h1>{displayTabs.find((t) => t.id === active)?.label || 'لوحة التحكم'}</h1>
               <p>{today}</p>
             </div>
+
+            <button
+              type="button"
+              className="dash__tour-btn"
+              onClick={onStartTour}
+              aria-label="عرض جولة تعريفية للوحة التحكم"
+              title="جولة تعريفية"
+              data-tour="customer-tour-replay"
+            >
+              <HelpCircle />
+            </button>
 
             <ThemeToggle />
 

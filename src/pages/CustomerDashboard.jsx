@@ -14,9 +14,51 @@ import Requests from '../components/dashboard/Requests';
 import Settings from '../components/dashboard/Settings';
 import ScrollProgress from '../components/common/ScrollProgress';
 import Footer from '../components/layout/Footer';
-import WhatsAppBubble from '../components/common/WhatsAppBubble';
+import CustomerAssistant from '../components/assistant/CustomerAssistant';
+import DashboardTour from '../components/dashboard/DashboardTour';
+import {
+  hasCompletedDashboardTour,
+  markDashboardTourCompleted,
+} from '../lib/dashboardTour';
 import AdBanner from '../components/dashboard/AdBanner';
 import { AlertCircle, Trash2 } from 'lucide-react';
+
+const CUSTOMER_TOUR_ID = 'customer-tour';
+
+// خطوات جولة لوحة العميل — كلها أهداف موجودة في تبويب «نظرة عامة»،
+// فلا تحتاج الجولة لتبديل التبويبات أثناء العرض.
+const CUSTOMER_TOUR_STEPS = [
+  {
+    id: 'header',
+    target: 'customer-header',
+    title: 'أهلاً بك في لوحة التحكم',
+    description: 'من هذا الشريط تصل إلى الإشعارات وتبديل الوضع الليلي، وزر «تصفح المساحات» للبحث عن مساحة جديدة.',
+  },
+  {
+    id: 'sidebar',
+    target: 'customer-sidebar',
+    title: 'التنقل بين تبويباتك',
+    description: 'هنا تتنقل بين: نظرة عامة، حجوزاتي، المساحات المفضلة، طلباتي الخاصة، والإعدادات. وتجد بيانات ملفك الشخصي في الأعلى.',
+  },
+  {
+    id: 'metrics',
+    target: 'customer-metrics',
+    title: 'مؤشرات نشاطك',
+    description: 'هذه البطاقات الأربع تلخّص استخدامك: حجوزات قادمة، ساعة محجوزة هذا الشهر، مساحات محفوظة، والساعات التي قضيتها في المساحات.',
+  },
+  {
+    id: 'quick-action',
+    target: 'customer-quick-action',
+    title: 'إجراءات سريعة',
+    description: 'من هنا تتصفح المساحات وتقارن الأسعار والإنترنت، أو تقيّم تجربتك. وإذا احتجت ترتيباً خاصاً فأنشئ طلباً من تبويب «طلباتي الخاصة».',
+  },
+  {
+    id: 'assistant',
+    target: 'customer-assistant',
+    title: 'مساعدك الذكي',
+    description: 'اسأل عن حجوزاتك ومفضلاتك وطلباتك واحصل على توصيات سريعة. وتتحكم في خصوصية بياناتك من داخل المساعد نفسه.',
+  },
+];
 
 export default function CustomerDashboard() {
   const navigate = useNavigate();
@@ -30,6 +72,10 @@ export default function CustomerDashboard() {
   const [deleting, setDeleting] = useState(false);
   const [offersBadge, setOffersBadge] = useState(0);
   const [requestsView, setRequestsView] = useState('list'); // 'list' | 'create' | 'detail'
+  const [loaderDone, setLoaderDone] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
+  const [tourStep, setTourStep] = useState(1);
+  const autoTourCheckedRef = useRef(false);
   const deleteResolve = useRef(null);
 
   // حماية الدور (شرط صارم): لوحة العميل خاصة بالعميل فقط،
@@ -182,6 +228,60 @@ export default function CustomerDashboard() {
     setData((prev) => (prev ? { ...prev, user: { ...prev.user, ...patch } } : prev));
   }, []);
 
+  // ----- جولة تعريفية للوحة العميل -----
+  const tourUserId =
+    data?.user?.id ?? data?.user?.user_id ?? getUser()?.id ?? getUser()?.user_id ?? null;
+
+  // مرآة للتبويب النشط + التبويب الذي كانت عليه اللوحة قبل بدء الجولة،
+  // حتى يعود إليه المستخدم عند إنهائها أو تخطيها.
+  const activeRef = useRef(active);
+  const tabBeforeTourRef = useRef('overview');
+  useEffect(() => {
+    activeRef.current = active;
+  }, [active]);
+
+  const handleLoaderHidden = useCallback(() => setLoaderDone(true), []);
+
+  const startTour = useCallback(() => {
+    tabBeforeTourRef.current = activeRef.current;
+    setActive('overview');
+    setTourStep(1);
+    setTourOpen(true);
+  }, []);
+
+  const stopTour = useCallback(() => {
+    setTourOpen(false);
+    setTourStep(1);
+    setActive(tabBeforeTourRef.current);
+  }, []);
+
+  const handleTourFinish = useCallback(() => {
+    markDashboardTourCompleted(CUSTOMER_TOUR_ID, tourUserId);
+    stopTour();
+  }, [tourUserId, stopTour]);
+
+  const handleTourDismiss = useCallback(() => {
+    markDashboardTourCompleted(CUSTOMER_TOUR_ID, tourUserId);
+    stopTour();
+  }, [tourUserId, stopTour]);
+
+  // التشغيل التلقائي مرة واحدة فقط: بعد زوال شاشة التحميل ونجاح جلب البيانات،
+  // وغياب علامة الإنجاز لهذا العميل. التخطي أو إنهاء الجولة يكتبان نفس العلامة.
+  // نطاق التخزين منفصل عن المالك، فمن ينهي جولة المالك يرى جولة العميل.
+  useEffect(() => {
+    if (autoTourCheckedRef.current) return undefined;
+    if (!loaderDone || status !== 'ready') return undefined;
+    autoTourCheckedRef.current = true;
+    if (hasCompletedDashboardTour(CUSTOMER_TOUR_ID, tourUserId)) return undefined;
+    tabBeforeTourRef.current = activeRef.current;
+    const frame = requestAnimationFrame(() => {
+      setActive('overview');
+      setTourStep(1);
+      setTourOpen(true);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [loaderDone, status, tourUserId]);
+
   // قبول عرض من طلب خاص: نستدعي الواجهة مع مُعاد الحفظ التجريبي؛
   // عند نجاح القبول نضيف الحجز الجديد فوراً إلى بيانات اللوحة (دون إعادة تحميل كاملة).
   const handleAcceptOffer = useCallback(async (requestId, offerId) => {
@@ -283,7 +383,7 @@ export default function CustomerDashboard() {
 
   return (
     <div className="min-h-screen font-['Cairo'] text-zinc-900 dir-rtl">
-      <DashboardLoading done={status !== 'loading'} />
+      <DashboardLoading done={status !== 'loading'} onHidden={handleLoaderHidden} />
       <ScrollProgress />
       <DashboardLayout
         active={active}
@@ -293,6 +393,8 @@ export default function CustomerDashboard() {
         offersBadge={offersBadge}
         requestsView={requestsView}
         onRequestsViewChange={setRequestsView}
+        tourStep={tourStep}
+        onStartTour={startTour}
       >
         {data?.user?.role === 'customer' && (
           <AdBanner
@@ -316,7 +418,19 @@ export default function CustomerDashboard() {
         </AnimatePresence>
       </DashboardLayout>
       <Footer />
-      <WhatsAppBubble />
+      {/* المساعد الذكي يحل محل فقاعة الواتساب العائمة، تماماً كما في لوحة المالك،
+          ويبقى رابط الدعم البشري متاحاً داخل لوحة المساعد نفسها. */}
+      <CustomerAssistant data={data} onNavigate={setActive} tourActive={tourOpen} />
+      <DashboardTour
+        open={tourOpen}
+        step={tourStep}
+        steps={CUSTOMER_TOUR_STEPS}
+        tourId={CUSTOMER_TOUR_ID}
+        onStepChange={setTourStep}
+        onFinish={handleTourFinish}
+        onDismiss={handleTourDismiss}
+        onNavigate={setActive}
+      />
 
       {deleteOpen && (
         <div className="modal-overlay delete-confirm__overlay" onClick={() => closeDelete(false)}>

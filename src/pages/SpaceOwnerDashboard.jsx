@@ -23,10 +23,47 @@ import OwnerDocumentation from '../components/dashboard/owner/OwnerDocumentation
 import ScrollProgress from '../components/common/ScrollProgress';
 import Footer from '../components/layout/Footer';
 import OwnerAssistant from '../components/assistant/OwnerAssistant';
-import OwnerTour from '../components/dashboard/owner/OwnerTour';
-import { hasCompletedOwnerTour, markOwnerTourCompleted } from '../lib/ownerTour';
+import DashboardTour from '../components/dashboard/DashboardTour';
+import { hasCompletedDashboardTour, markDashboardTourCompleted } from '../lib/dashboardTour';
 import { AlertCircle, Trash2 } from 'lucide-react';
 import { useDialogA11y } from '../lib/dialogA11y';
+
+const OWNER_TOUR_ID = 'owner-tour';
+
+// خطوات جولة لوحة المالك — تُمرَّر إلى المحرّك المشترك مع بقية اللوحات.
+const OWNER_TOUR_STEPS = [
+  {
+    id: 'header',
+    target: 'owner-header',
+    title: 'أهلاً بك في لوحة المالك',
+    description: 'من هذا الشريط تصل إلى الإشعارات وتبديل الوضع الليلي، مع عنوان التبويب الحالي وتاريخ اليوم.',
+  },
+  {
+    id: 'sidebar',
+    target: 'owner-sidebar',
+    title: 'التنقل بين تبويباتك',
+    description: 'هنا تتنقل بين: نظرة عامة، مساحاتي، الحجوزات، المالية، السوق المفتوح، إعلاناتي، التقييمات، والإعدادات. وتجد بيانات ملفك الشخصي في الأعلى.',
+  },
+  {
+    id: 'metrics',
+    target: 'owner-metrics',
+    title: 'مؤشرات الأداء',
+    description: 'هذه البطاقات الأربع تلخّص أدائك: أرباح هذا الشهر، حجوزات هذا الشهر، نسبة الإشغال اليوم، وطلبات السوق.',
+  },
+  {
+    id: 'quick-add',
+    target: 'owner-quick-add',
+    title: 'أضف مساحة جديدة',
+    description: 'من هنا تضيف مساحة جديدة مع وثائق الإثبات. بعد الإرسال تراجعها الإدارة، وتظهر للعملاء بعد الاعتماد.',
+    beforeStep: ({ onNavigate }) => onNavigate?.('my-spaces'),
+  },
+  {
+    id: 'assistant',
+    target: 'owner-assistant',
+    title: 'مساعدك الذكي',
+    description: 'اسأل عن مساحاتك وحجوزاتك وأرباحك واحصل على توصيات سريعة. وتتحكم في خصوصية البيانات من داخل المساعد نفسه.',
+  },
+];
 
 export default function SpaceOwnerDashboard() {
   const navigate = useNavigate();
@@ -234,12 +271,12 @@ export default function SpaceOwnerDashboard() {
   }, []);
 
   const handleTourFinish = useCallback(() => {
-    markOwnerTourCompleted(tourOwnerId);
+    markDashboardTourCompleted(OWNER_TOUR_ID, tourOwnerId);
     stopTour();
   }, [tourOwnerId, stopTour]);
 
   const handleTourDismiss = useCallback(() => {
-    markOwnerTourCompleted(tourOwnerId);
+    markDashboardTourCompleted(OWNER_TOUR_ID, tourOwnerId);
     stopTour();
   }, [tourOwnerId, stopTour]);
 
@@ -249,7 +286,7 @@ export default function SpaceOwnerDashboard() {
     if (autoTourCheckedRef.current) return undefined;
     if (!loaderDone || status !== 'ready') return undefined;
     autoTourCheckedRef.current = true;
-    if (hasCompletedOwnerTour(tourOwnerId)) return undefined;
+    if (hasCompletedDashboardTour(OWNER_TOUR_ID, tourOwnerId)) return undefined;
     tabBeforeTourRef.current = activeRef.current;
     const frame = requestAnimationFrame(() => {
       setActive('overview');
@@ -334,9 +371,11 @@ export default function SpaceOwnerDashboard() {
       </OwnerLayout>
       <Footer />
       <OwnerAssistant data={data} onNavigate={setActive} tourActive={tourOpen} />
-      <OwnerTour
+      <DashboardTour
         open={tourOpen}
         step={tourStep}
+        steps={OWNER_TOUR_STEPS}
+        tourId={OWNER_TOUR_ID}
         onStepChange={setTourStep}
         onFinish={handleTourFinish}
         onDismiss={handleTourDismiss}

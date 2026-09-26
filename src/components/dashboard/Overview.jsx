@@ -111,7 +111,7 @@ export default function Overview({ data }) {
         </div>
       </section>
 
-      <section className="dash__stats">
+      <section className="dash__stats" data-tour="customer-metrics">
         {statCards.map((c) => {
           const Icon = c.icon;
           return (
@@ -124,7 +124,7 @@ export default function Overview({ data }) {
         })}
       </section>
 
-      <section className="dash__actions">
+      <section className="dash__actions" data-tour="customer-quick-action">
         {actions.map((a) => {
           const Icon = a.icon;
           return (

@@ -435,6 +435,7 @@ report('4.19 derived notifications become read after flag', notifAfterRead.every
 console.log('\n===== 5) owner.js (space owner dashboard) =====');
 
 const owner = await server.ssrLoadModule('/src/lib/owner.js');
+const customerAssistant = await server.ssrLoadModule('/src/lib/customerAssistant.js');
 
 report('5.1 mapSpace maps laravel fields', owner.mapSpace({ space_id: 12, title: 'قاعة A', price: 120, capacity: 40, amenities: ['internet', { key: 'ac' }], status: 'inactive', rating: 4.75 }).id === 12
   && owner.mapSpace({ space_id: 12, title: 'قاعة A', price: 120 }).price_per_hour === 120
@@ -686,6 +687,44 @@ try {
 }
 report('6.19 401 with token clears the session', api.getToken() === null && api.getUser() === null);
 report('6.20 401 with token flags expiry for the login page', api.consumeSessionExpired() === true);
+
+// ----- نطاق مساعد العميل: علاقة فقط، بلا إنشاء مساحات أو حجوزات -----
+console.log('\n===== Customer assistant scope (relationship only) =====');
+const cReply = customerAssistant.localCustomerReply;
+const CTX = {
+  upcomingCount: 2,
+  activeBookingsCount: 2,
+  cancelledBookings: 1,
+  nextBookingDate: '2026-10-02',
+  nextBookingName: 'قاعة الأمل',
+  favoritesCount: 3,
+  openRequests: 1,
+  hoursThisMonth: 6,
+  hoursSpentThisMonth: 9,
+  totalSpent: 250,
+};
+report('CS1 Answers upcoming bookings', cReply('ما هي حجوزاتي القادمة؟', CTX).includes('2 حجز قادم'), cReply('ما هي حجوزاتي القادمة؟', CTX));
+report('CS2 Answers favourites', cReply('ما مساحاتي المفضلة؟', CTX).includes('3 مساحة'), cReply('ما مساحاتي المفضلة؟', CTX));
+report('CS3 Answers custom requests', cReply('ما حالة طلباتي؟', CTX).includes('1 طلب خاص'), cReply('ما حالة طلباتي؟', CTX));
+report('CS4 Answers activity summary', cReply('اعرض ملخص نشاطي', CTX).includes('250'), cReply('اعرض ملخص نشاطي', CTX));
+report('CS5 Reports cancelled bookings', cReply('حجوزاتي الملغاة', CTX).includes('1 حجز ملغى'), cReply('حجوزاتي الملغاة', CTX));
+
+const outOfScope = cReply('كيف أحجز مساحة؟', CTX);
+report('CS6 Refuses to create a booking and gives no booking steps', !outOfScope.includes('تؤكد الحجز') && outOfScope.includes('تصفح المساحات'), outOfScope);
+report('CS7 Refuses to recommend a space', cReply('اقترح لي أفضل مساحة', CTX).includes('تصفح المساحات'), cReply('اقترح لي أفضل مساحة', CTX));
+report('CS8 Refuses to create a space', cReply('أضف مساحة جديدة', CTX).includes('تصفح المساحات'), cReply('أضف مساحة جديدة', CTX));
+const fallbackReply = cReply('طائرتي متأخرة', CTX);
+report('CS9 Fallback points to relationship topics only', !fallbackReply.includes('أحجز مساحة') && fallbackReply.includes('حجوزاتك'), fallbackReply);
+report('CS10 Zero-state stays calm', cReply('ما هي حجوزاتي القادمة؟', { upcomingCount: 0 }).includes('ليس لديك حجز قادم'), cReply('ما هي حجوزاتي القادمة؟', { upcomingCount: 0 }));
+
+const builtCtx = customerAssistant.buildCustomerContext({
+  bookings: [{ status: 'confirmed', price: 100 }, { status: 'cancelled', price: 50 }],
+  upcoming: [{ date: '2026-11-01', spaceName: 'ق', price: 100 }],
+  favorites: [{}, {}],
+  requests: [{ status: 'open' }],
+  stats: { hoursThisMonth: 4 },
+});
+report('CS11 Context counts only real relationship data', builtCtx.activeBookingsCount === 2 && builtCtx.cancelledBookings === 1 && builtCtx.favoritesCount === 2 && builtCtx.openRequests === 1, JSON.stringify(builtCtx));
 
 await server.close();
 

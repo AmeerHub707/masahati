@@ -1,8 +1,17 @@
+// محرّك الجولة التعريفية — مشترك بين كل لوحات التحكم.
+// يتلقّى خطواته من اللوحة المستدعِبة، فيبقى المنطق (القياس، الإضاءة، الوصولية، التحكم)
+// في مكان واحد، وتبقى النصوص والأهداف خاصة بكل لوحة.
+//
+// كل خطوة: { id, target, title, description, beforeStep? }
+//   target      → قيمة data-tour للعنصر المُبرَز
+//   beforeStep  → يُستدعى قبل قياس الخطوة (يُستخدم للتنقل بين التبويبات)
+//
+// tourId ي.namespacing سمات data-tour حتى لا تتعارض لوحتان على نفس الصفحة.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Check, X } from 'lucide-react';
-import { useDialogA11y } from '../../../lib/dialogA11y';
+import { useDialogA11y } from '../../lib/dialogA11y';
 
 const SPOTLIGHT_PADDING = 10;
 const GAP = 14;
@@ -11,39 +20,7 @@ const POPOVER_WIDTH = 340;
 const MAX_FIND_MS = 3000;
 const SETTLE_MS = 420;
 
-const STEPS = [
-  {
-    id: 'header',
-    target: 'owner-header',
-    title: 'أهلاً بك في لوحة المالك',
-    description: 'من هذا الشريط تصل إلى الإشعارات وتبديل الوضع الليلي، مع عنوان التبويب الحالي وتاريخ اليوم.',
-  },
-  {
-    id: 'sidebar',
-    target: 'owner-sidebar',
-    title: 'التنقل بين تبويباتك',
-    description: 'هنا تتنقل بين: نظرة عامة، مساحاتي، الحجوزات، المالية، السوق المفتوح، إعلاناتي، التقييمات، والإعدادات. وتجد بيانات ملفك الشخصي في الأعلى.',
-  },
-  {
-    id: 'metrics',
-    target: 'owner-metrics',
-    title: 'مؤشرات الأداء',
-    description: 'هذه البطاقات الأربع تلخّص أدائك: أرباح هذا الشهر، حجوزات هذا الشهر، نسبة الإشغال اليوم، وطلبات السوق.',
-  },
-  {
-    id: 'quick-add',
-    target: 'owner-quick-add',
-    title: 'أضف مساحة جديدة',
-    description: 'من هنا تضيف مساحة جديدة مع وثائق الإثبات. بعد الإرسال تراجعها الإدارة، وتظهر للعملاء بعد الاعتماد.',
-    beforeStep: ({ onNavigate }) => onNavigate?.('my-spaces'),
-  },
-  {
-    id: 'assistant',
-    target: 'owner-assistant',
-    title: 'مساعدك الذكي',
-    description: 'اسأل عن مساحاتك وحجوزاتك وأرباحك واحصل على توصيات سريعة. وتتحكم في خصوصية البيانات من داخل المساعد نفسه.',
-  },
-];
+const EMPTY_STEPS = [];
 
 function padRect(rect) {
   return {
@@ -105,7 +82,9 @@ function computePosition(rect, w, h, vw, vh, rtl) {
   };
 }
 
-export default function OwnerTour({
+export default function DashboardTour({
+  steps = EMPTY_STEPS,
+  tourId = 'tour',
   open,
   step,
   onStepChange,
@@ -113,8 +92,9 @@ export default function OwnerTour({
   onDismiss,
   onNavigate,
 }) {
-  const total = STEPS.length;
-  const current = STEPS[step - 1] || STEPS[0];
+  const list = Array.isArray(steps) && steps.length ? steps : EMPTY_STEPS;
+  const total = list.length;
+  const current = list[step - 1] || list[0] || null;
   const reduceMotion = useReducedMotion();
   const [rtl] = useState(isRtl);
 
@@ -123,9 +103,9 @@ export default function OwnerTour({
   const [measured, setMeasured] = useState({ target: '', rect: null });
   const [popSize, setPopSize] = useState({ w: POPOVER_WIDTH, h: 220 });
 
-  const rect = measured.target === current.target ? measured.rect : null;
-  const titleId = 'otour-title';
-  const descId = 'otour-desc';
+  const rect = current && measured.target === current.target ? measured.rect : null;
+  const titleId = `${tourId}-title`;
+  const descId = `${tourId}-desc`;
 
   const handleDismiss = useCallback(() => {
     onDismiss?.();
@@ -162,11 +142,11 @@ export default function OwnerTour({
 
   useEffect(() => {
     if (!open) return;
-    current.beforeStep?.({ onNavigate });
+    current?.beforeStep?.({ onNavigate });
   }, [open, step, current, onNavigate]);
 
   useEffect(() => {
-    if (!open) return undefined;
+    if (!open || !current) return undefined;
     let frame = 0;
     let findDeadline = 0;
     let settleUntil = 0;
@@ -232,7 +212,7 @@ export default function OwnerTour({
       window.visualViewport?.removeEventListener('resize', onViewportChange);
       window.visualViewport?.removeEventListener('scroll', onViewportChange);
     };
-  }, [open, current.target, onFinish, onStepChange, step, total]);
+  }, [open, current, onFinish, onStepChange, step, total]);
 
   // الموضع مشتقّ من القياس، فلا يحتاج حالة مستقلة ولا تحديثاً داخل التأثير.
   const pos = useMemo(() => {
@@ -256,7 +236,7 @@ export default function OwnerTour({
   const BackIcon = rtl ? ArrowRight : ArrowLeft;
   const NextIcon = rtl ? ArrowLeft : ArrowRight;
 
-  if (typeof document === 'undefined' || !open) return null;
+  if (typeof document === 'undefined' || !open || !current) return null;
 
   return createPortal(
     <div className="otour" data-tour-overlay="">
@@ -264,7 +244,7 @@ export default function OwnerTour({
         <svg className="otour__spotlight" aria-hidden="true" focusable="false">
           <defs>
             {/* قناع الإضاءة: الأبيض = التعتيم ظاهر، الأسود = فتحة تُظهر العنصر بلونه الطبيعي */}
-            <mask id="otour-spot-mask">
+            <mask id={`${tourId}-spot-mask`}>
               <rect data-tour-mask="base" x="0" y="0" width="100%" height="100%" fill="#fff" />
               <rect
                 data-tour-mask="hole"
@@ -283,7 +263,7 @@ export default function OwnerTour({
             width="100%"
             height="100%"
             fill="rgba(8,8,10,.68)"
-            mask="url(#otour-spot-mask)"
+            mask={`url(#${tourId}-spot-mask)`}
           />
           <rect
             className="otour__ring"
@@ -304,7 +284,7 @@ export default function OwnerTour({
         aria-labelledby={titleId}
         aria-describedby={descId}
         tabIndex={-1}
-        data-tour="owner-tour-popover"
+        data-tour={`${tourId}-popover`}
         data-tour-step={step}
         className="otour__popover"
         style={{ top: pos?.top ?? 0, left: pos?.left ?? 0, visibility: pos ? 'visible' : 'hidden' }}
@@ -320,7 +300,7 @@ export default function OwnerTour({
             type="button"
             className="otour__close"
             onClick={handleDismiss}
-            data-tour="owner-tour-skip"
+            data-tour={`${tourId}-skip`}
             aria-label="تخطي الجولة"
           >
             <X />
@@ -341,21 +321,21 @@ export default function OwnerTour({
         </div>
 
         <div className="otour__actions">
-          <button type="button" className="otour__skip" onClick={handleDismiss} data-tour="owner-tour-skip-text">
+          <button type="button" className="otour__skip" onClick={handleDismiss} data-tour={`${tourId}-skip-text`}>
             تخطي
           </button>
           <div className="otour__nav">
             {step > 1 && (
-              <button type="button" className="otour__btn otour__btn--ghost" onClick={handleBack} data-tour="owner-tour-back">
+              <button type="button" className="otour__btn otour__btn--ghost" onClick={handleBack} data-tour={`${tourId}-back`}>
                 <BackIcon /> السابق
               </button>
             )}
             {isLast ? (
-              <button type="button" className="otour__btn otour__btn--primary" onClick={() => goTo(total + 1)} data-tour="owner-tour-finish">
+              <button type="button" className="otour__btn otour__btn--primary" onClick={() => goTo(total + 1)} data-tour={`${tourId}-finish`}>
                 <Check /> تم
               </button>
             ) : (
-              <button type="button" className="otour__btn otour__btn--primary" onClick={handleNext} data-tour="owner-tour-next">
+              <button type="button" className="otour__btn otour__btn--primary" onClick={handleNext} data-tour={`${tourId}-next`}>
                 التالي <NextIcon />
               </button>
             )}
