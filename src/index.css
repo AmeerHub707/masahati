@@ -1921,3 +1921,97 @@ html.dark .dash__notif-card-body h4{color:var(--text-strong);}
 html.dark .dash__notif-card-body p{color:var(--text-muted);}
 html.dark .dash__notif-card.is-selected{border-color:var(--accent);}
 html.dark .badge--green{background:rgba(34,197,94,.16);color:#4ade80;}
+
+/* بديل التحميل الكسول لتبويبات اللوحة (AdminDashboardPage) — نفس ارتفاع
+   المحتوى التقريبي حتى لا تقفز الصفحة عند فتح تبويب. */
+.dash__tab-loading{display:flex;flex-direction:column;gap:.9rem;padding:1.5rem;}
+.dash__tab-loading-bar{display:block;height:1.1rem;border-radius:.6rem;background:rgba(249,115,22,.14);animation:dashTabPulse 1.1s ease-in-out infinite;}
+.dash__tab-loading-bar.is-short{width:60%;}
+@keyframes dashTabPulse{0%,100%{opacity:.55;}50%{opacity:1;}}
+html.dark .dash__tab-loading-bar{background:rgba(249,115,22,.2);}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   الطباعة / حفظ PDF
+   أسلوب الطباعة العام: يُخفي هيكل التنقّل ويترك المحتوى بلا قيود قصّ.
+   أقسام التقرير المالي تستعمل صنفين خاصّين: fin-print-hide (شاشة فقط)
+   و fin-print-only (ورق فقط) — انظر AdminFinancials.jsx.
+   ═══════════════════════════════════════════════════════════════════════ */
+.fin-print-only{display:none;}
+.fin-print-head{margin-bottom:1rem;padding-bottom:.7rem;border-bottom:2px solid var(--accent);}
+.fin-print-head h1{margin:0;font-size:1.35rem;font-weight:800;color:var(--text-strong);}
+.fin-print-head p{display:flex;flex-wrap:wrap;gap:.4rem 1.1rem;margin:.35rem 0 0;font-size:.76rem;color:var(--text-muted);}
+.fin-print-kpis{margin-bottom:1.1rem;}
+.fin-print-kpis h2{margin:0 0 .45rem;font-size:.95rem;font-weight:800;color:var(--text-strong);}
+.fin-print-kpis dl{margin:0 0 1rem;padding:0;border:1px solid var(--border);border-radius:.5rem;overflow:hidden;}
+.fin-print-kpis .fin-print-row{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;padding:.4rem .6rem;border-bottom:1px solid var(--border);}
+.fin-print-kpis .fin-print-row:nth-child(even){background:#fafafa;}
+.fin-print-kpis .fin-print-row:last-child{border-bottom:0;}
+.fin-print-kpis dt{font-size:.8rem;font-weight:700;color:var(--text-muted);}
+.fin-print-kpis dd{margin:0;font-size:.82rem;font-weight:800;color:var(--text-strong);font-variant-numeric:tabular-nums;}
+
+/* إيصال الطباعة المنفصل (.fin-receipt) — يظهر على الورق وحده عند وجود
+   الصنف is-receipt-print على body، وداخله لا يُطبع شيء من صفحة التقرير.
+   ملاحظة: لا يُوضع داخل .modal-overlay لأن قواعد الطباعة تخفيه. */
+.fin-receipt{display:none;}
+.fin-receipt-head{margin-bottom:.8rem;padding-bottom:.6rem;border-bottom:2px solid var(--accent);}
+.fin-receipt-head h1{margin:0;font-size:1.2rem;font-weight:800;color:var(--text-strong);}
+.fin-receipt-head p{display:flex;flex-wrap:wrap;gap:.35rem 1rem;margin:.3rem 0 0;font-size:.75rem;color:var(--text-muted);}
+.fin-receipt dl{margin:0;border:1px solid var(--border);border-radius:.5rem;overflow:hidden;}
+.fin-receipt-row{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;padding:.45rem .7rem;border-bottom:1px solid var(--border);}
+.fin-receipt-row:nth-child(even){background:#fafafa;}
+.fin-receipt-row:last-child{border-bottom:0;}
+.fin-receipt dt{font-size:.8rem;font-weight:700;color:var(--text-muted);}
+.fin-receipt dd{margin:0;font-size:.84rem;font-weight:800;color:var(--text-strong);font-variant-numeric:tabular-nums;}
+.fin-receipt-row.is-total{background:rgba(249,115,22,.1);}
+.fin-receipt-row.is-total dt,.fin-receipt-row.is-total dd{font-size:.92rem;font-weight:900;color:var(--text-strong);}
+
+@media print{
+  @page{size:A4;margin:12mm 10mm;}
+
+  /* الوضع الداكن يُعاد إلى ألوان الطباعة — بدونه تخرج صفحة سوداء،
+     لأن قاعدة html.dark .dash (السطر 1508) تُطبع على الورق كما هي. */
+  html{color-scheme:light;
+       --surface:#fff;--surface-2:#fff;--ink:#18181b;
+       --text-strong:#18181b;--text-muted:#57534e;--border:#d4d4d8;--accent-soft:#fff7ed;}
+  html.dark body,html.dark .dash,html.dark .dash__card{background:#fff !important;color:#18181b !important;}
+
+  /* الاحتفاظ بألوان البطاقات والحالات بدل طباعتها أبيض وأسود. */
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+
+  /* إيقاف الحركة: لقطات الطباعة قد تُلتقط في منتصف انتقال. */
+  *,*::before,*::after{animation:none !important;transition:none !important;}
+
+  /* إخفاء هيكل التنقّل وعناصر التفاعل. */
+  .dash__side,.dash__scrim,.dash__top,.dash__news,.dash__hero,.loading,
+  .scroll-progress,.dash__menu,.dash__tip,.modal-overlay,.dash__toast,
+  .dash__tab-loading,.fin-print-hide,.dash__news-close{display:none !important;}
+
+  /* فكّ قيود التمرير: .dash و .dash__layout و .dash__main تحوي overflow
+     يقصّ ما يُطبع، و display:flex يجعل توزيع الأعمدة غير متوقّع على الورق. */
+  .dash,.dash__layout,.dash__main{display:block !important;
+     overflow:visible !important;min-height:0 !important;height:auto !important;}
+  .dash__content{padding:0 !important;}
+
+  .fin-print-only{display:block;}
+
+  /* طباعة الإيصال وحده: visibility يُخفي كل شيء مع إبقاء التخطيط (لو استُعمل
+     display:none لانهار المستند وخرج الإيصال في صفحة بيضاء)، ثم يُكشف الإيصال
+     وفروعه. لا يعمل هذا إلا عند وجود الصنف is-receipt-print على body. */
+  body.is-receipt-print{overflow:visible !important;}
+  body.is-receipt-print *{visibility:hidden !important;}
+  body.is-receipt-print .fin-receipt,
+  body.is-receipt-print .fin-receipt *{visibility:visible !important;}
+  body.is-receipt-print .fin-receipt{position:absolute;top:0;left:0;right:0;}
+
+  /* البطاقات: بلا ظلال، ولا تُقصّ أجزاؤها بين صفحات الورق. */
+  .dash__card{box-shadow:none !important;break-inside:avoid;}
+
+  /* الجدول: إزالة الحدّ الأدنى للعرض وتمرير أفقي (يقصّ A4)،
+     وتكرار الترويسة على كل صفحة، ومنع قطع الصف. */
+  .dash__table{min-width:0 !important;width:100% !important;font-size:.72rem !important;}
+  .dash__table thead{display:table-header-group;}
+  .dash__table thead th{white-space:nowrap;}
+  .dash__table th,.dash__table td{padding:.4rem .35rem !important;}
+  .dash__table tr{break-inside:avoid;}
+  .dash__table-wrap,.overflow-x-auto{overflow:visible !important;}
+}

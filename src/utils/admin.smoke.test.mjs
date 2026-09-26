@@ -229,17 +229,170 @@ console.log('\n===== ADMIN: التقارير المالية =====');
   const clicked = await v.clickText('نطاق مخصص');
   report('A3 custom range pill clickable', clicked);
   report(
-    'A4 custom range does not crash (data fallback)',
+    'A4 custom range still renders the report',
     v.text().includes('إجمالي الإيرادات') && v.text().includes('مستحقات الملاك'),
     `path=${v.path()} text=${v.text().slice(0, 80)}`
   );
   report('A5 custom range shows date inputs', !!v.find('#custom-from') && !!v.find('#custom-to'));
-  report('A6 custom range subtitle is not undefined', !v.text().includes('undefined') && !v.text().includes('NaN'), v.text().slice(0, 160));
+  // نطاق ناقص: يُقال صراحةً ولا تُعرض أرقام شهر وكأنها أرقام هذا النطاق.
+  report('A6 an incomplete custom range is called out', v.text().includes('حدّد تاريخ البداية والنهاية'), v.text().slice(0, 200));
   report('A7 financial values are thousand-separated', /\d,\d{3}/.test(v.text()), v.text().match(/\d{4,}\s*ش\.ج/)?.[0] || 'no big number found');
+
+  // سبتمبر كاملاً = أرقام زر «هذا الشهر» بالضبط (مجموع السلسلة اليومية)، وهذا
+  // هو الدليل على أن النطاق المخصص صار يُحسب بدل السقوط إلى الشهر.
+  await v.type(v.find('#custom-from'), '2026-09-01');
+  await v.type(v.find('#custom-to'), '2026-09-30');
+  report(
+    'A7b a full-month custom range matches the month preset',
+    v.text().includes('241,500') && v.text().includes('28,980'),
+    v.text().match(/\d{2,3},\d{3}\s*ش\.ج/g)?.slice(0, 3).join(' / ') || v.text().slice(0, 200)
+  );
+  report('A7c the missing-range hint clears once both dates are set', !v.text().includes('حدّد تاريخ البداية والنهاية'));
+  report('A7d no NaN/undefined leaks from the custom range', !/undefined|NaN/.test(v.text()), v.text().match(/.{0,40}(undefined|NaN).{0,40}/)?.[0] || '');
+
+  // فترة أقصر: يجب أن تعطي رقماً أصغر ومختلفاً، لا رقم الشهر نفسه.
+  await v.type(v.find('#custom-to'), '2026-09-12');
+  report(
+    'A7e a shorter custom range recomputes instead of falling back',
+    v.text().includes('87,583') && !v.text().includes('241,500'),
+    v.text().match(/\d{2,3},\d{3}\s*ش\.ج/g)?.slice(0, 3).join(' / ') || v.text().slice(0, 200)
+  );
+
+  // خارج تغطية السلسلة اليومية (سبتمبر 2026) يُقال ذلك صراحةً.
+  await v.type(v.find('#custom-to'), '2026-12-31');
+  report('A7f out-of-coverage custom range warns about the demo data span', v.text().includes('تغطي'), v.text().slice(0, 240));
 
   await v.clickText('اليوم');
   report('A8 switching back to preset range works', v.text().includes('9,200') || v.text().includes('9,200'), v.text().slice(0, 120));
   v.unmount();
+}
+
+console.log('\n===== ADMIN: سلسلة الأيام المالية (أساس النطاق المخصص) =====');
+{
+  const {
+    financialDailySeries: series,
+    financialDailySpan: span,
+    financialRangeData: ranges,
+  } = await server.ssrLoadModule('/src/data/adminMockData.js');
+  const revenue = series.reduce((s, d) => s + d.revenue, 0);
+  const bookings = series.reduce((s, d) => s + d.bookings, 0);
+  report('D1 daily series sums exactly to the month revenue', revenue === ranges.month.revenue, `${revenue} vs ${ranges.month.revenue}`);
+  report('D2 daily series sums exactly to the month bookings', bookings === ranges.month.bookings, `${bookings} vs ${ranges.month.bookings}`);
+  const commission = Math.round(revenue * 0.12);
+  report(
+    'D3 a summed full month reproduces the month commission and payouts',
+    commission === ranges.month.commission && revenue - commission === ranges.month.payouts,
+    `commission=${commission} payouts=${revenue - commission}`
+  );
+  // كل يوم واحد مرتّب بلا فجوات — وإلا بُنيت النتيجة على تاريخ غير موجود.
+  const contiguous = series.every((d, i) => d.date === new Date(Date.UTC(2026, 8, i + 1)).toISOString().slice(0, 10));
+  report('D4 daily series is contiguous and sorted', contiguous && span.from === series[0].date && span.to === series[series.length - 1].date, `${span.from}..${span.to} (${series.length} days)`);
+}
+
+
+console.log('\n===== ADMIN: تصدير التقرير (CSV / PDF) =====');
+{
+  // jsdom لا يطبع ولا ينفّذ تنزيل <a download>، فنستبدلهما لالتقاط الناتج
+  // بدل تشغيل متصفح حقيقي. تُرقَّم هذه الحالات AF* تفادياً للتصادم مع A9..A35.
+  const printCalls = [];
+  const realPrint = dom.window.print;
+  dom.window.print = () => printCalls.push(true);
+
+  const downloads = [];
+  const realAnchorClick = dom.window.HTMLAnchorElement.prototype.click;
+  const realCreate = globalThis.URL.createObjectURL;
+  const realRevoke = globalThis.URL.revokeObjectURL;
+  let capturedBlob = null;
+  globalThis.URL.createObjectURL = (b) => { capturedBlob = b; return 'blob:stub/1'; };
+  globalThis.URL.revokeObjectURL = () => {};
+  dom.window.HTMLAnchorElement.prototype.click = function stubbedDownload() {
+    downloads.push(this.download);
+  };
+
+  // alert() الأصلي يعلّق المتصفح فنرصده، فنتحقّق فعلياً من إزالته.
+  const alerts = [];
+  const realAlert = dom.window.alert;
+  dom.window.alert = (m) => { alerts.push(String(m)); };
+
+  try {
+    const v = await mount('/admin/financials');
+    report('AF1 no native alert() anywhere on the page', alerts.length === 0, alerts.join(' | '));
+
+    await v.clickText('تصدير التقرير');
+    const items = v.findAll('[role=menu] [role=menuitem]');
+    report('AF2 export menu offers exactly CSV + PDF', items.length === 2, `found ${items.length}: ${items.map((b) => b.textContent.trim()).join(' | ')}`);
+
+    const csvItem = items.find((b) => b.textContent.includes('CSV'));
+    if (csvItem) await v.click(csvItem);
+    report('AF3 CSV export triggers a .csv download', downloads.length === 1 && downloads[0].endsWith('.csv'), `downloads=${JSON.stringify(downloads)}`);
+    report('AF3b CSV export closes the dropdown', v.findAll('[role=menu]').length === 0, `menus=${v.findAll('[role=menu]').length}`);
+
+    const csvText = capturedBlob ? await capturedBlob.text() : '';
+    // blob.text() يزيل BOM حسب مواصفة UTF-8 decode، لذا نفحص البايتات الخام.
+    const csvBytes = capturedBlob ? new Uint8Array(await capturedBlob.arrayBuffer()) : new Uint8Array();
+    report('AF4 CSV starts with a UTF-8 BOM for Excel', csvBytes[0] === 0xef && csvBytes[1] === 0xbb && csvBytes[2] === 0xbf, `first3=${[...csvBytes.slice(0, 3)].map((b) => b.toString(16)).join(' ')}`);
+    report('AF5 CSV keeps Arabic readable', csvText.includes('إجمالي الإيرادات') && csvText.includes('مساحة المهندسين'), csvText.slice(0, 120));
+    report('AF6 CSV has no undefined/NaN', !/undefined|NaN/.test(csvText), csvText.match(/.{0,40}(undefined|NaN).{0,40}/)?.[0] || '');
+    // النطاق الافتراضي هو الشهر: 241,500 إيراداً و28,980 عمولة.
+    report('AF7 CSV reports current range values', csvText.includes('241,500') && csvText.includes('28,980'), csvText.match(/"241,500".{0,90}/)?.[0] || csvText.slice(0, 200));
+    report('AF8 CSV toast confirms the export', v.text().includes('تم تصدير التقرير كملف CSV'), v.text().slice(-120));
+
+    await v.clickText('تصدير التقرير');
+    const pdfItem = v.findAll('[role=menu] [role=menuitem]').find((b) => b.textContent.includes('PDF'));
+    if (pdfItem) await v.click(pdfItem);
+    report('AF9 PDF export calls window.print()', printCalls.length === 1, `printCalls=${printCalls.length}`);
+    report('AF10 PDF export toasts instead of alerting', v.text().includes('حفظ كملف PDF') && alerts.length === 0, `alerts=${alerts.join(' | ')}`);
+
+    await v.clickText('تصدير التقرير');
+    const items2 = v.findAll('[role=menu] [role=menuitem]');
+    const pdfLabel = items2.find((b) => b.textContent.includes('PDF'))?.textContent.trim();
+    report('AF2b the print option is labelled طباعة / حفظ PDF', pdfLabel === 'طباعة / حفظ PDF', `label=${pdfLabel}`);
+    await v.clickText('تصدير التقرير');
+
+    const rowBtn = v.findAll('button[aria-label^="عرض تفاصيل المعاملة"]')[0];
+    if (rowBtn) await v.click(rowBtn);
+    const modal = v.find('.modal-overlay');
+    const modalText = modal?.textContent || '';
+    report('AF11 row action opens a details modal, not a toast', !!modal && !v.text().includes('قيد التطوير'), `modal=${!!modal} text=${v.text().slice(-140)}`);
+    report('AF11b the modal shows booking id, space, owner, date and status',
+      modalText.includes('#BK-1021')
+      && modalText.includes('استوديو الأناقة')
+      && modalText.includes('أحمد العمري')
+      && modalText.includes('مكتمل')
+      && /١?\d/.test(modalText),
+      modalText.slice(0, 200));
+    report('AF11c the modal shows total, 12% fee and net payout',
+      modalText.includes('إجمالي المبلغ') && modalText.includes('عمولة المنصة (12%)') && modalText.includes('صافي مستحقات المالك'),
+      modalText.slice(0, 240));
+    report('AF11d the modal reuses the shared status badge', !!modal?.querySelector('.badge'), modal?.innerHTML?.slice(0, 160) || '');
+
+    const receiptBtn = Array.from(modal?.querySelectorAll('button') || []).find((b) => b.textContent.includes('طباعة الإيصال'));
+    report('AF12 the modal offers طباعة الإيصال', !!receiptBtn, `buttons=${Array.from(modal?.querySelectorAll('button') || []).map((b) => b.textContent.trim()).join(' | ')}`);
+    if (receiptBtn) await v.click(receiptBtn);
+    report('AF13 Print Receipt flags the body and calls window.print()',
+      dom.window.document.body.classList.contains('is-receipt-print') && printCalls.length === 2,
+      `body=${dom.window.document.body.className} printCalls=${printCalls.length}`);
+    // كتلة الإيصال لا تُطبع إلا بها، فلا بد أن تكون موجودة في DOM الآن.
+    report('AF13b the receipt block exists and sits outside the modal overlay', !!v.find('.fin-receipt') && !!v.find('.fin-receipt').closest('.modal-overlay') === false);
+
+    // afterprint لا يصل إلى window إلا إذا كان الحدث فقاعاتيًّا.
+    dom.window.dispatchEvent(new dom.window.Event('afterprint', { bubbles: true }));
+    await flush();
+    report('AF13c afterprint clears the receipt flag', !dom.window.document.body.classList.contains('is-receipt-print'), `body=${dom.window.document.body.className}`);
+
+    // Escape يغلق النافذة (نفس سلوك Modal في ui.jsx).
+    dom.window.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await flush();
+    report('AF14 Escape closes the transaction modal', !v.find('.modal-overlay'), `modal=${!!v.find('.modal-overlay')}`);
+
+    v.unmount();
+  } finally {
+    dom.window.print = realPrint;
+    dom.window.alert = realAlert;
+    dom.window.HTMLAnchorElement.prototype.click = realAnchorClick;
+    globalThis.URL.createObjectURL = realCreate;
+    globalThis.URL.revokeObjectURL = realRevoke;
+  }
 }
 
 console.log('\n===== ADMIN: إدارة المستخدمين =====');

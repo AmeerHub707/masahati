@@ -1,22 +1,28 @@
-import { Component, useEffect, useState } from 'react';
+import { Component, Suspense, lazy, useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle } from 'lucide-react';
 import AdminLayout from '../components/admin/AdminLayout';
-import AdminOverview from '../components/admin/AdminOverview';
-import AdminUsers from '../components/admin/AdminUsers';
-import AdminSpaces from '../components/admin/AdminSpaces';
-import AdminBookings from '../components/admin/AdminBookings';
-import AdminReviews from '../components/admin/AdminReviews';
-import AdminFinancials from '../components/admin/AdminFinancials';
-import InboxNotifications from '../components/admin/InboxNotifications';
-import BroadcastNotifications from '../components/admin/BroadcastNotifications';
-import AdminSettings from '../components/admin/AdminSettings';
 import DashboardLoading from '../components/dashboard/DashboardLoading';
 import ScrollProgress from '../components/common/ScrollProgress';
 import { isAdminLoggedIn, adminLogout } from '../lib/adminAuth';
 import { ADMIN_TABS } from '../data/adminTabs';
 import { adminInbox } from '../data/adminMockData';
+
+// كل تبويب حزمة منفصلة: تُحمَّل التبويبات كلها معاً كان يجعل recharts (≈450kB
+// من الحزمة الأولى) جزءاً من تحميل اللوحة الأولى، مع أن Financials وOverview
+// وحدهما يستعملانه. التحميل الكسول يجعل فتح التبويب يبني ما يُعرض فقط، ويبقى
+// التصيير داخل TabErrorBoundary فتنهار حزمة مفقودة إلى رسالة إعادة المحاولة
+// بدل لوحة بيضاء.
+const AdminOverview = lazy(() => import('../components/admin/AdminOverview'));
+const AdminUsers = lazy(() => import('../components/admin/AdminUsers'));
+const AdminSpaces = lazy(() => import('../components/admin/AdminSpaces'));
+const AdminBookings = lazy(() => import('../components/admin/AdminBookings'));
+const AdminReviews = lazy(() => import('../components/admin/AdminReviews'));
+const AdminFinancials = lazy(() => import('../components/admin/AdminFinancials'));
+const InboxNotifications = lazy(() => import('../components/admin/InboxNotifications'));
+const BroadcastNotifications = lazy(() => import('../components/admin/BroadcastNotifications'));
+const AdminSettings = lazy(() => import('../components/admin/AdminSettings'));
 
 const TAB_COMPONENTS = {
   overview: AdminOverview,
@@ -72,6 +78,18 @@ class TabErrorBoundary extends Component {
       </div>
     );
   }
+}
+
+// بديل التحميل الكسول: هيكل بنفس ارتفاع المحتوى حتى لا تقفز الصفحة، وحركته
+// pulse معطّلة وقت الطباعة (@media print) فلا تُطبع حالة التحميل.
+function TabFallback() {
+  return (
+    <div className="dash__tab-loading" data-tab-loading role="status" aria-live="polite">
+      <span className="dash__tab-loading-bar" />
+      <span className="dash__tab-loading-bar is-short" />
+      <span className="dash__tab-loading-bar" />
+    </div>
+  );
 }
 
 export default function AdminDashboardPage() {
@@ -134,18 +152,22 @@ export default function AdminDashboardPage() {
               exit={{ opacity: 0, y: -12 }}
               transition={{ duration: 0.28, ease: 'easeOut' }}
             >
-              {activeTab === 'notifications' ? (
-                notifSub === 'broadcast' ? (
-                  <BroadcastNotifications />
+              {/* شارة data-tab-loading هي ما ينتظره اختبار الدخان بعد بدء
+                  التحميل الكسول: وجودها يعني أن الحزمة لم تصل بعد. */}
+              <Suspense fallback={<TabFallback />}>
+                {activeTab === 'notifications' ? (
+                  notifSub === 'broadcast' ? (
+                    <BroadcastNotifications />
+                  ) : (
+                    <InboxNotifications inbox={inbox} setInbox={setInbox} onNavigate={goTab} />
+                  )
                 ) : (
-                  <InboxNotifications inbox={inbox} setInbox={setInbox} onNavigate={goTab} />
-                )
-              ) : (
-                (() => {
-                  const ActiveComponent = TAB_COMPONENTS[activeTab] || AdminOverview;
-                  return <ActiveComponent onNavigate={goTab} />;
-                })()
-              )}
+                  (() => {
+                    const ActiveComponent = TAB_COMPONENTS[activeTab] || AdminOverview;
+                    return <ActiveComponent onNavigate={goTab} />;
+                  })()
+                )}
+              </Suspense>
             </motion.div>
           </AnimatePresence>
         </TabErrorBoundary>

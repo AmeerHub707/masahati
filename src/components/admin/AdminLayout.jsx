@@ -6,6 +6,14 @@ import { getAdminProfile } from '../../lib/adminAuth';
 import { ADMIN_TABS, ADMIN_NOTIF_TABS } from '../../data/adminTabs';
 import ThemeToggle from '../common/ThemeToggle';
 
+// لاحقة العصر: يضيفها ICU للصيغة الهجرية في بعض المتصفحات ولا يضيفها في غيرها (وتختلف
+// كتابتها بين «هـ» و«هجري» و«AH»)، فنزيل أي لاحقة موجودة ثم نثبّت واحدة حتى لا تتكرر.
+const ERA_TOKEN = /[\s\u00a0]*(?:هـ|هجري|AH|A\.H\.)/gi;
+const withEra = (value, era) => {
+  const clean = String(value || '').replace(ERA_TOKEN, '').trim();
+  return clean ? `${clean} ${era}` : '';
+};
+
 function useDates() {
   const now = new Date();
   const gregorian = now.toLocaleDateString('ar-EG', {
@@ -25,7 +33,8 @@ function useDates() {
       return '';
     }
   })();
-  return { gregorian, hijri };
+  // «م» للميليادي و«هـ» للهجري — ترويسة التاريخ لا تُقرأ بلا تمييز بين التقويمين.
+  return { gregorian: withEra(gregorian, 'م'), hijri: withEra(hijri, 'هـ') };
 }
 
 export default function AdminLayout({ active, notifSub = null, unreadCount = 0, onNavigate, onLogout, children }) {

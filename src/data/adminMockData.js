@@ -172,6 +172,52 @@ export const financialRangeData = {
   year: { revenue: 1894000, bookings: 6204, commission: 227280, payouts: 1666720 },
 };
 
+// سلسلة يومية لشهر سبتمبر 2026 — أساس النطاق المخصص في التقارير المالية.
+// لماذا سلسلة يومية: financialRangeData مجمّعات جاهزة (اليوم/الأسبوع/الشهر/السنة)
+// فقط، فلا سبيل لحساب نطاق تواريخ بعينه منها؛ فكان النطاق المخصص يسقط إلى الشهر.
+// أرقام الأيام مثبّتة (لا عشوائية) ومجموعها مطابق تماماً لأرقام شهر
+// financialRangeData: الإيراد 241,500 والحجوزات 517 — فاختيار شهر سبتمبر كاملاً
+// يعيد بالضبط ما يعرضه زر «هذا الشهر»، والعمولة 12% ومستحقات الملاك تُشتقّ من
+// المجموع المُحتسب فتنتج 28,980 و212,520 كما هي أصلاً.
+export const financialDailySeries = [
+  { date: '2026-09-01', revenue: 5701, bookings: 12 },
+  { date: '2026-09-02', revenue: 7255, bookings: 16 },
+  { date: '2026-09-03', revenue: 7774, bookings: 17 },
+  { date: '2026-09-04', revenue: 5182, bookings: 11 },
+  { date: '2026-09-05', revenue: 8292, bookings: 18 },
+  { date: '2026-09-06', revenue: 8810, bookings: 19 },
+  { date: '2026-09-07', revenue: 4146, bookings: 9 },
+  { date: '2026-09-08', revenue: 7774, bookings: 17 },
+  { date: '2026-09-09', revenue: 8292, bookings: 18 },
+  { date: '2026-09-10', revenue: 6219, bookings: 13 },
+  { date: '2026-09-11', revenue: 8810, bookings: 19 },
+  { date: '2026-09-12', revenue: 9328, bookings: 20 },
+  { date: '2026-09-13', revenue: 4664, bookings: 10 },
+  { date: '2026-09-14', revenue: 8292, bookings: 18 },
+  { date: '2026-09-15', revenue: 8810, bookings: 19 },
+  { date: '2026-09-16', revenue: 6737, bookings: 14 },
+  { date: '2026-09-17', revenue: 9328, bookings: 20 },
+  { date: '2026-09-18', revenue: 9847, bookings: 21 },
+  { date: '2026-09-19', revenue: 5182, bookings: 11 },
+  { date: '2026-09-20', revenue: 8810, bookings: 19 },
+  { date: '2026-09-21', revenue: 9328, bookings: 20 },
+  { date: '2026-09-22', revenue: 7255, bookings: 16 },
+  { date: '2026-09-23', revenue: 9847, bookings: 21 },
+  { date: '2026-09-24', revenue: 10365, bookings: 22 },
+  { date: '2026-09-25', revenue: 5701, bookings: 12 },
+  { date: '2026-09-26', revenue: 9328, bookings: 20 },
+  { date: '2026-09-27', revenue: 9847, bookings: 21 },
+  { date: '2026-09-28', revenue: 7774, bookings: 17 },
+  { date: '2026-09-29', revenue: 10365, bookings: 22 },
+  { date: '2026-09-30', revenue: 12437, bookings: 25 },
+];
+
+// أول وآخر يوم في السلسلة — لعرض تنبيه تغطية البيانات عند اختيار نطاق أوسع منها.
+export const financialDailySpan = {
+  from: financialDailySeries[0].date,
+  to: financialDailySeries[financialDailySeries.length - 1].date,
+};
+
 export const commissionBreakdown = [
   { label: 'حجوزات', amount: 241500 },
   { label: 'عمولة المنصة (12%)', amount: 28980 },
