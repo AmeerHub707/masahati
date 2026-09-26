@@ -40,6 +40,7 @@ import {
   Avatar,
   Tip,
 } from './ui';
+import { downloadCsv } from '../../utils/csv';
 
 const PAGE_SIZE = 10;
 
@@ -271,17 +272,10 @@ export default function AdminUsers() {
 
   const handleExportCsv = () => {
     const rows = selected.size > 0 ? selectedUsers : filtered;
-    const lines = [CSV_HEADERS, ...rows.map((u) => [u.name, u.email, u.phone, ROLE_AR[u.role], STATUS_AR[u.status], u.verified ? 'موثق' : 'قيد المراجعة', u.bookings, u.joined])];
-    const csv = '\uFEFF' + lines.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'masahati-users.csv';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    downloadCsv('masahati-users.csv', [
+      CSV_HEADERS,
+      ...rows.map((u) => [u.name, u.email, u.phone, ROLE_AR[u.role], STATUS_AR[u.status], u.verified ? 'موثق' : 'قيد المراجعة', u.bookings, u.joined]),
+    ]);
   };
 
   const handleDelete = () => {

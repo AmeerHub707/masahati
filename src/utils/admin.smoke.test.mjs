@@ -260,8 +260,19 @@ console.log('\n===== ADMIN: إدارة المستخدمين =====');
 console.log('\n===== ADMIN: المساحات والحجوزات والمراجعات =====');
 {
   const s = await mount('/admin/spaces');
-  await s.clickText('قيد المراجعة');
-  report('A18 spaces status filter works', !s.text().includes('الموافقة') || s.text().includes('الموافقة'));
+  // تبويب الحالة: التصفية يجب أن تُبقي المطابق فقط وتطابق العدد المعروض
+  await s.click(s.find('[data-space-tab="active"]'));
+  const activeCards = s.findAll('[data-space-card]').length;
+  report(
+    'A18 spaces status filter keeps only active rows',
+    activeCards === 5 && s.findAll('.badge--confirmed').length === 5 && s.findAll('.badge--cancelled').length === 0,
+    `cards=${activeCards} green=${s.findAll('.badge--confirmed').length} red=${s.findAll('.badge--cancelled').length}`
+  );
+  report(
+    'A18b spaces filter shows the pluralized result count',
+    s.text().includes('عرض 5 مساحات'),
+    `summary=${(s.text().match(/عرض[^·]*/) || [''])[0].trim()}`
+  );
   s.unmount();
 
   const b = await mount('/admin/bookings');
@@ -275,6 +286,162 @@ console.log('\n===== ADMIN: المساحات والحجوزات والمراجع
   await r.clickText('مبلّغ عنها');
   report('A21 flagged reviews filter works', r.text().includes('مبلّغ عنها') && !r.text().includes('رتبتك ممتازة'));
   r.unmount();
+}
+
+console.log('\n===== ADMIN: المساحات — التخطيط والصور والقائمة =====');
+{
+  const s = await mount('/admin/spaces');
+
+  // شريط التبويب العلوي مبني على Pill المشترك مع عدّاد لكل حالة
+  const tabBar = s.find('[data-space-tabs]');
+  const tabBtns = tabBar ? Array.from(tabBar.querySelectorAll('button')) : [];
+  report(
+    'A36 spaces uses the shared Pill tab bar with counts',
+    tabBtns.length === 4 && tabBtns.every((b) => b.hasAttribute('aria-pressed')) && tabBtns[0].textContent.includes('10'),
+    `tabs=${tabBtns.length} first=${tabBtns[0]?.textContent.trim()}`
+  );
+  report('A36b spaces has a secondary toolbar below the tabs', !!s.find('[data-space-toolbar]') && !!s.find('input[type=search]'));
+
+  // صور الغلاف: أصل محلي لكل بطاقة
+  const covers = s.findAll('[data-space-card] .dash__cover-img');
+  report(
+    'A37 every space card renders a local cover image',
+    covers.length === 10 && covers.every((img) => (img.getAttribute('src') || '').startsWith('/')),
+    `covers=${covers.length} srcs=${covers.slice(0, 2).map((i) => i.getAttribute('src')).join(',')}`
+  );
+
+  // فشل تحميل الصورة يُظهر البديل المتدرّج بدل صورة مكسورة
+  covers[0]?.dispatchEvent(new dom.window.Event('error'));
+  await flush();
+  report(
+    'A38 a broken cover falls back to the gradient placeholder',
+    s.findAll('[data-space-card] .dash__cover-fallback').length === 1,
+    `fallbacks=${s.findAll('[data-space-card] .dash__cover-fallback').length}`
+  );
+  report(
+    'A38b the broken cover is not retried in a loop',
+    s.findAll('[data-space-card] .dash__cover-img').length === 9,
+    `imgs=${s.findAll('[data-space-card] .dash__cover-img').length}`
+  );
+
+  // قائمة «⋮»: تفتح، وتحتوي معاينة/تعديل/حذف، ولا تُفعّل معاينة البطاقة (stopPropagation)
+  const firstCard = s.find('[data-space-card]');
+  const firstName = (firstCard?.querySelector('h3')?.textContent || '').trim();
+  await s.click(s.find('.dash__cover-acts .dash__menu-btn'));
+  const menu = dom.window.document.querySelector('.dash__menu--fixed');
+  const menuItems = menu ? Array.from(menu.querySelectorAll('[role="menuitem"]')) : [];
+  report('A39 space action menu opens without opening the preview', !!menu && !s.find('.modal-overlay'));
+  report(
+    'A40 space action menu has Preview/Edit/Delete plus a separator',
+    menuItems.length === 3 &&
+      menuItems[0].textContent.includes('معاينة') &&
+      menuItems[1].textContent.includes('تعديل') &&
+      menuItems[2].textContent.includes('حذف') &&
+      menu?.querySelectorAll('[role="separator"]').length === 1,
+    menu ? `items=[${menuItems.map((b) => b.textContent.trim()).join(' | ')}]` : 'no menu'
+  );
+  const inViewport = !!menu && (() => {
+    const r = menu.getBoundingClientRect();
+    return r.left >= 0 && r.top >= 0;
+  })();
+  report('A41 space action menu is positioned inside the viewport', inViewport);
+
+  // المعاينة تفتح نافذة التفاصيل
+  await s.click(menuItems[0]);
+  const previewModal = s.find('.modal-overlay');
+  report(
+    'A42 Preview opens the space detail modal',
+    !!previewModal && (previewModal.getAttribute('aria-label') || '').includes(firstName),
+    `label=${previewModal?.getAttribute('aria-label')} expected=${firstName}`
+  );
+  if (previewModal) await s.click(previewModal);
+
+  // الهروب يغلق القائمة — ننتظر انتهاء حركة الخروج قبل التحقق من اختفائها
+  await s.click(s.find('.dash__cover-acts .dash__menu-btn'));
+  report('A43 space action menu opens again', !!dom.window.document.querySelector('.dash__menu--fixed'));
+  dom.window.document.body.dispatchEvent(
+    new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })
+  );
+  await new Promise((r) => setTimeout(r, 300));
+  report('A43b Escape closes the space action menu', !dom.window.document.querySelector('.dash__menu--fixed'));
+
+  // الحذف: تأكيد ثم اختفاء البطاقة وتحديث العدّاد
+  await s.click(s.find('.dash__cover-acts .dash__menu-btn'));
+  const delBtn = Array.from(dom.window.document.querySelectorAll('.dash__menu--fixed [role="menuitem"]')).find((b) =>
+    b.textContent.includes('حذف')
+  );
+  if (delBtn) await s.click(delBtn);
+  const confirmBtn = s.findAll('button').find((b) => b.textContent.includes('نعم، احذف المساحة'));
+  report('A44 space delete asks for confirmation', !!confirmBtn);
+  if (confirmBtn) await s.click(confirmBtn);
+  const allTab = s.find('[data-space-tab="all"]');
+  report(
+    'A44b deleting a space removes the card and updates the tab count',
+    s.findAll('[data-space-card]').length === 9 && allTab.textContent.includes('9'),
+    `cards=${s.findAll('[data-space-card]').length} allTab=${allTab.textContent.trim()}`
+  );
+  report('A44c delete confirms with a status message', s.text().includes('تم حذف المساحة'));
+
+  // تبديل العرض الجدولي يعتمد جدول النظام المشترك (الزر أيقوني فقط، فنحدّده بالـ aria-label)
+  await s.click(s.find('button[aria-label="عرض جدولي"]'));
+  report(
+    'A45 switching to list view renders the shared dash__table',
+    !!s.find('.dash__table') && s.findAll('[data-space-row]').length === 9 && s.findAll('[data-space-card]').length === 0,
+    `rows=${s.findAll('[data-space-row]').length}`
+  );
+  report('A45b list view shows a cover thumbnail per row', s.findAll('.dash__cover-thumb').length === 9);
+  s.unmount();
+}
+
+console.log('\n===== ADMIN: المساحات — النصوص والألوان =====');
+{
+  const s = await mount('/admin/spaces');
+
+  // تصريف الأعداد: 24 و14 داخل نطاق 11–99 فتكون منصوبة، و10 جمع قلة
+  report(
+    'A46 Arabic pluralization is applied to capacities',
+    s.text().includes('24 مقعداً') && s.text().includes('14 مقعداً') && s.text().includes('8 مقاعد'),
+    `sample=${(s.text().match(/\d+ مقعد\S*/g) || []).slice(0, 3).join(' | ')}`
+  );
+  report('A46b Arabic pluralization is applied to the space count', s.text().includes('عرض 10 مساحات') && s.text().includes('10 مساحات مسجلة'));
+  report(
+    'A46c no bare singular follows a multi-digit number',
+    !/\b(11|12|14|16|20|24|30|40) مقعد(?!ا|ان)/.test(s.text()),
+    (s.text().match(/\d+ مقعد\S*/g) || []).join(' | ')
+  );
+  report('A46d bookings past 100 stay singular', s.text().includes('312 حجز') && s.text().includes('88 حجزاً'));
+
+  // ألوان دلالية: الإيقاف أحمر (كان كهرمانياً)، والموافقة أخضر، وإعادة التفعيل أزرق
+  const suspendBtns = s.findAll('button').filter((b) => b.textContent.includes('إيقاف المساحة'));
+  report(
+    'A47 suspend action uses the red semantic tone',
+    suspendBtns.length === 5 &&
+      suspendBtns.every((b) => b.className.includes('is-red') && !b.className.includes('is-amber')),
+    `found=${suspendBtns.length} class=${suspendBtns[0]?.className}`
+  );
+  const approveBtns = s.findAll('button').filter((b) => b.textContent.includes('الموافقة'));
+  report(
+    'A48 approve action uses the green semantic tone',
+    approveBtns.length === 3 && approveBtns.every((b) => b.className.includes('is-green')),
+    `found=${approveBtns.length}`
+  );
+  const rejectBtns = s.findAll('button').filter((b) => b.textContent.includes('الرفض'));
+  report(
+    'A49 reject action uses the red semantic tone',
+    rejectBtns.length === 3 && rejectBtns.every((b) => b.className.includes('is-red')),
+    `found=${rejectBtns.length}`
+  );
+
+  // إعادة التفعيل أزرق — نفتح قائمة صف موقوف للتحقق من الزر
+  const suspendedTab = s.find('[data-space-tab="suspended"]');
+  await s.click(suspendedTab);
+  const activateBtns = s.findAll('button').filter((b) => b.textContent.includes('إعادة التفعيل'));
+  report(
+    'A50 reactivate action uses the blue/sky semantic tone',
+    activateBtns.length === 2 && activateBtns.every((b) => b.className.includes('is-sky')),
+    `found=${activateBtns.length}`
+  );
+  s.unmount();
 }
 
 console.log('\n===== ADMIN: الإشعارات =====');

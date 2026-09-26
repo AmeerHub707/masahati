@@ -69,17 +69,20 @@ export const adminUsers = [
   { id: 32, name: 'ياسين داوود', email: 'yaseen.dawood@mail.com', phone: '+970 59 100 2032', role: 'freelancer', status: 'review', verified: false, joined: '2026-09-21', lastActive: 'قبل 3 دقائق', online: true, bookings: 0, activity: spark(1) },
 ];
 
+// صور الغلاف: أصول محلية من public/ تُقدَّم من أصل التطبيق نفسه، لذلك تُخزَّن كما هي
+// دون imageUrl() (وإلا حوّلها إلى نطاق الـ API فلم تُوجد). عند ربط المسار الحقيقي
+// تُطبَّق imageUrl(sp.image) في طبقة التحويل كما في src/lib/dashboard.js.
 export const adminSpaces = [
-  { id: 1, name: 'مساحة العمل الوسطى', neighborhood: 'غزة - الرمال', owner: 'خالد المصري', price: 15, status: 'active', rating: 4.8, bookings: 312, capacity: 24 },
-  { id: 2, name: 'مكتب المبدعين', neighborhood: 'غزة - تل الهوا', owner: 'راني الشوا', price: 20, status: 'suspended', rating: 4.1, bookings: 150, capacity: 12 },
-  { id: 3, name: 'قاعة الاجتماعات الذكية', neighborhood: 'غزة - النصر', owner: 'هبة الرنتيسي', price: 45, status: 'pending', rating: 0, bookings: 0, capacity: 16 },
-  { id: 4, name: 'استوديو الأناقة', neighborhood: 'غزة - الشاطئ', owner: 'أحمد جودة', price: 30, status: 'active', rating: 4.9, bookings: 421, capacity: 8 },
-  { id: 5, name: 'مساحة المهندسين', neighborhood: 'غزة - الزيتون', owner: 'سامي حمدان', price: 12, status: 'active', rating: 4.5, bookings: 267, capacity: 30 },
-  { id: 6, name: 'ركن المبرمجين', neighborhood: 'غزة - الجلاء', owner: 'ليان أبو خليل', price: 18, status: 'pending', rating: 0, bookings: 0, capacity: 10 },
-  { id: 7, name: 'مركز ريادة الأعمال', neighborhood: 'غزة - النصر', owner: 'ديما الجمل', price: 25, status: 'active', rating: 4.7, bookings: 389, capacity: 40 },
-  { id: 8, name: 'رِواء للاستوديوهات', neighborhood: 'غزة - الشجاعية', owner: 'محمود عرفات', price: 22, status: 'active', rating: 4.3, bookings: 205, capacity: 20 },
-  { id: 9, name: 'فضاء المبدعين', neighborhood: 'غزة - الرمال', owner: 'نور شعبان', price: 8, status: 'suspended', rating: 3.9, bookings: 88, capacity: 14 },
-  { id: 10, name: 'المكتب المستقل', neighborhood: 'غزة - تل الهوا', owner: 'عمر سكيك', price: 35, status: 'pending', rating: 0, bookings: 0, capacity: 6 },
+  { id: 1, name: 'مساحة العمل الوسطى', neighborhood: 'غزة - الرمال', owner: 'خالد المصري', price: 15, status: 'active', rating: 4.8, bookings: 312, capacity: 24, image: '/360-workspace-kita-e2-open-office.jpg' },
+  { id: 2, name: 'مكتب المبدعين', neighborhood: 'غزة - تل الهوا', owner: 'راني الشوا', price: 20, status: 'suspended', rating: 4.1, bookings: 150, capacity: 12, image: '/Loginside.jpg' },
+  { id: 3, name: 'قاعة الاجتماعات الذكية', neighborhood: 'غزة - النصر', owner: 'هبة الرنتيسي', price: 45, status: 'pending', rating: 0, bookings: 0, capacity: 16, image: '/images.jfif' },
+  { id: 4, name: 'استوديو الأناقة', neighborhood: 'غزة - الشاطئ', owner: 'أحمد جودة', price: 30, status: 'active', rating: 4.9, bookings: 421, capacity: 8, image: '/m.jfif' },
+  { id: 5, name: 'مساحة المهندسين', neighborhood: 'غزة - الزيتون', owner: 'سامي حمدان', price: 12, status: 'active', rating: 4.5, bookings: 267, capacity: 30, image: '/background.jpeg' },
+  { id: 6, name: 'ركن المبرمجين', neighborhood: 'غزة - الجلاء', owner: 'ليان أبو خليل', price: 18, status: 'pending', rating: 0, bookings: 0, capacity: 10, image: '/360-workspace-kita-e2-open-office.jpg' },
+  { id: 7, name: 'مركز ريادة الأعمال', neighborhood: 'غزة - النصر', owner: 'ديما الجمل', price: 25, status: 'active', rating: 4.7, bookings: 389, capacity: 40, image: '/Loginside.jpg' },
+  { id: 8, name: 'رِواء للاستوديوهات', neighborhood: 'غزة - الشجاعية', owner: 'محمود عرفات', price: 22, status: 'active', rating: 4.3, bookings: 205, capacity: 20, image: '/images.jfif' },
+  { id: 9, name: 'فضاء المبدعين', neighborhood: 'غزة - الرمال', owner: 'نور شعبان', price: 8, status: 'suspended', rating: 3.9, bookings: 88, capacity: 14, image: '/m.jfif' },
+  { id: 10, name: 'المكتب المستقل', neighborhood: 'غزة - تل الهوا', owner: 'عمر سكيك', price: 35, status: 'pending', rating: 0, bookings: 0, capacity: 6, image: '/background.jpeg' },
 ];
 
 export const adminBookings = [

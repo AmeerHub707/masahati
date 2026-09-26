@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Building2,
   Search,
@@ -15,9 +15,26 @@ import {
   ChevronDown,
   LayoutGrid,
   LayoutList,
+  Eye,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { adminSpaces } from '../../data/adminMockData';
-import { SectionCard, SectionHeading, StatusBadge, EmptyState, SmallAction } from './ui';
+import {
+  SectionCard,
+  SectionHeading,
+  StatusBadge,
+  EmptyState,
+  SmallAction,
+  ActionMenu,
+  Modal,
+  Pill,
+  Toast,
+  btnGhost,
+  btnDanger,
+} from './ui';
+import { useToast } from './useToast';
+import { arCount, AR_FORMS } from '../../utils/format';
 
 const statusMeta = {
   pending: { label: 'قيد المراجعة', tone: 'amber' },
@@ -34,72 +51,35 @@ const sortOptions = [
   { id: 'price', label: 'السعر: الأقل أولاً' },
 ];
 
-const statChips = [
+// شريط التبويب العلوي — اللون الدلالي يطابق لون شارة الحالة.
+const tabs = [
   { id: 'all', label: 'كل المساحات', dot: '' },
   { id: 'pending', label: 'قيد المراجعة', dot: 'bg-amber-500' },
   { id: 'active', label: 'مفعّلة', dot: 'bg-emerald-500' },
   { id: 'suspended', label: 'موقوفة', dot: 'bg-red-500' },
 ];
 
-function StatChip({ active, onClick, label, count, dot }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={`inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-extrabold transition-all duration-200 ${
-        active
-          ? 'bg-orange-500 text-white shadow-sm shadow-orange-500/20'
-          : 'bg-gray-50 text-gray-600 hover:bg-orange-50 hover:text-orange-600 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-orange-500/10 dark:hover:text-orange-400'
-      }`}
-    >
-      {dot && <span className={`h-2 w-2 rounded-full ${active ? 'bg-white' : dot}`} />}
-      <span>{label}</span>
-      <span
-        className={`rounded-full px-2 py-0.5 text-xs font-black leading-none ${
-          active
-            ? 'bg-white/20 text-white'
-            : 'bg-black/5 text-gray-500 dark:bg-white/10 dark:text-gray-400'
-        }`}
-      >
-        {count}
-      </span>
-    </button>
-  );
-}
+/** غلاف صورة المساحة: يعرض الصورة، وإن غابت أو فشل تحميلها نعرض بديلاً متدرّجاً. */
+function SpaceCover({ src, alt }) {
+  // نتتبع المسار الفاشل بدل حالة منطقية، فلا تتكرر محاولة تحميل رابط مكسور.
+  const [failedSrc, setFailedSrc] = useState(null);
 
-function SpaceActions({ s, onApprove, onReject, onSuspend, onActivate, compact = false }) {
-  const actionCls = compact ? '!min-h-9 !px-2.5 !text-[0.7rem]' : 'flex-1';
+  if (!src || failedSrc === src) {
+    return (
+      <div className="dash__cover-fallback" aria-hidden="true">
+        <Building2 />
+      </div>
+    );
+  }
   return (
-    <div
-      className={`flex flex-wrap items-center gap-2 ${compact ? '' : 'mt-4 border-t pt-3'}`}
-      style={compact ? {} : { borderColor: 'var(--border)' }}
-    >
-      {s.status === 'pending' && (
-        <>
-          <SmallAction tone="green" onClick={() => onApprove(s.id)} className={actionCls}>
-            <CheckCircle2 />
-            الموافقة
-          </SmallAction>
-          <SmallAction tone="red" onClick={() => onReject(s.id)} className={actionCls}>
-            <XCircle />
-            الرفض
-          </SmallAction>
-        </>
-      )}
-      {s.status === 'active' && (
-        <SmallAction tone="amber" onClick={() => onSuspend(s.id)} className={actionCls}>
-          <Ban />
-          إيقاف المساحة
-        </SmallAction>
-      )}
-      {s.status === 'suspended' && (
-        <SmallAction tone="sky" onClick={() => onActivate(s.id)} className={actionCls}>
-          <PlayCircle />
-          إعادة التفعيل
-        </SmallAction>
-      )}
-    </div>
+    <img
+      className="dash__cover-img"
+      src={src}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailedSrc(src)}
+    />
   );
 }
 
@@ -109,45 +89,68 @@ export default function AdminSpaces() {
   const [filter, setFilter] = useState('all');
   const [view, setView] = useState('grid');
   const [sort, setSort] = useState('newest');
-  const [showToast, setShowToast] = useState(false);
+  const { toast, announce, dismiss } = useToast();
+  const [preview, setPreview] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
-  const counts = { all: spaces.length, pending: 0, active: 0, suspended: 0 };
-  spaces.forEach((s) => {
-    if (counts[s.status] !== undefined) counts[s.status] += 1;
-  });
+  const counts = useMemo(() => {
+    const next = { all: spaces.length, pending: 0, active: 0, suspended: 0 };
+    spaces.forEach((s) => {
+      if (next[s.status] !== undefined) next[s.status] += 1;
+    });
+    return next;
+  }, [spaces]);
 
-  const sorted = [...spaces].sort((a, b) => {
-    if (sort === 'rating') return (b.rating || 0) - (a.rating || 0);
-    if (sort === 'price') return a.price - b.price;
-    return b.id - a.id;
-  });
-
-  const filtered = sorted.filter((s) => {
-    const matchStatus = filter === 'all' || s.status === filter;
+  const filtered = useMemo(() => {
+    const sorted = [...spaces].sort((a, b) => {
+      if (sort === 'rating') return (b.rating || 0) - (a.rating || 0);
+      if (sort === 'price') return (Number(a.price) || 0) - (Number(b.price) || 0);
+      return b.id - a.id;
+    });
     const q = query.trim().toLowerCase();
-    const matchQuery =
-      !q ||
-      s.name.toLowerCase().includes(q) ||
-      s.neighborhood.toLowerCase().includes(q) ||
-      s.owner.toLowerCase().includes(q);
-    return matchStatus && matchQuery;
-  });
+    return sorted.filter((s) => {
+      const matchStatus = filter === 'all' || s.status === filter;
+      const matchQuery =
+        !q ||
+        s.name.toLowerCase().includes(q) ||
+        s.neighborhood.toLowerCase().includes(q) ||
+        s.owner.toLowerCase().includes(q);
+      return matchStatus && matchQuery;
+    });
+  }, [spaces, filter, query, sort]);
 
-  useEffect(() => {
-    if (!showToast) return undefined;
-    const t = setTimeout(() => setShowToast(false), 2600);
-    return () => clearTimeout(t);
-  }, [showToast]);
-
-  const approve = (id) => setSpaces((prev) => prev.map((s) => (s.id === id ? { ...s, status: 'active' } : s)));
-  const reject = (id) => setSpaces((prev) => prev.map((s) => (s.id === id ? { ...s, status: 'suspended' } : s)));
-  const suspend = (id) => setSpaces((prev) => prev.map((s) => (s.id === id ? { ...s, status: 'suspended' } : s)));
-  const activate = (id) => setSpaces((prev) => prev.map((s) => (s.id === id ? { ...s, status: 'active' } : s)));
+  const setStatus = (id, status) =>
+    setSpaces((prev) => prev.map((s) => (s.id === id ? { ...s, status } : s)));
+  const approve = (id) => setStatus(id, 'active');
+  const reject = (id) => setStatus(id, 'suspended');
+  const suspend = (id) => setStatus(id, 'suspended');
+  const activate = (id) => setStatus(id, 'active');
+  const remove = (id) => setSpaces((prev) => prev.filter((s) => s.id !== id));
 
   const resetFilters = () => {
     setQuery('');
     setFilter('all');
+    setSort('newest');
   };
+
+  // إجراءات بطاقة/صف واحد: المعاينة، التعديل (قيد التطوير)، ثم الحذف.
+  const menuItems = (s) => [
+    { id: 'preview', label: 'معاينة', icon: Eye, onSelect: () => setPreview(s) },
+    {
+      id: 'edit',
+      label: 'تعديل',
+      icon: Pencil,
+      onSelect: () => announce(`تعديل بيانات «${s.name}» قيد التطوير — ستتوفر قريباً`),
+    },
+    { id: 'sep', label: 'فاصل', separator: true },
+    {
+      id: 'delete',
+      label: 'حذف',
+      icon: Trash2,
+      tone: 'danger-soft',
+      onSelect: () => setDeleteTarget(s),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -156,17 +159,51 @@ export default function AdminSpaces() {
         <SectionHeading
           icon={Building2}
           title="إدارة المساحات"
-          subtitle={`${spaces.length} مساحة مسجلة · ${counts.pending} بانتظار المراجعة`}
+          subtitle={`${arCount(spaces.length, AR_FORMS.space)} مسجلة · ${counts.pending} بانتظار المراجعة`}
           action={
-            <button type="button" className="btn-primary" onClick={() => setShowToast(true)}>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => announce('ميزة إضافة مساحة جديدة قيد التطوير — ستتوفر قريباً')}
+            >
               <Plus className="h-4 w-4" />
               إضافة مساحة جديدة
             </button>
           }
         />
 
-        {/* البحث والترتيب وتبديل العرض */}
-        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        {/* شريط التبويب العلوي — تصفية سريعة حسب الحالة */}
+        <div className="mb-4 flex flex-wrap items-center gap-2" data-space-tabs>
+          {tabs.map((t) => {
+            const active = filter === t.id;
+            return (
+              <Pill
+                key={t.id}
+                active={active}
+                aria-pressed={active}
+                data-space-tab={t.id}
+                onClick={() => setFilter(t.id)}
+              >
+                {t.dot && (
+                  <span className={`h-2 w-2 rounded-full ${active ? 'bg-white' : t.dot}`} />
+                )}
+                {t.label}
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-black leading-none ${
+                    active
+                      ? 'bg-white/25 text-white'
+                      : 'bg-black/5 text-gray-500 dark:bg-white/10 dark:text-gray-400'
+                  }`}
+                >
+                  {counts[t.id]}
+                </span>
+              </Pill>
+            );
+          })}
+        </div>
+
+        {/* شريط الأدوات الثانوي — البحث + الترتيب + تبديل العرض */}
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between" data-space-toolbar>
           <div className="relative md:max-w-sm md:flex-1">
             <Search
               className="pointer-events-none absolute start-3.5 top-1/2 h-4 w-4 -translate-y-1/2"
@@ -177,6 +214,7 @@ export default function AdminSpaces() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="ابحث عن مساحة بالاسم أو الحي أو المالك…"
+              aria-label="البحث في المساحات"
               className="dash__input dash__input--icon"
             />
             {query && (
@@ -220,6 +258,7 @@ export default function AdminSpaces() {
                 type="button"
                 onClick={() => setView('grid')}
                 aria-label="عرض شبكي"
+                aria-pressed={view === 'grid'}
                 title="عرض شبكي"
                 className={`inline-flex h-10 w-10 items-center justify-center transition ${
                   view === 'grid'
@@ -233,6 +272,7 @@ export default function AdminSpaces() {
                 type="button"
                 onClick={() => setView('list')}
                 aria-label="عرض جدولي"
+                aria-pressed={view === 'list'}
                 title="عرض جدولي"
                 className={`inline-flex h-10 w-10 items-center justify-center transition ${
                   view === 'list'
@@ -245,20 +285,6 @@ export default function AdminSpaces() {
             </div>
           </div>
         </div>
-
-        {/* شارات الإحصائيات — حبوب تصفية سريعة */}
-        <div className="flex flex-wrap items-center gap-2">
-          {statChips.map((c) => (
-            <StatChip
-              key={c.id}
-              active={filter === c.id}
-              onClick={() => setFilter(c.id)}
-              label={c.label}
-              count={counts[c.id]}
-              dot={c.dot}
-            />
-          ))}
-        </div>
       </section>
 
       {/* حاوية المساحات — خلفية ناعمة */}
@@ -266,9 +292,10 @@ export default function AdminSpaces() {
         {filtered.length > 0 && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <span className="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-1.5 text-xs font-extrabold text-slate-600 shadow-sm dark:bg-white/5 dark:text-gray-300">
-              عرض {filtered.length} مساحة · {view === 'grid' ? 'عرض شبكي' : 'عرض جدولي'}
+              عرض {arCount(filtered.length, AR_FORMS.space)} ·{' '}
+              {view === 'grid' ? 'عرض شبكي' : 'عرض جدولي'}
             </span>
-            {(query || filter !== 'all') && (
+            {(query || filter !== 'all' || sort !== 'newest') && (
               <button
                 type="button"
                 onClick={resetFilters}
@@ -295,141 +322,295 @@ export default function AdminSpaces() {
         ) : view === 'grid' ? (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filtered.map((s) => (
-              <div
+              <article
                 key={s.id}
-                className="dash__card flex flex-col transition-all duration-300 hover:-translate-y-1 hover:border-orange-200 hover:shadow-md dark:hover:border-orange-500/40"
+                data-space-card={s.id}
+                onClick={() => setPreview(s)}
+                className="dash__card dash__card--cover group flex cursor-pointer flex-col transition-all duration-200 hover:-translate-y-1 hover:border-orange-200 hover:shadow-lg focus-within:border-orange-200 dark:hover:border-orange-500/40"
               >
-                <div className="mb-3 flex items-start justify-between gap-3">
-                  <span className="st-ico">
-                    <Building2 />
+                {/* الغلاف: الصورة + زر المعاينة + قائمة الإجراءات + شارة الحالة */}
+                <div className="dash__cover">
+                  <button
+                    type="button"
+                    className="dash__cover-open"
+                    aria-label={`معاينة ${s.name}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPreview(s);
+                    }}
+                  >
+                    <SpaceCover src={s.image} alt={`غلاف ${s.name}`} />
+                    <span className="dash__cover-veil">
+                      <Eye className="h-4 w-4" />
+                      معاينة
+                    </span>
+                  </button>
+                  <ActionMenu
+                    className="dash__cover-acts"
+                    label={`إجراءات ${s.name}`}
+                    menuId={`admin-space-actions-${s.id}`}
+                    items={menuItems(s)}
+                  />
+                  <span className="dash__cover-badge">
+                    <StatusBadge tone={spaceStatus(s.status).tone}>
+                      {spaceStatus(s.status).label}
+                    </StatusBadge>
                   </span>
-                  <StatusBadge tone={spaceStatus(s.status).tone}>{spaceStatus(s.status).label}</StatusBadge>
                 </div>
 
-                <h3 className="text-base font-extrabold" style={{ color: 'var(--text-strong)' }}>
-                  {s.name}
-                </h3>
-                <p className="mt-0.5 flex items-center gap-1.5 text-sm" style={{ color: 'var(--text-muted)' }}>
-                  <MapPin className="h-4 w-4" style={{ color: 'var(--accent)' }} />
-                  {s.neighborhood}
-                </p>
+                <div className="flex flex-1 flex-col p-5">
+                  <h3 className="text-base font-extrabold" style={{ color: 'var(--text-strong)' }}>
+                    {s.name}
+                  </h3>
+                  <p
+                    className="mt-0.5 flex items-center gap-1.5 text-sm"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    <MapPin className="h-4 w-4" style={{ color: 'var(--accent)' }} />
+                    {s.neighborhood}
+                  </p>
 
-                <div
-                  className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  <span className="inline-flex items-center gap-1">
-                    <Users className="h-4 w-4" style={{ color: 'var(--accent)' }} />
-                    {s.capacity} مقعد
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <Star
-                      className={`h-4 w-4 ${s.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-300 dark:text-gray-600'}`}
+                  <div
+                    className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      <Users className="h-4 w-4" style={{ color: 'var(--accent)' }} />
+                      {arCount(s.capacity, AR_FORMS.seat)}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Star
+                        className={`h-4 w-4 ${s.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-300 dark:text-gray-600'}`}
+                      />
+                      {s.rating ? s.rating.toFixed(1) : 'لا تقييمات'}
+                    </span>
+                    <span className="font-bold" style={{ color: 'var(--accent)' }}>
+                      {s.price} ش.ج/ساعة
+                    </span>
+                  </div>
+
+                  <p className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                    المالك: {s.owner} · {arCount(s.bookings, AR_FORMS.booking)}
+                  </p>
+
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <SpaceActions
+                      s={s}
+                      onApprove={approve}
+                      onReject={reject}
+                      onSuspend={suspend}
+                      onActivate={activate}
                     />
-                    {s.rating ? s.rating.toFixed(1) : 'لا تقييمات'}
-                  </span>
-                  <span className="font-bold" style={{ color: 'var(--accent)' }}>
-                    {s.price} ش.ج/ساعة
-                  </span>
+                  </div>
                 </div>
-
-                <p className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-                  المالك: {s.owner} · {s.bookings} حجز
-                </p>
-
-                <SpaceActions
-                  s={s}
-                  onApprove={approve}
-                  onReject={reject}
-                  onSuspend={suspend}
-                  onActivate={activate}
-                />
-              </div>
+              </article>
             ))}
           </div>
         ) : (
-          <div className="dash__card overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-xs" style={{ borderColor: 'var(--border)' }}>
-                  {['المساحة', 'المالك', 'المقاعد', 'التقييم', 'السعر', 'الحالة', 'إجراءات'].map((h) => (
-                    <th key={h} className="whitespace-nowrap pb-3 pe-3 font-extrabold last:pe-0" style={{ color: 'var(--text-muted)' }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((s) => (
-                  <tr
-                    key={s.id}
-                    className="border-b transition-all last:border-0 hover:bg-orange-50/50 dark:hover:bg-white/[0.03]"
-                    style={{ borderColor: 'var(--border)' }}
-                  >
-                    <td className="py-3.5 pe-3">
-                      <p className="whitespace-nowrap font-extrabold" style={{ color: 'var(--text-strong)' }}>
-                        {s.name}
-                      </p>
-                      <p className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-xs" style={{ color: 'var(--text-muted)' }}>
-                        <MapPin className="h-3.5 w-3.5" style={{ color: 'var(--accent)' }} />
-                        {s.neighborhood}
-                      </p>
-                    </td>
-                    <td className="whitespace-nowrap py-3.5 pe-3 text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
-                      {s.owner}
-                    </td>
-                    <td className="whitespace-nowrap py-3.5 pe-3 text-xs font-bold">{s.capacity} مقعد</td>
-                    <td className="whitespace-nowrap py-3.5 pe-3">
-                      <span className="inline-flex items-center gap-1 text-xs font-bold" style={{ color: 'var(--text-strong)' }}>
-                        <Star
-                          className={`h-4 w-4 ${s.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-300 dark:text-gray-600'}`}
-                        />
-                        {s.rating ? s.rating.toFixed(1) : '—'}
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap py-3.5 pe-3 text-xs font-bold" style={{ color: 'var(--accent)' }}>
-                      {s.price} ش.ج/ساعة
-                    </td>
-                    <td className="whitespace-nowrap py-3.5 pe-3">
-                      <StatusBadge tone={spaceStatus(s.status).tone}>{spaceStatus(s.status).label}</StatusBadge>
-                    </td>
-                    <td className="py-3.5">
-                      <SpaceActions
-                        s={s}
-                        onApprove={approve}
-                        onReject={reject}
-                        onSuspend={suspend}
-                        onActivate={activate}
-                        compact
-                      />
-                    </td>
+          <div className="dash__card">
+            <div className="dash__table-wrap">
+              <table className="dash__table">
+                <thead>
+                  <tr>
+                    {['المساحة', 'المالك', 'المقاعد', 'التقييم', 'السعر', 'الحالة', 'إجراءات'].map((h) => (
+                      <th key={h}>{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filtered.map((s) => (
+                    <tr key={s.id} data-space-row={s.id}>
+                      <td>
+                        <div className="flex items-center gap-2.5">
+                          <span className="dash__cover-thumb">
+                            <SpaceCover src={s.image} alt="" />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate font-extrabold whitespace-nowrap">
+                              {s.name}
+                            </span>
+                            <span className="txt-caption mt-0.5 flex items-center gap-1 whitespace-nowrap">
+                              <MapPin className="h-3.5 w-3.5" style={{ color: 'var(--accent)' }} />
+                              {s.neighborhood}
+                            </span>
+                          </span>
+                        </div>
+                      </td>
+                      <td className="txt-caption whitespace-nowrap">{s.owner}</td>
+                      <td className="txt-caption whitespace-nowrap font-bold">
+                        {arCount(s.capacity, AR_FORMS.seat)}
+                      </td>
+                      <td className="whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1 text-xs font-bold">
+                          <Star
+                            className={`h-4 w-4 ${s.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-300 dark:text-gray-600'}`}
+                          />
+                          {s.rating ? s.rating.toFixed(1) : '—'}
+                        </span>
+                      </td>
+                      <td className="num whitespace-nowrap text-xs">{s.price} ش.ج/ساعة</td>
+                      <td className="whitespace-nowrap">
+                        <StatusBadge tone={spaceStatus(s.status).tone}>
+                          {spaceStatus(s.status).label}
+                        </StatusBadge>
+                      </td>
+                      <td>
+                        <div
+                          className="flex items-center justify-end gap-1.5"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <SpaceActions
+                            s={s}
+                            onApprove={approve}
+                            onReject={reject}
+                            onSuspend={suspend}
+                            onActivate={activate}
+                            compact
+                          />
+                          <ActionMenu
+                            label={`إجراءات ${s.name}`}
+                            menuId={`admin-space-actions-${s.id}`}
+                            items={menuItems(s)}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
 
-      {/* إشعار مؤقت لزر الإضافة */}
-      {showToast && (
-        <div
-          role="status"
-          className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2.5 rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-bold shadow-2xl dark:border-white/10 dark:bg-[#1c1c22] dark:text-gray-200"
-        >
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-100 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400">
-            <Plus className="h-4 w-4" />
-          </span>
-          ميزة إضافة مساحة جديدة قيد التطوير — ستتوفر قريباً
+      {/* معاينة المساحة */}
+      <Modal
+        open={Boolean(preview)}
+        onClose={() => setPreview(null)}
+        title={preview ? `معاينة: ${preview.name}` : 'معاينة المساحة'}
+        wide
+      >
+        {preview && (
+          <div className="space-y-4">
+            <div className="dash__cover rounded-2xl">
+              <SpaceCover src={preview.image} alt={`غلاف ${preview.name}`} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <MiniFact label="الحي" value={preview.neighborhood} />
+              <MiniFact label="المالك" value={preview.owner} />
+              <MiniFact label="السعر" value={`${preview.price} ش.ج/ساعة`} />
+              <MiniFact label="السعة" value={arCount(preview.capacity, AR_FORMS.seat)} />
+              <MiniFact
+                label="التقييم"
+                value={preview.rating ? `${preview.rating.toFixed(1)} من 5` : 'لا تقييمات'}
+              />
+              <MiniFact label="الحجوزات" value={arCount(preview.bookings, AR_FORMS.booking)} />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="txt-caption">الحالة:</span>
+              <StatusBadge tone={spaceStatus(preview.status).tone}>
+                {spaceStatus(preview.status).label}
+              </StatusBadge>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              <button type="button" className={btnGhost} onClick={() => setPreview(null)}>
+                إغلاق
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  announce(`تعديل بيانات «${preview.name}» قيد التطوير — ستتوفر قريباً`);
+                  setPreview(null);
+                }}
+              >
+                <Pencil className="h-4 w-4" />
+                طلب تعديل
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* تأكيد الحذف */}
+      <Modal
+        open={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        title="حذف المساحة نهائياً؟"
+      >
+        <p className="mb-5 text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+          سيتم حذف «{deleteTarget ? deleteTarget.name : ''}» وجميع حجوزاتها نهائياً من المنصة، ولا يمكن
+          التراجع عن هذا الإجراء.
+        </p>
+        <div className="flex flex-wrap justify-end gap-2">
+          <button type="button" className={btnGhost} onClick={() => setDeleteTarget(null)}>
+            إلغاء
+          </button>
           <button
             type="button"
-            onClick={() => setShowToast(false)}
-            aria-label="إغلاق"
-            className="ms-1 text-gray-400 transition hover:text-gray-700 dark:hover:text-gray-200"
+            className={btnDanger}
+            onClick={() => {
+              remove(deleteTarget.id);
+              setDeleteTarget(null);
+              announce('تم حذف المساحة نهائياً.');
+            }}
           >
-            <X className="h-4 w-4" />
+            <Trash2 className="h-4 w-4" />
+            نعم، احذف المساحة
           </button>
         </div>
+      </Modal>
+
+      {/* إشعار مؤقت */}
+      <Toast message={toast} onClose={dismiss} icon={Plus} />
+    </div>
+  );
+}
+
+// صف معلومة داخل نافذة المعاينة
+function MiniFact({ label, value }) {
+  return (
+    <div className="rounded-xl border border-black/10 p-3 dark:border-[var(--border)]">
+      <span className="txt-caption block">{label}</span>
+      <span className="mt-0.5 block text-sm font-extrabold" style={{ color: 'var(--text-strong)' }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+// إجراءات تغيير الحالة — ألوان دلالية: أخضر للموافقة، أحمر للرفض/الإيقاف، أزرار لإعادة التفعيل.
+// يوقّف انتشار النقرة حتى لا يفتح نقرةُ الزر معاينةَ البطاقة.
+function SpaceActions({ s, onApprove, onReject, onSuspend, onActivate, compact = false }) {
+  const actionCls = compact ? 'dash__btn-soft--compact' : 'flex-1';
+  return (
+    <div
+      className={`flex flex-wrap items-center gap-2 ${compact ? '' : 'mt-4 border-t pt-3'}`}
+      style={compact ? undefined : { borderColor: 'var(--border)' }}
+    >
+      {s.status === 'pending' && (
+        <>
+          <SmallAction tone="green" onClick={() => onApprove(s.id)} className={actionCls}>
+            <CheckCircle2 />
+            الموافقة
+          </SmallAction>
+          <SmallAction tone="red" onClick={() => onReject(s.id)} className={actionCls}>
+            <XCircle />
+            الرفض
+          </SmallAction>
+        </>
+      )}
+      {s.status === 'active' && (
+        <SmallAction tone="red" onClick={() => onSuspend(s.id)} className={actionCls}>
+          <Ban />
+          إيقاف المساحة
+        </SmallAction>
+      )}
+      {s.status === 'suspended' && (
+        <SmallAction tone="sky" onClick={() => onActivate(s.id)} className={actionCls}>
+          <PlayCircle />
+          إعادة التفعيل
+        </SmallAction>
       )}
     </div>
   );

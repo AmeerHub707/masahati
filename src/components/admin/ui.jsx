@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, X, Star } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ArrowLeft, MoreVertical, X, Star, CheckCircle2 } from 'lucide-react';
 import DashCountUp from '../dashboard/DashCountUp';
+import { placeFixed, MENU_WIDTH, MENU_HEIGHT } from './menuPosition';
 
 // مكوّنات واجهة مشتركة للوحة تحكم المشرف — مبنية على نظام تصميم dash__ (لوحة المستخدم).
 
@@ -182,6 +184,32 @@ export function Field({ label, error, children, htmlFor }) {
   );
 }
 
+// إشعار عائم (Toast) بديلاً عن alert() في متصفّح المستخدم.
+export function Toast({ message, onClose, icon: Icon = CheckCircle2 }) {
+  if (!message) return null;
+  return (
+    <div
+      role="status"
+      className="dash__toast fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2.5 rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-bold shadow-2xl dark:border-white/10 dark:bg-[#1c1c22] dark:text-gray-200"
+    >
+      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-100 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400">
+        <Icon className="h-4 w-4" />
+      </span>
+      {message}
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="إغلاق"
+        className="ms-1 text-gray-400 transition hover:text-gray-700 dark:hover:text-gray-200"
+      >
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+// خطّاف useToast lives in ./useToast.js — تصدير خطّاف من هنا يخالف قاعدة react-refresh.
+
 export const inputCls = 'dash__input';
 
 export const btnPrimary = 'btn-primary';
@@ -190,8 +218,8 @@ export const btnGhost = 'btn-ghost';
 
 export const btnDanger = 'btn-danger';
 
-// حبوب التصفية/التبويب
-export function Pill({ active = false, onClick, children, className = '' }) {
+// حبوب التصفية/التبويب — تُمرَّر بقية الخصائص (aria-pressed, aria-current, data-*) كما هي.
+export function Pill({ active = false, onClick, children, className = '', ...rest }) {
   return (
     <button
       type="button"
@@ -201,6 +229,7 @@ export function Pill({ active = false, onClick, children, className = '' }) {
           ? 'border-transparent bg-orange-500 text-white shadow-sm shadow-orange-500/20'
           : 'border-black/15 bg-white text-[var(--text-muted)] hover:border-orange-500 hover:bg-orange-50 hover:text-orange-500 dark:border-[var(--border)] dark:bg-transparent dark:text-[var(--text-muted)] dark:hover:border-orange-500 dark:hover:bg-orange-500/10 dark:hover:text-orange-400'
       } ${className}`}
+      {...rest}
     >
       {children}
     </button>
@@ -232,6 +261,125 @@ export function SmallAction({ tone, onClick, children, className = '' }) {
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * قائمة إجراءات عائمة خلف زر «⋮» — مشتركة بين كل البطاقات والصفوف.
+ *
+ * items: [{ id, label, icon: Icon, onSelect, tone: 'danger' | 'danger-soft' }] أو { id, separator: true }
+ * القائمة تُعرض عبر بوابة على body حتى لا يقصّها أي حاوية overflow، وتُعاد محاذاتها أثناء
+ * التمرير (بمرحلة الالتقاط) وحجم النافذة، وتُغلق بالضغط خارجها أو بمفتاح Escape.
+ *
+ * ملاحظة مهمة: AnimatePresence داخل createPortal وليس العكس — لأن Framer Motion يتجاهل
+ * عناصر createPortal كأبناء (يرشّحها onlyElements) فلا تظهر القائمة ولا تعمل حركة الخروج.
+ */
+export function ActionMenu({ items = [], label, menuId, className = '', buttonClassName = '' }) {
+  const [menu, setMenu] = useState(null);
+
+  const toggle = (e) => {
+    // القائمة مثبتة على body، لكن React يمرّر الأحداث عبر شجرة المكوّنات لا شجرة DOM،
+    // فأي نقرة داخلها تصل إلى onClick الخاص بالبطاقة — لذلك نوقفها عند المصدر.
+    e.stopPropagation();
+    const anchor = e.currentTarget;
+    const { top, left } = placeFixed(anchor.getBoundingClientRect(), MENU_WIDTH, MENU_HEIGHT);
+    setMenu((cur) => (cur && cur.anchor === anchor ? null : { anchor, top, left }));
+  };
+
+  // الإغلاق بالضغط خارج القائمة أو بمفتاح Escape.
+  useEffect(() => {
+    if (!menu) return undefined;
+    const close = (e) => {
+      if (!e.target?.closest?.('[data-action-menu]')) setMenu(null);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') setMenu(null);
+    };
+    window.addEventListener('mousedown', close);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('mousedown', close);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [menu]);
+
+  // تتبّع المرساة أثناء التمرير/resize حتى لا تنفصل القائمة الثابتة عن الزر.
+  useEffect(() => {
+    if (!menu) return undefined;
+    const reposition = () => {
+      const anchor = menu.anchor;
+      if (!anchor || !anchor.isConnected) {
+        setMenu(null);
+        return;
+      }
+      const pos = placeFixed(anchor.getBoundingClientRect(), MENU_WIDTH, MENU_HEIGHT);
+      setMenu((cur) => (cur && cur.top === pos.top && cur.left === pos.left ? cur : { ...cur, ...pos }));
+    };
+    window.addEventListener('resize', reposition);
+    window.addEventListener('scroll', reposition, true);
+    return () => {
+      window.removeEventListener('resize', reposition);
+      window.removeEventListener('scroll', reposition, true);
+    };
+  }, [menu]);
+
+  return (
+    <span className={`inline-flex ${className}`} data-action-menu>
+      <button
+        type="button"
+        className={`dash__menu-btn ${buttonClassName}`}
+        onClick={toggle}
+        aria-label={label}
+        aria-haspopup="menu"
+        aria-expanded={Boolean(menu)}
+        {...(menuId ? { 'aria-controls': menuId } : {})}
+      >
+        <MoreVertical className="h-4 w-4" />
+      </button>
+      {createPortal(
+        <AnimatePresence>
+          {menu && (
+            <motion.div
+              key="action-menu"
+              {...(menuId ? { id: menuId } : {})}
+              className="dash__menu dash__menu--fixed"
+              data-action-menu
+              role="menu"
+              aria-label={label}
+              style={{ top: menu.top, left: menu.left }}
+              initial={{ opacity: 0, y: -6, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, scale: 0.97 }}
+              transition={{ duration: 0.16 }}
+            >
+              {items.map((item) =>
+                item.separator ? (
+                  <span key={item.id} className="dash__menu-sep" role="separator" />
+                ) : (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="menuitem"
+                    className={
+                      item.tone === 'danger' ? 'is-danger' : item.tone === 'danger-soft' ? 'is-danger-soft' : ''
+                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenu(null);
+                      item.onSelect?.();
+                    }}
+                  >
+                    {item.icon && <item.icon className="h-4 w-4" />}
+                    {item.label}
+                  </button>
+                )
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+    </span>
   );
 }
 

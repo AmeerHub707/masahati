@@ -1355,6 +1355,31 @@ html.dark .dash__switch input:checked + .track{background:var(--accent);}
 .dash__card{background:#fff;border:1px solid var(--border);border-radius:var(--radius-card);padding:1.5rem;box-shadow:0 18px 40px -28px rgba(0,0,0,.4);}
 .dash__card--flush{padding:1rem 1.25rem;}
 html.dark .dash__card{background:#1c1c22;border-color:var(--border);}
+/* غلاف مع الصورة داخل بطاقة يملأ العرض ويسكب الحشو والزوايا */
+.dash__card--cover{padding:0;overflow:hidden;}
+
+/* غلاف صورة المساحة: نسبة ثابتة + تكبير ناعم عند المرور */
+.dash__cover{position:relative;aspect-ratio:16/10;overflow:hidden;background:var(--accent-soft);}
+.dash__cover-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s var(--ease);}
+.group:hover .dash__cover-img{transform:scale(1.06);}
+/* زر المعاينة يملأ الغلاف بالكامل ويبقى أخيماً لزر الإجراءات والشارة */
+.dash__cover-open{position:absolute;inset:0;z-index:1;width:100%;height:100%;padding:0;border:none;background:transparent;cursor:pointer;overflow:hidden;}
+.dash__cover-open:focus-visible{outline:2px solid var(--accent);outline-offset:-3px;}
+/* بديل الصورة عند غيابها أو فشل تحميلها */
+.dash__cover-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--gradient-brand);color:#fff;}
+.dash__cover-fallback svg{width:2.6rem;height:2.6rem;opacity:.9;}
+/* مصغّرة الجدول */
+.dash__cover-thumb{position:relative;width:3.2rem;height:3.2rem;border-radius:.75rem;overflow:hidden;flex:none;background:var(--accent-soft);}
+.dash__cover-thumb .dash__cover-fallback svg{width:1.15rem;height:1.15rem;}
+/* طبقة التعتيم التي تكشف زر «معاينة» عند المرور */
+.dash__cover-veil{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:.4rem;background:linear-gradient(180deg,rgba(0,0,0,0) 35%,rgba(0,0,0,.62));color:#fff;font-family:'Cairo',sans-serif;font-size:.8rem;font-weight:800;opacity:0;transition:opacity .25s var(--ease);pointer-events:none;}
+.dash__cover-open:hover .dash__cover-veil,.dash__cover-open:focus-visible .dash__cover-veil{opacity:1;}
+/* زر الإجراءات مثبّت فوق الغلاف */
+.dash__cover-acts{position:absolute;top:.6rem;inset-inline-start:.6rem;z-index:2;}
+.dash__cover-acts .dash__menu-btn{background:rgba(255,255,255,.92);color:#18181b;box-shadow:0 6px 16px -8px rgba(0,0,0,.55);}
+.dash__cover-acts .dash__menu-btn:hover{background:#fff;color:var(--accent);}
+/* شارة الحالة مثبتة أسفل الغلاف */
+.dash__cover-badge{position:absolute;bottom:.6rem;inset-inline-start:.6rem;z-index:2;}
 
 /* أيقونة مربعة قياسية (تستخدم خارج بطاقات المؤشرات أيضاً) */
 .st-ico{display:flex;align-items:center;justify-content:center;width:2.6rem;height:2.6rem;border-radius:.8rem;background:var(--accent-soft);color:var(--accent);flex:none;}
@@ -1399,6 +1424,7 @@ textarea.dash__input{resize:none;min-height:7rem;}
 /* أزرار أيقونية مربعة (عرض/إيقاف/حذف…) */
 .dash__iconbtn{display:inline-flex;align-items:center;justify-content:center;width:2.4rem;height:2.4rem;border:none;border-radius:.7rem;background:var(--accent-soft);color:var(--accent);cursor:pointer;transition:background .18s,color .18s,transform .18s var(--ease),box-shadow .18s;flex:none;}
 .dash__iconbtn:hover{transform:translateY(-1px);}
+.dash__iconbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 .dash__iconbtn svg{width:1.05rem;height:1.05rem;}
 .dash__iconbtn.is-sky{background:rgba(14,165,233,.12);color:#0284c7;}
 .dash__iconbtn.is-sky:hover{background:#0ea5e9;color:#fff;box-shadow:0 8px 18px -8px rgba(14,165,233,.6);}
@@ -1421,6 +1447,9 @@ textarea.dash__input{resize:none;min-height:7rem;}
 .dash__btn-soft.is-amber:hover{background:#f59e0b;color:#fff;box-shadow:0 10px 20px -10px rgba(245,158,11,.6);}
 .dash__btn-soft.is-sky{background:rgba(14,165,233,.12);color:#0284c7;}
 .dash__btn-soft.is-sky:hover{background:#0ea5e9;color:#fff;box-shadow:0 10px 20px -10px rgba(14,165,233,.6);}
+/* نسخة مضغوطة لخلية الإجراءات في الجدول */
+.dash__btn-soft--compact{min-height:2.25rem;padding:.3rem .65rem;font-size:.72rem;}
+.dash__btn-soft--compact svg{width:.85rem;height:.85rem;}
 
 /* صندوق نص ناعم (محتوى مراجعة/نزاع) */
 .dash__soft{background:#f4f4f5;border-radius:1rem;padding:.85rem 1rem;font-size:.88rem;line-height:1.7;color:var(--text-muted);}
@@ -1656,6 +1685,11 @@ html.dark .st-ico--violet{background:rgba(139,92,246,.18);color:#a78bfa;border:1
 html.dark .dash__pill{background:transparent;border-color:var(--border);color:var(--text-muted);}
 html.dark .dash__pill:hover{background:rgba(249,115,22,.12);border-color:var(--accent);color:var(--accent-2);}
 html.dark .dash__pill.is-active{background:linear-gradient(180deg,#fb923c,var(--accent) 60%,var(--accent-hover));color:#fff;border-color:transparent;}
+
+/* غلاف المساحة في الوضع الداكن */
+html.dark .dash__cover{background:rgba(249,115,22,.1);}
+html.dark .dash__cover-acts .dash__menu-btn{background:rgba(28,28,34,.9);color:#e4e4e7;box-shadow:0 6px 16px -8px rgba(0,0,0,.7);}
+html.dark .dash__cover-acts .dash__menu-btn:hover{background:#1c1c22;color:var(--accent-2);}
 
 html.dark .dash__table thead th{border-bottom-color:var(--border);color:var(--text-muted);}
 html.dark .dash__table tbody td{border-bottom-color:rgba(255,255,255,.06);color:var(--text-strong);}
