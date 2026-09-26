@@ -18,6 +18,7 @@ import {
   Eye,
   Pencil,
   Trash2,
+  Check,
 } from 'lucide-react';
 import { adminSpaces } from '../../data/adminMockData';
 import {
@@ -30,10 +31,12 @@ import {
   Modal,
   Pill,
   Toast,
+  Field,
   btnGhost,
   btnDanger,
 } from './ui';
 import { useToast } from './useToast';
+import useSafeInput from '../../hooks/useSafeInput';
 import { arCount, AR_FORMS } from '../../utils/format';
 
 const statusMeta = {
@@ -92,6 +95,7 @@ export default function AdminSpaces() {
   const { toast, announce, dismiss } = useToast();
   const [preview, setPreview] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [editTarget, setEditTarget] = useState(null);
 
   const counts = useMemo(() => {
     const next = { all: spaces.length, pending: 0, active: 0, suspended: 0 };
@@ -121,11 +125,26 @@ export default function AdminSpaces() {
 
   const setStatus = (id, status) =>
     setSpaces((prev) => prev.map((s) => (s.id === id ? { ...s, status } : s)));
+  // التعديل الجزئي: نحدّث الحقول المُرسَلة فقط ونُبقي الباقي (id, rating, bookings) كما هي.
+  const patch = (id, changes) =>
+    setSpaces((prev) => prev.map((s) => (s.id === id ? { ...s, ...changes } : s)));
   const approve = (id) => setStatus(id, 'active');
   const reject = (id) => setStatus(id, 'suspended');
   const suspend = (id) => setStatus(id, 'suspended');
   const activate = (id) => setStatus(id, 'active');
   const remove = (id) => setSpaces((prev) => prev.filter((s) => s.id !== id));
+
+  const openEdit = (s) => {
+    setPreview(null);
+    setEditTarget(s);
+  };
+
+  // يُستدعى من نموذج التعديل بعد التحقّق: يدمج التعديلات ثم يغلق النافذة.
+  const saveEdit = (id, changes) => {
+    patch(id, changes);
+    setEditTarget(null);
+    announce('تم تحديث بيانات المساحة بنجاح.');
+  };
 
   const resetFilters = () => {
     setQuery('');
@@ -133,15 +152,10 @@ export default function AdminSpaces() {
     setSort('newest');
   };
 
-  // إجراءات بطاقة/صف واحد: المعاينة، التعديل (قيد التطوير)، ثم الحذف.
+  // إجراءات بطاقة/صف واحد: المعاينة، التعديل، ثم الحذف.
   const menuItems = (s) => [
     { id: 'preview', label: 'معاينة', icon: Eye, onSelect: () => setPreview(s) },
-    {
-      id: 'edit',
-      label: 'تعديل',
-      icon: Pencil,
-      onSelect: () => announce(`تعديل بيانات «${s.name}» قيد التطوير — ستتوفر قريباً`),
-    },
+    { id: 'edit', label: 'تعديل', icon: Pencil, onSelect: () => openEdit(s) },
     { id: 'sep', label: 'فاصل', separator: true },
     {
       id: 'delete',
@@ -507,7 +521,9 @@ export default function AdminSpaces() {
               <MiniFact label="الحجوزات" value={arCount(preview.bookings, AR_FORMS.booking)} />
             </div>
             <div className="flex items-center gap-2">
-              <span className="txt-caption">الحالة:</span>
+              <span className="text-[.8rem] font-bold" style={{ color: 'var(--text-muted)' }}>
+                الحالة:
+              </span>
               <StatusBadge tone={spaceStatus(preview.status).tone}>
                 {spaceStatus(preview.status).label}
               </StatusBadge>
@@ -516,21 +532,24 @@ export default function AdminSpaces() {
               <button type="button" className={btnGhost} onClick={() => setPreview(null)}>
                 إغلاق
               </button>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => {
-                  announce(`تعديل بيانات «${preview.name}» قيد التطوير — ستتوفر قريباً`);
-                  setPreview(null);
-                }}
-              >
+              <button type="button" className="btn-primary" onClick={() => openEdit(preview)}>
                 <Pencil className="h-4 w-4" />
-                طلب تعديل
+                تعديل البيانات
               </button>
             </div>
           </div>
         )}
       </Modal>
+
+      {/* تعديل بيانات المساحة */}
+      {editTarget && (
+        <SpaceEditModal
+          key={editTarget.id}
+          space={editTarget}
+          onClose={() => setEditTarget(null)}
+          onSave={saveEdit}
+        />
+      )}
 
       {/* تأكيد الحذف */}
       <Modal
@@ -567,12 +586,19 @@ export default function AdminSpaces() {
   );
 }
 
-// صف معلومة داخل نافذة المعاينة
+// صف معلومة داخل نافذة المعاينة.
+// LABELS عند .8rem لا عند .74rem: النص العربي الصغير كان يبدو منخفض التباين.
+// الألوان نفسها (--text-muted / --text-strong) تمرّ أصلاً فوق معيار WCAG AA.
 function MiniFact({ label, value }) {
   return (
-    <div className="rounded-xl border border-black/10 p-3 dark:border-[var(--border)]">
-      <span className="txt-caption block">{label}</span>
-      <span className="mt-0.5 block text-sm font-extrabold" style={{ color: 'var(--text-strong)' }}>
+    <div className="rounded-xl border border-black/15 bg-slate-50/60 p-3 dark:border-[var(--border)] dark:bg-white/[0.03]">
+      <span
+        className="block text-[.8rem] font-bold"
+        style={{ color: 'var(--text-muted)' }}
+      >
+        {label}
+      </span>
+      <span className="mt-0.5 block text-[.95rem] font-extrabold" style={{ color: 'var(--text-strong)' }}>
         {value}
       </span>
     </div>
@@ -612,6 +638,222 @@ function SpaceActions({ s, onApprove, onReject, onSuspend, onActivate, compact =
           إعادة التفعيل
         </SmallAction>
       )}
+    </div>
+  );
+}
+
+// حدود التحقّق — رسالة واحدة عربية لكل حقل.
+const LIMITS = {
+  price: { min: 1, max: 100000 },
+  capacity: { min: 1, max: 1000 },
+};
+
+/**
+ * نافذة تعديل بيانات المساحة.
+ *
+ * حالتها المعزولة (draft) تُبذر من `space` عند التركيب — والمُركِّب يمرّر `key={space.id}`
+ * فتُعاد البذرة عند فتح مساحة أخرى دون الحاجة لتأثير مزامنة.
+ * الحقول النصّية تمرّ عبر useSafeInput فتعقّم أي HTML ملصوق وتحدّ الطول.
+ * `id` و`rating` و`bookings` غير قابلة للتعديل (بيانات نظام) وتُعرض معطّلة.
+ */
+function SpaceEditModal({ space, onClose, onSave }) {
+  const name = useSafeInput(space.name || '', { maxLength: 80 });
+  const neighborhood = useSafeInput(space.neighborhood || '', { maxLength: 80 });
+  const owner = useSafeInput(space.owner || '', { maxLength: 80 });
+  const image = useSafeInput(space.image || '', { maxLength: 300 });
+
+  const [price, setPrice] = useState(String(space.price ?? ''));
+  const [capacity, setCapacity] = useState(String(space.capacity ?? ''));
+  const [status, setStatus] = useState(space.status || 'active');
+  const [errors, setErrors] = useState({});
+
+  const submit = (e) => {
+    e.preventDefault();
+    const next = {};
+
+    if (!name.value.trim()) next.name = 'اسم المساحة مطلوب.';
+    if (!neighborhood.value.trim()) next.neighborhood = 'الحي مطلوب.';
+    if (!owner.value.trim()) next.owner = 'اسم المالك مطلوب.';
+
+    const p = Number(price);
+    if (!price.trim() || !Number.isFinite(p) || p < LIMITS.price.min || p > LIMITS.price.max) {
+      next.price = `السعر يجب أن يكون رقماً بين ${LIMITS.price.min} و ${LIMITS.price.max}.`;
+    }
+
+    const cap = Number(capacity);
+    if (
+      !capacity.trim() ||
+      !Number.isInteger(cap) ||
+      cap < LIMITS.capacity.min ||
+      cap > LIMITS.capacity.max
+    ) {
+      next.capacity = `السعة يجب أن تكون عدداً صحيحاً بين ${LIMITS.capacity.min} و ${LIMITS.capacity.max}.`;
+    }
+
+    const img = image.value.trim();
+    if (img && !/^(\/|https?:\/\/)/i.test(img)) {
+      next.image = 'رابط الصورة يجب أن يبدأ بـ / أو https://';
+    }
+
+    setErrors(next);
+    if (Object.keys(next).length) return;
+
+    onSave(space.id, {
+      name: name.value.trim(),
+      neighborhood: neighborhood.value.trim(),
+      owner: owner.value.trim(),
+      price: p,
+      capacity: cap,
+      status,
+      image: img,
+    });
+  };
+
+  return (
+    <Modal open onClose={onClose} title={`تعديل: ${space.name}`} wide>
+      <form onSubmit={submit} noValidate>
+        <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2">
+          <Field label="اسم المساحة" error={errors.name} htmlFor="sp-name">
+            <input
+              id="sp-name"
+              type="text"
+              dir="rtl"
+              className="dash__input"
+              value={name.value}
+              onChange={name.onChange}
+              placeholder="مثال: مساحة العمل الوسطى"
+            />
+          </Field>
+
+          <Field label="الحي" error={errors.neighborhood} htmlFor="sp-neighborhood">
+            <input
+              id="sp-neighborhood"
+              type="text"
+              dir="rtl"
+              className="dash__input"
+              value={neighborhood.value}
+              onChange={neighborhood.onChange}
+              placeholder="مثال: غزة - الرمال"
+            />
+          </Field>
+
+          <Field label="المالك" error={errors.owner} htmlFor="sp-owner">
+            <input
+              id="sp-owner"
+              type="text"
+              dir="rtl"
+              className="dash__input"
+              value={owner.value}
+              onChange={owner.onChange}
+              placeholder="اسم مالك المساحة"
+            />
+          </Field>
+
+          <Field label="الحالة" htmlFor="sp-status">
+            <select
+              id="sp-status"
+              className="dash__input cursor-pointer"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+            >
+              {Object.entries(statusMeta).map(([id, m]) => (
+                <option key={id} value={id}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="السعر (ش.ج/ساعة)" error={errors.price} htmlFor="sp-price">
+            <input
+              id="sp-price"
+              type="number"
+              dir="ltr"
+              inputMode="numeric"
+              min={LIMITS.price.min}
+              max={LIMITS.price.max}
+              className="dash__input"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+            />
+          </Field>
+
+          <Field label="السعة (مقعد)" error={errors.capacity} htmlFor="sp-capacity">
+            <input
+              id="sp-capacity"
+              type="number"
+              dir="ltr"
+              inputMode="numeric"
+              min={LIMITS.capacity.min}
+              max={LIMITS.capacity.max}
+              className="dash__input"
+              value={capacity}
+              onChange={(e) => setCapacity(e.target.value)}
+            />
+          </Field>
+
+          <div className="sm:col-span-2">
+            <Field label="رابط صورة الغلاف" error={errors.image} htmlFor="sp-image">
+              <input
+                id="sp-image"
+                type="text"
+                dir="ltr"
+                className="dash__input"
+                value={image.value}
+                onChange={image.onChange}
+                placeholder="/images.jfif أو https://…"
+              />
+            </Field>
+          </div>
+        </div>
+
+        {/* بيانات النظام: تُعرض للعلم فقط ولا تُعدَّل من هنا. */}
+        <fieldset
+          className="mt-1 rounded-xl border p-3"
+          style={{ borderColor: 'var(--border)' }}
+          disabled
+        >
+          <legend className="px-1 text-xs font-bold" style={{ color: 'var(--text-muted)' }}>
+            بيانات النظام (غير قابلة للتعديل)
+          </legend>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <ReadOnlyStat label="المعرّف" value={space.id} />
+            <ReadOnlyStat
+              label="التقييم"
+              value={space.rating ? `${space.rating.toFixed(1)} من 5` : 'لا تقييمات'}
+            />
+            <ReadOnlyStat label="الحجوزات" value={arCount(space.bookings, AR_FORMS.booking)} />
+          </div>
+        </fieldset>
+
+        {/* شريط الإجراءات ثابت أسفل النموذج فلا يختفي عند التمرير على الشاشات القصيرة. */}
+        <div
+          className="sticky bottom-0 -mx-1.75 mt-4 flex flex-wrap justify-end gap-2 border-t px-1.75 pt-3 bg-white dark:bg-[#1c1c22]"
+          style={{ borderColor: 'var(--border)' }}
+        >
+          <button type="button" className={btnGhost} onClick={onClose}>
+            إلغاء
+          </button>
+          <button type="submit" className="btn-primary">
+            <Check className="h-4 w-4" />
+            حفظ التعديلات
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// قيمة للقراءة فقط داخل حقل بيانات النظام
+function ReadOnlyStat({ label, value }) {
+  return (
+    <div>
+      <span className="block text-xs font-bold" style={{ color: 'var(--text-muted)' }}>
+        {label}
+      </span>
+      <span className="mt-0.5 block text-sm font-extrabold" style={{ color: 'var(--text-strong)' }}>
+        {value}
+      </span>
     </div>
   );
 }

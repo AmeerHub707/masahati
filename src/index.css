@@ -1300,7 +1300,9 @@ html.dark .dash__switch input:checked + .track{background:var(--accent);}
 .modal-overlay{position:fixed;inset:0;z-index:100;background:rgba(8,8,10,.55);display:flex;
   align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(2px);}
 .modal-box{width:100%;max-width:24rem;background:#fff;border-radius:1.25rem;padding:1.75rem;text-align:center;
-  box-shadow:0 30px 60px -20px rgba(0,0,0,.5);}
+  box-shadow:0 30px 60px -20px rgba(0,0,0,.5);
+  /* النوافذ الطويلة (نموذج التعديل) كانت تُقصّ ولا يمكن الوصول لأسفلها على الشاشات القصيرة. */
+  max-height:calc(100dvh - 2rem);overflow-y:auto;overscroll-behavior:contain;}
 .dash-rate{position:relative;}
 .dash-rate__close{position:absolute;top:.6rem;inset-inline-start:.6rem;background:none;border:none;cursor:pointer;
   color:var(--text-muted);padding:.3rem;}

@@ -57,6 +57,8 @@ const statTones = {
 export function StatCard({ icon: Icon, label, value, hint, tone = 'orange', currency, trend = 'up', commas = false }) {
   const cls = statTones[tone] || statTones.orange;
   const isWarn = trend === 'warn';
+  // trend="none" للمؤشرات التي لا اتجاه لها (متوسط التقييم مثلاً): نية بلا سهم لا معنى لها.
+  const isNone = trend === 'none';
   const isUp = trend === 'up';
   return (
     <div
@@ -85,6 +87,10 @@ export function StatCard({ icon: Icon, label, value, hint, tone = 'orange', curr
         </span>
         {isWarn ? (
           <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
+            {hint}
+          </span>
+        ) : isNone ? (
+          <span className="rounded-full bg-black/5 px-2.5 py-0.5 text-xs font-semibold text-gray-500 dark:bg-white/10 dark:text-gray-400">
             {hint}
           </span>
         ) : (
@@ -139,6 +145,16 @@ export function EmptyState({ icon: Icon, title, description, actionLabel, onActi
 }
 
 export function Modal({ open, onClose, title, children, wide = false }) {
+  // Escape يغلق النافذة — مهم لنماذج التعديل الطويلة: زر الإلغاء قد يكون خارج مجال الرؤية.
+  useEffect(() => {
+    if (!open || !onClose) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
   if (!open) return null;
   return (
     <div
