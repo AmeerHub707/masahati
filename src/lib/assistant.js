@@ -35,6 +35,3 @@ export async function askAssistant(message) {
 
   return { reply, spaces };
 }
-
-// إعادة تصدير لتوحيد الاستخدام عند الحاجة
-export { ApiError };
