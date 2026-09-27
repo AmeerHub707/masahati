@@ -252,21 +252,6 @@ export function Pill({ active = false, onClick, children, className = '', ...res
   );
 }
 
-// زر أيقوني مربع
-export function IconButton({ tone = '', label, onClick, children, className = '' }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className={`dash__iconbtn${tone ? ` is-${tone}` : ''} ${className}`}
-    >
-      {children}
-    </button>
-  );
-}
-
 // زر إجراء صغير ملوّن
 export function SmallAction({ tone, onClick, children, className = '' }) {
   return (
