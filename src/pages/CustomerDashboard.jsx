@@ -38,7 +38,7 @@ const CUSTOMER_TOUR_STEPS = [
     id: 'sidebar',
     target: 'customer-sidebar',
     title: 'التنقل بين تبويباتك',
-    description: 'هنا تتنقل بين: نظرة عامة، حجوزاتي، المساحات المفضلة، طلباتي الخاصة، والإعدادات. وتجد بيانات ملفك الشخصي في الأعلى.',
+    description: 'هنا تتنقل بين: نظرة عامة، حجوزاتي، المساحات المفضلة، الطلبات الخاصة، والإعدادات. وتجد بيانات ملفك الشخصي في الأعلى.',
   },
   {
     id: 'metrics',
@@ -50,7 +50,7 @@ const CUSTOMER_TOUR_STEPS = [
     id: 'quick-action',
     target: 'customer-quick-action',
     title: 'إجراءات سريعة',
-    description: 'من هنا تتصفح المساحات وتقارن الأسعار والإنترنت، أو تقيّم تجربتك. وإذا احتجت ترتيباً خاصاً فأنشئ طلباً من تبويب «طلباتي الخاصة».',
+    description: 'من هنا تتصفح المساحات وتقارن الأسعار والإنترنت، أو تقيّم تجربتك. وإذا احتجت ترتيباً خاصاً فأنشئ طلباً من تبويب «الطلبات الخاصة».',
   },
   {
     id: 'assistant',
@@ -391,8 +391,6 @@ export default function CustomerDashboard() {
         onLogout={handleLogout}
         user={data?.user}
         offersBadge={offersBadge}
-        requestsView={requestsView}
-        onRequestsViewChange={setRequestsView}
         tourStep={tourStep}
         onStartTour={startTour}
       >

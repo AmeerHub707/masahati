@@ -81,13 +81,14 @@ export default function Requests({ onAcceptOffer, onOffersChange, view: viewProp
     setToast({ msg, type });
   }, []);
 
-  // إبلاغ الأب (لوحة التحكم) عند تغيير العرض لتفعيل رابط الأكوورديون في الشريط الجانبي.
+  // إبلاغ الأب (لوحة التحكم) عند تغيير العرض حتى تبقى حالة التبويب الداخلي
+  // محفوظة إذا غادر المستخدم الصفحة ثم عاد إليها.
   const setCurrentView = useCallback((v) => {
     setView(v);
     if (onViewChange) onViewChange(v);
   }, [onViewChange]);
 
-  // في الوضع المُتحكَّم (من الشريط الجانبي) نشتقّ العرض مباشرة من الأب،
+  // في الوضع المُتحكَّم (من اللوحة) نشتقّ العرض مباشرة من الأب،
   // وإلا نستخدم الحالة الداخلية — بلا مضاعفة مزامنة عبر تأثيرات.
   const effectiveView = viewProp !== undefined ? viewProp : view;
 

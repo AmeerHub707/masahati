@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { Home, CalendarCheck, Heart, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Megaphone, ChevronLeft, ChevronRight, ChevronDown, Lock, Sparkles, Plus, List, HelpCircle } from 'lucide-react';
+import { Home, CalendarCheck, Heart, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Megaphone, ChevronLeft, ChevronRight, Lock, Sparkles, HelpCircle } from 'lucide-react';
 import MagneticButton from '../common/MagneticButton';
 import ThemeToggle from '../common/ThemeToggle';
 import { getCachedPictureUrl } from '../../lib/profilePicture';
@@ -24,7 +24,7 @@ const TABS = [
   { id: 'overview', label: 'نظرة عامة', icon: Home },
   { id: 'bookings', label: 'حجوزاتي', icon: CalendarCheck },
   { id: 'favorites', label: 'المساحات المفضلة', icon: Heart },
-  { id: 'requests', label: 'طلباتي الخاصة', icon: Megaphone },
+  { id: 'requests', label: 'الطلبات الخاصة', icon: Megaphone },
   { id: 'settings', label: 'الإعدادات', icon: Settings },
 ];
 
@@ -35,14 +35,11 @@ export default function DashboardLayout({
   user,
   offersBadge,
   children,
-  requestsView,
-  onRequestsViewChange,
   tourStep = 0,
   onStartTour,
 }) {
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const [reqOpen, setReqOpen] = useState(true);
   const [failedSrc, setFailedSrc] = useState('');
   const [tips, setTips] = useState({ show: false, top: 0, left: 0 });
   const [notifOpen, setNotifOpen] = useState(false);
@@ -252,63 +249,6 @@ export default function DashboardLayout({
           <nav className="dash__nav" aria-label="قائمة لوحة التحكم">
             {displayTabs.map((tab) => {
               const Icon = tab.icon;
-              if (tab.id === 'requests') {
-                return (
-                  <div className="dash__nav-group" key={tab.id}>
-                    <button
-                      type="button"
-                      className={`dash__nav-parent${active === tab.id ? ' is-active' : ''}`}
-                      onClick={() => { setReqOpen((o) => !o); handleNavClick(tab.id); }}
-                      aria-current={active === tab.id ? 'page' : undefined}
-                      aria-expanded={reqOpen}
-                      title={collapsed ? tab.label : undefined}
-                    >
-                      <Icon />
-                      {!collapsed && <span>{tab.label}</span>}
-                      {!collapsed && (
-                        <ChevronDown className={`dash__nav-caret${reqOpen ? ' is-open' : ''}`} aria-hidden="true" />
-                      )}
-                      {offersBadge > 0 && (
-                        collapsed ? (
-                          <span className="dash__nav-dot" aria-label={`لديك ${offersBadge} عروض جديدة`} />
-                        ) : (
-                          <span className="dash__nav-badge" aria-label={`لديك ${offersBadge} عروض جديدة`}>
-                            {offersBadge}
-                          </span>
-                        )
-                      )}
-                    </button>
-                    {reqOpen && !collapsed && (
-                      <div className="dash__nav-sub">
-                        <button
-                          type="button"
-                          className={requestsView === 'list' ? 'is-active' : ''}
-                          onClick={() => {
-                            if (onRequestsViewChange) onRequestsViewChange('list');
-                            handleNavClick(tab.id);
-                          }}
-                          aria-current={active === tab.id && requestsView === 'list' ? 'page' : undefined}
-                        >
-                          <List />
-                          <span>طلباتي</span>
-                        </button>
-                        <button
-                          type="button"
-                          className={requestsView === 'create' ? 'is-active' : ''}
-                          onClick={() => {
-                            if (onRequestsViewChange) onRequestsViewChange('create');
-                            handleNavClick(tab.id);
-                          }}
-                          aria-current={active === tab.id && requestsView === 'create' ? 'page' : undefined}
-                        >
-                          <Plus />
-                          <span>إنشاء طلب</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              }
               return (
                 <button
                   key={tab.id}
@@ -319,7 +259,7 @@ export default function DashboardLayout({
                   title={collapsed ? tab.label : undefined}
                 >
                   <Icon />
-                  {!collapsed && <span>{tab.label}</span>}
+                  {!collapsed && <span className="dash__nav-label">{tab.label}</span>}
                   {tab.id === 'requests' && offersBadge > 0 && (
                     collapsed ? (
                       <span className="dash__nav-dot" aria-label={`لديك ${offersBadge} عروض جديدة`} />

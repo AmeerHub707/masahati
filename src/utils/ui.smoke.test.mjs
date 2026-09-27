@@ -218,7 +218,10 @@ clickIn(appEl, '[data-tour="customer-tour-replay"]');
 await flush();
 report('CT14 Replay reopens at step 1', await waitForNode('[data-tour-step="1"]'), 'replay did not reopen');
 report('CT15 Skip closes and persists', clickIn(doc, '[data-tour="customer-tour-skip-text"]') && (await waitForGone('[data-tour-overlay]')) && dom.window.localStorage.getItem(CUSTOMER_TOUR_KEY) === '1', 'skip failed');
-report('CT16 Tour left the overview tab intact', appEl.querySelector('.dash__stats') !== null, 'overview tab not restored');
+// نتحقق من التبويب النشط عبر شريط التنقل: التبويبات تبقى مركّبة أثناء أنيميشن
+// الخروج، فوجود .dash__stats وحده لا يثبت أن تبويب النظرة العامة هو النشط.
+const activeNavAfterTour = appEl.querySelector('.dash__nav button.is-active');
+report('CT16 Tour left the overview tab active', !!activeNavAfterTour && activeNavAfterTour.textContent.includes('نظرة عامة'), `active=${activeNavAfterTour?.textContent?.trim()}`);
 
 // المساعد:Without consent لا ح 입력 ولا رد ذكي.
 clickIn(appEl, '[data-tour="customer-assistant"]');
@@ -255,37 +258,43 @@ report('U7 Favorites shows saved space', await waitForText('استوديو تص�
 report('U8 Navigate to settings section (click)', await clickByText('الإعدادات'), 'no click');
 report('U9 Settings form renders', await waitForText('كلمة المرور') || !!appEl.querySelector('[id="set-name"]'), 'settings form absent');
 
-// ----- قسم الطلبات الخاصة (وضع تجريبي) -----
-console.log('\n===== UI: Requests tab (demo) =====');
-report('R1 Navigate to requests tab', await clickByText('طلباتي الخاصة'), 'no click');
+// ----- «الطلبات الخاصة» تبويب مستوٍ مثل بقية التبويبات -----
+console.log('\n===== UI: Requests sidebar tab =====');
+// ملاحظة: التبويبات تبقى مركّبة أثناء أنيميشن الخروج (AnimatePresence mode="wait")،
+// فوجود عنصر تبويب ليس دليلاً على أنه النشط. المصدر الموثوق هو حالة شريط التنقل.
+const activeNav = () => appEl.querySelector('.dash__nav button.is-active');
+const isOnTab = (label) => !!activeNav() && activeNav().textContent.includes(label);
+const navButtons = () => Array.from(appEl.querySelectorAll('.dash__nav > button'));
+
+await clickByText('نظرة عامة');
+await flush(); await flush();
+report('R0 Start from the overview tab', isOnTab('نظرة عامة'), `active=${activeNav()?.textContent?.trim()}`);
+
+// «الطلبات الخاصة» يجب أن يظهر كنص كامل داخل شريط التنقل (بلا أكورديون يخفيه).
+const reqTabBtn = navButtons().find((b) => b.textContent.trim() === 'الطلبات الخاصة');
+report('R14 Requests label renders with its full text', reqTabBtn?.textContent?.trim() === 'الطلبات الخاصة', `label="${reqTabBtn?.textContent?.trim()}"`);
+
+// كل التبويبات عناصر مباشرة في الشريط: لا صف خاص ولا قائمة فرعية ولا زر طيّ.
+const navGroup = appEl.querySelector('.dash__nav-group, .dash__nav-parentwrap, .dash__nav-sub, .dash__nav-toggle');
+report('R4 Requests is a plain tab, not an accordion', !navGroup, 'accordion markup still present');
+report('R5 Sidebar renders 6 top-level nav buttons', navButtons().length === 6, `count=${navButtons().length}`);
+
+await clickByText('الطلبات الخاصة');
+await flush(); await flush();
+report('R1 Tab button navigates to requests', isOnTab('الطلبات الخاصة'), `active=${activeNav()?.textContent?.trim()}`);
 report('R2 Requests list rendered', await waitForText('في انتظار العروض'), 'requests list absent');
-
 // فتح أول طلب -> شارة العروض الجديدة تُصفّر تلقائياً (لا اختبار لأن العرض الأول بدون شارة)
-const openReqCard = await waitForText('عرض العروض');
-report('R3 Cards show open-requests CTA', openReqCard, 'no open CTA found');
+report('R2b Cards show open-requests CTA', await waitForText('عرض العروض'), 'no open CTA found');
 
-// زر طلب جديد موجود
-report('R4 "طلب جديد" button present', !!(await clickByText('طلب جديد')), 'no button');
-report('R5 Create form opens', await waitForText('أنشئ طلباً خاصاً'), 'create form absent');
-report('R6 Back link returns to list', await clickByText('كل الطلبات'), 'no back');
-report('R7 List visible again', await waitForText('في انتظار العروض'), 'list absent');
+// إنشاء الطلب يتم من زر «طلب جديد» في رأس الصفحة، لا من الشريط الجانبي.
+report('R3 "طلب جديد" button present in page header', !!(await clickByText('طلب جديد')), 'no button');
+report('R3b Create form opens', await waitForText('أنشئ طلباً خاصاً'), 'create form absent');
+report('R3c Back link returns to list', await clickByText('كل الطلبات'), 'no back');
+report('R3d List visible again', await waitForText('في انتظار العروض'), 'list absent');
 
-// ----- أكورديون "الطلبات الخاصة" في الشريط الجانبي + مسح النموذج -----
-console.log('\n===== UI: Requests accordion + clear form =====');
-report('R8 Expand sidebar requests accordion', (await clickByText('طلباتي الخاصة')) && !!appEl.querySelector('.dash__nav-sub'), 'no submenu');
-const subLabels = Array.from(appEl.querySelectorAll('.dash__nav-sub')).map((s) => s.textContent);
-report('R9 Submenu lists طلباتي + إنشاء طلب', subLabels.some((t) => t.includes('طلباتي') && t.includes('إنشاء طلب')), JSON.stringify(subLabels));
-
-async function clickSubmenu(itemText) {
-  const btn = Array.from(appEl.querySelectorAll('.dash__nav-sub button')).find((b) => b.textContent.includes(itemText));
-  if (!btn) return false;
-  btn.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
-  await flush();
-  await flush();
-  return true;
-}
-
-report('R10 Open create form via submenu item', (await clickSubmenu('إنشاء طلب')) && (await waitForText('أنشئ طلباً خاصاً')), 'create form absent');
+// ----- مسح النموذج من داخل صفحة الطلبات -----
+console.log('\n===== UI: Requests create form + clear =====');
+report('R8 Reopen create form', !!(await clickByText('طلب جديد')) && (await waitForText('أنشئ طلباً خاصاً')), 'create form absent');
 
 async function setInputValue(sel, value) {
   const el = appEl.querySelector(sel);
@@ -299,11 +308,12 @@ async function setInputValue(sel, value) {
 }
 
 const titleFilled = setInputValue('input[placeholder^="مثال: قاعة"]', 'قاعة محاضرات كبيرة');
-report('R11 Fill title field', titleFilled && appEl.querySelector('input[placeholder^="مثال: قاعة"]')?.value === 'قاعة محاضرات كبيرة', 'title not set');
-report('R12 "مسح الحقول" button present', await clickByText('مسح الحقول'), 'no clear button');
-report('R13 Title cleared after clicking مسح الحقول', (appEl.querySelector('input[placeholder^="مثال: قاعة"]')?.value || '') === '', 'title still filled');
+report('R9 Fill title field', titleFilled && appEl.querySelector('input[placeholder^="مثال: قاعة"]')?.value === 'قاعة محاضرات كبيرة', 'title not set');
+report('R10 "مسح الحقول" button present', await clickByText('مسح الحقول'), 'no clear button');
+report('R11 Title cleared after clicking مسح الحقول', (appEl.querySelector('input[placeholder^="مثال: قاعة"]')?.value || '') === '', 'title still filled');
 
-report('R14 Back to list via submenu "طلباتي"', (await clickSubmenu('طلباتي')) && (await waitForText('في انتظار العروض')), 'list absent');
+report('R12 Back to list from create form', (await clickByText('كل الطلبات')) && (await waitForText('في انتظار العروض')), 'list absent');
+
 
 // ============================================================
 // لوحة صاحب المساحة (OWNER) — تخيّل أن المستخدم هو المالك
