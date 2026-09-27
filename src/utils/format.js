@@ -43,3 +43,36 @@ export function arCount(n, forms) {
   const digits = Math.abs(num) >= 1000 ? num.toLocaleString('en-US') : String(num);
   return `${digits} ${arPlural(num, forms)}`;
 }
+
+// التشكيل + علامات القرآن + التطويل: تُحذف كلها قبل المقارنة.
+const DIACRITICS = /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g;
+
+/**
+ * يوحّد النص العربي للمقارنة والبحث: الهمزات (أ إ آ ٱ ← ا)، والتاء المربوطة (ة ← ه)،
+ * والألف المقصورة (ى ← ي)، والهمزة على الواو/الياء، مع حذف التشكيل والتطويل.
+ * بدونه يفشل بحث «الأناقه» عن «الأناقة»، و«اسماء» عن «أسماء».
+ */
+export function normalizeAr(value) {
+  return String(value ?? '')
+    .replace(DIACRITICS, '')
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ؤ/g, 'و')
+    .replace(/[ئى]/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .toLowerCase()
+    .trim();
+}
+
+/**
+ * تاريخ عربي مقروء: «١٥ سبتمبر ٢٠٢٦».
+ * نضيف T00:00:00 لتواريخ «YYYY-MM-DD» لأن new Date() يفسّرها UTC فيتأخر اليوم
+ * يوماً كاملاً في المناطق الزمنية شرق غرينتش. تاريخ غير صالح يُعاد كما هو.
+ */
+export function formatArDate(value) {
+  if (value == null || value === '') return '';
+  const raw = String(value);
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T00:00:00` : raw;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return raw;
+  return date.toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric' });
+}
