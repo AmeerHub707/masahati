@@ -178,26 +178,6 @@ export async function toggleFavorite(spaceId) {
   return { message: res?.message || '', isFavorited };
 }
 
-// تصفّح المساحات (صفحات) — GET api/dashboard/spaces (paginate)
-export async function fetchSpaces(page = 1) {
-  const res = await request(`/api/dashboard/spaces?page=${page}`, { method: 'GET', auth: true });
-  // Laravel paginator يعيد { data: [...] } وقد تُغلَّف النتيجة أحياناً في res.data مرة أخرى.
-  const rawItems = res?.data?.data || res?.data || res?.spaces || [];
-  const items = Array.isArray(rawItems) ? rawItems : [];
-  return {
-    spaces: items.map((sp) => ({
-      id: sp.space_id ?? sp.id,
-      title: sp.title ?? '',
-      description: sp.description || '',
-      location: sp.location || '',
-      image: imageUrl(sp.image) || '',
-    })),
-    current_page: res?.current_page ?? res?.data?.current_page ?? page,
-    last_page: res?.last_page ?? res?.data?.last_page ?? 1,
-    has_more: res?.has_more ?? res?.data?.has_more ?? false,
-  };
-}
-
 // إلغاء حجز — ملاحظة: نقطة /api.txt لا تدرج نقطة إلغاء حجز، تُترك كـ placeholder.
 export async function cancelBooking(bookingId) {
   await new Promise((r) => setTimeout(r, 250));
