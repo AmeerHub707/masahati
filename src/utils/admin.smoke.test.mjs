@@ -264,7 +264,118 @@ console.log('\n===== ADMIN: التقارير المالية =====');
 
   await v.clickText('اليوم');
   report('A8 switching back to preset range works', v.text().includes('9,200') || v.text().includes('9,200'), v.text().slice(0, 120));
+
+  // ── النطاق المخصص + صافي ربح المنصة (توصية 2) ─────────────────────────
+  // «اليوم» عمولته 1,104 فقط. قبل التصحيح كان يُخصم منه رقم المدفوعات المعلّقة
+  // كاملاً (8,240) فيخرج الصافي صفراً ويقرأ كأنه لا ربح أصلاً. الآن يُخصم
+  // نصيب اليوم (42 حجزاً من 517) فيبقى رقمٌ مختلف عن الصفر قابلاً للتدقيق.
+  const todayText = v.text();
+  const todayNet = Number(todayText.match(/صافي ربح المنصة\s*([\d,]+|-[\d,]+)/)?.[1]?.replace(/,/g, ''));
+  report(
+    'A9 net profit is range-scoped, not zeroed by the full pending balance',
+    Number.isFinite(todayNet) && todayNet > 0 && todayNet < 1104,
+    `todayNet=${todayNet}`
+  );
+
+  // نفس المرجع داخل النطاق المخصص: 12 يوماً من سبتمبر، والرقم فيه أقل من
+  // عمولة الشهر (28,980) بدل أن يعيدها.
+  await v.clickText('نطاق مخصص');
+  await v.type(v.find('#custom-from'), '2026-09-01');
+  await v.type(v.find('#custom-to'), '2026-09-12');
+  const customNet = Number(v.text().match(/صافي ربح المنصة\s*([\d,]+|-[\d,]+)/)?.[1]?.replace(/,/g, ''));
+  report(
+    'A10 custom-range net profit is computed from that range, not the month',
+    Number.isFinite(customNet) && customNet > 0 && customNet < 28980,
+    `customNet=${customNet}`
+  );
+
+  // ── اختصارات التاريخ (توصية 5) ───────────────────────────────────────
+  // الشرط الجوهري: النطاق المختار يقع داخل تغطية البيانات، وإلا ظهرت أصفار
+  // بلا سبب. نتحقق من القيمة المدخلة نفسها لا من شكل الصفحة.
+  const presetValue = () => v.find('#custom-from')?.value || '';
+  const presetToValue = () => v.find('#custom-to')?.value || '';
+
+  await v.clickText('أمس');
+  report(
+    'A11 the yesterday preset fills a one-day range inside the data span',
+    presetValue() === '2026-09-29' && presetToValue() === '2026-09-29',
+    `from=${presetValue()} to=${presetToValue()}`
+  );
+  report('A11b the yesterday preset reports a non-empty day', /\d{1,3},\d{3}/.test(v.text()), v.text().match(/\d{2,3},\d{3}\s*ش\.ج/g)?.slice(0, 3).join(' / ') || '');
+
+  await v.clickText('آخر 7 أيام');
+  report(
+    'A12 the last-7-days preset fills a seven-day range ending at the span end',
+    presetValue() === '2026-09-24' && presetToValue() === '2026-09-30',
+    `from=${presetValue()} to=${presetToValue()}`
+  );
+  // سبعة أيام من شهر مجموعه 241,500 تقع بين اليوم الواحد والشهر كاملاً: قيمة
+  // قريبة من الصفر تعني أن النطاق احتُسب خطأً أو وقع خارج التغطية.
+  report('A12b the last-7-days preset beats a single day but stays under the month', (() => {
+    const nums = (v.text().match(/[\d]{1,3},\d{3}\s*ش\.ج/g) || []).map((s) => Number(s.replace(/[^\d]/g, '')));
+    return nums.some((n) => n > 241500 / 5) && nums.every((n) => n <= 241500);
+  })(), v.text().match(/[\d]{1,3},\d{3}\s*ش\.ج/g)?.slice(0, 4).join(' / ') || '');
+
+  await v.clickText('منذ بداية الشهر');
+  report(
+    'A13 the month-to-date preset equals the full September range',
+    presetValue() === '2026-09-01' && presetToValue() === '2026-09-30',
+    `from=${presetValue()} to=${presetToValue()}`
+  );
+  report('A13b month-to-date reproduces the month revenue exactly', v.text().includes('241,500'), v.text().match(/[\d]{2,3},\d{3}\s*ش\.ج/g)?.slice(0, 3).join(' / ') || '');
+  report('A13c no preset leaves a zeroed-out report', !/^0\s*ش\.ج/m.test(v.text()), v.text().match(/0\s*ش\.ج/g)?.join(' / ') || '');
+
   v.unmount();
+}
+
+console.log('\n===== ADMIN: المعاملات مشتقّة من الحجوزات (توصية 1) =====');
+{
+  const {
+    adminBookings: bookings,
+    adminSpaces: spaces,
+  } = await server.ssrLoadModule('/src/data/adminMockData.js');
+
+  const ownerBySpace = new Map(spaces.map((sp) => [sp.name, sp.owner]));
+
+  // كل حجز يجب أن يجد مالك مساحته. لو غاب اسم فالربط بالاسم انكسر، ويظهر
+  // «غير محدّد» في الجدول — عطل صامت لا يظهر إلا في لقطة شاشة.
+  const unmapped = bookings.filter((b) => !ownerBySpace.has(b.space));
+  report('T1 every booking space resolves to a real owner', unmapped.length === 0, unmapped.map((b) => b.space).join(' | '));
+
+  // «المالك» يجب أن يأتي من adminSpaces لا من صاحب الحجز. نفحص الحجوزات التي
+  // يختلف فيها الاثنان — وهي كل الحالات تقريباً. المساحة التي مالكها صاحب
+  // حجزها نفسه (فضاء المبدعين / نور شعبان) تطابق شرطاً بطبيعتها، فاستثنيناها
+  // صراحةً بدل أن تخفي بها خللاً حقيقياً.
+  const differing = bookings.filter((b) => b.user !== ownerBySpace.get(b.space));
+  const leaked = differing.filter((b) => b.user === ownerBySpace.get('__none__'));
+  report('T2 the owner column is never filled from the booking customer',
+    differing.length > 0 && leaked.length === 0,
+    `differing=${differing.length} leaked=${leaked.length}`);
+
+  // المعاملة تُبنى من الحجز لا من مصفوفة ثانية: نفس المرجع ونفس التاريخ.
+  const sample = bookings[0];
+  report('T3 the transaction source is adminBookings itself, no parallel array',
+    sample.ref === '#BK-1021' && sample.date === '2026-09-18' && sample.user === 'سارة النجار',
+    `${sample.ref} ${sample.date} ${sample.user}`);
+
+  // ترتيب الأحدث أولاً، ثم تنازلياً بالرقم داخل اليوم نفسه. 22 سبتمبر فيه
+  // حجزان (#BK-1028 ثم #BK-1029) فالأعلى رقماً يسبق: هكذا لا يقفز صفٌّ بين
+  // عمليتي فرز متتاليتين على البيانات نفسها.
+  const sorted = [...bookings].sort((a, b) => (a.date === b.date ? b.id - a.id : (a.date < b.date ? 1 : -1)));
+  report('T4 bookings sort newest-first, then by descending id within a day',
+    sorted[0].ref === '#BK-1030' && sorted[0].date === '2026-09-23'
+    && sorted[1].ref === '#BK-1029' && sorted[2].ref === '#BK-1028'
+    && sorted.at(-1).ref === '#BK-1021',
+    sorted.slice(0, 3).map((b) => `${b.ref}@${b.date}`).join(' > '));
+
+  // كل حجز له مالك وعمولة محسوبة: 12% من 120 = 14.4 تُقرَّب 14، فصافي 106.
+  const fee = Math.round(120 * 0.12);
+  report('T5 commission and net payout derive from the booking amount', fee === 14 && 120 - fee === 106, `fee=${fee} net=${120 - fee}`);
+
+  // أسماء عربية لا تُتلف في الجدول أو الملف (باندٍ UTF-8 + مالك حقيقي).
+  report('T6 Arabic names survive the owner join intact',
+    ownerBySpace.get('استوديو الأناقة') === 'أحمد جودة' && ownerBySpace.get('مساحة المهندسين') === 'سامي حمدان',
+    `${ownerBySpace.get('استوديو الأناقة')} / ${ownerBySpace.get('مساحة المهندسين')}`);
 }
 
 console.log('\n===== ADMIN: سلسلة الأيام المالية (أساس النطاق المخصص) =====');
@@ -273,11 +384,15 @@ console.log('\n===== ADMIN: سلسلة الأيام المالية (أساس ا�
     financialDailySeries: series,
     financialDailySpan: span,
     financialRangeData: ranges,
+    adminStats: stats,
   } = await server.ssrLoadModule('/src/data/adminMockData.js');
   const revenue = series.reduce((s, d) => s + d.revenue, 0);
   const bookings = series.reduce((s, d) => s + d.bookings, 0);
+  const pending = series.reduce((s, d) => s + d.pending, 0);
   report('D1 daily series sums exactly to the month revenue', revenue === ranges.month.revenue, `${revenue} vs ${ranges.month.revenue}`);
   report('D2 daily series sums exactly to the month bookings', bookings === ranges.month.bookings, `${bookings} vs ${ranges.month.bookings}`);
+  // مجموع يومي لا يدور بلا سبب: لولاه لاختلف رقم النطاق المخصص عن رقم الشهر.
+  report('D2b daily series sums exactly to the pending payouts', pending === stats.payoutsPending, `${pending} vs ${stats.payoutsPending}`);
   const commission = Math.round(revenue * 0.12);
   report(
     'D3 a summed full month reproduces the month commission and payouts',
@@ -335,6 +450,8 @@ console.log('\n===== ADMIN: تصدير التقرير (CSV / PDF) =====');
     report('AF6 CSV has no undefined/NaN', !/undefined|NaN/.test(csvText), csvText.match(/.{0,40}(undefined|NaN).{0,40}/)?.[0] || '');
     // النطاق الافتراضي هو الشهر: 241,500 إيراداً و28,980 عمولة.
     report('AF7 CSV reports current range values', csvText.includes('241,500') && csvText.includes('28,980'), csvText.match(/"241,500".{0,90}/)?.[0] || csvText.slice(0, 200));
+    // عمود المستخدم مستقل عن المالك في الملف أيضاً، فيبقى الملف مطابقاً للجدول.
+    report('AF7b CSV carries both the owner and the booking customer', csvText.includes('المستخدم') && csvText.includes('أحمد جودة') && csvText.includes('أحمد العمري'), csvText.slice(0, 200));
     report('AF8 CSV toast confirms the export', v.text().includes('تم تصدير التقرير كملف CSV'), v.text().slice(-120));
 
     await v.clickText('تصدير التقرير');
@@ -354,13 +471,22 @@ console.log('\n===== ADMIN: تصدير التقرير (CSV / PDF) =====');
     const modal = v.find('.modal-overlay');
     const modalText = modal?.textContent || '';
     report('AF11 row action opens a details modal, not a toast', !!modal && !v.text().includes('قيد التطوير'), `modal=${!!modal} text=${v.text().slice(-140)}`);
-    report('AF11b the modal shows booking id, space, owner, date and status',
-      modalText.includes('#BK-1021')
+    // أحدث حجز في adminBookings هو #BK-1030 (2026-09-23) — لا #BK-1021. المعاملات
+    // صارت تُبنى من الحجوزات نفسها فلا يجوز أن يبقى الاختبار على ترتيب قديم.
+    report('AF11b the modal shows the newest booking: id, space, real owner, user, date, status',
+      modalText.includes('#BK-1030')
       && modalText.includes('استوديو الأناقة')
+      && modalText.includes('أحمد جودة')
       && modalText.includes('أحمد العمري')
-      && modalText.includes('مكتمل')
-      && /١?\d/.test(modalText),
-      modalText.slice(0, 200));
+      && modalText.includes('مؤكد')
+      && /\d{1,2}[/-]\d{1,2}[/-]\d{4}|٢٠٢٦/.test(modalText),
+      modalText.slice(0, 220));
+    // «المالك» و«المستخدم» عمودان منفصلان: الأول مالك المساحة من adminSpaces،
+    // والثاني صاحب الحجز من adminBookings. الخلط بينهما كان العطل الأصلي،
+    // فالحارس هنا أن يظهر الاثنان معاً في النافذة.
+    report('AF11e owner and booking customer are labelled separately',
+      modalText.includes('المالك') && modalText.includes('المستخدم'),
+      modalText.slice(0, 220));
     report('AF11c the modal shows total, 12% fee and net payout',
       modalText.includes('إجمالي المبلغ') && modalText.includes('عمولة المنصة (12%)') && modalText.includes('صافي مستحقات المالك'),
       modalText.slice(0, 240));
@@ -479,9 +605,250 @@ console.log('\n===== ADMIN: المساحات والحجوزات والمراجع
   b.unmount();
 
   const r = await mount('/admin/reviews');
+  // الصفحة تجلب البيانات داخل useEffect (حالة تحميل ثم ready)، فالدوم ليس جاهزاً
+  // فور mount(). ننتظر أول بطاقة بدل الفحص على نصف DOM.
+  await waitFor(() => r.findAll('[data-review-card]').length > 0);
+  report('A21a0 the reviews page finishes loading without an error state',
+    !r.find('[data-review-error]') && r.findAll('[data-review-card]').length > 0,
+    `error=${!!r.find('[data-review-error]')} cards=${r.findAll('[data-review-card]').length}`);
   await r.clickText('مبلّغ عنها');
   report('A21 flagged reviews filter works', r.text().includes('مبلّغ عنها') && !r.text().includes('رتبتك ممتازة'));
+  report('A21b the flagged pill keeps only the reported reviews', r.findAll('[data-review-card]').length === 3,
+    `cards=${r.findAll('[data-review-card]').length}`);
+
+  // بطاقات المؤشرات: نتحقق من التسميات لا من الأرقام، لأن عدّاد DashCountUp لا يبدأ
+  // دون IntersectionObserver (المستعار هنا يستدعي المراقب بمصفوفة فارغة فلا يُبلّغ عن تقاطع).
+  const statBox = r.find('[data-review-stats]');
+  report('A21c three summary stat cards render above the list',
+    !!statBox && statBox.children.length === 3
+    && statBox.textContent.includes('متوسط التقييم')
+    && statBox.textContent.includes('إجمالي المراجعات')
+    && statBox.textContent.includes('البلاغات المعلّقة'),
+    `cards=${statBox ? statBox.children.length : 0} text=${(statBox?.textContent || '').slice(0, 120)}`);
+
+  // اسم التبويب معروض أصلاً في ترويسة اللوحة (h1)، فالعنوان h2 داخل الصفحة تكرارٌ بلا فائدة.
+  await r.click(r.find('[data-review-tab="all"]'));
+  report('A21d the page no longer repeats the tab title as a section heading',
+    r.findAll('h2').every((h) => (h.textContent || '').trim() !== 'التقييمات والمراجعات'),
+    `h2=${r.findAll('h2').map((h) => h.textContent.trim()).join(' | ')}`);
+
+  const allCards = r.findAll('[data-review-card]');
+  // ست بطاقات في الصفحة الواحدة (PAGE_SIZE=6) من أصل ثماني.
+  report('A21e every rendered review gets a card with its text and two footer actions',
+    allCards.length === 6
+    && !!r.find('[data-review-card="1"] .dash__soft')
+    && r.findAll('[data-review-card] .dash__btn-soft').length === 12,
+    `cards=${allCards.length} actions=${r.findAll('[data-review-card] .dash__btn-soft').length}`);
+
+  // الترقيم: شريط يظهر فقط عند وجود أكثر من صفحة، ويعلن المدى المرئي.
+  const pager = r.find('[data-review-pager]');
+  const pagerText = (pager?.textContent || '').replace(/\s+/g, ' ').trim();
+  report('A21e2 the list paginates six reviews per page and reports the range',
+    !!pager && pagerText.includes('1') && pagerText.includes('6') && pagerText.includes('8'),
+    `pager=${pagerText}`);
+
+  const pageTwo = r.find('button[aria-label="الصفحة 2"]');
+  if (pageTwo) await r.click(pageTwo);
+  const pageTwoIds = r.findAll('[data-review-card]').map((c) => c.getAttribute('data-review-card'));
+  report('A21e3 page two shows the remaining two reviews',
+    pageTwoIds.length === 2 && pageTwoIds.includes('7') && pageTwoIds.includes('8'),
+    `ids=${pageTwoIds.join(',')}`);
+
+  const pageOne = r.find('button[aria-label="الصفحة 1"]');
+  if (pageOne) await r.click(pageOne);
+  report('A21e4 returning to page one restores the first six',
+    r.findAll('[data-review-card]').length === 6,
+    `cards=${r.findAll('[data-review-card]').length}`);
+
+  // شارات الحالة في الزاوية العلوية اليسرى من رأس البطاقة (ابنها الأول)، لا في أسفلها.
+  // على الصفحة الأولى (المُعرّفات 1–6) شارتان حمراوان (3، 5) + شارة مجهولة واحدة (3).
+  const headerBadges = r.findAll('[data-review-card] > div:first-child .badge');
+  report('A21f status badges sit in the card header and the reported one is red',
+    headerBadges.length === 3
+    && r.findAll('[data-review-card] .badge--cancelled').length === 2
+    && !!r.find('[data-review-card="3"] .badge--cancelled'),
+    `badges=${headerBadges.length} red=${r.findAll('[data-review-card] .badge--cancelled').length}`);
+
+  // المراجعة المجهولة تُوسم صراحةً بدل ترك الاسم المجهول يوهم بأنه اسم حقيقي.
+  const anonCard = r.find('[data-review-card="3"]');
+  report('A21f2 an anonymous review is badged and labelled as a guest',
+    !!anonCard.querySelector('[data-review-anonymous]')
+    && (anonCard.textContent || '').includes('زائر غير مسجّل')
+    && (anonCard.textContent || '').includes('مجهولة'),
+    (anonCard?.textContent || '').slice(0, 90));
+
+  // التاريخ بصيغة عربية مقروءة بدل ISO: «١٥ سبتمبر ٢٠٢٦».
+  const cardDate = (r.find('[data-review-card="1"] [data-review-date]')?.textContent || '').trim();
+  report('A21f3 the card date is formatted in Arabic, not raw ISO',
+    cardDate === '١٥ سبتمبر ٢٠٢٦', `date=${cardDate}`);
+
+  // النجوم مع الرقم المجاور: التقييم لا يُقرأ بلون وحده.
+  report('A21g the stars are paired with the numeric rating',
+    !!r.find('[data-review-card="1"] .fill-amber-400') && (r.find('[data-review-card="1"]').textContent || '').includes('5 من 5'),
+    (r.find('[data-review-card="1"]')?.textContent || '').slice(0, 80));
+
+  // البحث باسم المُقيِّم ثم باسم المساحة
+  const search = r.find('input[type=search]');
+  await r.type(search, 'ريم');
+  report('A21h search filters by reviewer name', r.findAll('[data-review-card]').length === 1,
+    `cards=${r.findAll('[data-review-card]').length}`);
+  await r.type(search, 'استوديو الأناقة');
+  report('A21i search filters by space name', r.findAll('[data-review-card]').length === 2,
+    `cards=${r.findAll('[data-review-card]').length}`);
+  await r.click(r.find('button[aria-label="مسح البحث"]'));
+  report('A21j clearing the search restores every card', r.findAll('[data-review-card]').length === 6
+    && (r.text().includes('عرض 8 مراجعات')),
+    `cards=${r.findAll('[data-review-card]').length}`);
+
+  // تطبيع البحث العربي: «الاناقه» بلا همزة ولا تاء مربوطة يجب أن تطابق «الأناقة».
+  // قبل normalizeAr كانت هذه العبارة تُرجع صفر نتيجة.
+  await r.type(search, 'الاناقه');
+  report('A21j2 search ignores hamza and ta-marbuta differences',
+    r.findAll('[data-review-card]').length === 2,
+    `cards=${r.findAll('[data-review-card]').map((c) => c.getAttribute('data-review-card')).join(',')}`);
+  await r.click(r.find('button[aria-label="مسح البحث"]'));
+
+  // لوحة توزيع النجوم ومتوسط كل مساحة — والنقر على مساحة يصفّي القائمة بها.
+  const breakdown = r.find('[data-review-breakdown]');
+  const bdText = (breakdown?.textContent || '').replace(/\s+/g, ' ');
+  report('A21j3 the rating breakdown lists stars and per-space averages',
+    !!breakdown && bdText.includes('توزيع التقييمات') && bdText.includes('متوسط كل مساحة')
+    && breakdown.querySelectorAll('button[aria-pressed]').length >= 7,
+    `text=${bdText.slice(0, 110)}`);
+
+  const spaceBtn = breakdown
+    ? Array.from(breakdown.querySelectorAll('button[aria-pressed]')).find((b) => b.textContent.includes('فضاء المبدعين'))
+    : null;
+  if (spaceBtn) await r.click(spaceBtn);
+  report('A21j4 clicking a space average filters the list to that space',
+    r.findAll('[data-review-card]').length === 1
+    && !!r.find('[data-review-card="5"]')
+    && (r.find('input[type=search]')?.value || '').includes('فضاء المبدعين'),
+    `cards=${r.findAll('[data-review-card]').map((c) => c.getAttribute('data-review-card')).join(',')} q=${r.find('input[type=search]')?.value}`);
+  await r.clickText('إعادة الضبط');
+  report('A21j5 the reset action clears the space filter and the page',
+    r.findAll('[data-review-card]').length === 6 && (r.find('input[type=search]')?.value || '') === '',
+    `cards=${r.findAll('[data-review-card]').length}`);
+
+  // الترتيب: <select> محكوم، فنضبط القيمة بالمُحدِّد الأصلي كما يفعل type() مع input.
+  const sortSelect = r.find('select[aria-label="ترتيب المراجعات"]');
+  report('A21k the sort dropdown offers the three documented options',
+    !!sortSelect && sortSelect.querySelectorAll('option').length === 3,
+    `options=${sortSelect ? sortSelect.querySelectorAll('option').length : 0}`);
+
+  const setSort = async (value) => {
+    const setter = Object.getOwnPropertyDescriptor(dom.window.HTMLSelectElement.prototype, 'value').set;
+    setter.call(sortSelect, value);
+    await r.change(sortSelect);
+  };
+  const order = () => r.findAll('[data-review-card]').map((c) => c.getAttribute('data-review-card'));
+
+  await setSort('lowest');
+  report('A21l sorting by lowest rating puts the 1★ review first', order()[0] === '3', `order=${order().join(',')}`);
+  await setSort('highest');
+  report('A21m sorting by highest rating puts a 5★ review first', order()[0] === '1', `order=${order().join(',')}`);
+  await setSort('newest');
+  report('A21n newest-first is the default order', order()[0] === '1', `order=${order().join(',')}`);
+
+  // الحذف لا ينفَّذ قبل الموافقة الصريحة
+  const delBtn = r.findAll('[data-review-card] .dash__btn-soft').find((b) => b.textContent.includes('حذف'));
+  if (delBtn) await r.click(delBtn);
+  const delModal = r.find('.modal-overlay');
+  const delText = delModal?.textContent || '';
+  report('A21o deleting asks for confirmation first and names the review',
+    !!delModal && delText.includes('حذف المراجعة نهائياً؟') && delText.includes('محمد دويدار') && delText.includes('استوديو الأناقة'),
+    `modal=${!!delModal} text=${delText.slice(0, 160)}`);
+
+  const cancelBtn = delModal ? Array.from(delModal.querySelectorAll('button')).find((b) => b.textContent.includes('إلغاء')) : null;
+  if (cancelBtn) await r.click(cancelBtn);
+  report('A21p cancelling keeps the review', !r.find('.modal-overlay') && r.findAll('[data-review-card]').length === 6
+    && r.text().includes('عرض 8 مراجعات'),
+    `modal=${!!r.find('.modal-overlay')} cards=${r.findAll('[data-review-card]').length}`);
+
+  // الإخفاء: شارة «مخفية» + إشعار عائم
+  const hideBtn = r.findAll('[data-review-card] .dash__btn-soft').find((b) => b.textContent.includes('إخفاء'));
+  if (hideBtn) await r.click(hideBtn);
+  report('A21q hiding a review toasts and badges it as hidden',
+    r.text().includes('تم إخفاء المراجعة.') && !!r.find('[data-review-card="1"] .badge--gray'),
+    `toast=${r.text().includes('تم إخفاء المراجعة.')} gray=${r.findAll('.badge--gray').length}`);
+
+  const delBtn2 = r.findAll('[data-review-card] .dash__btn-soft').find((b) => b.textContent.includes('حذف'));
+  if (delBtn2) await r.click(delBtn2);
+  const confirmBtn = r.findAll('button').find((b) => b.textContent.includes('نعم، احذف المراجعة'));
+  if (confirmBtn) await r.click(confirmBtn);
+  await flush();
+  report('A21r confirming removes the review and toasts',
+    r.findAll('[data-review-card]').length === 6
+    && r.text().includes('تم حذف المراجعة نهائياً.')
+    && r.text().includes('عرض 7 مراجعات'),
+    `cards=${r.findAll('[data-review-card]').length} text=${r.text().slice(-90)}`);
+
+  // ترويسة اللوحة: لا تكرار لعلامة العصر، و«م» للميليادي و«هـ» للهجري
+  const headerDate = (r.find('.dash__title p')?.textContent || '').replace(/\s+/g, ' ').trim();
+  report('A21s the header date labels the Gregorian era م and the Hijri era هـ',
+    / م · /.test(headerDate) && / هـ$/.test(headerDate), `header=${headerDate}`);
+  report('A21t no era marker is duplicated in the header date', !/هـ هـ|م م/.test(headerDate), `header=${headerDate}`);
+
   r.unmount();
+}
+
+console.log('\n===== ADMIN: تصدير المراجعات (CSV) =====');
+{
+  // نفس حيلة كتلة التقرير المالي: jsdom لا ينفّذ تنزيل <a download> فنستبدله
+  // ونلتقط Blob لفحص محتواه. الحالات تُرقَّم AV* تفادياً للتصادم.
+  const downloads = [];
+  const realAnchorClick = dom.window.HTMLAnchorElement.prototype.click;
+  const realCreate = globalThis.URL.createObjectURL;
+  const realRevoke = globalThis.URL.revokeObjectURL;
+  let capturedBlob = null;
+  globalThis.URL.createObjectURL = (b) => { capturedBlob = b; return 'blob:stub/reviews'; };
+  globalThis.URL.revokeObjectURL = () => {};
+  dom.window.HTMLAnchorElement.prototype.click = function stubbedDownload() {
+    downloads.push(this.download);
+  };
+
+  try {
+    const v = await mount('/admin/reviews');
+    await waitFor(() => v.findAll('[data-review-card]').length > 0);
+
+    const exportBtn = v.find('[data-review-export]');
+    report('AV1 the reviews toolbar offers a CSV export button',
+      !!exportBtn && (exportBtn.textContent || '').includes('CSV') && !exportBtn.disabled,
+      `btn=${!!exportBtn} text=${(exportBtn?.textContent || '').trim()}`);
+
+    if (exportBtn) await v.click(exportBtn);
+    report('AV2 exporting triggers a dated .csv download',
+      downloads.length === 1 && /^reviews-\d{4}-\d{2}-\d{2}\.csv$/.test(downloads[0] || ''),
+      `downloads=${JSON.stringify(downloads)}`);
+
+    const csv = capturedBlob ? await capturedBlob.text() : '';
+    const bytes = capturedBlob ? new Uint8Array(await capturedBlob.arrayBuffer()) : new Uint8Array();
+    report('AV3 the reviews CSV starts with a UTF-8 BOM for Excel',
+      bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf,
+      `first3=${[...bytes.slice(0, 3)].map((b) => b.toString(16)).join(' ')}`);
+    report('AV4 the reviews CSV carries Arabic names, ratings and statuses',
+      csv.includes('المُقيِّم') && csv.includes('استوديو الأناقة') && csv.includes('مبلّغ عنها') && csv.includes('5'),
+      csv.slice(0, 140));
+    report('AV5 the reviews CSV has one row per review and no blank cells',
+      csv.trim().split('\r\n').length === 9 && !/""/.test(csv.split('\r\n').slice(1).join('\r\n')),
+      `rows=${csv.trim().split('\r\n').length}`);
+    report('AV6 the export toast confirms the row count',
+      v.text().includes('تم تصدير 8 مراجعات كملف CSV.'), v.text().slice(-120));
+
+    // التصدير يلتزم بما تعرضه الشاشة: بعد التصفية على «مبلّغ عنها» ينزل 3 صفوف فقط.
+    capturedBlob = null;
+    await v.clickText('مبلّغ عنها');
+    const exportBtn2 = v.find('[data-review-export]');
+    if (exportBtn2) await v.click(exportBtn2);
+    const filteredCsv = capturedBlob ? await capturedBlob.text() : '';
+    report('AV7 the export respects the active filter',
+      filteredCsv.trim().split('\r\n').length === 4,
+      `rows=${filteredCsv.trim().split('\r\n').length}`);
+  } finally {
+    dom.window.HTMLAnchorElement.prototype.click = realAnchorClick;
+    globalThis.URL.createObjectURL = realCreate;
+    globalThis.URL.revokeObjectURL = realRevoke;
+  }
 }
 
 console.log('\n===== ADMIN: المساحات — التخطيط والصور والقائمة =====');
