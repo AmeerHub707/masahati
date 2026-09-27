@@ -89,6 +89,7 @@ globalThis.fetch = async (url, opts = {}) => {
   const method = (opts.method || 'GET').toUpperCase();
   const path = String(url).replace(BASE, '').split('?')[0];
   if (method === 'POST' && path === '/api/owner/spaces') { globalThis.__spaceCreateBody = opts.body; }
+  if (method === 'POST' && path === '/api/logout') { globalThis.__logoutCalls = (globalThis.__logoutCalls || 0) + 1; }
   const r = routes[`${method} ${path}`] || { status: 404, body: { message: 'nf' } };
   return {
     ok: r.status >= 200 && r.status < 300,
@@ -316,6 +317,26 @@ report('R10 "مسح الحقول" button present', await clickByText('مسح ا�
 report('R11 Title cleared after clicking مسح الحقول', (appEl.querySelector('input[placeholder^="مثال: قاعة"]')?.value || '') === '', 'title still filled');
 
 report('R12 Back to list from create form', (await clickByText('كل الطلبات')) && (await waitForText('في انتظار العروض')), 'list absent');
+
+// تسجيل الخروج من لوحة العميل: نفس شاشة الحظر المستخدمة في لوحة المالك.
+console.log('\n===== UI: Customer logout blocking screen =====');
+globalThis.__logoutCalls = 0;
+appEl.querySelector('.dash__nav-logout')?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+await flush();
+await flush();
+const custOverlay = doc.querySelector('.loading--logout');
+report('CL1 Customer logout shows the blocking screen', !!custOverlay && (custOverlay.textContent || '').includes('جارٍ تسجيل الخروج'), 'overlay absent');
+report('CL2 Customer dashboard root is inert', appEl.firstElementChild?.hasAttribute('inert') === true, 'customer root not inert');
+report('CL3 Customer logout locks scrolling and focus', dom.window.document.body.classList.contains('no-scroll') && custOverlay?.contains(doc.activeElement) === true, 'scroll/focus not locked');
+appEl.querySelector('.dash__nav-logout')?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+await flush();
+report('CL4 Customer logout fires one request only', globalThis.__logoutCalls === 1, `logout called ${globalThis.__logoutCalls} times`);
+let custOverlayGone = false;
+for (let i = 0; i < 40 && !custOverlayGone; i += 1) {
+  await flush();
+  custOverlayGone = !doc.querySelector('.loading--logout');
+}
+report('CL5 Customer overlay is cleared after logout', custOverlayGone, 'overlay stayed on screen');
 
 
 // ============================================================
@@ -549,6 +570,46 @@ report('O14b Create request carries hours and contact phone', (() => {
   const parsed = typeof b === 'string' ? JSON.parse(b) : b;
   return parsed.open_time === '09:00' && parsed.close_time === '18:00' && parsed.contact_phone === '0599123456';
 })(), 'request body missing hours/phone');
+
+// ============================================================
+// تسجيل الخروج: شاشة تغطي الصفحة + منع أي تفاعل خلفها
+// ============================================================
+const logoutBtn = ownerEl.querySelector('.odash__nav-logout');
+globalThis.__logoutCalls = 0;
+logoutBtn?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+await flush();
+await flush();
+
+const logoutOverlay = doc.querySelector('.loading--logout');
+report('OL1 Logout overlay covers the page', !!logoutOverlay, 'overlay absent after logout click');
+report('OL2 Overlay explains what is happening', (logoutOverlay?.textContent || '').includes('جارٍ تسجيل الخروج'), 'logout copy missing');
+report('OL3 Overlay uses the indeterminate bar (no fake percent)', !!logoutOverlay?.querySelector('.loading__bar--indeterminate') && !logoutOverlay?.textContent.includes('%'), 'indeterminate bar missing');
+report('OL4 Dashboard root is inert while logging out', ownerEl.querySelector('.odash__page-root')?.hasAttribute('inert') === true, 'page root not inert');
+report('OL5 Scrolling is blocked while logging out', dom.window.document.body.classList.contains('no-scroll'), 'body still scrollable');
+report('OL6 Focus is held inside the overlay', !!logoutOverlay && logoutOverlay.contains(doc.activeElement), 'focus escaped the overlay');
+
+// حصر التركيز: Tab لا يخرج من الشاشة مهما كان العنصر خلفها.
+doc.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+await flush();
+report('OL7 Tab cannot reach controls behind the overlay', logoutOverlay?.contains(doc.activeElement) === true, 'focus moved outside the overlay');
+// Escape لا يلغي شاشة الخروج.
+doc.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+await flush();
+report('OL8 Escape cannot dismiss the overlay', !!doc.querySelector('.loading--logout'), 'overlay was dismissed by Escape');
+
+// النقر المزدوج لا يطلق طلب خروج ثانٍ.
+logoutBtn?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+await flush();
+report('OL9 Double click sends a single logout request', globalThis.__logoutCalls === 1, `logout called ${globalThis.__logoutCalls} times`);
+
+// الخروج ينهي العملية: الشاشة تختفي وتُفكّ حالة الحظر.
+let overlayGone = false;
+for (let i = 0; i < 40 && !overlayGone; i += 1) {
+  await flush();
+  overlayGone = !doc.querySelector('.loading--logout');
+}
+report('OL10 Overlay is removed once logout finishes', overlayGone, 'overlay stayed after navigation');
+report('OL11 Scroll lock is released after logout', !dom.window.document.body.classList.contains('no-scroll'), 'no-scroll left behind');
 
 await server.close();
 console.log(`\n===== RESULT: ${pass} passed, ${fail} failed =====`);

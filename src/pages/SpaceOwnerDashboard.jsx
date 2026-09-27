@@ -21,6 +21,7 @@ import Financials from '../components/dashboard/owner/Financials';
 import Settings from '../components/dashboard/Settings';
 import OwnerDocumentation from '../components/dashboard/owner/OwnerDocumentation';
 import ScrollProgress from '../components/common/ScrollProgress';
+import LogoutOverlay from '../components/common/LogoutOverlay';
 import Footer from '../components/layout/Footer';
 import OwnerAssistant from '../components/assistant/OwnerAssistant';
 import DashboardTour from '../components/dashboard/DashboardTour';
@@ -29,6 +30,9 @@ import { AlertCircle, Trash2 } from 'lucide-react';
 import { useDialogA11y } from '../lib/dialogA11y';
 
 const OWNER_TOUR_ID = 'owner-tour';
+
+// حدّ أدنى لظهور شاشة تسجيل الخروج — يمنع وميض الشاشة كاملة على طلب سريع.
+const MIN_LOGOUT_OVERLAY_MS = 700;
 
 // خطوات جولة لوحة المالك — تُمرَّر إلى المحرّك المشترك مع بقية اللوحات.
 const OWNER_TOUR_STEPS = [
@@ -75,9 +79,11 @@ export default function SpaceOwnerDashboard() {
   const [loaderDone, setLoaderDone] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [tourStep, setTourStep] = useState(1);
+  const [loggingOut, setLoggingOut] = useState(false);
   const autoTourCheckedRef = useRef(false);
   const deleteResolve = useRef(null);
   const mountedRef = useRef(true);
+  const logoutStartedRef = useRef(false);
   const deleteDialogRef = useDialogA11y({ open: deleteOpen, onClose: () => { if (!deleting) closeDelete(false); } });
 
   // حماية الدور: لوحة المالك خاصة بصاحب المساحة فقط.
@@ -149,9 +155,17 @@ export default function SpaceOwnerDashboard() {
   }, [data]);
 
   const handleLogout = useCallback(async () => {
+    // النقر المزدوج قبل وصول الحالة كان سيطلق الطلب مرتين.
+    if (logoutStartedRef.current) return;
+    logoutStartedRef.current = true;
+    setLoggingOut(true);
+    const startedAt = Date.now();
     clearOwnerCache();
     await logout();
-    navigate('/');
+    const remaining = MIN_LOGOUT_OVERLAY_MS - (Date.now() - startedAt);
+    if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
+    // replace: اللوحة logout-ged لا يجب أن تبقى في سجلّ الترجع.
+    navigate('/', { replace: true });
   }, [navigate]);
 
   // إعادة المحاولة من شاشة الخطأ: تحميل قسري (تجاوز الكاش) يحدّث الصفحة فعلياً.
@@ -343,8 +357,9 @@ export default function SpaceOwnerDashboard() {
   }
 
   return (
-    <div className="odash__page-root">
+    <div className="odash__page-root" inert={loggingOut || undefined}>
       <DashboardLoading done={status !== 'loading'} onHidden={handleLoaderHidden} />
+      <LogoutOverlay open={loggingOut} />
       <ScrollProgress />
       <OwnerLayout
         active={active}

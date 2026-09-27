@@ -13,6 +13,7 @@ import Favorites from '../components/dashboard/Favorites';
 import Requests from '../components/dashboard/Requests';
 import Settings from '../components/dashboard/Settings';
 import ScrollProgress from '../components/common/ScrollProgress';
+import LogoutOverlay from '../components/common/LogoutOverlay';
 import Footer from '../components/layout/Footer';
 import CustomerAssistant from '../components/assistant/CustomerAssistant';
 import DashboardTour from '../components/dashboard/DashboardTour';
@@ -24,6 +25,9 @@ import AdBanner from '../components/dashboard/AdBanner';
 import { AlertCircle, Trash2 } from 'lucide-react';
 
 const CUSTOMER_TOUR_ID = 'customer-tour';
+
+// حدّ أدنى لظهور شاشة تسجيل الخروج — يمنع وميض الشاشة كاملة على طلب سريع.
+const MIN_LOGOUT_OVERLAY_MS = 700;
 
 // خطوات جولة لوحة العميل — كلها أهداف موجودة في تبويب «نظرة عامة»،
 // فلا تحتاج الجولة لتبديل التبويبات أثناء العرض.
@@ -75,8 +79,10 @@ export default function CustomerDashboard() {
   const [loaderDone, setLoaderDone] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [tourStep, setTourStep] = useState(1);
+  const [loggingOut, setLoggingOut] = useState(false);
   const autoTourCheckedRef = useRef(false);
   const deleteResolve = useRef(null);
+  const logoutStartedRef = useRef(false);
 
   // حماية الدور (شرط صارم): لوحة العميل خاصة بالعميل فقط،
   // وصاحب المساحة يُحوَّل دائماً إلى لوحته الخاصة (دون خلط بين اللوحتين).
@@ -206,9 +212,17 @@ export default function CustomerDashboard() {
   };
 
   const handleLogout = useCallback(async () => {
+    // النقر المزدوج قبل وصول الحالة كان سيطلق الطلب مرتين.
+    if (logoutStartedRef.current) return;
+    logoutStartedRef.current = true;
+    setLoggingOut(true);
+    const startedAt = Date.now();
     clearDashboardCache();
     await logout();
-    navigate('/');
+    const remaining = MIN_LOGOUT_OVERLAY_MS - (Date.now() - startedAt);
+    if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
+    // replace: اللوحة بعد logout لا يجب أن تبقى في سجلّ الترجع.
+    navigate('/', { replace: true });
   }, [navigate]);
 
   const handleDeleteAccount = useCallback(async () => {
@@ -382,8 +396,9 @@ export default function CustomerDashboard() {
   }
 
   return (
-    <div className="min-h-screen font-['Cairo'] text-zinc-900 dir-rtl">
+    <div className="min-h-screen font-['Cairo'] text-zinc-900 dir-rtl" inert={loggingOut || undefined}>
       <DashboardLoading done={status !== 'loading'} onHidden={handleLoaderHidden} />
+      <LogoutOverlay open={loggingOut} />
       <ScrollProgress />
       <DashboardLayout
         active={active}

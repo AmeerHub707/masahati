@@ -890,6 +890,18 @@ img{max-width:100%;}
 .loading__bar{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#fb923c,#ea580c);box-shadow:0 0 12px rgba(249,115,22,.65);transition:width .06s linear;}
 .loading__percent{margin:0;font-size:1rem;font-weight:800;font-variant-numeric:tabular-nums;background:linear-gradient(135deg,#fdba74,#ea580c);-webkit-background-clip:text;background-clip:text;color:transparent;}
 
+/* ===== شاشة تسجيل الخروج ===== */
+/* فوق الجولة التعريفية (z-index 10000) حتى لا تبقى طبقة تفاعلية أعلى منها
+   أثناء تبديل الجلسة. */
+.loading--logout{z-index:10001;}
+/* شريط غير محدّد المدة: مدة الطلب غير معروفة، فلا نعرض نسبة متخيّلة. */
+.loading__bar--indeterminate{width:34%;transition:none;animation:loadingSlide 1.4s ease-in-out infinite;}
+@keyframes loadingSlide{0%{transform:translateX(190%);}100%{transform:translateX(-190%);}}
+.loading__note{display:flex;align-items:center;gap:.5rem;max-width:22rem;margin:.35rem 0 0;
+  font-size:.8rem;font-weight:600;line-height:1.7;color:rgba(255,255,255,.55);text-align:center;}
+.loading__note svg{width:.95rem;height:.95rem;flex:0 0 auto;opacity:.8;}
+@media (prefers-reduced-motion:reduce){.loading__bar--indeterminate{animation:none;width:100%;opacity:.6;}}
+
 .loading__skip{position:absolute;bottom:1.4rem;left:1.4rem;z-index:2;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.06);backdrop-filter:blur(8px);color:rgba(255,255,255,.85);border-radius:999px;padding:.45rem 1.1rem;font-family:'Cairo',sans-serif;font-weight:700;font-size:.85rem;cursor:pointer;transition:background .2s var(--ease),border-color .2s,border-radius .2s,color .2s;}
 .loading__skip:hover{background:rgba(249,115,22,.9);border-color:transparent;color:#fff;box-shadow:0 8px 22px -8px rgba(249,115,22,.6);}
 .loading__skip:focus-visible{outline:2px solid #fdba74;outline-offset:3px;}
