@@ -2777,6 +2777,38 @@ html.dark .odash__sug-card{background:#1c1c22;border-color:var(--border);}
 .odash__spaces-add.is-back{padding:.6rem 1.15rem;border-color:#f97316;color:#f97316;background:rgba(249,115,22,.06);}
 .odash__spaces-add.is-back:hover{background:rgba(249,115,22,.14);}
 html.dark .odash__spaces-add.is-back{color:#fb923c;border-color:rgba(249,115,22,.55);}
+/* زر الإضافة مقفل حتى اعتماد وثائق الحساب: يبقى ظاهراً (حتى يعرف المالك
+   سبب القفل) لكن بنمط مكتوم، ولا يرفع عند التحويم. */
+.odash__spaces-add.is-locked{cursor:not-allowed;color:#9ca3af;border-color:rgba(107,114,128,.35);
+  background:rgba(107,114,128,.06);}
+.odash__spaces-add.is-locked:hover{transform:none;background:rgba(107,114,128,.1);
+  border-color:rgba(107,114,128,.5);color:#6b7280;box-shadow:none;}
+html.dark .odash__spaces-add.is-locked{color:#71717a;border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.04);}
+html.dark .odash__spaces-add.is-locked:hover{color:#a1a1aa;border-color:rgba(255,255,255,.24);background:rgba(255,255,255,.07);}
+
+/* شارة حالة وثائق الحساب في ترويسة «مساحاتي» */
+.msp__docs-chip svg{width:.9rem;height:.9rem;}
+
+/* لوحة شرح البوابة: سبب القفل + زر مباشر إلى الإعدادات */
+.msp__docs-gate{display:flex;align-items:center;gap:1rem;margin-bottom:1.15rem;padding:1rem 1.25rem;
+  border-radius:1rem;border:1px solid rgba(249,115,22,.28);background:rgba(249,115,22,.06);
+  font-family:'Cairo',sans-serif;flex-wrap:wrap;}
+.msp__docs-gate-ico{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;
+  width:2.5rem;height:2.5rem;border-radius:.75rem;background:rgba(249,115,22,.14);color:#f97316;}
+.msp__docs-gate-ico svg{width:1.2rem;height:1.2rem;}
+.msp__docs-gate-body{flex:1 1 18rem;min-width:0;}
+.msp__docs-gate-body b{display:block;font-size:.95rem;color:var(--text-strong);font-weight:800;}
+.msp__docs-gate-body p{margin:.3rem 0 0;font-size:.82rem;line-height:1.65;color:var(--text-mute);}
+.msp__docs-gate .btn-primary{display:inline-flex;align-items:center;gap:.45rem;white-space:nowrap;
+  padding:.6rem 1.2rem;font-family:'Cairo',sans-serif;font-weight:700;font-size:.85rem;
+  border-radius:.7rem;border:none;cursor:pointer;background:#f97316;color:#fff;}
+.msp__docs-gate .btn-primary svg{width:.95rem;height:.95rem;}
+.msp__docs-gate .btn-primary:hover{background:#ea580c;}
+/* نبرة «قيد المراجعة» أخف من نبرة الرفض */
+.msp__docs-gate.is-pending{border-color:rgba(234,179,8,.3);background:rgba(234,179,8,.07);}
+.msp__docs-gate.is-pending .msp__docs-gate-ico{background:rgba(234,179,8,.16);color:#ca8a04;}
+html.dark .msp__docs-gate{border-color:rgba(249,115,22,.32);background:rgba(249,115,22,.08);}
+html.dark .msp__docs-gate.is-pending{border-color:rgba(234,179,8,.3);background:rgba(234,179,8,.08);}
 
 .odash__market-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(23rem,100%),1fr));gap:1rem;}
 .odash__market-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius-card);padding:1.2rem 1.25rem;
@@ -3450,6 +3482,13 @@ html.dark .msp__search-clear{background:rgba(255,255,255,.1);color:var(--text-mu
   padding:.16rem .55rem;border-radius:.45rem;pointer-events:none;white-space:nowrap;}
 .msp__form .odash__form-chips{gap:.45rem;}
 .msp__form .odash__form-chips button{font-size:.76rem;padding:.42rem .8rem;}
+/* أوقات العمل ورقم الهاتف: عناصر إدخال LTR داخل نموذج عربي، لأن منتقي
+   الوقت في المتصفح ينقلب تحت RTL ويحجب الأرقام. */
+.msp__form .msp__time-input{text-align:start;font-variant-numeric:tabular-nums;}
+.msp__form .msp__time-input::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.55;transition:opacity .2s var(--ease);}
+.msp__form .msp__time-input:hover::-webkit-calendar-picker-indicator,
+.msp__form .msp__time-input:focus::-webkit-calendar-picker-indicator{opacity:1;}
+.msp__hours-note{color:var(--text-muted);font-size:.74rem;margin:.15rem 0 0;line-height:1.6;}
 .msp__form .odash__form-switches{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:0;}
 .msp__form .odash__form-switches label{justify-content:space-between;padding:.55rem .95rem;border-radius:.85rem;min-height:47px;width:auto;}
 .msp__form .odash__form-switches label span{width:2rem;height:1.15rem;border-radius:999px;background:#d4d4d8;position:relative;
@@ -3511,6 +3550,7 @@ html.dark .msp__form .odash__field textarea{background:#131318;border-color:var(
 html.dark .msp__form .odash__field input:focus,html.dark .msp__form .odash__field select:focus,
 html.dark .msp__form .odash__field textarea:focus{background:#16161c;}
 html.dark .msp__form .odash__input-suffix{background:#202028;border-color:var(--border);color:#a1a1aa;}
+html.dark .msp__form .msp__time-input::-webkit-calendar-picker-indicator{filter:invert(1);}
 html.dark .msp__form-img{background:#131318;border-color:var(--border);}
 html.dark .msp__form .odash__form-switches label span{background:#3f3f46;}
 html.dark .msp__form .odash__form-switches label.is-on span{background:#f97316;}

@@ -457,6 +457,21 @@ report('5.1d mapSpace maps lat/lng and sanitizes invalid coords', owner.mapSpace
   && owner.mapSpace({ space_id: 13 }).lat === null
   && owner.mapSpace({ space_id: 13 }).lng === null);
 
+// أوقات العمل ورقم التواصل: توحيد الصيغة (HH:MM / 24 ساعة) وقبول الأسماء
+// البديلة التي قد ترسلها الواجهة، مع إفراغ القيم الفاسدة أو المفقودة.
+report('5.1e mapSpace normalizes open/close time and contact phone', owner.mapSpace({ space_id: 15, open_time: '08:00:00', close_time: '6:30 PM' }).open_time === '08:00'
+  && owner.mapSpace({ space_id: 15, open_time: '08:00:00', close_time: '6:30 PM' }).close_time === '18:30'
+  && owner.mapSpace({ space_id: 15, opening_time: '09:00', closing_time: '12:00' }).open_time === '09:00'
+  && owner.mapSpace({ space_id: 15, opens_at: '9:15', closes_at: '23:00' }).close_time === '23:00'
+  && owner.mapSpace({ space_id: 15, open_time: '12:00 AM' }).open_time === '00:00'
+  && owner.mapSpace({ space_id: 15, contact_phone: ' 0599123456 ' }).contact_phone === '0599123456'
+  && owner.mapSpace({ space_id: 15, phone: '0599000000' }).contact_phone === '0599000000'
+  && owner.mapSpace({ space_id: 15, open_time: '99:99' }).open_time === ''
+  && owner.mapSpace({ space_id: 15, open_time: 'not-a-time' }).open_time === ''
+  && owner.mapSpace({ space_id: 15 }).open_time === ''
+  && owner.mapSpace({ space_id: 15 }).close_time === ''
+  && owner.mapSpace({ space_id: 15 }).contact_phone === '');
+
 report('5.2 mapMyOffer maps offer fields', owner.mapMyOffer({ offer_id: 88, request_title: 'طلب X', price_per_hour: 150, hours: 3, status: 'accepted' }).requestTitle === 'طلب X'
   && owner.mapMyOffer({ offer_id: 88, price_per_hour: 150, hours: 3 }).duration_hours === 3
   && owner.mapMyOffer({ offer_id: 88, status: 'accepted' }).status === 'accepted');
@@ -515,11 +530,12 @@ const propDup = await owner.submitProposalWithFallback('market-2', {
 report('5.18 duplicate proposal rejected', propDup.duplicate === true && /سبق/.test(propDup.message));
 report('5.19 owner offers now include the new one', (await owner.loadOwnerOffersWithFallback()).offers.some((o) => o.requestTitle === 'قاعة اختبار'));
 
-// إضافة مساحة في الوضع التجريبي
-const newSpace = await owner.createSpaceWithFallback({ title: 'جناح جديد', location: 'غزة', latitude: 31.50113, longitude: 34.46675, price_per_hour: 90, capacity: 25, amenities: ['internet'], docs: [{ id: 'proof', name: 'deed.pdf', size: 2048, type: 'application/pdf' }] });
+// إضافة مساحة في الوضع التجريبي — نشمل أوقات العمل ورقم التواصل المطلوبين
+const newSpace = await owner.createSpaceWithFallback({ title: 'جناح جديد', location: 'غزة', latitude: 31.50113, longitude: 34.46675, price_per_hour: 90, capacity: 25, open_time: '09:00', close_time: '18:00', contact_phone: '0599123456', amenities: ['internet'], docs: [{ id: 'proof', name: 'deed.pdf', size: 2048, type: 'application/pdf' }] });
 report('5.20 add space sends pending for admin review', newSpace.demo === true && newSpace.space.title === 'جناح جديد' && newSpace.space.status === 'pending' && newSpace.space.is_active === false);
 report('5.20b proof docs attached to new space', newSpace.space.docs?.[0]?.id === 'proof' && newSpace.space.docs?.[0]?.name === 'deed.pdf');
 report('5.20c new space keeps lat/lng coordinates', newSpace.space.lat === 31.50113 && newSpace.space.lng === 34.46675);
+report('5.20d new space keeps hours and contact phone', newSpace.space.open_time === '09:00' && newSpace.space.close_time === '18:00' && newSpace.space.contact_phone === '0599123456');
 const spacesAfterAdd = (await owner.loadSpacesWithFallback()).spaces;
 report('5.21 new space first in list', spacesAfterAdd[0].title === 'جناح جديد' && spacesAfterAdd.length === 4);
 

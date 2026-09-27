@@ -325,9 +325,9 @@ export default function SpaceOwnerDashboard() {
       ) : active === 'financials' ? (
         <Financials data={data} />
       ) : active === 'my-spaces' ? (
-        <Spaces data={data} onSpacesChange={handleSpacesChange} />
+        <Spaces data={data} onSpacesChange={handleSpacesChange} onNavigate={setActive} />
       ) : active === 'spaces' ? (
-        <Spaces data={data} autoOpen onSpacesChange={handleSpacesChange} />
+        <Spaces data={data} autoOpen onSpacesChange={handleSpacesChange} onNavigate={setActive} />
       ) : (
         <>
           <Settings

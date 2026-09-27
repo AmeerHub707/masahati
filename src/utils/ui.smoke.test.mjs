@@ -76,16 +76,19 @@ const routes = {
   'PATCH /api/profile/picture': { status: 200, body: { profile_picture_url: '/new.jpg' } },
   'POST /api/uploadPicture': { status: 200, body: { profile_picture_url: '/new-upload.jpg', msg: 'upload is succes' } },
   'POST /api/logout': { status: 200, body: { message: 'ok' } },
-  'GET /api/owner/spaces': { status: 200, body: { data: [{ space_id: 12, title: 'قاعة العروض الكبرى', description: 'قاعة واسعة', location: 'وسط المدينة', price_per_hour: 150, capacity: 120, amenities: ['internet', 'ac'], internet: true, is_active: true, rating: 4.8 }] } },
+  'GET /api/owner/spaces': { status: 200, body: { data: [{ space_id: 12, title: 'قاعة العروض الكبرى', description: 'قاعة واسعة', location: 'وسط المدينة', price_per_hour: 150, capacity: 120, open_time: '08:00', close_time: '18:00', contact_phone: '0599123456', amenities: ['internet', 'ac'], internet: true, is_active: true, rating: 4.8 }] } },
   'GET /api/owner/offers': { status: 200, body: { data: [{ offer_id: 88, request_id: 41, request_title: 'قاعة محاضرات لدورة تدريبية', status: 'pending', price_per_hour: 150, duration_hours: 3, created_at: '2026-09-18 11:00:00' }] } },
   'GET /api/special-requests/open': { status: 200, body: { data: { requests: [{ request_id: 41, title: 'قاعة محاضرات لدورة تدريبية أسبوعية', description: 'أبحث عن قاعة', capacity: 40, budget: 180, space_type: 'whole', schedule_label: 'أسبوعي × 8', preferred_time: '10:00 ص – 1:00 م', area: 'وسط المدينة', amenities: ['internet', 'projector'], status: 'open', offers_count: 2, created_at: '2026-09-18 10:00:00' }] } } },
   'GET /api/owner/bookings': { status: 200, body: [] },
-  'POST /api/owner/spaces': { status: 201, body: { message: 'تمت إضافة المساحة.', space: { space_id: 24, title: 'جناح جديد', location: 'غزة', price_per_hour: 90, capacity: 25, amenities: ['internet'], is_active: true } } },
+  'POST /api/owner/spaces': { status: 201, body: { message: 'تمت إضافة المساحة.', space: { space_id: 24, title: 'جناح جديد', location: 'غزة', price_per_hour: 90, capacity: 25, open_time: '09:00', close_time: '18:00', contact_phone: '0599123456', amenities: ['internet'], is_active: true } } },
+  // بوابة الوثائق: تبدأ «لم تُرسل»، ثم نحاكي قرار الإدارة بالاعتماد.
+  'GET /api/owner/documents': { status: 200, body: { data: { status: 'none', files: {} } } },
 };
 
 globalThis.fetch = async (url, opts = {}) => {
   const method = (opts.method || 'GET').toUpperCase();
   const path = String(url).replace(BASE, '').split('?')[0];
+  if (method === 'POST' && path === '/api/owner/spaces') { globalThis.__spaceCreateBody = opts.body; }
   const r = routes[`${method} ${path}`] || { status: 404, body: { message: 'nf' } };
   return {
     ok: r.status >= 200 && r.status < 300,
@@ -321,6 +324,8 @@ report('R12 Back to list from create form', (await clickByText('كل الطلب�
 console.log('\n===== UI: Owner dashboard (space owner) =====');
 
 const SpaceOwnerDashboard = (await server.ssrLoadModule('/src/pages/SpaceOwnerDashboard.jsx')).default;
+// نحتاج كاتب حالة الوثائق لتغييرها بين مرحلتي اختبار البوابة.
+const ownerLib = await server.ssrLoadModule('/src/lib/owner.js');
 
 // الدور الآن مالك — حتى تمر بوابة الحماية في SpaceOwnerDashboard
 api.setUser({ name: 'كرم', role: 'space_owner' });
@@ -470,6 +475,35 @@ report('O8b Spaces comparison chart renders', await waitForOwnerText('مقارن
 report('O9 Navigate to spaces tab', await clickOwnerByText('مساحاتي'), 'no click');
 report('O10 Spaces list renders', await waitForOwnerText('أضف مساحة') && await waitForOwnerText('قاعة العروض الكبرى'), 'spaces content absent');
 
+// ============================================================
+// بوابة الوثائق: الإضافة مغلقة حتى تعتمد الإدارة وثائق الحساب
+// ============================================================
+// الحالة الأولى: لم تُرسل الوثائق بعد. نتحقق من وجود اللوحة والعنوان
+// الواضح، وأن النقر لا يفتح نموذج الإضافة رغم ظهور الزر.
+const lockedBtn = () => ownerEl.querySelector('.odash__spaces-add[data-docs-locked="true"]');
+report('OG1 Add button is locked before documents are approved', !!lockedBtn(), 'add button is not locked');
+report('OG2 Locked state carries a readable label', (await waitForOwnerText('وثائق الحساب لم تُرسل')), 'documents status label missing');
+report('OG3 Gate notice explains the requirement', !!ownerEl.querySelector('#msp-docs-gate') && (await waitForOwnerText('ارفع الوثائق')), 'gate notice missing');
+lockedBtn()?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+await flush();
+await flush();
+report('OG4 Locked add button does not open the form', (await waitForOwnerText('أضف مساحة جديدة')) === false, 'form opened while documents unapproved');
+
+// الحالة الثانية: الإدارة اعتمدت الوثائق. نكتب الحالة محلياً أيضاً حتى
+// يعمل الاختبار في وضع العرض التجريبي الذي لا يستدعي الشبكة.
+routes['GET /api/owner/documents'] = { status: 200, body: { data: { status: 'approved', files: { assets: { name: 'deed.pdf', size: 2048, type: 'application/pdf' } }, reviewed_at: '2026-09-20 10:00:00' } } };
+ownerLib.writeOwnerDocuments({ status: ownerLib.DOC_STATUS.APPROVED, files: { assets: { name: 'deed.pdf', size: 2048, type: 'application/pdf' } } });
+// إعادة تركيب تبويب المساحات ليعيد جلب الحالة (نبتعد ثم نعود).
+const navFin = await clickOwnerByText('المالية');
+const finShown = await waitForOwnerText('الفواتير');
+const navSpaces = await clickOwnerByText('مساحاتي');
+// ننتظر عنوان الحالة المعتمدة: التبديل يركّب التبويب من جديد فيعيد جلب الوثائق.
+const approvedShown = await waitForOwnerText('وثائق الحساب معتمدة');
+await flush();
+report('OG5 Add button unlocks once documents are approved', navFin && finShown && navSpaces && approvedShown && !!ownerEl.querySelector('.odash__spaces-add') && !lockedBtn(), 'add button still locked after approval');
+report('OG6 Approved state is labelled', approvedShown, 'approved label missing');
+report('OG7 Gate notice is gone when approved', !ownerEl.querySelector('#msp-docs-gate'), 'gate notice still visible after approval');
+
 // إضافة مساحة جدبدة من النموذج
 report('O11 Add-space button present', !!ownerEl.querySelector('.odash__spaces-add'), 'no button');
 
@@ -487,8 +521,34 @@ await setOwnerInputValue('input[placeholder^="مثال: وسط المدينة"]'
   report('O13c Space coordinates set (lat/lng)', latFilled && lngFilled, 'lat/lng not set');
   const proofAttached = await setOwnerFile('input[aria-label="صك ملكية أو عقد إيجار"]', 'deed.pdf');
 report('O13b Proof-of-space doc attached', proofAttached && !!ownerEl.querySelector('.msp__doc-chip'), 'doc not attached');
+
+// أوقات العمل ورقم التواصل حقول مطلوبة: نتحقق من رفض الإرسال قبل تعبئتها،
+// ثم القبول بعدها — حتى لا يمر مسار «الحقول المطلوبة» دون تغطية.
+report('O13d Hours/phone fields are present and required', !!ownerEl.querySelector('#msp-open') && !!ownerEl.querySelector('#msp-close') && !!ownerEl.querySelector('#msp-phone'), 'new fields missing');
+await clickOwnerByText('إرسال للمراجعة');
+report('O13e Submit blocked while hours/phone are empty', (await waitForOwnerText('تم إضافة المساحة')) === false && !!ownerEl.querySelector('.odash__field.has-error'), 'submit was not blocked');
+
+const openFilled = await setOwnerInputValue('#msp-open', '09:00');
+const closeFilled = await setOwnerInputValue('#msp-close', '18:00');
+const phoneFilled = await setOwnerInputValue('#msp-phone', '0599123456');
+report('O13f Hours/phone filled', openFilled && closeFilled && phoneFilled, 'new fields not set');
+
+// وقت الإغلاق قبل الفتح يجب أن يُرفض — لا نسمح بفضاء عمل يمتد بعد منتصف الليل.
+await setOwnerInputValue('#msp-close', '08:00');
+await clickOwnerByText('إرسال للمراجعة');
+report('O13g Close-before-open is rejected', (await waitForOwnerText('تم إضافة المساحة')) === false, 'overnight hours were accepted');
+await setOwnerInputValue('#msp-close', '18:00');
+
 const clickedSubmit = await clickOwnerByText('إرسال للمراجعة');
 report('O14 Submit new space for admin review', clickedSubmit && (await waitForOwnerText('تمت إضافة المساحة') || await waitForOwnerText('جناح جديد')), 'toast/card absent');
+report('O14a Card shows the saved hours and contact phone', (await waitForOwnerText('09:00 – 18:00')) && (await waitForOwnerText('0599123456')), 'hours/phone missing from card');
+// التحقق على مستوى الطلب: الباك-إند لا يستقبل حقولاً ناقصة.
+report('O14b Create request carries hours and contact phone', (() => {
+  const b = globalThis.__spaceCreateBody;
+  if (!b) return false;
+  const parsed = typeof b === 'string' ? JSON.parse(b) : b;
+  return parsed.open_time === '09:00' && parsed.close_time === '18:00' && parsed.contact_phone === '0599123456';
+})(), 'request body missing hours/phone');
 
 await server.close();
 console.log(`\n===== RESULT: ${pass} passed, ${fail} failed =====`);

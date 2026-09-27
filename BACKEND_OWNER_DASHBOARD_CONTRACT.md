@@ -97,6 +97,9 @@ Returns all spaces owned by the current owner.
       "image": "/storage/spaces/12.jpg",
       "price_per_hour": 150,
       "capacity": 120,
+      "open_time": "08:00",
+      "close_time": "18:00",
+      "contact_phone": "0599123456",
       "amenities": [
         { "key": "internet" },
         { "key": "projector" },
@@ -120,6 +123,16 @@ Notes:
 - `is_active`: `false` marks a space as stopped; it is hidden from the booking flow but stays in the
   owner's list ("متوقفة" section).
 - `image`: leave empty string when the space has no photo (the card renders a gradient fallback).
+- `open_time` / `close_time` (**required on create and update**): the space's single daily working
+  window, `HH:MM` 24-hour. `close_time` must be strictly greater than `open_time` — the frontend
+  rejects overnight windows (e.g. `22:00` → `02:00`) before sending, so the backend should reject
+  them too with a 422. The frontend normalizes what it receives: `HH:MM`, `HH:MM:SS`, and
+  `h:mm AM/PM` all become `HH:MM`; anything unparseable is treated as empty. Legacy spaces created
+  before this field existed may have it `null` — return `null` (not `""`) so the owner UI can tell
+  "missing" from "set to midnight".
+- `contact_phone` (**required on create and update**): the phone number customers use to reach the
+  space. This is a per-space contact, **not** the owner's profile phone — the owner types it each
+  time and it is not pre-filled from `/api/profile`. Match `/^[+]?[\d\s()-]{7,}$/`.
 
 ---
 
@@ -137,12 +150,18 @@ POST /api/owner/spaces     (auth: space_owner)
   "location": "المنطقة الشرقية",
   "price_per_hour": 100,
   "capacity": 10,
+  "open_time": "08:00",
+  "close_time": "22:00",
+  "contact_phone": "0599123456",
   "amenities": ["internet", "projector", "ac"],
   "internet": true,
   "power": true,
   "image": ""
 }
 ```
+
+`open_time`, `close_time` and `contact_phone` are **required** — see §2 for the accepted formats and
+the `close_time > open_time` rule.
 
 ### Success (201)
 ```json
@@ -166,7 +185,12 @@ POST /api/owner/spaces     (auth: space_owner)
 |---|---|---|
 | 401 | `{ "message": "غير مصرح." }` | missing/revoked token |
 | 403 | `{ "message": "هذه الصفحة متاحة لمالكي المساحات فقط." }` | non-owner |
-| 422 | `{ "message": "…" }` | missing/invalid fields (`title`, `price_per_hour`, `capacity`…) |
+| 403 | `{ "message": "وثائقك قيد المراجعة — لا يمكن إضافة مساحات قبل اعتمادها." }` | owner's documents are not yet **approved** (see §8) |
+| 422 | `{ "message": "…" }` | missing/invalid fields (`title`, `price_per_hour`, `capacity`, `open_time`, `close_time`, `contact_phone`…) |
+
+The frontend already enforces the documents gate in the UI (the add button stays visible but locked
+with an explanatory label), so the backend **must** repeat the check — otherwise the rule is bypassable
+by calling the endpoint directly.
 
 ---
 
@@ -252,6 +276,9 @@ The frontend currently renders an empty state, but the endpoint keeps the overvi
 | `image` | `space.image` (prefixed via `imageUrl`) |
 | `price_per_hour` / `price` | `space.price_per_hour` |
 | `capacity` | `space.capacity` |
+| `open_time` / `opening_time` / `opens_at` / `start_time` | `space.open_time` (`HH:MM`) |
+| `close_time` / `closing_time` / `closes_at` / `end_time` | `space.close_time` (`HH:MM`) |
+| `contact_phone` / `contact_number` / `phone` / `mobile` | `space.contact_phone` |
 | `amenities` (array of `{key}` or strings) | `space.amenities` (key strings) |
 | `internet` / `has_internet` / `wifi` | `space.internet` |
 | `power` / `has_power` / `electricity` | `space.power` |
@@ -282,12 +309,19 @@ PUT /api/owner/spaces/{spaceId}     (auth: space_owner)
   "location": "المنطقة الشرقية",
   "price_per_hour": 110,
   "capacity": 10,
+  "open_time": "08:00",
+  "close_time": "22:00",
+  "contact_phone": "0599123456",
   "amenities": ["internet", "projector", "ac"],
   "internet": true,
   "power": true,
   "image": ""
 }
 ```
+
+`open_time`, `close_time` and `contact_phone` are **required here too** — the frontend blocks the
+save until they are filled, so a legacy space without them must be back-filled by the owner before
+any other edit can be saved.
 
 ### Success (200)
 ```json
@@ -342,6 +376,31 @@ DELETE /api/owner/spaces/{spaceId}     (auth: space_owner)
 
 ---
 
+## 8) Documents gate — an owner may only add spaces once their documents are **approved**
+
+The owner dashboard locks "أضف مساحة" until the owner's own documents (uploaded in **الإعدادات →
+الوثائق**) have been approved by an admin. The frontend rule lives in one place,
+`canAddSpace(doc)` in `src/lib/owner.js`, and the only status that unlocks adding is `approved`.
+
+| `doc.status` | Add button | Label shown to the owner |
+|---|---|---|
+| `none` | locked | وثائق الحساب لم تُرسل |
+| `pending` | locked | وثائق الحساب قيد المراجعة |
+| `rejected` | locked | وثائق الحساب مرفوضة |
+| `approved` | **enabled** | وثائق الحساب معتمدة |
+
+`GET /api/owner/documents` is the source of truth for that status, and the dashboard re-reads it on
+every visit to the spaces tab — an approval decided while the owner is on another tab takes effect
+without a reload.
+
+**Backend requirement:** `POST /api/owner/spaces` (and §6 update) must re-check the owner's document
+status and answer **403** when it is not `approved`. The client-side lock is a UX affordance only.
+
+> Note: this gate is about *adding* spaces. Editing, pausing, or deleting a space that already exists
+> stays available to its owner regardless of the documents status.
+
+---
+
 ## Verification checklist (after deploy)
 
 ```
@@ -351,6 +410,19 @@ POST   https://back-end-kwba.onrender.com/api/owner/spaces     -> 201 JSON creat
 PATCH  https://back-end-kwba.onrender.com/api/owner/spaces/12/active -> 200 JSON (is_active flipped)
 GET    https://back-end-kwba.onrender.com/api/owner/offers      -> 200 JSON list of offers
 GET    https://back-end-kwba.onrender.com/api/owner/bookings    -> 200 JSON list (may be empty)
+
+# create/update must persist the working window + contact phone, and reject
+# an overnight window and a malformed phone number:
+POST   .../api/owner/spaces  { ..., "open_time":"08:00","close_time":"22:00","contact_phone":"0599123456" } -> 201
+POST   .../api/owner/spaces  { ..., "open_time":"22:00","close_time":"02:00", ... }                        -> 422
+POST   .../api/owner/spaces  { ..., "contact_phone":"12", ... }                                             -> 422
+
+# documents gate: an owner whose documents are only pending must be refused,
+# while an approved owner goes through (§8):
+GET    .../api/owner/documents                                   -> 200 { "status": "pending" }
+POST   .../api/owner/spaces  { ..., "title":"مجرّبة", ... }       -> 403
+GET    .../api/owner/documents                                   -> 200 { "status": "approved" }
+POST   .../api/owner/spaces  { ..., "title":"مجرّبة", ... }       -> 201
 
 # any
 GET    https://back-end-kwba.onrender.com/api/owner/spaces (no token) -> 401 JSON

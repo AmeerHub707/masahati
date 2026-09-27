@@ -5,7 +5,8 @@ import {
   Building2, X, Loader2, MapPin, Users, Star, Wifi, Zap, Check,
   Sparkles, Repeat, Plus, BadgeCheck, Ban, CircleDollarSign, Send,
   CalendarCheck, TrendingUp, Pencil, Trash2, Search, Eye, Image, ImagePlus,
-  ArrowRight, Clock3, FileText, Paperclip, ShieldCheck, LocateFixed,
+  ArrowRight, Clock3, FileText, Paperclip, ShieldCheck, LocateFixed, Phone, Lock, Award,
+  AlertCircle, Upload,
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -17,6 +18,10 @@ import {
   updateSpaceWithFallback,
   deleteSpaceWithFallback,
   isOwnerDemo,
+  canAddSpace,
+  readOwnerDocuments,
+  loadOwnerDocumentsWithFallback,
+  DOC_STATUS,
 } from '../../../lib/owner';
 import { AMENITY_LABELS } from '../../../lib/requests';
 import { useDialogA11y } from '../../../lib/dialogA11y';
@@ -151,8 +156,41 @@ function fmtNumber(n) {
   return numFmt.format(n || 0);
 }
 
+// رقم تواصل المساحة: نفس نمط التحقق المستخدم في صفحة التسجيل
+// (src/pages/SignupPage.jsx) حتى يتطابق السلوك بين الملف الشخصي والمساحة.
+const PHONE_RE = /^[+]?[\d\s()-]{7,}$/;
+
 const MAX_PHOTOS = 6;
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+
+// بوابة الوثائق: لا إضافة مساحة قبل اعتماد الإدارة للوثائق المرفوعة من
+// الإعدادات. كل حالة تحمل عنوانها ونصّها الذي يوجّه المالك إلى الإعدادات.
+const DOC_GATE = {
+  [DOC_STATUS.NONE]: {
+    label: 'وثائق الحساب لم تُرسل',
+    hint: 'أرفق مستندات ملكية المساحة أو عقد الإيجار في الإعدادات، وأرسلها للمراجعة — بعدها يمكنك إضافة مساحاتك.',
+    Icon: Award,
+    tone: 'is-bad',
+  },
+  [DOC_STATUS.PENDING]: {
+    label: 'وثائق الحساب قيد المراجعة',
+    hint: 'وثائقك لدى الإدارة الآن. سيُفتح إضافة المساحات فور اعتمادها.',
+    Icon: Clock3,
+    tone: 'is-pending',
+  },
+  [DOC_STATUS.REJECTED]: {
+    label: 'وثائق الحساب مرفوضة',
+    hint: 'رُفضت وثائقك — عدّل الملفات وأعد إرسالها من الإعدادات للمتابعة.',
+    Icon: AlertCircle,
+    tone: 'is-bad',
+  },
+  [DOC_STATUS.APPROVED]: {
+    label: 'وثائق الحساب معتمدة',
+    hint: 'يمكنك إضافة مساحاتك وعرضها للعملاء.',
+    Icon: ShieldCheck,
+    tone: 'is-good',
+  },
+};
 
 // يقرأ صورة من الجهاز، يصغّرها ويضغطها حتى لا تُتخم التخزين المحلي،
 // ثم يعيدها كرابط بيانات (base64) جاهز للعرض والحفظ.
@@ -196,6 +234,9 @@ const DEFAULT_FORM = {
   lng: '',
   price_per_hour: '',
   capacity: '',
+  open_time: '',
+  close_time: '',
+  contact_phone: '',
   amenities: [],
   internet: false,
   power: false,
@@ -203,7 +244,7 @@ const DEFAULT_FORM = {
   docs: { proof: null },
 };
 
-export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
+export default function Spaces({ data, autoOpen = false, onSpacesChange, onNavigate }) {
   const navigate = useNavigate();
   const [spaces, setSpaces] = useState(() => (data?.spaces || []));
   const [demo, setDemo] = useState(() => isOwnerDemo());
@@ -224,6 +265,12 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
   const [toast, setToast] = useState(null);
   const docsInputRefs = useRef({});
   const mountedRef = useRef(true);
+  // بوابة الوثائق: نسخة محلية فورية ثم مزامنة من الخادم، لأن قرار الإدارة
+  // قد يصل بعد آخر زيارة للوحة.
+  const [doc, setDoc] = useState(readOwnerDocuments);
+
+  const docsApproved = canAddSpace(doc);
+  const docGate = DOC_GATE[doc?.status] || DOC_GATE[DOC_STATUS.NONE];
 
   const spaceDialogRef = useDialogA11y({ open: !!modal, onClose: () => { if (!saving) resetModal(); } });
   const deleteDialogRef = useDialogA11y({ open: !!deleteTarget, onClose: () => { if (!deleting) setDeleteTarget(null); } });
@@ -267,6 +314,22 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
     return () => clearTimeout(t);
   }, [loadSpaces, data?.spaces]);
 
+  // مزامنة حالة الوثائق من الخادم عند كل زيارة للتبويب، لأن بوابة الإضافة
+  // تعتمد على آخر قرار صدر عن الإدارة.
+  useEffect(() => {
+    let alive = true;
+    loadOwnerDocumentsWithFallback()
+      .then((result) => {
+        if (alive && mountedRef.current) setDoc(result.doc);
+      })
+      .catch(() => {
+        /* نبقي النسخة المحلية */
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   // ----- تصفية وعدّ -----
   const counts = useMemo(() => {
     const pending = spaces.filter((s) => effStatus(s) === 'pending').length;
@@ -306,6 +369,15 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
     if (!form.title.trim()) e.title = 'اكتب اسماً للمساحة.';
     if (!form.price_per_hour || Number(form.price_per_hour) <= 0) e.price_per_hour = 'حدّد سعر الساعة.';
     if (!form.capacity || Number(form.capacity) <= 0) e.capacity = 'حدّد السعة.';
+    // أوقات العمل ورقم التواصل مطلوبة عند الإضافة والتعديل معاً: المساحات
+    // القديمة أُنشئت قبل هذه الحقول، فيجب على المالك استكمالها قبل الحفظ.
+    if (!form.open_time) e.open_time = 'حدّد ساعة فتح المساحة.';
+    if (!form.close_time) e.close_time = 'حدّد ساعة إغلاق المساحة.';
+    if (form.open_time && form.close_time && form.close_time <= form.open_time) {
+      e.close_time = 'ساعة الإغلاق يجب أن تكون بعد ساعة الفتح.';
+    }
+    if (!form.contact_phone.trim()) e.contact_phone = 'أدخل رقم تواصل للمساحة.';
+    else if (!PHONE_RE.test(form.contact_phone.trim())) e.contact_phone = 'رقم الهاتف غير صحيح.';
     if (modal?.mode !== 'edit') {
       const latOk = form.lat !== '' && coordOf(form.lat) !== null && Math.abs(Number(form.lat)) <= 90;
       const lngOk = form.lng !== '' && coordOf(form.lng) !== null && Math.abs(Number(form.lng)) <= 180;
@@ -326,7 +398,12 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
   };
 
   // فتح نموذج الإضافة مباشرة — الوثائق تُرفق داخل النموذج وتُرسل للمراجعة.
+  // البوابة: لا نموذج قبل اعتماد الإدارة لوثائق الحساب المرفوعة من الإعدادات.
   const openCreate = useCallback(() => {
+    if (!docsApproved) {
+      setToast({ msg: docGate.hint, type: 'err' });
+      return;
+    }
     setForm(DEFAULT_FORM);
     setErrors({});
     setModal({ mode: 'create' });
@@ -347,8 +424,10 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
         { enableHighAccuracy: true, timeout: 10000 }
       );
     }
-  }, []);
+  }, [docsApproved, docGate]);
 
+  // فتح النموذج تلقائياً (زر «أضف مساحتك الأولى» من الإعدادات): يُعاد
+  // المحاولة إن كانت الوثائق ما تزال تُجلب، فتنفتح البوابة فور وصول الحالة.
   useEffect(() => {
     if (!autoOpen) return undefined;
     const t = setTimeout(() => openCreate(), 0);
@@ -368,6 +447,9 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
       lng: space.lng != null ? String(space.lng) : '',
       price_per_hour: space.price_per_hour ? String(space.price_per_hour) : '',
       capacity: space.capacity ? String(space.capacity) : '',
+      open_time: space.open_time || '',
+      close_time: space.close_time || '',
+      contact_phone: space.contact_phone || '',
       amenities: Array.isArray(space.amenities) ? space.amenities : [],
       internet: Boolean(space.internet),
       power: Boolean(space.power),
@@ -388,6 +470,9 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
     lng: coordOf(form.lng),
     price_per_hour: Number(form.price_per_hour),
     capacity: Number(form.capacity),
+    open_time: form.open_time,
+    close_time: form.close_time,
+    contact_phone: form.contact_phone.trim(),
     amenities: form.amenities,
     internet: form.internet,
     power: form.power,
@@ -633,6 +718,16 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
             {s.capacity > 0 && <span><Users /> {fmtNumber(s.capacity)} شخص</span>}
             {s.internet && <span><Wifi /> إنترنت</span>}
             {s.power && <span><Zap /> كهرباء</span>}
+            {(s.open_time && s.close_time) && (
+              <span className="msp__card-meta-chip" title="أوقات عمل المساحة">
+                <Clock3 /> {s.open_time} – {s.close_time}
+              </span>
+            )}
+            {s.contact_phone && (
+              <span className="msp__card-meta-chip" title="رقم تواصل المساحة">
+                <Phone /> {s.contact_phone}
+              </span>
+            )}
             {(s.gallery?.length || 0) > 1 && (
               <span className="msp__card-meta-chip"><Image /> {s.gallery.length} صور</span>
             )}
@@ -845,6 +940,62 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
             </section>
 
             <section className="msp__form-sec">
+              <h4><Clock3 /> أوقات العمل والتواصل</h4>
+
+              <div className="odash__modal-grid2">
+                <div className={`odash__field${errors.open_time ? ' has-error' : ''}`}>
+                  <label htmlFor="msp-open">ساعة الفتح <b>*</b></label>
+                  <input
+                    id="msp-open"
+                    className="msp__time-input"
+                    type="time"
+                    dir="ltr"
+                    step="900"
+                    value={form.open_time}
+                    onChange={(e) => setForm((f) => ({ ...f, open_time: e.target.value }))}
+                    aria-label="ساعة الفتح"
+                  />
+                  <p>{errors.open_time || ''}</p>
+                </div>
+                <div className={`odash__field${errors.close_time ? ' has-error' : ''}`}>
+                  <label htmlFor="msp-close">ساعة الإغلاق <b>*</b></label>
+                  <input
+                    id="msp-close"
+                    className="msp__time-input"
+                    type="time"
+                    dir="ltr"
+                    step="900"
+                    value={form.close_time}
+                    onChange={(e) => setForm((f) => ({ ...f, close_time: e.target.value }))}
+                    aria-label="ساعة الإغلاق"
+                  />
+                  <p>{errors.close_time || ''}</p>
+                </div>
+              </div>
+
+              <div className={`odash__field${errors.contact_phone ? ' has-error' : ''}`}>
+                <label htmlFor="msp-phone">رقم تواصل المساحة <b>*</b></label>
+                <div className="odash__input-wrap">
+                  <Phone className="odash__input-ico" />
+                  <input
+                    id="msp-phone"
+                    type="tel"
+                    inputMode="tel"
+                    dir="ltr"
+                    value={form.contact_phone}
+                    onChange={(e) => setForm((f) => ({ ...f, contact_phone: e.target.value }))}
+                    placeholder="0599123456"
+                  />
+                </div>
+                <p>{errors.contact_phone || ''}</p>
+              </div>
+
+              <p className="msp__hours-note">
+                نافذة زمنية واحدة تُطبَّق كل يوم — وقت الإغلاق يجب أن يكون بعد وقت الفتح.
+              </p>
+            </section>
+
+            <section className="msp__form-sec">
               <h4><Image /> الصور</h4>
               <input
                 ref={fileInputRef}
@@ -1022,6 +1173,14 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
               <span className="obk__hero-chip is-good"><BadgeCheck /> {fmtNumber(counts.active)} نشطة</span>
               {counts.pending > 0 && <span className="obk__hero-chip is-pending"><Clock3 /> {fmtNumber(counts.pending)} بالمراجعة</span>}
               <span className="obk__hero-chip is-bad"><Ban /> {fmtNumber(counts.inactive)} موقوفة</span>
+              {/* عنوان حالة وثائق الحساب: يوضّح للمالك لماذا الإضافة مغلقة أو مفتوحة */}
+              <span
+                className={`obk__hero-chip msp__docs-chip ${docGate.tone}`}
+                title={docGate.hint}
+                data-docs-status={doc?.status || DOC_STATUS.NONE}
+              >
+                <docGate.Icon /> {docGate.label}
+              </span>
             </div>
           )}
         </div>
@@ -1062,13 +1221,44 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
               >
                 <Repeat className={refreshing ? 'spin' : ''} />
               </button>
-              <button type="button" className="odash__spaces-add" onClick={openCreate} data-tour="owner-quick-add">
-                <Plus /> أضف مساحة
-              </button>
+              {/* الإضافة مغلقة حتى تعتمد الإدارة وثائق الحساب — والزر يوضّح السبب
+                  بدل أن يختفي، حتى يعرف المالك ما ينقصه. */}
+              {docsApproved ? (
+                <button type="button" className="odash__spaces-add" onClick={openCreate} data-tour="owner-quick-add">
+                  <Plus /> أضف مساحة
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="odash__spaces-add is-locked"
+                  data-tour="owner-quick-add"
+                  data-docs-locked="true"
+                  aria-disabled="true"
+                  aria-describedby="msp-docs-gate"
+                  title={docGate.hint}
+                  onClick={() => setToast({ msg: docGate.hint, type: 'err' })}
+                >
+                  <Lock /> أضف مساحة
+                </button>
+              )}
             </>
           )}
         </div>
       </div>
+
+      {/* لوحة توضيحية واحدة تشرح حالة البوابة وتأخذ المالك إلى الإعدادات */}
+      {!modal && !docsApproved && (
+        <div className={`msp__docs-gate ${docGate.tone}`} id="msp-docs-gate" role="status">
+          <span className="msp__docs-gate-ico"><docGate.Icon /></span>
+          <div className="msp__docs-gate-body">
+            <b>{docGate.label}</b>
+            <p>{docGate.hint}</p>
+          </div>
+          <button type="button" className="btn-primary" onClick={() => onNavigate?.('settings')}>
+            <Upload /> ارفع الوثائق
+          </button>
+        </div>
+      )}
 
       {!modal && (
         <div className="filterbar" role="group" aria-label="تصفية المساحات حسب الحالة">

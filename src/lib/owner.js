@@ -122,6 +122,27 @@ function coordOf(v) {
   return Number.isFinite(n) ? Math.round(n * 100000) / 100000 : null;
 }
 
+// يوحّد صيغة الوقت إلى HH:MM بنظام 24 ساعة، أو يعيد '' عند غيابه أو فساده.
+// يقبل HH:MM و HH:MM:SS و H:MM ص/م، لأن الواجهات ترسل الوقت بأشكال مختلفة.
+function normTime(v) {
+  const s = String(v ?? '').trim();
+  if (!s) return '';
+  const m = s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(am|pm)?$/i);
+  if (!m) return '';
+  let h = Number(m[1]);
+  const min = m[2];
+  if (!Number.isInteger(h) || h > 23 || Number(min) > 59) return '';
+  const mer = m[3] ? m[3].toLowerCase() : '';
+  if (mer === 'pm' && h < 12) h += 12;
+  else if (mer === 'am' && h === 12) h = 0;
+  return `${String(h).padStart(2, '0')}:${min}`;
+}
+
+// يوحّد رقم تواصل المساحة إلى نص مطبَّع، أو '' عند غيابه.
+function normPhone(v) {
+  return String(v ?? '').trim();
+}
+
 export function mapSpace(s) {
   const img = imageUrl(s.image) || '';
   const gallery = Array.isArray(s.gallery)
@@ -139,6 +160,9 @@ export function mapSpace(s) {
     gallery,
     price_per_hour: Number(s.price_per_hour ?? s.price ?? 0),
     capacity: Number(s.capacity ?? 0),
+    open_time: normTime(s.open_time ?? s.opening_time ?? s.opens_at ?? s.start_time),
+    close_time: normTime(s.close_time ?? s.closing_time ?? s.closes_at ?? s.end_time),
+    contact_phone: normPhone(s.contact_phone ?? s.contact_number ?? s.phone ?? s.mobile),
     amenities: normalizeAmenities(s),
     internet: s.internet ?? s.has_internet ?? s.wifi ?? null,
     power: s.power ?? s.has_power ?? s.electricity ?? null,
@@ -249,6 +273,9 @@ function seedOwnerSpaces() {
       image: '',
       price_per_hour: 150,
       capacity: 120,
+      open_time: '08:00',
+      close_time: '18:00',
+      contact_phone: '0599123456',
       amenities: ['internet', 'electricity', 'projector', 'ac', 'microphone'],
       internet: true,
       power: true,
@@ -266,6 +293,9 @@ function seedOwnerSpaces() {
       image: '',
       price_per_hour: 100,
       capacity: 10,
+      open_time: '09:00',
+      close_time: '17:00',
+      contact_phone: '0599765432',
       amenities: ['internet', 'projector', 'ac'],
       internet: true,
       power: true,
@@ -283,6 +313,9 @@ function seedOwnerSpaces() {
       image: '',
       price_per_hour: 200,
       capacity: 15,
+      open_time: '10:00',
+      close_time: '22:00',
+      contact_phone: '0599554433',
       amenities: ['internet', 'electricity', 'ac'],
       internet: true,
       power: true,
@@ -543,6 +576,9 @@ export async function createOwnerSpace(payload) {
       lng: coordOf(payload.lng),
       price_per_hour: payload.price_per_hour,
       capacity: payload.capacity,
+      open_time: normTime(payload.open_time),
+      close_time: normTime(payload.close_time),
+      contact_phone: normPhone(payload.contact_phone),
       amenities: payload.amenities,
       internet: payload.internet,
       power: payload.power,
@@ -577,7 +613,7 @@ export async function updateOwnerSpace(spaceId, payload) {
     method: 'PUT',
     auth: true,
     timeoutMs: REQ_TIMEOUT_MS,
-body: {
+    body: {
       title: payload.title,
       description: payload.description,
       location: payload.location,
@@ -585,6 +621,9 @@ body: {
       lng: coordOf(payload.lng),
       price_per_hour: payload.price_per_hour,
       capacity: payload.capacity,
+      open_time: normTime(payload.open_time),
+      close_time: normTime(payload.close_time),
+      contact_phone: normPhone(payload.contact_phone),
       amenities: payload.amenities,
       internet: payload.internet,
       power: payload.power,
@@ -852,6 +891,9 @@ export async function createSpaceWithFallback(payload) {
       gallery: Array.isArray(payload.gallery) ? payload.gallery : (payload.image ? [payload.image] : []),
       price_per_hour: Number(payload.price_per_hour || 0),
       capacity: Number(payload.capacity || 0),
+      open_time: normTime(payload.open_time),
+      close_time: normTime(payload.close_time),
+      contact_phone: normPhone(payload.contact_phone),
       amenities: payload.amenities || [],
       internet: payload.internet || false,
       power: payload.power || false,
@@ -924,6 +966,9 @@ export async function updateSpaceWithFallback(spaceId, payload) {
     if (typeof payload.location === 'string' && payload.location.trim() !== '') merged.location = payload.location.trim();
     if (payload.price_per_hour !== undefined && payload.price_per_hour !== '') merged.price_per_hour = Number(payload.price_per_hour);
     if (payload.capacity !== undefined && payload.capacity !== '') merged.capacity = Number(payload.capacity);
+    if (payload.open_time !== undefined) merged.open_time = normTime(payload.open_time);
+    if (payload.close_time !== undefined) merged.close_time = normTime(payload.close_time);
+    if (payload.contact_phone !== undefined) merged.contact_phone = normPhone(payload.contact_phone);
     if (Array.isArray(payload.amenities)) merged.amenities = payload.amenities;
     if (payload.internet !== undefined) merged.internet = payload.internet;
     if (payload.power !== undefined) merged.power = payload.power;
