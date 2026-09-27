@@ -205,16 +205,11 @@ export default function AdminLayout({ active, notifSub = null, unreadCount = 0, 
             </button>
           </nav>
 
-          {/* أدوات التحكم في الشريط الجانبي */}
+          {/* أدوات التحكم في الشريط الجانبي — لا نطبع اسم التبويب هنا:
+              هو معروض أصلاً في ترويسة اللوحة (h1) وفي عنصر القائمة النشط،
+              وتكراره ثالثاً كان عنواناً مكرراً بلا فائدة. */}
           <div className="mt-auto border-t border-gray-100/60 px-2 pb-2 pt-3 dark:border-[var(--border)]">
-            <div className="flex items-center justify-between gap-2">
-              <ThemeToggle />
-              {!collapsed && (
-                <span className="text-xs font-bold" style={{ color: 'var(--text-muted)' }}>
-                  {activeLabel}
-                </span>
-              )}
-            </div>
+            <ThemeToggle />
           </div>
         </aside>
 
