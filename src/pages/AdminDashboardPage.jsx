@@ -159,7 +159,7 @@ export default function AdminDashboardPage() {
                   notifSub === 'broadcast' ? (
                     <BroadcastNotifications />
                   ) : (
-                    <InboxNotifications inbox={inbox} setInbox={setInbox} onNavigate={goTab} />
+                    <InboxNotifications inbox={inbox} setInbox={setInbox} />
                   )
                 ) : (
                   (() => {
