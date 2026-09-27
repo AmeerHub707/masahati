@@ -1,27 +1,45 @@
+import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import { AppReadyContext } from './context/AppReadyContext';
 
-// ملاحظة: قم بإنشاء ملفات وهمية/مؤقتة لهذه الصفحات لحين بنائها تفصيلياً
-import SpacesPage from './pages/SpacesPage';
+// صفحات المصادح تبقى في الحزمة الأولى عمداً: زائر صفحة الهبوط لا يحتاج
+// أياً منها، وتحميلها كسولاً كان سيضيف طلبات شبكة بلا فائدة له.
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import VerifyOtpPage from './pages/VerifyOtpPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
-import DashboardPage from './pages/DashboardPage';
-import AdDetailsPage from './pages/AdDetailsPage';
-import AdminDashboardPage from './pages/AdminDashboardPage';
 import { isLoggedIn, getHomePath } from './lib/authStore';
+
+// الصفحات الثقيلة تُحمّل كسولاً؛ لوحدة المرشف كانت تسحب معها
+// recharts وframer-motion وجداول كبيرة إلى الحزمة الأولية، فيُدفع ذلك لكل زائر حتى لو
+// لم يفتح لوحة التحكم قط.
+const SpacesPage = lazy(() => import('./pages/SpacesPage'));
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const AdDetailsPage = lazy(() => import('./pages/AdDetailsPage'));
+const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 
 // حماية المسار: الزائر غير المسجّل يُحوَّل للصفحة الرئيسية
 function RequireAuth({ children }) {
   return isLoggedIn() ? children : <Navigate to="/" replace />;
 }
 
+// بديل انتظار حزمة المسار: هيكل ثابت بلا قفزة في الارتفاع. اللوحة المشرف
+// تعرض DashboardLoading الخاص بها، وهذا الغلاف للصفحات العامة.
+function RouteFallback() {
+  return (
+    <div className="route-loading" role="status" aria-live="polite">
+      <span className="route-loading-bar" />
+      <span className="route-loading-bar is-short" />
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <AppReadyContext.Provider value={true}>
+      <Suspense fallback={<RouteFallback />}>
       <Routes>
       {/* الصفحة الرئيسية - صفحة الهبوط (الترحيب) */}
       <Route path="/" element={<LandingPage />} />
@@ -48,6 +66,7 @@ export default function App() {
       {/* مسار احتياطي للصفحات غير الموجودة 404 */}
       <Route path="*" element={<LandingPage />} />
       </Routes>
+      </Suspense>
     </AppReadyContext.Provider>
   );
 }
