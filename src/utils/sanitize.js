@@ -69,5 +69,3 @@ export function sanitizeUrl(url) {
   const match = /href="([^"]*)"/.exec(safe);
   return match ? match[1] : '';
 }
-
-export default sanitize;
