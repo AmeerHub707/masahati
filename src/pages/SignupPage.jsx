@@ -517,13 +517,14 @@ export default function SignupPage() {
           background: rgba(255,255,255,0.18);
         }
         .google-btn-wrap {
+          margin-top: 1.5rem;
           margin-bottom: 0.4rem;
         }
         .google-btn-wrap > div {
           width: 100%;
         }
         .google-btn-hero {
-          margin: 0.1rem 0 0;
+          margin: 1.15rem 0 0;
         }
 
         /* OTP Input */
