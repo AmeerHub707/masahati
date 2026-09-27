@@ -80,15 +80,6 @@ export function getCachedPictureUrl() {
   }
 }
 
-export function clearCachedPicture() {
-  try {
-    localStorage.removeItem(PICTURE_URL_KEY);
-    localStorage.removeItem(PICTURE_VERSION_KEY);
-  } catch {
-    /* storage not available */
-  }
-}
-
 // يضيف/يستبدل معلمة t= لمنع كاش المتصفح من إعادة عرض الصورة القديمة.
 function withVersion(url, ts) {
   const cleaned = url.replace(/([?&])t=\d+/, '$1');
