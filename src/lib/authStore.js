@@ -66,7 +66,7 @@ export async function googleLogin(idToken, role) {
 }
 
 // ----- بيانات المستخدم الحالي -----
-export { getUser, setUser, clearUser };
+export { getUser, setUser };
 
 // ----- تغيير كلمة المرور أثناء تسجيل الدخول (محمي) -----
 export async function changePassword({ oldPassword, newPassword, newPassword_confirmation }) {
@@ -131,26 +131,6 @@ export async function logout() {
 // ----- حذف المستخدم (محمي) -----
 export async function deleteUser() {
   return request('/api/delete-user', { method: 'DELETE', auth: true });
-}
-
-// ----- التحقق من وجود البريد (يُستخدم في نسيت كلمة المرور) -----
-// إصلاح: كان الكود السابق يعامل أي 422 كـ"البريد غير مسجّل"،
-// لكن Laravel يرجع 422 أيضاً لأخطاء صيغة البريد. نفرّق الآن:
-//   - 4xx => نعتبره "غير مسجّل" بأمان.
-//   - 5xx أو خطأ شبكة => نفترض مسجّلاً كي لا نمنع المستخدم.
-export async function isEmailRegistered(email) {
-  try {
-    await request('/api/forgot-password', {
-      method: 'POST',
-      body: { email },
-    });
-    return true;
-  } catch (err) {
-    if (err && err.status >= 400 && err.status < 500) {
-      return false;
-    }
-    return true;
-  }
 }
 
 // ----- المسار بعد تسجيل الدخول/التسجيل -----
