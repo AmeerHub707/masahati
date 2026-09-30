@@ -3,8 +3,9 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Check, Star, Users, TrendingUp, Wallet, Crown, Trophy,
-  Search, X, Building2, Sparkles, CalendarCheck2, Gauge, Award, Scale, ChevronRight, AlertTriangle,
+  Search, X, Building2, Sparkles, CalendarCheck2, Gauge, Award, Scale, AlertTriangle,
 } from 'lucide-react';
+import BackButton from '../components/common/BackButton';
 import { loadAllSpacesWithFallback, SPACE_CATEGORIES } from '../lib/spaces';
 import { AMENITY_LABELS } from '../lib/requests';
 import { fmtNumber, fmtRating } from '../lib/format';
@@ -115,10 +116,7 @@ export default function ComparePage() {
   return (
     <div className="min-h-screen font-['Cairo'] compare-page">
       <div className="wrap wrap--wide compare">
-        <Link to="/spaces" className="ad-details__back">
-          <ChevronRight size={18} />
-          العودة للتصفح
-        </Link>
+        <BackButton className="ad-details__back" fallback="/spaces" label="العودة للتصفح" />
         <header className="compare__head">
           <span className="compare__eyebrow">مقارنة المساحات</span>
           <h1 className="compare__title">قارن بين المساحات واختر الأنسب</h1>

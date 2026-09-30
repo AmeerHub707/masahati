@@ -11,6 +11,7 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import BackButton from '../components/common/BackButton';
 import {
   loadSpacesWithFallback,
   SPACE_CATEGORIES,
@@ -978,6 +979,7 @@ function SpacesHead({ spaces, total, loading }) {
 
       <div className="wrap wrap--wide sh__inner">
         <div className="sh__copy">
+          <BackButton className="back-btn" fallback="/" label="رجوع" />
           <span className="sh__live">
             <span className="sh__pulse" />
             {loading ? (

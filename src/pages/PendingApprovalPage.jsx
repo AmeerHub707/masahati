@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, Hourglass, LogOut } from 'lucide-react';
+import BackButton from '../components/common/BackButton';
 import { getUser } from '../lib/authStore';
 import { useForceLight } from '../hooks/useTheme';
 
@@ -81,9 +82,28 @@ export default function PendingApprovalPage() {
         }
         .pa-btn:hover { filter: brightness(1.08); }
         .pa-note { margin: 1rem 0 0; font-size: 0.76rem; color: rgba(255, 255, 255, 0.55); line-height: 1.7; }
+        .pa-back {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          margin: 0 0 1.4rem;
+          padding: 0.45rem 0.95rem;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px solid rgba(255, 255, 255, 0.18);
+          color: rgba(255, 255, 255, 0.8);
+          font-size: 0.82rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s var(--ease);
+        }
+        .pa-back:hover { border-color: var(--accent, #f97316); color: #fb923c; background: rgba(249, 115, 22, 0.14); }
+        .pa-back svg { width: 1.05rem; height: 1.05rem; }
       `}</style>
 
       <main className="pa-card">
+        <BackButton className="pa-back" fallback="/" label="رجوع" />
+
         <div className="pa-icon" aria-hidden="true">
           <Hourglass size={30} strokeWidth={2} />
         </div>

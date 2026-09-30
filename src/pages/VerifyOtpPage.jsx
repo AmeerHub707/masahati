@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { Check, ArrowLeft } from 'lucide-react';
+import { Check } from 'lucide-react';
+import BackButton from '../components/common/BackButton';
 import { login, getHomePath, ApiError, request, getUser, setUser } from '../lib/authStore';
 import WhatsAppBubble from '../components/common/WhatsAppBubble';
 
@@ -400,10 +401,7 @@ export default function VerifyOtpPage() {
             <div className="brand">
               <img src="/Logo.png" alt="Masahati" className="brand-logo" />
             </div>
-            <Link className="back-home" to="/">
-              <ArrowLeft size={18} />
-              <span>رجوع للرئيسية</span>
-            </Link>
+            <BackButton className="back-home" fallback="/" label="رجوع للرئيسية" />
           </div>
 
           {verified ? (

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams, useParams } from 'react-router-dom';
+import BackButton from '../components/common/BackButton';
 import { request, ApiError } from '../lib/authStore';
 import {
   checkPassword,
@@ -540,14 +541,7 @@ export default function ResetPasswordPage() {
               <img src="/Logo.png" alt="Masahati" className="brand-logo" />
             </div>
 
-            <Link to="/" aria-label="العودة إلى الصفحة الرئيسية" className="back-home">
-              <span className="inline-flex">
-                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-[2.2] stroke-linecap-round stroke-linejoin-round">
-                  <path d="M14 6l-6 6 6 6" />
-                </svg>
-              </span>
-              <span>رجوع للرئيسية</span>
-            </Link>
+            <BackButton className="back-home" fallback="/" label="رجوع للرئيسية" />
           </div>
 
           <div className="relative flex-1">

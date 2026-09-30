@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Fragment } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { Home, CalendarCheck, Heart, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Megaphone, ChevronLeft, ChevronRight, Lock, Sparkles, HelpCircle } from 'lucide-react';
+import { Home, CalendarCheck, Heart, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Megaphone, ChevronLeft, ChevronRight, Lock, Sparkles, HelpCircle, Scale } from 'lucide-react';
 import MagneticButton from '../common/MagneticButton';
 import ThemeToggle from '../common/ThemeToggle';
 import { getCachedPictureUrl } from '../../lib/profilePicture';
@@ -26,6 +26,12 @@ const TABS = [
   { id: 'favorites', label: 'المساحات المفضلة', icon: Heart },
   { id: 'requests', label: 'الطلبات الخاصة', icon: Megaphone },
   { id: 'settings', label: 'الإعدادات', icon: Settings },
+];
+
+// رابط لا تبويب: «قارن المساحات» صفحة مستقلة داخل التطبيق، لذا تُفتح بمسار
+// مستقل بدل تبديل محتوى اللوحة (والرجوع منها يعود إلى المساحة نفسها عبر السجل).
+const EXTERNAL_LINKS = [
+  { id: 'compare', label: 'قارن المساحات', to: '/compare', icon: Scale },
 ];
 
 export default function DashboardLayout({
@@ -250,26 +256,44 @@ export default function DashboardLayout({
             {displayTabs.map((tab) => {
               const Icon = tab.icon;
               return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  className={active === tab.id ? 'is-active' : ''}
-                  onClick={() => handleNavClick(tab.id)}
-                  aria-current={active === tab.id ? 'page' : undefined}
-                  title={collapsed ? tab.label : undefined}
-                >
-                  <Icon />
-                  {!collapsed && <span className="dash__nav-label">{tab.label}</span>}
-                  {tab.id === 'requests' && offersBadge > 0 && (
-                    collapsed ? (
-                      <span className="dash__nav-dot" aria-label={`لديك ${offersBadge} عروض جديدة`} />
-                    ) : (
-                      <span className="dash__nav-badge" aria-label={`لديك ${offersBadge} عروض جديدة`}>
-                        {offersBadge}
-                      </span>
-                    )
-                  )}
-                </button>
+                <Fragment key={tab.id}>
+                  <button
+                    type="button"
+                    className={active === tab.id ? 'is-active' : ''}
+                    onClick={() => handleNavClick(tab.id)}
+                    aria-current={active === tab.id ? 'page' : undefined}
+                    title={collapsed ? tab.label : undefined}
+                  >
+                    <Icon />
+                    {!collapsed && <span className="dash__nav-label">{tab.label}</span>}
+                    {tab.id === 'requests' && offersBadge > 0 && (
+                      collapsed ? (
+                        <span className="dash__nav-dot" aria-label={`لديك ${offersBadge} عروض جديدة`} />
+                      ) : (
+                        <span className="dash__nav-badge" aria-label={`لديك ${offersBadge} عروض جديدة`}>
+                          {offersBadge}
+                        </span>
+                      )
+                    )}
+                  </button>
+
+                  {/* روابط مستقلة (مقارنة المساحات) تُدرج في مكانها بين التبويبات */}
+                  {tab.id === 'favorites' && EXTERNAL_LINKS.map((l) => {
+                    const LinkIcon = l.icon;
+                    return (
+                      <Link
+                        key={l.id}
+                        to={l.to}
+                        className="dash__nav-link"
+                        onClick={close}
+                        title={collapsed ? l.label : undefined}
+                      >
+                        <LinkIcon />
+                        {!collapsed && <span className="dash__nav-label">{l.label}</span>}
+                      </Link>
+                    );
+                  })}
+                </Fragment>
               );
             })}
 

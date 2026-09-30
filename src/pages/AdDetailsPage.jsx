@@ -2,9 +2,10 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import {
   MapPin, Star, Users, Clock, Wifi, Zap, Check, Phone,
-  ChevronRight, Loader2, BadgeCheck, CircleDollarSign, TrendingUp,
+  Loader2, BadgeCheck, CircleDollarSign, TrendingUp,
   Lock, Info, CalendarPlus, CalendarX2, Building2, Send,
 } from 'lucide-react';
+import BackButton from '../components/common/BackButton';
 import { loadSpaceDetailWithFallback, createBooking } from '../lib/spaces';
 import { AMENITY_LABELS } from '../lib/requests';
 import { fmtNumber, fmtRating, fmtMoney } from '../lib/format';
@@ -52,6 +53,7 @@ export default function AdDetailsPage() {
         <div className="wrap">
           <h1>المساحة غير موجودة</h1>
           <p>المساحة التي تبحث عنها غير متاحة حالياً.</p>
+          <BackButton className="ad-details__back" fallback="/spaces" label="العودة للتصفح" />
           <Link className="btn-primary" to="/spaces">تصفح المساحات</Link>
         </div>
       </div>
@@ -66,10 +68,7 @@ export default function AdDetailsPage() {
   return (
     <div className="ad-details">
       <div className="wrap">
-        <Link to="/spaces" className="ad-details__back">
-          <ChevronRight size={18} />
-          العودة للتصفح
-        </Link>
+        <BackButton className="ad-details__back" fallback="/spaces" label="العودة للتصفح" />
 
         <div className="ad-details__hero">
           <div className="ad-details__gallery">
