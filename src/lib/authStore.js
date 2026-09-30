@@ -266,3 +266,53 @@ export function getHomePath(role) {
   // خلط بين لوحة العميل ولوحة صاحب المساحة — يُحوَّل للرئيسية بدلاً من ذلك.
   return DASHBOARD_PATHS[rawRole] || '/';
 }
+
+// ----- حالة الدور للواجهات العامة (زائر / عميل / صاحب مساحة) -----
+// الزائر ليس دوراً في الباك إند، بل غياب توكن. نحتاج تمييزه صراحةً في الصفحات
+// العامة (تفاصيل المساحة) لأن قانون الحجز يختلف بين الثلاثة:
+//   زائر        -> لا يحجز، يُحوَّل لتسجيل الدخول.
+//   عميل        -> يحجز.
+//   صاحب مساحة  -> عرض فقط (مساحته هي، لا يحجز空間ها لنفسه).
+export const ROLE_VISITOR = 'visitor';
+export const ROLE_CUSTOMER = 'customer';
+export const ROLE_SPACE_OWNER = 'space_owner';
+
+/**
+ * الدور الفعّال للمستخدم الحالي، مطبّعاً، مع إرجاع "visitor" عند غياب التوكن.
+ * يعتمد على التوكن لا على وجود كائن المستخدم، حتى لا يُمنح الحجز لمستخدم
+ * متبقٍ في localStorage بعد انتهاء جلسته.
+ * @returns {'visitor'|'customer'|'space_owner'}
+ */
+export function getCurrentRole() {
+  if (!isLoggedIn()) return ROLE_VISITOR;
+  return normalizeRole(getUser()?.role) || ROLE_VISITOR;
+}
+
+/** الزائر غير المسجّل — لا يملك أي صلاحية حجز. */
+export function isVisitor() {
+  return getCurrentRole() === ROLE_VISITOR;
+}
+
+/** العميل وحده يحجز المساحات. صاحب المساحة يُعامل كـ owner ويُمنع من الحجز. */
+export function canBook() {
+  return getCurrentRole() === ROLE_CUSTOMER;
+}
+
+/**
+ * هل صاحب المساحة الحالي هو مالك هذه المساحة؟
+ * يُرجع false للزائر وللعميل، فلا يُسرَّب لبيانات المالك إلا لصاحبه.
+ */
+export function ownsSpace(space) {
+  if (getCurrentRole() !== ROLE_SPACE_OWNER || !space) return false;
+  const me = getUser() || {};
+  const myId = me.id ?? me.user_id ?? me.space_id;
+  const ownerId = space.owner_id ?? space.user_id ?? space.space_owner_id;
+  if (myId != null && ownerId != null) {
+    return String(myId) === String(ownerId);
+  }
+  // لا معرّفات: نقارن البريد/الاسم كحل احتياطي قبل تسريب الإحصاءات.
+  const myEmail = String(me.email || '').trim().toLowerCase();
+  const ownerEmail = String(space.owner_email || space.email || '').trim().toLowerCase();
+  if (myEmail && ownerEmail) return myEmail === ownerEmail;
+  return false;
+}

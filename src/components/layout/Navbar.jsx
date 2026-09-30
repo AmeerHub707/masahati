@@ -8,6 +8,7 @@ import { AppReadyContext } from '../../context/AppReadyContext';
 
 const LINKS = [
   { label: 'تصفح المساحات', to: '/spaces' },
+  { label: 'قارن المساحات', to: '/compare' },
   { label: 'لماذا مساحاتي', href: '#features' },
   { label: 'كيف يعمل', href: '#how' },
   { label: 'لكلٍ كما يناسبه', href: '#roles' },
@@ -77,6 +78,25 @@ export default function Navbar() {
 
   const closeMenu = useCallback(() => setMenuOpen(false), []);
 
+  // إغلاق قائمة الجوال: Escape + نقرة خارج الشريط + منع تمرير الصفحة خلفها
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e) => { if (e.key === 'Escape') setMenuOpen(false); };
+    const onDown = (e) => {
+      const root = e.target instanceof Element ? e.target.closest('.nav') : null;
+      if (!root) setMenuOpen(false);
+    };
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onDown);
+    };
+  }, [menuOpen]);
+
   const handleLogoClick = (e) => {
     e.preventDefault();
     if (location.pathname === '/') window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -86,7 +106,7 @@ export default function Navbar() {
   return (
     <nav className={`nav${scrolled ? ' nav--scrolled' : ''}`}>
       <div className="wrap nav__inner">
-        {/* الشعار — يمين في RTL */}
+        {/* الشعار — الطرف الأول (يمين في RTL)، مع padding داخلي حتى لا يلتصق بالحافة */}
         <Link className="brand" to="/" onClick={handleLogoClick} aria-label="Masahati">
           {reduced ? (
             <img src="/Logo.png" alt="Masahati" className="brand-logo" />
@@ -106,14 +126,14 @@ export default function Navbar() {
           )}
         </Link>
 
-        {/* روابط النص — سطح المكتب فقط */}
-        <nav className="nav__links" aria-label="روابط التنقل">
+        {/* روابط النص — في وسط الشريط تمامًا (العمود 1fr والتوسيط justify-self) */}
+        <div className="nav__links">
           {LINKS.map((l) => (
             <NavTab key={l.label} label={l.label} to={l.to} href={l.href} />
           ))}
-        </nav>
+        </div>
 
-        {/* الأزرار */}
+        {/* الأزرار — الطرف المقابل، ويفصلها عن الروابط خط شعري متعمّد */}
         <div className="nav__cta">
           <ThemeToggle />
           <Link className="cta-btn cta-btn--ghost" to="/login">تسجيل الدخول</Link>
@@ -123,24 +143,39 @@ export default function Navbar() {
         </div>
 
         {/* زر القائمة */}
-        <button type="button" className="nav__burger" aria-label="القائمة" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
+        <button
+          type="button"
+          className="nav__burger"
+          aria-label="القائمة"
+          aria-expanded={menuOpen}
+          aria-controls="nav-mobile-panel"
+          onClick={() => setMenuOpen((o) => !o)}
+        >
           <span /><span /><span />
         </button>
       </div>
 
       {menuOpen && (
-        <div className="nav__mobile">
+        <motion.div
+          id="nav-mobile-panel"
+          className="nav__mobile"
+          initial={reduced ? { opacity: 0 } : { opacity: 0, y: -8, scale: .98 }}
+          animate={reduced ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: .22, ease: EASE_OUT }}
+        >
           <div className="nav__mobile-toggle">
             <ThemeToggle />
           </div>
           {LINKS.map((l) => (
             <NavTab key={l.label} label={l.label} to={l.to} href={l.href} onClick={closeMenu} />
           ))}
-          <Link className="cta-btn cta-btn--ghost" to="/login" onClick={closeMenu}>تسجيل الدخول</Link>
-          <MagneticButton>
-            <Link className="cta-btn cta-btn--primary" to="/signup" onClick={closeMenu}>إضافة حساب</Link>
-          </MagneticButton>
-        </div>
+          <div className="nav__mobile-cta">
+            <Link className="cta-btn cta-btn--ghost" to="/login" onClick={closeMenu}>تسجيل الدخول</Link>
+            <MagneticButton>
+              <Link className="cta-btn cta-btn--primary" to="/signup" onClick={closeMenu}>إضافة حساب</Link>
+            </MagneticButton>
+          </div>
+        </motion.div>
       )}
     </nav>
   );

@@ -195,8 +195,9 @@ export async function request(path, options = {}) {
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   let res;
+  const url = `${BASE_URL}${path}`;
   try {
-    res = await fetch(`${BASE_URL}${path}`, {
+    res = await fetch(url, {
       method,
       headers,
       body: payload,
@@ -205,9 +206,26 @@ export async function request(path, options = {}) {
   } catch (err) {
     clearTimeout(timer);
     if (err && err.name === 'AbortError') {
-      throw new ApiError('انتهت مهلة الطلب. تحقق من الاتصال وحاول مجدداً.', 0, null);
+      throw new ApiError(
+        'انتهت مهلة الطلب. الخادم على Render قد يحتاج إقلاعاً بارداً — حاول مجدداً بعد لحظات.',
+        0,
+        { url, reason: 'timeout' }
+      );
     }
-    throw new ApiError('تعذر الاتصال بالخادم. تحقق من اتصال الإنترنت.', 0, null);
+    // fetch يرمي TypeError في حالتين لا يستطيع المتصفح التفريق بينهما:
+    //   (1) انقطاع الشبكة فعلياً على الجهاز،
+    //   (2) المتصفح منع الطلب لأن الخادم لم يُرجع ترويسات CORS تسمح بنطاق
+    //       هذه الصفحة (وهي الحالة الأشيع بعد النشر، بينما الشبكة سليمة).
+    // الرسالة السابقة كانت تُحمّل المستخدم مسؤولية الإنترنت وهو تشخيص مضلّل.
+    const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+    throw new ApiError(
+      offline
+        ? 'لا يوجد اتصال بالإنترنت على هذا الجهاز.'
+        : `تعذّر الوصول إلى الخادم (${BASE_URL}). إن كان اتصالك بالإنترنت سليم، فغالباً الخادم لا يسمح`
+          + ' بالطلبات من نطاق هذه الصفحة (CORS) — راجع allowed_origins في إعدادات CORS للباك إند.',
+      0,
+      { url, reason: offline ? 'offline' : 'blocked-or-unreachable', cause: err?.name || 'Error' }
+    );
   }
   clearTimeout(timer);
 

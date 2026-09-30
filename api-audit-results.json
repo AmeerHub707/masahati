@@ -1,0 +1,2580 @@
+{
+  "meta": {
+    "baseUrl": "https://back-end-kwba.onrender.com",
+    "node": "v24.19.0",
+    "startedAt": "2026-09-27T17:09:46.976Z",
+    "warmup": {
+      "status": 200,
+      "ok": true,
+      "ms": 627,
+      "allow": "POST",
+      "contentType": "text/html; charset=utf-8",
+      "json": null,
+      "snippet": ""
+    }
+  },
+  "endpoints": [
+    {
+      "method": "POST",
+      "path": "/api/login",
+      "group": "Auth & account",
+      "file": "src/lib/authStore.js:42",
+      "fn": "login",
+      "role": "public",
+      "live": true,
+      "bodyNote": "JSON { login, password } - field is `login`, not `email`",
+      "expect": [
+        [
+          "token"
+        ]
+      ],
+      "resolvedPath": "/api/login",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "route present, validation rejected probe body",
+        "status": 422,
+        "ms": 4400,
+        "allow": "",
+        "snippet": "{\"message\":\"The login field is required. (and 1 more error)\",\"errors\":{\"login\":[\"The login field is required.\"],\"password\":[\"The password field is required.\"]}}"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/profile",
+      "group": "Auth & account",
+      "file": "src/lib/authStore.js:56,177; dashboard.js:124; owner.js:1301",
+      "fn": "login/getProfile/fetchDashboard/loadOwnerDashboardImpl",
+      "role": "both",
+      "live": true,
+      "expect": [
+        [
+          "role"
+        ],
+        [
+          "name",
+          "full_name"
+        ],
+        [
+          "email"
+        ],
+        [
+          "phone"
+        ],
+        [
+          "picture",
+          "photo"
+        ]
+      ],
+      "resolvedPath": "/api/profile",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 247,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/register/customer",
+      "group": "Auth & account",
+      "file": "src/lib/authStore.js:80",
+      "fn": "registerCustomer",
+      "role": "public",
+      "live": true,
+      "bodyNote": "JSON { name, email, phone, password, password_confirmation }",
+      "expect": [
+        [
+          "registration_token"
+        ]
+      ],
+      "resolvedPath": "/api/register/customer",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "route present, validation rejected probe body",
+        "status": 422,
+        "ms": 3022,
+        "allow": "",
+        "snippet": "{\"message\":\"The name field is required. (and 3 more errors)\",\"errors\":{\"name\":[\"The name field is required.\"],\"phone\":[\"The phone field is required.\"],\"email\":[\"The email field is required.\"],\"password\":[\"The password field is required.\"]}}"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/register/space-owner",
+      "group": "Auth & account",
+      "file": "src/lib/authStore.js:88",
+      "fn": "registerOwner",
+      "role": "public",
+      "live": true,
+      "form": true,
+      "bodyNote": "FORM name,email,phone,password,password_confirmation + proof_document file",
+      "expect": [
+        [
+          "registration_token"
+        ]
+      ],
+      "resolvedPath": "/api/register/space-owner",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "route present, validation rejected probe body",
+        "status": 422,
+        "ms": 3030,
+        "allow": "",
+        "snippet": "{\"message\":\"The name field is required. (and 3 more errors)\",\"errors\":{\"name\":[\"The name field is required.\"],\"phone\":[\"The phone field is required.\"],\"email\":[\"The email field is required.\"],\"password\":[\"The password field is required.\"]}}"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/google",
+      "group": "Auth & account",
+      "file": "src/lib/authStore.js:121",
+      "fn": "googleLogin",
+      "role": "public",
+      "live": true,
+      "bodyNote": "JSON { id_token } or { id_token, role }",
+      "expect": [
+        [
+          "token"
+        ]
+      ],
+      "resolvedPath": "/api/auth/google",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "route present, validation rejected probe body",
+        "status": 422,
+        "ms": 2989,
+        "allow": "",
+        "snippet": "{\"message\":\"The id token field is required.\",\"errors\":{\"id_token\":[\"The id token field is required.\"]}}"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/change-pass",
+      "group": "Auth & account",
+      "file": "src/lib/authStore.js:165",
+      "fn": "changePassword",
+      "role": "both",
+      "live": true,
+      "bodyNote": "JSON { oldPassword, newPassword, newPassword_confirmation }",
+      "expect": [
+        [
+          "message"
+        ]
+      ],
+      "resolvedPath": "/api/change-pass",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 277,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/customer/profile",
+      "group": "Auth & account",
+      "file": "src/lib/authStore.js:182",
+      "fn": "updateProfile",
+      "role": "both",
+      "live": true,
+      "bodyNote": "JSON { full_name, phone, email } - response ignored by caller",
+      "expect": [
+        [
+          "message"
+        ]
+      ],
+      "resolvedPath": "/api/customer/profile",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 285,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/uploadPicture",
+      "group": "Auth & account",
+      "file": "src/lib/authStore.js:194",
+      "fn": "uploadPicture",
+      "role": "both",
+      "live": true,
+      "form": true,
+      "bodyNote": "FORM profile_picture file - one-time upload path",
+      "expect": [
+        [
+          "profile_picture_url",
+          "picture",
+          "photo",
+          "image",
+          "avatar",
+          "path"
+        ]
+      ],
+      "resolvedPath": "/api/uploadPicture",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 412,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/profile/picture",
+      "group": "Auth & account",
+      "file": "src/lib/authStore.js:206",
+      "fn": "updateProfilePicture",
+      "role": "both",
+      "live": true,
+      "form": true,
+      "bodyNote": "FORM profile_picture file - replace path",
+      "expect": [
+        [
+          "profile_picture_url",
+          "picture",
+          "photo",
+          "image",
+          "avatar",
+          "path"
+        ]
+      ],
+      "resolvedPath": "/api/profile/picture",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 361,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/logout",
+      "group": "Auth & account",
+      "file": "src/lib/authStore.js:217",
+      "fn": "logout",
+      "role": "both",
+      "live": true,
+      "bodyNote": "no body; errors swallowed, local session cleared in finally",
+      "resolvedPath": "/api/logout",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 902,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/delete-user",
+      "group": "Auth & account",
+      "file": "src/lib/authStore.js:229",
+      "fn": "deleteUser",
+      "role": "both",
+      "live": true,
+      "bodyNote": "no body",
+      "resolvedPath": "/api/delete-user",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 279,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/forgot-password",
+      "group": "Auth & account",
+      "file": "src/lib/authStore.js:239; ForgotPasswordPage.jsx:48",
+      "fn": "isEmailRegistered/handleSubmit",
+      "role": "public",
+      "live": true,
+      "bodyNote": "JSON { email } - existence inferred from 4xx vs 2xx",
+      "expect": [
+        [
+          "message"
+        ]
+      ],
+      "resolvedPath": "/api/forgot-password",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "route present, validation rejected probe body",
+        "status": 422,
+        "ms": 3520,
+        "allow": "",
+        "snippet": "{\"message\":\"The email field is required.\",\"errors\":{\"email\":[\"The email field is required.\"]}}"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/verify-otp",
+      "group": "OTP & reset",
+      "file": "src/pages/VerifyOtpPage.jsx:76",
+      "fn": "handleOtpSubmit",
+      "role": "public",
+      "live": true,
+      "bodyNote": "JSON { registration_token, code }; 422/401 -> invalid-code message",
+      "resolvedPath": "/api/verify-otp",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "client error 429 (route present, reached handler)",
+        "status": 429,
+        "ms": 1802,
+        "allow": "",
+        "snippet": "{ \"message\": \"Too Many Attempts.\" }"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/resend-otp",
+      "group": "OTP & reset",
+      "file": "src/pages/VerifyOtpPage.jsx:110",
+      "fn": "handleResendOtp",
+      "role": "public",
+      "live": true,
+      "bodyNote": "JSON { registration_token }",
+      "resolvedPath": "/api/resend-otp",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "client error 429 (route present, reached handler)",
+        "status": 429,
+        "ms": 1856,
+        "allow": "",
+        "snippet": "{ \"message\": \"Too Many Attempts.\" }"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/reset-password",
+      "group": "OTP & reset",
+      "file": "src/pages/ResetPasswordPage.jsx:95",
+      "fn": "handleSubmit",
+      "role": "public",
+      "live": true,
+      "bodyNote": "JSON { email, token, password, password_confirmation }; errors.password/token/email read on 422",
+      "resolvedPath": "/api/reset-password",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "client error 429 (route present, reached handler)",
+        "status": 429,
+        "ms": 1863,
+        "allow": "",
+        "snippet": "{ \"message\": \"Too Many Attempts.\" }"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/dashboard/stats",
+      "group": "Customer dashboard",
+      "file": "src/lib/dashboard.js:120",
+      "fn": "fetchDashboard",
+      "role": "customer",
+      "live": true,
+      "expect": [
+        [
+          "upcoming_bookings_count"
+        ],
+        [
+          "total_hours"
+        ],
+        [
+          "favorite_spaces_count"
+        ],
+        [
+          "booked_hours_this_month"
+        ]
+      ],
+      "resolvedPath": "/api/dashboard/stats",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 247,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/dashboard/upcoming-booking",
+      "group": "Customer dashboard",
+      "file": "src/lib/dashboard.js:121",
+      "fn": "fetchDashboard",
+      "role": "customer",
+      "live": true,
+      "expect": [
+        [
+          "bookings",
+          "data"
+        ],
+        [
+          "booking_id",
+          "id"
+        ],
+        [
+          "space_name",
+          "title"
+        ],
+        [
+          "date"
+        ],
+        [
+          "time_from"
+        ],
+        [
+          "time_to"
+        ],
+        [
+          "status"
+        ]
+      ],
+      "resolvedPath": "/api/dashboard/upcoming-booking",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 256,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/dashboard/bookings",
+      "group": "Customer dashboard",
+      "file": "src/lib/dashboard.js:122",
+      "fn": "fetchDashboard",
+      "role": "customer",
+      "live": true,
+      "expect": [
+        [
+          "bookings",
+          "data"
+        ],
+        [
+          "booking_id",
+          "id"
+        ],
+        [
+          "space_name",
+          "title"
+        ],
+        [
+          "date"
+        ],
+        [
+          "hours"
+        ],
+        [
+          "price",
+          "cost"
+        ],
+        [
+          "status"
+        ]
+      ],
+      "resolvedPath": "/api/dashboard/bookings",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 255,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/dashboard/favorites",
+      "group": "Customer dashboard",
+      "file": "src/lib/dashboard.js:123",
+      "fn": "fetchDashboard",
+      "role": "customer",
+      "live": true,
+      "expect": [
+        [
+          "favorites",
+          "data"
+        ],
+        [
+          "space_id",
+          "id"
+        ],
+        [
+          "title",
+          "name"
+        ],
+        [
+          "location"
+        ],
+        [
+          "price",
+          "price_per_hour"
+        ],
+        [
+          "rating"
+        ]
+      ],
+      "resolvedPath": "/api/dashboard/favorites",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 291,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/dashboard/favorites/toggle",
+      "group": "Customer dashboard",
+      "file": "src/lib/dashboard.js:170",
+      "fn": "toggleFavorite",
+      "role": "customer",
+      "live": true,
+      "bodyNote": "JSON { space_id }; expects is_favorited at root or under data",
+      "resolvedPath": "/api/dashboard/favorites/toggle",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 355,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/dashboard/spaces",
+      "group": "Customer dashboard",
+      "file": "src/lib/dashboard.js:183",
+      "fn": "fetchSpaces",
+      "role": "customer",
+      "live": false,
+      "note": "dead code - no importer",
+      "expect": [
+        [
+          "data",
+          "spaces"
+        ],
+        [
+          "current_page"
+        ],
+        [
+          "last_page"
+        ]
+      ],
+      "resolvedPath": "/api/dashboard/spaces",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 269,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/special-requests",
+      "group": "Special requests",
+      "file": "src/lib/requests.js:412",
+      "fn": "fetchMyRequests",
+      "role": "customer",
+      "live": true,
+      "expect": [
+        [
+          "requests",
+          "data"
+        ],
+        [
+          "request_id",
+          "id"
+        ],
+        [
+          "title"
+        ],
+        [
+          "notes",
+          "description",
+          "details"
+        ],
+        [
+          "space_type"
+        ],
+        [
+          "capacity"
+        ],
+        [
+          "schedule"
+        ],
+        [
+          "preferred_time"
+        ],
+        [
+          "area",
+          "location"
+        ],
+        [
+          "amenities"
+        ],
+        [
+          "budget",
+          "max_budget"
+        ],
+        [
+          "status",
+          "is_accepted"
+        ],
+        [
+          "offers_count"
+        ],
+        [
+          "created_at"
+        ],
+        [
+          "expires_at"
+        ]
+      ],
+      "resolvedPath": "/api/special-requests",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 304,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/special-requests",
+      "group": "Special requests",
+      "file": "src/lib/requests.js:421",
+      "fn": "createSpecialRequest",
+      "role": "customer",
+      "live": true,
+      "bodyNote": "JSON { title, description, space_type, capacity, schedule_preset, schedule_count, preferred_time, area, amenities, budget }",
+      "resolvedPath": "/api/special-requests",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 280,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/special-requests/{id}",
+      "group": "Special requests",
+      "file": "src/lib/requests.js:443",
+      "fn": "fetchRequestDetail",
+      "role": "customer",
+      "live": true,
+      "dynamic": true,
+      "harvest": "request",
+      "expect": [
+        [
+          "request"
+        ],
+        [
+          "title"
+        ],
+        [
+          "offers"
+        ],
+        [
+          "offer_id",
+          "id"
+        ],
+        [
+          "owner_name"
+        ],
+        [
+          "price_per_hour"
+        ],
+        [
+          "currency"
+        ],
+        [
+          "duration_hours",
+          "hours"
+        ],
+        [
+          "location"
+        ],
+        [
+          "notes",
+          "message"
+        ],
+        [
+          "status",
+          "is_accepted"
+        ]
+      ],
+      "resolvedPath": "/api/special-requests/1",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 244,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/special-requests/{requestId}/offers/{offerId}/accept",
+      "group": "Special requests",
+      "file": "src/lib/requests.js:455",
+      "fn": "acceptRequestOffer",
+      "role": "customer",
+      "live": true,
+      "dynamic": true,
+      "bodyNote": "no body; expects booking|order|reservation wrapper",
+      "resolvedPath": "/api/special-requests/1/offers/1/accept",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 377,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/special-requests/{requestId}/offers/{offerId}/reject",
+      "group": "Special requests",
+      "file": "src/lib/requests.js:654",
+      "fn": "rejectRequestOffer",
+      "role": "customer",
+      "live": true,
+      "dynamic": true,
+      "bodyNote": "no body",
+      "resolvedPath": "/api/special-requests/1/offers/1/reject",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 287,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/special-requests/{requestId}/close",
+      "group": "Special requests",
+      "file": "src/lib/requests.js:668",
+      "fn": "closeSpecialRequest",
+      "role": "customer",
+      "live": true,
+      "dynamic": true,
+      "bodyNote": "no body",
+      "resolvedPath": "/api/special-requests/1/close",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 574,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/special-requests/open",
+      "group": "Special requests",
+      "file": "src/lib/owner.js:518",
+      "fn": "fetchMarketRequests",
+      "role": "owner",
+      "live": true,
+      "expect": [
+        [
+          "requests",
+          "data"
+        ],
+        [
+          "request_id",
+          "id"
+        ],
+        [
+          "title"
+        ],
+        [
+          "space_type"
+        ],
+        [
+          "capacity"
+        ],
+        [
+          "schedule"
+        ],
+        [
+          "preferred_time"
+        ],
+        [
+          "area",
+          "location"
+        ],
+        [
+          "amenities"
+        ],
+        [
+          "budget",
+          "max_budget"
+        ]
+      ],
+      "resolvedPath": "/api/special-requests/open",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 627,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/special-requests/{requestId}/offers",
+      "group": "Special requests",
+      "file": "src/lib/owner.js:527",
+      "fn": "submitOwnerProposal",
+      "role": "owner",
+      "live": true,
+      "dynamic": true,
+      "bodyNote": "JSON { space_id, price_per_hour, duration_hours, notes, currency }",
+      "resolvedPath": "/api/special-requests/1/offers",
+      "unauth": {
+        "verdict": "MISSING",
+        "detail": "no route registered",
+        "status": 404,
+        "ms": 258,
+        "allow": "",
+        "snippet": "{ \"message\": \"The route api/special-requests/1/offers could not be found.\" }"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/owner/spaces",
+      "group": "Owner dashboard",
+      "file": "src/lib/owner.js:558",
+      "fn": "fetchOwnerSpaces",
+      "role": "owner",
+      "live": true,
+      "expect": [
+        [
+          "spaces",
+          "data"
+        ],
+        [
+          "space_id",
+          "id"
+        ],
+        [
+          "title"
+        ],
+        [
+          "description"
+        ],
+        [
+          "location"
+        ],
+        [
+          "lat",
+          "latitude"
+        ],
+        [
+          "lng",
+          "lon",
+          "longitude"
+        ],
+        [
+          "image"
+        ],
+        [
+          "gallery"
+        ],
+        [
+          "price_per_hour",
+          "price"
+        ],
+        [
+          "capacity"
+        ],
+        [
+          "open_time"
+        ],
+        [
+          "close_time"
+        ],
+        [
+          "contact_phone"
+        ],
+        [
+          "amenities"
+        ],
+        [
+          "internet",
+          "has_internet",
+          "wifi"
+        ],
+        [
+          "power",
+          "has_power",
+          "electricity"
+        ],
+        [
+          "status",
+          "is_active"
+        ],
+        [
+          "docs"
+        ],
+        [
+          "rating"
+        ],
+        [
+          "stats"
+        ]
+      ],
+      "resolvedPath": "/api/owner/spaces",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 254,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/owner/spaces",
+      "group": "Owner dashboard",
+      "file": "src/lib/owner.js:567",
+      "fn": "createOwnerSpace",
+      "role": "owner",
+      "live": true,
+      "bodyNote": "JSON title,description,location,lat,lng,price_per_hour,capacity,open_time,close_time,contact_phone,amenities,internet,power,image,docs[],status",
+      "resolvedPath": "/api/owner/spaces",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 320,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/owner/spaces/{spaceId}/active",
+      "group": "Owner dashboard",
+      "file": "src/lib/owner.js:599",
+      "fn": "toggleOwnerSpaceActive",
+      "role": "owner",
+      "live": true,
+      "dynamic": true,
+      "bodyNote": "JSON { is_active }",
+      "contractFlag": "BACKEND_OWNER_DASHBOARD_CONTRACT.md:197 - NOT IMPLEMENTED YET",
+      "resolvedPath": "/api/owner/spaces/1/active",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 1238,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/api/owner/spaces/{spaceId}",
+      "group": "Owner dashboard",
+      "file": "src/lib/owner.js:612",
+      "fn": "updateOwnerSpace",
+      "role": "owner",
+      "live": true,
+      "dynamic": true,
+      "bodyNote": "JSON same as create minus status; known bug: omits gallery",
+      "contractFlag": "BACKEND_OWNER_DASHBOARD_CONTRACT.md:298 - NOT IMPLEMENTED YET",
+      "resolvedPath": "/api/owner/spaces/1",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 257,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/owner/spaces/{spaceId}",
+      "group": "Owner dashboard",
+      "file": "src/lib/owner.js:643",
+      "fn": "deleteOwnerSpace",
+      "role": "owner",
+      "live": true,
+      "dynamic": true,
+      "bodyNote": "no body",
+      "contractFlag": "BACKEND_OWNER_DASHBOARD_CONTRACT.md:353 - NOT IMPLEMENTED YET",
+      "resolvedPath": "/api/owner/spaces/1",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 246,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/owner/bookings",
+      "group": "Owner dashboard",
+      "file": "src/lib/owner.js:655",
+      "fn": "fetchOwnerBookings",
+      "role": "owner",
+      "live": true,
+      "contractFlag": "BACKEND_OWNER_DASHBOARD_CONTRACT.md:232 - NOT IMPLEMENTED YET",
+      "expect": [
+        [
+          "bookings",
+          "data"
+        ],
+        [
+          "booking_id",
+          "id"
+        ],
+        [
+          "space_id"
+        ],
+        [
+          "space_name",
+          "title"
+        ],
+        [
+          "date"
+        ],
+        [
+          "time_from",
+          "start_time"
+        ],
+        [
+          "time_to",
+          "end_time"
+        ],
+        [
+          "hours",
+          "duration_hours"
+        ],
+        [
+          "price",
+          "cost"
+        ],
+        [
+          "customer",
+          "customer_name"
+        ],
+        [
+          "status"
+        ]
+      ],
+      "resolvedPath": "/api/owner/bookings",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 366,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/owner/bookings/{bookingId}/status",
+      "group": "Owner dashboard",
+      "file": "src/lib/owner.js:787",
+      "fn": "updateOwnerBookingStatus",
+      "role": "owner",
+      "live": true,
+      "dynamic": true,
+      "bodyNote": "JSON { status }",
+      "note": "code comment says not enabled in backend; absent from every BACKEND_*.md",
+      "resolvedPath": "/api/owner/bookings/1/status",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 330,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/owner/reviews",
+      "group": "Owner dashboard",
+      "file": "src/lib/owner.js:682",
+      "fn": "fetchOwnerReviews",
+      "role": "owner",
+      "live": true,
+      "note": "absent from every BACKEND_*.md; optional ?space_id=",
+      "expect": [
+        [
+          "reviews",
+          "data"
+        ],
+        [
+          "review_id",
+          "id"
+        ],
+        [
+          "space_id"
+        ],
+        [
+          "space_name"
+        ],
+        [
+          "space_image",
+          "image"
+        ],
+        [
+          "rating"
+        ],
+        [
+          "title"
+        ],
+        [
+          "comment",
+          "text",
+          "review"
+        ],
+        [
+          "customer_name",
+          "customer"
+        ],
+        [
+          "customer_avatar",
+          "avatar"
+        ],
+        [
+          "date",
+          "created_at"
+        ]
+      ],
+      "resolvedPath": "/api/owner/reviews",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 256,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/owner/documents",
+      "group": "Owner dashboard",
+      "file": "src/lib/owner.js:1177",
+      "fn": "fetchOwnerDocuments",
+      "role": "owner",
+      "live": true,
+      "expect": [
+        [
+          "status"
+        ],
+        [
+          "files"
+        ],
+        [
+          "assets"
+        ],
+        [
+          "cert"
+        ],
+        [
+          "note",
+          "review_note",
+          "admin_note"
+        ],
+        [
+          "submitted_at"
+        ],
+        [
+          "reviewed_at"
+        ]
+      ],
+      "resolvedPath": "/api/owner/documents",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 280,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/owner/documents",
+      "group": "Owner dashboard",
+      "file": "src/lib/owner.js:1190",
+      "fn": "submitOwnerDocuments",
+      "role": "owner",
+      "live": true,
+      "form": true,
+      "bodyNote": "FORM assets=<file>, cert=<file>",
+      "note": "GET is in contract 8; the POST upload is undocumented",
+      "resolvedPath": "/api/owner/documents",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 251,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/owner/offers",
+      "group": "Owner dashboard",
+      "file": "src/lib/owner.js:549",
+      "fn": "fetchOwnerOffers",
+      "role": "owner",
+      "live": true,
+      "expect": [
+        [
+          "offers",
+          "data"
+        ],
+        [
+          "offer_id",
+          "id"
+        ],
+        [
+          "request_id"
+        ],
+        [
+          "request_title",
+          "title"
+        ],
+        [
+          "status"
+        ],
+        [
+          "price_per_hour",
+          "price"
+        ],
+        [
+          "currency"
+        ],
+        [
+          "duration_hours",
+          "hours"
+        ],
+        [
+          "created_at",
+          "created"
+        ]
+      ],
+      "resolvedPath": "/api/owner/offers",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 252,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/owner/ads",
+      "group": "Owner ads",
+      "file": "src/lib/ads.js:116",
+      "fn": "fetchOwnerAds",
+      "role": "owner",
+      "live": true,
+      "expect": [
+        [
+          "ads",
+          "data"
+        ],
+        [
+          "ad_id",
+          "id"
+        ],
+        [
+          "title"
+        ],
+        [
+          "description",
+          "notes"
+        ],
+        [
+          "link",
+          "url"
+        ],
+        [
+          "image"
+        ],
+        [
+          "target"
+        ],
+        [
+          "space_id",
+          "space"
+        ],
+        [
+          "status"
+        ],
+        [
+          "created_at",
+          "created"
+        ],
+        [
+          "sent_at"
+        ],
+        [
+          "impressions",
+          "impressions_count"
+        ],
+        [
+          "schedule"
+        ]
+      ],
+      "resolvedPath": "/api/owner/ads",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 301,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/owner/ads",
+      "group": "Owner ads",
+      "file": "src/lib/ads.js:125",
+      "fn": "createOwnerAd",
+      "role": "owner",
+      "live": true,
+      "bodyNote": "JSON { title, description, link, image, target, schedule }",
+      "resolvedPath": "/api/owner/ads",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 274,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/api/owner/ads/{adId}",
+      "group": "Owner ads",
+      "file": "src/lib/ads.js:149",
+      "fn": "updateOwnerAd",
+      "role": "owner",
+      "live": true,
+      "dynamic": true,
+      "bodyNote": "JSON { title, description, link, image, target, status, schedule }",
+      "resolvedPath": "/api/owner/ads/1",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 328,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/owner/ads/{adId}",
+      "group": "Owner ads",
+      "file": "src/lib/ads.js:174",
+      "fn": "deleteOwnerAd",
+      "role": "owner",
+      "live": true,
+      "dynamic": true,
+      "bodyNote": "no body",
+      "resolvedPath": "/api/owner/ads/1",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 727,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/owner/ads/{adId}/publish",
+      "group": "Owner ads",
+      "file": "src/lib/ads.js:187",
+      "fn": "publishOwnerAd",
+      "role": "owner",
+      "live": true,
+      "dynamic": true,
+      "bodyNote": "no body",
+      "resolvedPath": "/api/owner/ads/1/publish",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 346,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications",
+      "group": "Notifications",
+      "file": "src/lib/notifications.js:162",
+      "fn": "fetchNotifications",
+      "role": "both",
+      "live": true,
+      "expect": [
+        [
+          "notifications",
+          "data"
+        ],
+        [
+          "id",
+          "notification_id"
+        ],
+        [
+          "text",
+          "message"
+        ],
+        [
+          "time"
+        ],
+        [
+          "read"
+        ],
+        [
+          "created_at"
+        ]
+      ],
+      "resolvedPath": "/api/notifications",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 243,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/notifications/read",
+      "group": "Notifications",
+      "file": "src/lib/notifications.js:171",
+      "fn": "markNotificationsRead",
+      "role": "both",
+      "live": true,
+      "bodyNote": "no body",
+      "resolvedPath": "/api/notifications/read",
+      "unauth": {
+        "verdict": "WRONG-METHOD",
+        "detail": "route present, allowed: POST",
+        "status": 405,
+        "ms": 235,
+        "allow": "POST",
+        "snippet": "{ \"message\": \"The PATCH method is not supported for route api/notifications/read. Supported methods: POST.\" }"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/assistant/chat",
+      "group": "AI assistant",
+      "file": "src/lib/assistant.js:24; ownerAssistant.js:166; customerAssistant.js:134",
+      "fn": "askAssistant/askOwnerAssistant/askCustomerAssistant",
+      "role": "both",
+      "live": true,
+      "bodyNote": "three call sites on one route: anonymous {message}; authed {message, owner_context}; authed {message, customer_context}",
+      "note": "probed with an empty body so validation rejects before the LLM runs - no paid model call is made",
+      "expect": [
+        [
+          "reply"
+        ],
+        [
+          "spaces"
+        ]
+      ],
+      "resolvedPath": "/api/assistant/chat",
+      "unauth": {
+        "verdict": "EXISTS",
+        "detail": "route present, validation rejected probe body",
+        "status": 422,
+        "ms": 3003,
+        "allow": "",
+        "snippet": "{\"message\":\"The message field is required.\",\"errors\":{\"message\":[\"The message field is required.\"]}}"
+      }
+    }
+  ],
+  "options": {
+    "/api/login": {
+      "status": 200,
+      "allow": "POST",
+      "error": ""
+    },
+    "/api/profile": {
+      "status": 200,
+      "allow": "GET,HEAD",
+      "error": ""
+    },
+    "/api/register/customer": {
+      "status": 200,
+      "allow": "POST",
+      "error": ""
+    },
+    "/api/register/space-owner": {
+      "status": 200,
+      "allow": "POST",
+      "error": ""
+    },
+    "/api/auth/google": {
+      "status": 200,
+      "allow": "POST",
+      "error": ""
+    },
+    "/api/change-pass": {
+      "status": 200,
+      "allow": "POST",
+      "error": ""
+    },
+    "/api/customer/profile": {
+      "status": 200,
+      "allow": "PATCH",
+      "error": ""
+    },
+    "/api/uploadPicture": {
+      "status": 200,
+      "allow": "POST",
+      "error": ""
+    },
+    "/api/profile/picture": {
+      "status": 200,
+      "allow": "PATCH",
+      "error": ""
+    },
+    "/api/logout": {
+      "status": 200,
+      "allow": "POST",
+      "error": ""
+    },
+    "/api/delete-user": {
+      "status": 200,
+      "allow": "DELETE",
+      "error": ""
+    },
+    "/api/forgot-password": {
+      "status": 200,
+      "allow": "POST",
+      "error": ""
+    },
+    "/api/verify-otp": {
+      "status": 200,
+      "allow": "POST",
+      "error": ""
+    },
+    "/api/resend-otp": {
+      "status": 200,
+      "allow": "POST",
+      "error": ""
+    },
+    "/api/reset-password": {
+      "status": 200,
+      "allow": "POST",
+      "error": ""
+    },
+    "/api/dashboard/stats": {
+      "status": 200,
+      "allow": "GET,HEAD",
+      "error": ""
+    },
+    "/api/dashboard/upcoming-booking": {
+      "status": 200,
+      "allow": "GET,HEAD",
+      "error": ""
+    },
+    "/api/dashboard/bookings": {
+      "status": 200,
+      "allow": "GET,HEAD",
+      "error": ""
+    },
+    "/api/dashboard/favorites": {
+      "status": 200,
+      "allow": "GET,HEAD",
+      "error": ""
+    },
+    "/api/dashboard/favorites/toggle": {
+      "status": 200,
+      "allow": "POST",
+      "error": ""
+    },
+    "/api/dashboard/spaces": {
+      "status": 200,
+      "allow": "GET,HEAD",
+      "error": ""
+    },
+    "/api/special-requests": {
+      "status": 200,
+      "allow": "GET,HEAD,POST",
+      "error": ""
+    },
+    "/api/special-requests/{id}": {
+      "status": 200,
+      "allow": "GET,HEAD",
+      "error": ""
+    },
+    "/api/special-requests/{requestId}/offers/{offerId}/accept": {
+      "status": 200,
+      "allow": "POST",
+      "error": ""
+    },
+    "/api/special-requests/{requestId}/offers/{offerId}/reject": {
+      "status": 200,
+      "allow": "POST",
+      "error": ""
+    },
+    "/api/special-requests/{requestId}/close": {
+      "status": 200,
+      "allow": "POST",
+      "error": ""
+    },
+    "/api/special-requests/open": {
+      "status": 200,
+      "allow": "GET,HEAD",
+      "error": ""
+    },
+    "/api/special-requests/{requestId}/offers": {
+      "status": 404,
+      "allow": "",
+      "error": ""
+    },
+    "/api/owner/spaces": {
+      "status": 200,
+      "allow": "GET,HEAD,POST",
+      "error": ""
+    },
+    "/api/owner/spaces/{spaceId}/active": {
+      "status": 200,
+      "allow": "PATCH",
+      "error": ""
+    },
+    "/api/owner/spaces/{spaceId}": {
+      "status": 200,
+      "allow": "PUT,DELETE",
+      "error": ""
+    },
+    "/api/owner/bookings": {
+      "status": 200,
+      "allow": "GET,HEAD",
+      "error": ""
+    },
+    "/api/owner/bookings/{bookingId}/status": {
+      "status": 200,
+      "allow": "PATCH",
+      "error": ""
+    },
+    "/api/owner/reviews": {
+      "status": 200,
+      "allow": "GET,HEAD",
+      "error": ""
+    },
+    "/api/owner/documents": {
+      "status": 200,
+      "allow": "GET,HEAD,POST",
+      "error": ""
+    },
+    "/api/owner/offers": {
+      "status": 200,
+      "allow": "GET,HEAD",
+      "error": ""
+    },
+    "/api/owner/ads": {
+      "status": 200,
+      "allow": "GET,HEAD,POST",
+      "error": ""
+    },
+    "/api/owner/ads/{adId}": {
+      "status": 200,
+      "allow": "PUT,DELETE",
+      "error": ""
+    },
+    "/api/owner/ads/{adId}/publish": {
+      "status": 200,
+      "allow": "POST",
+      "error": ""
+    },
+    "/api/notifications": {
+      "status": 200,
+      "allow": "GET,HEAD",
+      "error": ""
+    },
+    "/api/notifications/read": {
+      "status": 200,
+      "allow": "POST",
+      "error": ""
+    },
+    "/api/assistant/chat": {
+      "status": 200,
+      "allow": "POST",
+      "error": ""
+    }
+  },
+  "auth": {
+    "owner": {
+      "ok": true,
+      "viaField": "login",
+      "role": null
+    },
+    "customer": {
+      "ok": true,
+      "viaField": "login",
+      "role": null
+    }
+  },
+  "ids": {},
+  "reads": [
+    {
+      "path": "/api/profile",
+      "role": "owner",
+      "probe": null,
+      "verdict": "EXISTS",
+      "detail": "201 (route present and reachable)",
+      "status": 201,
+      "ms": 3205,
+      "shape": {
+        "checked": 5,
+        "missing": [],
+        "found": 5,
+        "arrays": [],
+        "mode": "CHECKED",
+        "wrapperPresent": true
+      },
+      "snippet": "{\"name\":\"Ameer-Ayyad\",\"phone\":\"[number]\",\"email\":\"[email]\",\"role\":\"space_owner\",\"picture\":null,\"proof_document\":null}"
+    },
+    {
+      "path": "/api/profile",
+      "role": "customer",
+      "probe": null,
+      "verdict": "EXISTS",
+      "detail": "201 (route present and reachable)",
+      "status": 201,
+      "ms": 1906,
+      "shape": {
+        "checked": 5,
+        "missing": [],
+        "found": 5,
+        "arrays": [],
+        "mode": "CHECKED",
+        "wrapperPresent": true
+      },
+      "snippet": "{\"name\":\"Ameer\",\"phone\":\"[number]\",\"email\":\"[email]\",\"role\":\"customer\",\"picture\":null,\"proof_document\":null}"
+    },
+    {
+      "path": "/api/owner/spaces",
+      "role": "owner",
+      "probe": null,
+      "verdict": "EXISTS",
+      "detail": "200 (route present and reachable)",
+      "status": 200,
+      "ms": 2154,
+      "shape": {
+        "checked": 21,
+        "missing": [
+          [
+            "space_id",
+            "id"
+          ],
+          [
+            "title"
+          ],
+          [
+            "description"
+          ],
+          [
+            "location"
+          ],
+          [
+            "lat",
+            "latitude"
+          ],
+          [
+            "lng",
+            "lon",
+            "longitude"
+          ],
+          [
+            "image"
+          ],
+          [
+            "gallery"
+          ],
+          [
+            "price_per_hour",
+            "price"
+          ],
+          [
+            "capacity"
+          ],
+          [
+            "open_time"
+          ],
+          [
+            "close_time"
+          ],
+          [
+            "contact_phone"
+          ],
+          [
+            "amenities"
+          ],
+          [
+            "internet",
+            "has_internet",
+            "wifi"
+          ],
+          [
+            "power",
+            "has_power",
+            "electricity"
+          ],
+          [
+            "status",
+            "is_active"
+          ],
+          [
+            "docs"
+          ],
+          [
+            "rating"
+          ],
+          [
+            "stats"
+          ]
+        ],
+        "found": 1,
+        "arrays": [
+          {
+            "path": "spaces",
+            "length": 0
+          }
+        ],
+        "mode": "EMPTY",
+        "wrapperPresent": true
+      },
+      "snippet": "{\"spaces\":[]}"
+    },
+    {
+      "path": "/api/owner/offers",
+      "role": "owner",
+      "probe": null,
+      "verdict": "EXISTS",
+      "detail": "200 (route present and reachable)",
+      "status": 200,
+      "ms": 2179,
+      "shape": {
+        "checked": 9,
+        "missing": [
+          [
+            "offer_id",
+            "id"
+          ],
+          [
+            "request_id"
+          ],
+          [
+            "request_title",
+            "title"
+          ],
+          [
+            "status"
+          ],
+          [
+            "price_per_hour",
+            "price"
+          ],
+          [
+            "currency"
+          ],
+          [
+            "duration_hours",
+            "hours"
+          ],
+          [
+            "created_at",
+            "created"
+          ]
+        ],
+        "found": 1,
+        "arrays": [
+          {
+            "path": "offers",
+            "length": 0
+          }
+        ],
+        "mode": "EMPTY",
+        "wrapperPresent": true
+      },
+      "snippet": "{\"offers\":[]}"
+    },
+    {
+      "path": "/api/owner/bookings",
+      "role": "owner",
+      "probe": null,
+      "verdict": "EXISTS",
+      "detail": "200 (route present and reachable)",
+      "status": 200,
+      "ms": 2120,
+      "shape": {
+        "checked": 11,
+        "missing": [
+          [
+            "booking_id",
+            "id"
+          ],
+          [
+            "space_id"
+          ],
+          [
+            "space_name",
+            "title"
+          ],
+          [
+            "date"
+          ],
+          [
+            "time_from",
+            "start_time"
+          ],
+          [
+            "time_to",
+            "end_time"
+          ],
+          [
+            "hours",
+            "duration_hours"
+          ],
+          [
+            "price",
+            "cost"
+          ],
+          [
+            "customer",
+            "customer_name"
+          ],
+          [
+            "status"
+          ]
+        ],
+        "found": 1,
+        "arrays": [
+          {
+            "path": "bookings",
+            "length": 0
+          }
+        ],
+        "mode": "EMPTY",
+        "wrapperPresent": true
+      },
+      "snippet": "{\"bookings\":[]}"
+    },
+    {
+      "path": "/api/owner/reviews",
+      "role": "owner",
+      "probe": null,
+      "verdict": "EXISTS",
+      "detail": "200 (route present and reachable)",
+      "status": 200,
+      "ms": 2498,
+      "shape": {
+        "checked": 11,
+        "missing": [
+          [
+            "review_id",
+            "id"
+          ],
+          [
+            "space_id"
+          ],
+          [
+            "space_name"
+          ],
+          [
+            "space_image",
+            "image"
+          ],
+          [
+            "rating"
+          ],
+          [
+            "title"
+          ],
+          [
+            "comment",
+            "text",
+            "review"
+          ],
+          [
+            "customer_name",
+            "customer"
+          ],
+          [
+            "customer_avatar",
+            "avatar"
+          ],
+          [
+            "date",
+            "created_at"
+          ]
+        ],
+        "found": 1,
+        "arrays": [
+          {
+            "path": "reviews",
+            "length": 0
+          }
+        ],
+        "mode": "EMPTY",
+        "wrapperPresent": true
+      },
+      "snippet": "{\"reviews\":[]}"
+    },
+    {
+      "path": "/api/owner/documents",
+      "role": "owner",
+      "probe": null,
+      "verdict": "EXISTS",
+      "detail": "200 (route present and reachable)",
+      "status": 200,
+      "ms": 2483,
+      "shape": {
+        "checked": 7,
+        "missing": [
+          [
+            "assets"
+          ],
+          [
+            "cert"
+          ]
+        ],
+        "found": 5,
+        "arrays": [
+          {
+            "path": "files",
+            "length": 0
+          }
+        ],
+        "mode": "EMPTY",
+        "wrapperPresent": true
+      },
+      "snippet": "{\"status\":\"none\",\"files\":[],\"note\":null,\"review_note\":null,\"admin_note\":null,\"submitted_at\":null,\"submittedAt\":null,\"reviewed_at\":null,\"reviewedAt\":null}"
+    },
+    {
+      "path": "/api/owner/ads",
+      "role": "owner",
+      "probe": null,
+      "verdict": "EXISTS",
+      "detail": "200 (route present and reachable)",
+      "status": 200,
+      "ms": 2821,
+      "shape": {
+        "checked": 13,
+        "missing": [
+          [
+            "ad_id",
+            "id"
+          ],
+          [
+            "title"
+          ],
+          [
+            "description",
+            "notes"
+          ],
+          [
+            "link",
+            "url"
+          ],
+          [
+            "image"
+          ],
+          [
+            "target"
+          ],
+          [
+            "space_id",
+            "space"
+          ],
+          [
+            "status"
+          ],
+          [
+            "created_at",
+            "created"
+          ],
+          [
+            "sent_at"
+          ],
+          [
+            "impressions",
+            "impressions_count"
+          ],
+          [
+            "schedule"
+          ]
+        ],
+        "found": 1,
+        "arrays": [
+          {
+            "path": "ads",
+            "length": 0
+          }
+        ],
+        "mode": "EMPTY",
+        "wrapperPresent": true
+      },
+      "snippet": "{\"ads\":[]}"
+    },
+    {
+      "path": "/api/special-requests/open",
+      "role": "owner",
+      "probe": null,
+      "verdict": "MISSING",
+      "detail": "no route registered",
+      "status": 404,
+      "ms": 2117,
+      "shape": {
+        "checked": 10,
+        "missing": [
+          [
+            "requests",
+            "data"
+          ],
+          [
+            "request_id",
+            "id"
+          ],
+          [
+            "title"
+          ],
+          [
+            "space_type"
+          ],
+          [
+            "capacity"
+          ],
+          [
+            "schedule"
+          ],
+          [
+            "preferred_time"
+          ],
+          [
+            "area",
+            "location"
+          ],
+          [
+            "amenities"
+          ],
+          [
+            "budget",
+            "max_budget"
+          ]
+        ],
+        "found": 0,
+        "arrays": [],
+        "mode": "CHECKED",
+        "wrapperPresent": true
+      },
+      "snippet": "{ \"message\": \"No query results for model [App\\\\Models\\\\SpecialRequest].\" }"
+    },
+    {
+      "path": "/api/special-requests",
+      "role": "customer",
+      "probe": null,
+      "verdict": "EXISTS",
+      "detail": "200 (route present and reachable)",
+      "status": 200,
+      "ms": 2312,
+      "shape": {
+        "checked": 15,
+        "missing": [
+          [
+            "request_id",
+            "id"
+          ],
+          [
+            "title"
+          ],
+          [
+            "notes",
+            "description",
+            "details"
+          ],
+          [
+            "space_type"
+          ],
+          [
+            "capacity"
+          ],
+          [
+            "schedule"
+          ],
+          [
+            "preferred_time"
+          ],
+          [
+            "area",
+            "location"
+          ],
+          [
+            "amenities"
+          ],
+          [
+            "budget",
+            "max_budget"
+          ],
+          [
+            "status",
+            "is_accepted"
+          ],
+          [
+            "offers_count"
+          ],
+          [
+            "created_at"
+          ],
+          [
+            "expires_at"
+          ]
+        ],
+        "found": 1,
+        "arrays": [
+          {
+            "path": "requests",
+            "length": 0
+          }
+        ],
+        "mode": "EMPTY",
+        "wrapperPresent": true
+      },
+      "snippet": "{\"requests\":[],\"message\":\"\\u062a\\u0645 \\u062c\\u0644\\u0628 \\u0627\\u0644\\u0637\\u0644\\u0628\\u0627\\u062a \\u0627\\u0644\\u062e\\u0627\\u0635\\u0629 \\u0628\\u0646\\u062c\\u0627\\u062d\"}"
+    },
+    {
+      "path": "/api/dashboard/stats",
+      "role": "customer",
+      "probe": null,
+      "verdict": "EXISTS",
+      "detail": "200 (route present and reachable)",
+      "status": 200,
+      "ms": 3041,
+      "shape": {
+        "checked": 4,
+        "missing": [],
+        "found": 4,
+        "arrays": [],
+        "mode": "CHECKED",
+        "wrapperPresent": true
+      },
+      "snippet": "{\"upcoming_bookings_count\":0,\"total_hours\":0,\"favorite_spaces_count\":0,\"booked_hours_this_month\":0}"
+    },
+    {
+      "path": "/api/dashboard/upcoming-booking",
+      "role": "customer",
+      "probe": null,
+      "verdict": "EXISTS",
+      "detail": "200 (route present and reachable)",
+      "status": 200,
+      "ms": 2534,
+      "shape": {
+        "checked": 7,
+        "missing": [
+          [
+            "booking_id",
+            "id"
+          ],
+          [
+            "space_name",
+            "title"
+          ],
+          [
+            "date"
+          ],
+          [
+            "time_from"
+          ],
+          [
+            "time_to"
+          ],
+          [
+            "status"
+          ]
+        ],
+        "found": 1,
+        "arrays": [
+          {
+            "path": "data",
+            "length": 0
+          }
+        ],
+        "mode": "EMPTY",
+        "wrapperPresent": true
+      },
+      "snippet": "{\"data\":[]}"
+    },
+    {
+      "path": "/api/dashboard/bookings",
+      "role": "customer",
+      "probe": null,
+      "verdict": "EXISTS",
+      "detail": "201 (route present and reachable)",
+      "status": 201,
+      "ms": 2136,
+      "shape": {
+        "checked": 7,
+        "missing": [
+          [
+            "booking_id",
+            "id"
+          ],
+          [
+            "space_name",
+            "title"
+          ],
+          [
+            "date"
+          ],
+          [
+            "hours"
+          ],
+          [
+            "price",
+            "cost"
+          ],
+          [
+            "status"
+          ]
+        ],
+        "found": 1,
+        "arrays": [
+          {
+            "path": "data",
+            "length": 0
+          }
+        ],
+        "mode": "EMPTY",
+        "wrapperPresent": true
+      },
+      "snippet": "{\"data\":[]}"
+    },
+    {
+      "path": "/api/dashboard/favorites",
+      "role": "customer",
+      "probe": null,
+      "verdict": "EXISTS",
+      "detail": "201 (route present and reachable)",
+      "status": 201,
+      "ms": 2163,
+      "shape": {
+        "checked": 6,
+        "missing": [
+          [
+            "space_id",
+            "id"
+          ],
+          [
+            "title",
+            "name"
+          ],
+          [
+            "location"
+          ],
+          [
+            "price",
+            "price_per_hour"
+          ],
+          [
+            "rating"
+          ]
+        ],
+        "found": 1,
+        "arrays": [
+          {
+            "path": "data",
+            "length": 0
+          }
+        ],
+        "mode": "EMPTY",
+        "wrapperPresent": true
+      },
+      "snippet": "{\"data\":[]}"
+    },
+    {
+      "path": "/api/notifications",
+      "role": "customer",
+      "probe": null,
+      "verdict": "EXISTS",
+      "detail": "200 (route present and reachable)",
+      "status": 200,
+      "ms": 2121,
+      "shape": {
+        "checked": 6,
+        "missing": [
+          [
+            "id",
+            "notification_id"
+          ],
+          [
+            "time"
+          ],
+          [
+            "read"
+          ],
+          [
+            "created_at"
+          ]
+        ],
+        "found": 2,
+        "arrays": [
+          {
+            "path": "notifications",
+            "length": 0
+          }
+        ],
+        "mode": "EMPTY",
+        "wrapperPresent": true
+      },
+      "snippet": "{\"notifications\":[],\"message\":\"\\u062a\\u0645 \\u062c\\u0644\\u0628 \\u0627\\u0644\\u0625\\u0634\\u0639\\u0627\\u0631\\u0627\\u062a \\u0628\\u0646\\u062c\\u0627\\u062d\"}"
+    },
+    {
+      "path": "/api/notifications",
+      "role": "owner",
+      "probe": null,
+      "verdict": "EXISTS",
+      "detail": "200 (route present and reachable)",
+      "status": 200,
+      "ms": 2155,
+      "shape": {
+        "checked": 6,
+        "missing": [
+          [
+            "id",
+            "notification_id"
+          ],
+          [
+            "time"
+          ],
+          [
+            "read"
+          ],
+          [
+            "created_at"
+          ]
+        ],
+        "found": 2,
+        "arrays": [
+          {
+            "path": "notifications",
+            "length": 0
+          }
+        ],
+        "mode": "EMPTY",
+        "wrapperPresent": true
+      },
+      "snippet": "{\"notifications\":[],\"message\":\"\\u062a\\u0645 \\u062c\\u0644\\u0628 \\u0627\\u0644\\u0625\\u0634\\u0639\\u0627\\u0631\\u0627\\u062a \\u0628\\u0646\\u062c\\u0627\\u062d\"}"
+    },
+    {
+      "path": "/api/special-requests/1",
+      "role": "customer",
+      "probe": "route-order",
+      "verdict": "MISSING",
+      "detail": "no route registered",
+      "status": 404,
+      "ms": 2120,
+      "shape": {
+        "checked": 11,
+        "missing": [
+          [
+            "request"
+          ],
+          [
+            "title"
+          ],
+          [
+            "offers"
+          ],
+          [
+            "offer_id",
+            "id"
+          ],
+          [
+            "owner_name"
+          ],
+          [
+            "price_per_hour"
+          ],
+          [
+            "currency"
+          ],
+          [
+            "duration_hours",
+            "hours"
+          ],
+          [
+            "location"
+          ],
+          [
+            "status",
+            "is_accepted"
+          ]
+        ],
+        "found": 1,
+        "arrays": [],
+        "mode": "CHECKED",
+        "wrapperPresent": true
+      },
+      "snippet": "{ \"message\": \"No query results for model [App\\\\Models\\\\SpecialRequest].\" }"
+    }
+  ],
+  "summary": {
+    "EXISTS": 46,
+    "MISSING": 1,
+    "WRONG-METHOD": 1
+  }
+}

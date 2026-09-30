@@ -1,105 +1,341 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-
-const ads = [
-  { id: 1, title: 'مساحة عمل فاخرة', desc: 'استمتع بتجربة عمل مريحة في بيئة احترافية مع جميع المرافق. مساحة مفتوحة واسعة بإضاءة طبيعية ومكاتب مريحة وخدمة إنترنت فائقة السرعة.', badge: 'جديد', price: '25 ر.س/ساعة', features: ['إنترنت فائق السرعة', 'مكاتب مريحة', 'إضاءة طبيعية', 'قهوة مجانية', 'موقف سيارات'] },
-  { id: 2, title: 'قاعة اجتماعات', desc: 'قاعة مجهزة بالكامل لاجتماعات العمل والمحاضرات. شاشة عرض كبيرة ونظام صوتي متطور وسброс انترنت سلكي ولاسلكي.', badge: 'متوفر', price: '50 ر.س/ساعة', features: ['شاشة عرض 75 بوصة', 'نظام صوتي', 'سبورة بيضاء', 'إنترنت سلكي', 'تحكم بالإنارة'] },
-  { id: 3, title: 'مكتب خاص', desc: 'مكتب خاص مع خصوصية تامة ومناسب للعمل المركّز. مدخل خاص وقفل رقمي وتجهيزات مكتبية كاملة.', badge: 'حصري', price: '40 ر.س/ساعة', features: ['خصوصية تامة', 'قفل رقمي', 'مكتب كبير', 'خزانة ملفات', 'تكييف مستقل'] },
-  { id: 4, title: 'مساحة مشتركة', desc: 'مساحة عمل مشتركة مناسبة للـ freelancers والمشاريع الناشئة. بيئة عمل تفاعلية مع فرصة التواصل مع رواد أعمال آخرين.', badge: 'الأكثر طلباً', price: '15 ر.س/ساعة', features: ['مكاتب مشتركة', 'منطقة استراحة', 'إنترنت سريع', 'مطبخ مشترك', 'فعاليات شهرية'] },
-  { id: 5, title: 'استوديو تصوير', desc: 'استوديو مجهز للتصوير الفوتوغرافي والفيديو. خلفيات متعددة ومعدات احترافية وإضاءة صناعية.', badge: 'جديد', price: '60 ر.س/ساعة', features: ['خلفيات متعددة', 'إضاءة احترافية', 'كاميرات متوفرة', 'غرفة ملابس', 'مونتاج فوري'] },
-  { id: 6, title: 'صالة مؤتمرات', desc: 'صالة كبيرة لإقامة المؤتمرات والفعاليات الكبيرة. تتسع لأكثر من 200 شخص مع تجهيزات صوتية وبصرية متكاملة.', badge: 'متوفر', price: '150 ر.س/ساعة', features: ['سعة 200+ شخص', 'نظام صوت متطور', 'شاشات عرض متعددة', 'منصة رئيسية', 'خدمة ضيافة'] },
-  { id: 7, title: 'ورشة عمل', desc: 'مساحة عمل مناسبة للحرفيين والحرف اليدوية. مجهزة بأدوات وتجهيزات خاصة مع نظام تهوية متطور.', badge: 'حصري', price: '35 ر.س/ساعة', features: ['أدوات عمل', 'نظام تهوية', 'منطقة تخزين', 'مغسلة', 'مكتب إداري'] },
-  { id: 8, title: 'مكتب تنفيذي', desc: 'مكتب فاخر للمسؤولين التنفيذيين مع إطلالة رائعة. ديكور عصري ومجهز بأحدث التقنيات.', badge: 'الأكثر طلباً', price: '80 ر.س/ساعة', features: ['إطلالة بانورامية', 'ديكور فاخر', 'غرفة اجتماعات خاصة', 'ميني بار', 'خدمة كونسيرج'] },
-  { id: 9, title: 'مساحة تعليمية', desc: 'مساحة مناسبة للدروس الخصوصية والـ workshops التعليمية. سبورة ذكية وتجهيزات تعليمية متكاملة.', badge: 'جديد', price: '20 ر.س/ساعة', features: ['سبورة ذكية', 'جهاز عرض', 'مقاعد متحركة', 'إنترنت تعليمي', 'صوت مكشوف'] },
-  { id: 10, title: 'مختبر تقني', desc: 'مختبر مجهز للتجارب التقنية والابتكار. أجهزة حاسوب متقدمة وبرمجيات مخصصة و_backup كهربائي.', badge: 'متوفر', price: '70 ر.س/ساعة', features: ['أجهزة متقدمة', 'برمجيات مخصصة', 'backup كهربائي', 'خادم محلي', 'شاشة عرض'] },
-];
-
-const gallery = [
-  '/Loginside.jpg',
-  '/360-workspace-kita-e2-open-office.jpg',
-  '/images.jfif',
-  '/m.jfif',
-];
+import {
+  MapPin, Star, Users, Clock, Wifi, Zap, Check, Phone,
+  ChevronRight, Loader2, BadgeCheck, CircleDollarSign, TrendingUp,
+  Lock, Info, CalendarPlus, CalendarX2, Building2, Send,
+} from 'lucide-react';
+import { loadSpaceDetailWithFallback, createBooking } from '../lib/spaces';
+import { AMENITY_LABELS } from '../lib/requests';
+import { fmtNumber, fmtRating, fmtMoney } from '../lib/format';
+import {
+  getCurrentRole, ownsSpace,
+  ROLE_VISITOR, ROLE_SPACE_OWNER,
+} from '../lib/authStore';
 
 export default function AdDetailsPage() {
   const { id } = useParams();
-  const ad = ads.find((a) => a.id === Number(id));
-  const [activeImg, setActiveImg] = useState(0);
+  const [space, setSpace] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const t = setInterval(() => setActiveImg((i) => (i + 1) % gallery.length), 5000);
-    return () => clearInterval(t);
-  }, []);
+    let alive = true;
+    setLoading(true);
+    setError(false);
+    loadSpaceDetailWithFallback(id)
+      .then((result) => {
+        if (!alive) return;
+        setSpace(result.space);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setError(true);
+        setLoading(false);
+      });
+    return () => { alive = false; };
+  }, [id]);
 
-  if (!ad) {
+  if (loading) {
     return (
-      <div className="placeholder-page">
-        <h1>الإعلان غير موجود</h1>
-        <p>الإعلان الذي تبحث عنه غير متاح حالياً.</p>
-        <Link className="btn-primary" to="/">العودة للرئيسية</Link>
+      <div className="ad-details__loading">
+        <Loader2 className="spin" size={48} />
+        <p>جارٍ تحميل تفاصيل المساحة...</p>
       </div>
     );
   }
 
+  if (error || !space) {
+    return (
+      <div className="placeholder-page">
+        <div className="wrap">
+          <h1>المساحة غير موجودة</h1>
+          <p>المساحة التي تبحث عنها غير متاحة حالياً.</p>
+          <Link className="btn-primary" to="/spaces">تصفح المساحات</Link>
+        </div>
+      </div>
+    );
+  }
+
+  const isAvailable = space.is_active !== false && space.status === 'active';
+  const role = getCurrentRole();
+  const isOwner = ownsSpace(space);
+  const amenities = space.amenities || [];
+
   return (
     <div className="ad-details">
       <div className="wrap">
-        <Link to="/" className="ad-details__back">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-          العودة للرئيسية
+        <Link to="/spaces" className="ad-details__back">
+          <ChevronRight size={18} />
+          العودة للتصفح
         </Link>
 
         <div className="ad-details__hero">
           <div className="ad-details__gallery">
-            {gallery.map((src, i) => (
-              <img
-                key={src}
-                src={src}
-                alt={ad.title}
-                className={`ad-details__img${i === activeImg ? ' is-active' : ''}`}
-                loading={i === 0 ? 'eager' : 'lazy'}
-              />
-            ))}
+            {space.image ? (
+              <img src={space.image} alt={space.title} className="ad-details__img is-active" loading="eager" />
+            ) : (
+              <div className="ad-details__gallery-fallback">
+                <Building2 size={64} aria-hidden="true" />
+                <span>{space.title}</span>
+              </div>
+            )}
             <div className="ad-details__scrim" />
-            <div className="ad-details__gallery-dots">
-              {gallery.map((_, i) => (
-                <button
-                  key={i}
-                  className={`ad-details__dot${i === activeImg ? ' is-active' : ''}`}
-                  onClick={() => setActiveImg(i)}
-                  aria-label={`صورة ${i + 1}`}
-                />
-              ))}
-            </div>
           </div>
 
           <div className="ad-details__info">
-            <div className="tag" style={{ marginBottom: '0.8rem', alignSelf: 'flex-start' }}>{ad.badge}</div>
-            <h1>{ad.title}</h1>
-            <p className="ad-details__price">{ad.price}</p>
-            <p className="ad-details__desc">{ad.desc}</p>
-
-            <div className="ad-details__features">
-              <h3>المميزات</h3>
-              <ul>
-                {ad.features.map((f) => (
-                  <li key={f}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                    {f}
-                  </li>
-                ))}
-              </ul>
+            <div className="ad-details__badges">
+              <span className={`ad-details__status${isAvailable ? ' is-active' : ''}`}>
+                <BadgeCheck /> {isAvailable ? 'متاحة للحجز' : 'غير متاحة'}
+              </span>
+              {space.instant_booking && (
+                <span className="ad-details__instant"><Zap size={14} /> حجز فوري</span>
+              )}
             </div>
 
-            <Link className="btn-primary ad-details__cta" to="/signup">احجز الآن</Link>
+            <h1>{space.title}</h1>
+
+            {space.location && (
+              <p className="ad-details__location">
+                <MapPin size={18} /> {space.location}
+                {space.area && ` — ${space.area}`}
+              </p>
+            )}
+
+            {space.rating > 0 && (
+              <div className="ad-details__rating">
+                <Star size={18} />
+                <span>{fmtRating(space.rating)}</span>
+                {space.review_count > 0 && (
+                  <small>({fmtNumber(space.review_count)} تقييم)</small>
+                )}
+              </div>
+            )}
+
+            <p className="ad-details__price">
+              {fmtNumber(space.price_per_hour)} <small>ش.ج / ساعة</small>
+            </p>
+
+            {space.description && <p className="ad-details__desc">{space.description}</p>}
+
+            <div className="ad-details__features">
+              <h3>المرافق</h3>
+              <div className="ad-details__amenities">
+                {space.internet && (
+                  <span className="ad-details__amenity"><Wifi size={16} /> إنترنت</span>
+                )}
+                {space.power && (
+                  <span className="ad-details__amenity"><Zap size={16} /> كهرباء</span>
+                )}
+                {amenities.map((a) => AMENITY_LABELS[a] && (
+                  <span key={a} className="ad-details__amenity">
+                    <Check size={16} /> {AMENITY_LABELS[a]}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="ad-details__meta">
+              {space.capacity > 0 && (
+                <div className="ad-details__meta-item">
+                  <Users size={20} />
+                  <div>
+                    <b>{fmtNumber(space.capacity)}</b>
+                    <small>سعة الأشخاص</small>
+                  </div>
+                </div>
+              )}
+              {space.open_time && space.close_time && (
+                <div className="ad-details__meta-item">
+                  <Clock size={20} />
+                  <div>
+                    <b>{space.open_time} – {space.close_time}</b>
+                    <small>أوقات العمل</small>
+                  </div>
+                </div>
+              )}
+              {space.contact_phone && (
+                <div className="ad-details__meta-item">
+                  <Phone size={20} />
+                  <div>
+                    <b dir="ltr">{space.contact_phone}</b>
+                    <small>رقم التواصل</small>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {space.stats && isOwner && (
+              <div className="ad-details__stats">
+                <div className="ad-details__stat">
+                  <CalendarX2 size={18} />
+                  <b>{fmtNumber(space.stats.bookings)}</b>
+                  <small>حجز هذا الشهر</small>
+                </div>
+                <div className="ad-details__stat">
+                  <CircleDollarSign size={18} />
+                  <b>{fmtNumber(space.stats.revenue)}</b>
+                  <small>إيراد الشهر (ش.ج)</small>
+                </div>
+                <div className="ad-details__stat">
+                  <TrendingUp size={18} />
+                  <b>{fmtNumber(space.stats.occupancy)}٪</b>
+                  <small>معدل الإشغال</small>
+                </div>
+              </div>
+            )}
+
+            <BookingPanel space={space} role={role} isOwner={isOwner} />
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function BookingPanel({ space, role, isOwner }) {
+  const navigate = useNavigate();
+  const isAvailable = space.is_active !== false && space.status === 'active';
+
+  const [date, setDate] = useState('');
+  const [start, setStart] = useState('');
+  const [hours, setHours] = useState(1);
+  const [sending, setSending] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const pricePerHour = Number(space.price_per_hour) || 0;
+  const total = pricePerHour * Math.max(1, Number(hours) || 1);
+
+  // الزائر لا يحجز إطلاقاً
+  if (role === ROLE_VISITOR) {
+    return (
+      <div className="ad-details__book-state">
+        <Lock size={22} aria-hidden="true" />
+        <b className="ad-details__book-state-title">سجّل الدخول للحجز</b>
+        <p>حجز المساحات متاح للعملاء المسجّلين فقط.</p>
+        <div className="ad-details__cta">
+          <Link
+            className="btn-primary ad-details__book-btn"
+            to={`/login?redirect=${encodeURIComponent(`/ads/${space.id}`)}`}
+          >
+            تسجيل الدخول
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // صاحب المساحة: عرض فقط، لا يحجز مساحته
+  if (role === ROLE_SPACE_OWNER || isOwner) {
+    return (
+      <div className="ad-details__book-state">
+        <Info size={22} aria-hidden="true" />
+        <b className="ad-details__book-state-title">هذه مساحتك</b>
+        <p>يمكنك إدارة الحجوزات وبيانات المساحة من لوحة التحكم.</p>
+        <div className="ad-details__cta">
+          <Link className="btn-ghost" to="/dashboard/space-owner">لوحة التحكم</Link>
+        </div>
+      </div>
+    );
+  }
+
+  // العميل: نموذج حجز مربوط بواجهة برمجية تتراجع بأمان (لا نقطة حجز فعلية بعد)
+  if (!isAvailable) {
+    return (
+      <div className="ad-details__book-state is-off">
+        <CalendarX2 size={22} aria-hidden="true" />
+        <b className="ad-details__book-state-title">غير متاحة للحجز حالياً</b>
+        <p>يمكنك تصفح مساحات أخرى متاحة الآن.</p>
+        <div className="ad-details__cta">
+          <Link className="btn-ghost" to="/spaces">تصفح المساحات</Link>
+        </div>
+      </div>
+    );
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSending(true);
+    setMessage('');
+    const res = await createBooking({
+      spaceId: space.id,
+      date,
+      startTime: start,
+      hours,
+    });
+    setSending(false);
+    if (res && res.ok) {
+      setMessage('ok');
+    } else if (res && res.reason === 'unauthenticated') {
+      navigate(`/login?redirect=${encodeURIComponent(`/ads/${space.id}`)}`, { replace: true });
+    } else {
+      setMessage('unavailable');
+    }
+  };
+
+  return (
+    <div className="ad-details__booking">
+      <div className="ad-details__booking-head">
+        <CalendarPlus size={18} aria-hidden="true" />
+        <b>احجز هذه المساحة</b>
+      </div>
+
+      {message === 'ok' ? (
+        <p className="ad-details__booking-note is-ok">تمّ إرسال طلب الحجز إلى صاحب المساحة. ستجد الحجز في لوحة التحكم.</p>
+      ) : message === 'unavailable' ? (
+        <p className="ad-details__booking-note">
+          <strong>خدمة الحجز الفوري غير متاحة بعد.</strong>
+          <span>هذه الواجهة مرتبطة بنقطة حجز ستُفعَّل قريباً — تابع بحثك أو أنشئ طلباً خاصاً من لوحة التحكم.</span>
+        </p>
+      ) : (
+        <form className="ad-details__booking-form" onSubmit={handleSubmit}>
+          <label className="ad-details__booking-field">
+            <span>التاريخ</span>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              required
+            />
+          </label>
+          <label className="ad-details__booking-field">
+            <span>من الساعة</span>
+            <input
+              type="time"
+              value={start}
+              onChange={(e) => setStart(e.target.value)}
+              required
+            />
+          </label>
+          <label className="ad-details__booking-field">
+            <span>عدد الساعات</span>
+            <input
+              type="number"
+              min="1"
+              max="12"
+              step="1"
+              value={hours}
+              onChange={(e) => setHours(Number(e.target.value))}
+              required
+            />
+          </label>
+
+          <div className="ad-details__booking-total">
+            <span>الإجمالي (كل الساعات)</span>
+            <b>{fmtMoney(total)} <small>ش.ج</small></b>
+          </div>
+
+          <button
+            type="submit"
+            className="btn-primary ad-details__book-btn"
+            disabled={sending}
+          >
+            {sending ? <Loader2 className="spin" size={18} /> : <Send size={18} />}
+            {sending ? 'جارٍ إرسال الطلب...' : 'تأكيد الحجز'}
+          </button>
+        </form>
+      )}
     </div>
   );
 }

@@ -13,6 +13,7 @@ import PendingApprovalPage from './pages/PendingApprovalPage';
 import CustomerDashboard from './pages/CustomerDashboard';
 import SpaceOwnerDashboard from './pages/SpaceOwnerDashboard';
 import AdDetailsPage from './pages/AdDetailsPage';
+import ComparePage from './pages/ComparePage';
 import { isLoggedIn, getUser, getHomePath, normalizeRole } from './lib/authStore';
 
 // حماية المسار: الزائر غير المسجّل يُحوَّل للصفحة الرئيسية
@@ -61,6 +62,7 @@ export default function App() {
       <Route path="/api/reset-password/:token" element={<ResetPasswordPage />} />
       <Route path="/pending-approval" element={<PendingApprovalPage />} />
       <Route path="/ads/:id" element={<AdDetailsPage />} />
+      <Route path="/compare" element={<ComparePage />} />
       <Route path="/dashboard" element={<RequireAuth><Navigate to={getHomePath()} replace /></RequireAuth>} />
       <Route path="/dashboard/customer" element={<RequireAuth><RequireRole role="customer"><CustomerDashboard /></RequireRole></RequireAuth>} />
       <Route path="/dashboard/space-owner" element={<RequireAuth><RequireRole role="space_owner"><SpaceOwnerDashboard /></RequireRole></RequireAuth>} />

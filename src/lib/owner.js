@@ -170,6 +170,12 @@ export function mapSpace(s) {
     is_active: status === 'active',
     docs: normalizeSpaceDocs(s.docs),
     rating: Math.round(Number(s.rating ?? 0) * 10) / 10,
+    // حقول التصفّح العام (BACKEND_SPACES_BROWSE_CONTRACT.md). إضافة بلا أثر على
+    // لوحة المالك: المساحات القديمة الناقصة تأخذ قيمة افتراضية فارغة.
+    category: typeof s.category === 'string' ? s.category : '',
+    area: String(s.area ?? s.neighborhood ?? s.district ?? ''),
+    review_count: Number(s.review_count ?? s.reviews_count ?? s.ratings_count ?? 0),
+    instant_booking: Boolean(s.instant_booking ?? s.instant ?? false),
     stats: s.stats
       ? {
           bookings: Number(s.stats.bookings ?? 0),
