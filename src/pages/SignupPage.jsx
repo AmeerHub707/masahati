@@ -48,9 +48,10 @@ export default function SignupPage() {
 
   const handleGoogleSuccess = async (credential) => {
     try {
-      // أولاً: حاول بدون دور. إذا كان المستخدم مسجلاً بالفعل، يعيد الباك إند
-      // دوره الحقيقي من قاعدة البيانات ويُتجاهل مفتاح التسجيل المحدد في الصفحة.
-      const data = await googleLogin(credential);
+      // نرسل الدور المحدد في التبويب من أول طلب. الباك إند ينشئ الحساب في هذا
+      // الطلب مباشرةً، فلو أرسلناه بلا دور لانشأ الحساب customer افتراضياً
+      // ووصلنا إلى لوحة العميل رغم اختيار «صاحب مساحة».
+      const data = await googleLogin(credential, role);
       if (data.user?.status === 'pending') {
         navigate('/pending-approval', { replace: true });
         return;
