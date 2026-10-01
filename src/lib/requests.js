@@ -1,17 +1,45 @@
-// وحدة طلبات خاصة (عرض تبنّي العكس — RFQ/مزاد عكسي).
+﻿// وحدة طلبات خاصة (عرض تبنّي العكس — RFQ/مزاد عكسي).
 // يتصل بالباك إند الحقيقي (Laravel) عبر نفس عميل api.js،
 // ومع أي فشل (مسار غير مطبق أو انقطاع) ينتقل تلقائياً لوضع تجريبي
 // يخزّن البيانات محلياً حتى لا تكسر التجربة.
 
 import { request, imageUrl } from './api';
 
-// مهلة أقصر من الافتراضية لأن هذا مسار جديد قد لا يكون مطبقاً بعد —
-// لا نريد تعليق المستخدم 20+ ثانية ثم الفشل.
-const REQ_TIMEOUT_MS = 8000;
+// مهلة الطلب: نحاكي الافتراضية في api.js. كانت 8 ثوانٍ فأسقطت كل الطلبات على
+// مخدم Render أثناء الإقلاع البارد (30–60 ثانية)، وهو ما كان يفعّل الوضع
+// التجريبي ويحفظ الطلبات محلياً بدل إرسالها للخادم.
+const REQ_TIMEOUT_MS = 25000;
 
 const DEMO_FLAG_KEY = 'masahati_special_requests_demo_v1';
 const DEMO_DATA_KEY = 'masahati_special_requests_data_v1';
 const SEEN_KEY = 'masahati_special_requests_seen_v1';
+
+// سبب آخر فشل من الخادم، لعرضه للمستخدم بدل إخفاءه خلف «وضع تجريبي» غامض.
+let lastServerError = '';
+
+function setLastServerError(message) {
+  lastServerError = message || '';
+}
+
+export function getLastSpecialRequestsError() {
+  return lastServerError;
+}
+
+// يحوّل أي خطأ إلى نص عربي مفهوم. ApiError يحمل الرسالة التي أعادها الباك إند.
+export function describeRequestError(err) {
+  if (!err) return 'تعذّر الاتصال بالخادم.';
+  const status = err.status;
+  if (status === 0) {
+    return err.message || 'تعذّر الوصول إلى الخادم. تحقّق من اتصالك بالإنترنت.';
+  }
+  if (status === 401 || status === 403) {
+    return 'انتهت جلستك أو ليس لديك صلاحية لهذا الإجراء. سجّل الدخول مجدداً.';
+  }
+  if (status === 404) {
+    return 'المسار غير موجود على الخادم.';
+  }
+  return err.message || 'تعذّر إتمام العملية على الخادم.';
+}
 
 // ----- وضع تجريبي -----
 export function isSpecialRequestsDemo() {
@@ -483,33 +511,30 @@ export async function acceptRequestOffer(requestId, offerId) {
 // ونخزن العلامة حتى لا تتكرر المحاولة في كل إجراء ضمن الجلسة.
 // المعامل force يتجاوز علامة التجريبي للحظات ليعيد محاولة الخادم
 // (مفيد بعد نزول واجهة الباك إند أو عند زر "تحديث").
-export async function loadRequestsWithFallback(force = false) {
-  if (isSpecialRequestsDemo() && !force) {
-    return { demo: true, requests: demoStore().requests.map(mapRequest) };
-  }
+// القراءة: نجرب الخادم دائماً، وعند الفشل نعرض البيانات التجريبية فقط كحل
+// أخير للعرض — مع تسجيل السبب. العلامة لم تعد تُقفل الجلسة كلها.
+export async function loadRequestsWithFallback() {
   try {
     const requests = await fetchMyRequests();
     setDemoFlag(false);
+    setLastServerError('');
     return { demo: false, requests };
-  } catch {
-    setDemoFlag(true);
+  } catch (err) {
+    setLastServerError(describeRequestError(err));
+    if (!isSpecialRequestsDemo()) setDemoFlag(true);
     return { demo: true, requests: demoStore().requests.map(mapRequest) };
   }
 }
 
-export async function loadRequestDetailWithFallback(id, force = false) {
-  if (isSpecialRequestsDemo() && !force) {
-    const all = demoStore().requests;
-    const hit = all.find((r) => String(r.id) === String(id)) || all[0];
-    const mapped = mapRequestWithOffers(hit, hit.offers);
-    return { demo: true, ...mapped };
-  }
+export async function loadRequestDetailWithFallback(id) {
   try {
     const detail = await fetchRequestDetail(id);
     setDemoFlag(false);
+    setLastServerError('');
     return { demo: false, ...detail };
-  } catch {
-    setDemoFlag(true);
+  } catch (err) {
+    setLastServerError(describeRequestError(err));
+    if (!isSpecialRequestsDemo()) setDemoFlag(true);
     const all = demoStore().requests;
     const hit = all.find((r) => String(r.id) === String(id)) || all[0];
     const mapped = mapRequestWithOffers(hit, hit.offers);
@@ -517,136 +542,33 @@ export async function loadRequestDetailWithFallback(id, force = false) {
   }
 }
 
+// الإنشاء: يرسل للخادم دائماً ولا يحفظ محلياً أبداً. الحفظ المحلي كان يجعل
+// الطلب يبدو ناجحاً ثم يختفي لأن قاعدة البيانات لا تحتويه.
 export async function createRequestWithFallback(payload) {
-  if (isSpecialRequestsDemo()) {
-    const store = demoStore();
-    const preset = payload.schedule.preset || 'once';
-    const count = Number(payload.schedule.count) || 1;
-    const req = {
-      id: `demo-${Date.now()}`,
-      title: payload.title || 'طلب خاص',
-      notes: payload.notes || '',
-      space_type: payload.space_type || 'whole',
-      capacity: Number(payload.capacity) || 0,
-      schedule: { preset, count },
-      schedule_label: scheduleLabel({ preset, count }),
-      preferred_time: payload.preferred_time || '',
-      area: payload.area || '',
-      amenities: payload.amenities || [],
-      budget: Number(payload.budget) || 0,
-      status: 'open',
-      offers_count: 0,
-      created_at: new Date().toISOString().slice(0, 16).replace('T', ' '),
-      offers: [],
-    };
-    store.requests.unshift(req);
-    writeDemoStore(store);
-    return { demo: true, request: mapRequest(req) };
-  }
   try {
     const { request: created } = await createSpecialRequest(payload);
     setDemoFlag(false);
+    setLastServerError('');
     return { demo: false, request: created };
-  } catch {
+  } catch (err) {
+    setLastServerError(describeRequestError(err));
     setDemoFlag(true);
-    const store = demoStore();
-    const req = {
-      id: `demo-${Date.now()}`,
-      title: payload.title || 'طلب خاص',
-      notes: payload.notes || '',
-      space_type: payload.space_type || 'whole',
-      capacity: Number(payload.capacity) || 0,
-      schedule: { preset: payload.schedule?.preset || 'once', count: Number(payload.schedule?.count) || 1 },
-      schedule_label: scheduleLabel({
-        preset: payload.schedule?.preset || 'once',
-        count: Number(payload.schedule?.count) || 1,
-      }),
-      preferred_time: payload.preferred_time || '',
-      area: payload.area || '',
-      amenities: payload.amenities || [],
-      budget: Number(payload.budget) || 0,
-      status: 'open',
-      offers_count: 0,
-      created_at: new Date().toISOString().slice(0, 16).replace('T', ' '),
-      offers: [],
-    };
-    store.requests.unshift(req);
-    writeDemoStore(store);
-    return { demo: true, request: mapRequest(req) };
+    // نُعيد خطأً حقيقياً بدل "نجاح" وهمي، حتى لا يفقد المستخدم طلبه بصمت.
+    throw err instanceof Error ? err : new Error(describeRequestError(err));
   }
 }
 
+// القبول: يرسل للخادم دائماً. لا قبول محلي — قبول وهمي ينشئ حجزاً غير موجود.
 export async function acceptOfferWithFallback(requestId, offerId) {
-  if (isSpecialRequestsDemo()) {
-    const store = demoStore();
-    const req = store.requests.find((r) => String(r.id) === String(requestId));
-    let offer = null;
-    if (req) {
-      offer = (req.offers || []).find((o) => String(o.id) === String(offerId)) || null;
-      req.status = 'accepted';
-      req.is_accepted = true;
-      (req.offers || []).forEach((o) => {
-        o.status = String(o.id) === String(offerId) ? 'accepted' : 'pending';
-        o.is_accepted = String(o.id) === String(offerId);
-      });
-      writeDemoStore(store);
-    }
-    const booking = offer
-      ? {
-          id: `demo-book-${Date.now()}`,
-          spaceName: offer.space_name || '',
-          image: offer.space_image || '',
-          date: 'تُحدَّد بعد تأكيد المالك',
-          time: 'حسب الاتفاق مع المالك',
-          hours: Number(offer.duration_hours || 0),
-          price: Number(offer.price_per_hour || 0),
-          status: 'pending',
-        }
-      : null;
-    return {
-      demo: true,
-      message: 'تم قبول العرض في الوضع التجريبي، وسيظهر الحجز في حجوزاتك.',
-      booking,
-      request: req ? mapRequest(req) : null,
-    };
-  }
   try {
     const result = await acceptRequestOffer(requestId, offerId);
     setDemoFlag(false);
+    setLastServerError('');
     return { demo: false, ...result };
-  } catch {
+  } catch (err) {
+    setLastServerError(describeRequestError(err));
     setDemoFlag(true);
-    const store = demoStore();
-    const req = store.requests.find((r) => String(r.id) === String(requestId));
-    let offer = null;
-    if (req) {
-      offer = (req.offers || []).find((o) => String(o.id) === String(offerId)) || null;
-      req.status = 'accepted';
-      req.is_accepted = true;
-      (req.offers || []).forEach((o) => {
-        o.status = String(o.id) === String(offerId) ? 'accepted' : 'pending';
-        o.is_accepted = String(o.id) === String(offerId);
-      });
-      writeDemoStore(store);
-    }
-    const booking = offer
-      ? {
-          id: `demo-book-${Date.now()}`,
-          spaceName: offer.space_name || '',
-          image: offer.space_image || '',
-          date: 'تُحدَّد بعد تأكيد المالك',
-          time: 'حسب الاتفاق مع المالك',
-          hours: Number(offer.duration_hours || 0),
-          price: Number(offer.price_per_hour || 0),
-          status: 'pending',
-        }
-      : null;
-    return {
-      demo: true,
-      message: 'تشغيل الطلب لم يتم على الخادم بعد — تم القبول محلياً للتجربة.',
-      booking,
-      request: req ? mapRequest(req) : null,
-    };
+    throw err instanceof Error ? err : new Error(describeRequestError(err));
   }
 }
 
@@ -677,65 +599,30 @@ export async function closeSpecialRequest(requestId) {
   };
 }
 
+// الإغلاق: يرسل للخادم دائماً — الإغلاق محلياً كان يترك الطلب مفتوحاً فعلياً.
 export async function closeRequestWithFallback(requestId) {
-  const applyLocalClose = () => {
-    const store = demoStore();
-    const req = store.requests.find((r) => String(r.id) === String(requestId));
-    if (req) {
-      req.status = 'closed';
-      req.is_closed = true;
-      writeDemoStore(store);
-    }
-    return req ? mapRequest(req) : null;
-  };
-
-  if (isSpecialRequestsDemo()) {
-    return { demo: true, message: 'تم إغلاق الطلب في الوضع التجريبي.', request: applyLocalClose() };
-  }
   try {
     const result = await closeSpecialRequest(requestId);
     setDemoFlag(false);
+    setLastServerError('');
     return { demo: false, ...result };
-  } catch {
+  } catch (err) {
+    setLastServerError(describeRequestError(err));
     setDemoFlag(true);
-    return {
-      demo: true,
-      message: 'تعذّر الوصول للخادم — أُغلق الطلب محلياً للتجربة.',
-      request: applyLocalClose(),
-    };
+    throw err instanceof Error ? err : new Error(describeRequestError(err));
   }
 }
 
+// الرفض: يرسل للخادم دائماً — رفض محلي يترك العرض مفتوحاً لدى المالك.
 export async function rejectOfferWithFallback(requestId, offerId) {
-  // تطبيق الرفض في المخزن التجريبي المحلي ثم إعادة الوضع المحدّث.
-  const applyLocalReject = () => {
-    const store = demoStore();
-    const req = store.requests.find((r) => String(r.id) === String(requestId));
-    if (req) {
-      (req.offers || []).forEach((o) => {
-        if (String(o.id) === String(offerId)) {
-          o.status = 'rejected';
-          o.is_rejected = true;
-        }
-      });
-      writeDemoStore(store);
-    }
-    return req ? mapRequest(req) : null;
-  };
-
-  if (isSpecialRequestsDemo()) {
-    return { demo: true, message: 'تم رفض العرض في الوضع التجريبي.', request: applyLocalReject() };
-  }
   try {
     const result = await rejectRequestOffer(requestId, offerId);
     setDemoFlag(false);
+    setLastServerError('');
     return { demo: false, ...result };
-  } catch {
+  } catch (err) {
+    setLastServerError(describeRequestError(err));
     setDemoFlag(true);
-    return {
-      demo: true,
-      message: 'تعذّر الوصول للخادم — تم رفض العرض محلياً للتجربة.',
-      request: applyLocalReject(),
-    };
+    throw err instanceof Error ? err : new Error(describeRequestError(err));
   }
 }

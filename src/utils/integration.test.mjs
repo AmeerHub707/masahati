@@ -366,10 +366,49 @@ const listFallback = await requests.loadRequestsWithFallback();
 report('4.1 fallback to demo list', listFallback.demo === true && listFallback.requests.length > 0);
 report('4.2 demo list items mapped', listFallback.requests[0]?.id && listFallback.requests[0].status === 'open');
 
-// إنشاء طلب في وضع تجريبي يُضاف محلياً ويُعاد تغذية القائمة
-const createRes = await requests.createRequestWithFallback({
-  title: 'طلب اختبار حوسبة',
-  notes: 'وصف',
+// إنشاء طلب يفشل على الخادم -> يجب أن يرمي خطأً ولا يحفظ محلياً.
+// (الحفظ المحلي كان يجعل الطلب يبدو ناجحاً ثم يختفي لأنه غير موجود في قاعدة البيانات.)
+// نلتقط عدد الطلبات قبل المحاولة Failed لنتأكد أن الفشل لم يضف شيئاً محلياً.
+const demoCountBefore = (JSON.parse(dom.window.localStorage.getItem('masahati_special_requests_data_v1') || '{"requests":[]}').requests || []).length;
+let createThrew = false;
+try {
+  await requests.createRequestWithFallback({
+    title: 'طلب اختبار حوسبة',
+    notes: 'وصف',
+    space_type: 'room',
+    capacity: 12,
+    schedule: { preset: 'weekly', count: 4 },
+    preferred_time: '9:00 م',
+    area: 'غزة',
+    amenities: ['internet'],
+    budget: 90,
+  });
+} catch {
+  createThrew = true;
+}
+report('4.3 create throws when server fails (no silent local save)', createThrew);
+const demoCountAfter = (JSON.parse(dom.window.localStorage.getItem('masahati_special_requests_data_v1') || '{"requests":[]}').requests || []).length;
+report('4.3b failed create added nothing locally', demoCountAfter === demoCountBefore);
+
+// إنشاء ناجح: يُرجع الطلب من الخادم بدل البيانات التجريبية
+resetStorage();
+api.setToken(TOKEN);
+globalThis.fetch = makeFetch({
+  'POST /api/special-requests': {
+    status: 201,
+    body: {
+      message: 'تم نشر طلبك بنجاح.',
+      request: { request_id: 55, title: 'طلب حقيقي', status: 'open', offers_count: 0 },
+    },
+  },
+  'GET /api/special-requests': {
+    status: 200,
+    body: { data: { requests: [{ request_id: 55, title: 'طلب حقيقي', status: 'open', offers_count: 0 }] } },
+  },
+});
+const okCreate = await requests.createRequestWithFallback({
+  title: 'طلب حقيقي',
+  notes: '',
   space_type: 'room',
   capacity: 12,
   schedule: { preset: 'weekly', count: 4 },
@@ -378,26 +417,50 @@ const createRes = await requests.createRequestWithFallback({
   amenities: ['internet'],
   budget: 90,
 });
-report('4.3 create in demo mode', createRes.demo === true && createRes.request.title === 'طلب اختبار حوسبة');
+report('4.4 create returns server request, not demo', okCreate.demo === false && okCreate.request.id === 55);
+
+// التفاصيل من الخادم: يجب أن تحمل offers
 const listAfterCreate = await requests.loadRequestsWithFallback();
-report('4.4 created request first in list', listAfterCreate.requests[0].title === 'طلب اختبار حوسبة');
+report('4.5 list reads server data', listAfterCreate.demo === false && listAfterCreate.requests[0].id === 55);
+globalThis.fetch = makeFetch({
+  'GET /api/special-requests/55': {
+    status: 200,
+    body: {
+      request: { request_id: 55, title: 'طلب حقيقي', status: 'open' },
+      offers: [{ offer_id: 9, owner_name: 'صاحب', price_per_hour: 100, status: 'pending' }],
+    },
+  },
+});
+const detail = await requests.loadRequestDetailWithFallback(55);
+report('4.5b detail includes offers array from server', detail.demo === false && detail.offers.length === 1 && detail.offers[0].id === 9);
 
-// تفاصيل الطلب (نأخذ أول طلب)
-const detail = await requests.loadRequestDetailWithFallback(listAfterCreate.requests[0].id);
-report('4.5 detail loads with offers array', detail.demo === true && Array.isArray(detail.offers));
+// رفض عرض: نجح على الخادم -> لا حفظ محلي
+globalThis.fetch = makeFetch({
+  'POST /api/special-requests/55/offers/9/reject': { status: 200, body: { message: 'تم رفض العرض.', request: { request_id: 55, status: 'open' } } },
+});
+const rejectRes = await requests.rejectOfferWithFallback(55, 9);
+report('4.6 reject offer returns server message', rejectRes.demo === false && typeof rejectRes.message === 'string');
+let rejectThrew = false;
+globalThis.fetch = makeFetch({});  // كل المسارات 404
+try { await requests.rejectOfferWithFallback(55, 9); } catch { rejectThrew = true; }
+report('4.6b reject throws when server fails', rejectThrew);
 
-// رفض أحد العروض -> يظهر rejected بعد إعادة تحميل التفاصيل
-const demoDetail = await requests.loadRequestDetailWithFallback('demo-1');
-const rejectTarget = demoDetail.offers[0];
-const rejectRes = await requests.rejectOfferWithFallback('demo-1', rejectTarget.id);
-report('4.6 reject offer returns message', typeof rejectRes.message === 'string');
-const afterReject = await requests.loadRequestDetailWithFallback('demo-1');
-report('4.6b reject marked in stored detail', afterReject.offers.find((o) => o.id === rejectTarget.id)?.status === 'rejected');
-
-// إغلاق الطلب -> closed + لا يُعد مفتوحاً
-const closeRes = await requests.closeRequestWithFallback('demo-1');
-report('4.7 close request status', closeRes.demo === true && closeRes.request.status === 'closed');
+// إغلاق الطلب: نجاح من الخادم
+globalThis.fetch = makeFetch({
+  'POST /api/special-requests/55/close': { status: 200, body: { message: 'تم إغلاق الطلب.', request: { request_id: 55, status: 'closed' } } },
+});
+const closeRes = await requests.closeRequestWithFallback(55);
+report('4.7 close request status from server', closeRes.demo === false && closeRes.request.status === 'closed');
 report('4.8 closed request not open', requests.isRequestOpen(closeRes.request) === false);
+let closeThrew = false;
+globalThis.fetch = makeFetch({});
+try { await requests.closeRequestWithFallback(55); } catch { closeThrew = true; }
+report('4.8b close throws when server fails', closeThrew);
+
+// وصف الخطأ يُحفظ ليعرضه الشريط بدل إخفاء السبب
+globalThis.fetch = makeFetch({ 'GET /api/special-requests': { status: 500, body: { message: 'Server Error' } } });
+const failed = await requests.loadRequestsWithFallback();
+report('4.8c fallback records the real error', failed.demo === true && typeof requests.getLastSpecialRequestsError() === 'string' && requests.getLastSpecialRequestsError().length > 0);
 
 // انتهاء الصلاحية: expires_at في الماضي -> غير مفتوح
 const expiredReq = { status: 'open', expires_at: '2020-01-01 00:00:00' };

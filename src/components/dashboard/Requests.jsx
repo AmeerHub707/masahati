@@ -15,6 +15,7 @@ import {
   markRequestSeen,
   isRequestOpen,
   isRequestExpired,
+  getLastSpecialRequestsError,
   SPACE_TYPES,
   AMENITY_LABELS,
   SCHEDULE_LABELS,
@@ -61,6 +62,7 @@ export default function Requests({ onAcceptOffer, onOffersChange, view: viewProp
   const [requests, setRequests] = useState([]);
   const [detail, setDetail] = useState(null);
   const [demo, setDemo] = useState(false);
+  const [serverError, setServerError] = useState('');
   const [listLoading, setListLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -98,15 +100,18 @@ export default function Requests({ onAcceptOffer, onOffersChange, view: viewProp
     return () => clearTimeout(id);
   }, [toast]);
 
-  const loadList = useCallback(async (force = false) => {
-    setListLoading((prev) => prev && !force);
-    if (force) setRefreshing(true);
+  // listLoading: التحميل الأول فقط (شاشة فارغة). refreshing: ضغطة زر التحديث.
+  // كلاهما يُطلق نفس الطلب، لذا نُشغّل مؤشر التحديث في كل مرة.
+  const loadList = useCallback(async () => {
+    setRefreshing(true);
     try {
-      const result = await loadRequestsWithFallback(force);
+      const result = await loadRequestsWithFallback();
       setRequests(result.requests);
       setDemo(result.demo);
-    } catch {
-      /* النافذة الاستهلالية لا ترمي أخطاءً */
+      setServerError(result.demo ? getLastSpecialRequestsError() : '');
+      if (!result.demo) setBannerDismissed(false);
+    } catch (err) {
+      setServerError(err?.message || 'تعذّر تحميل الطلبات.');
     } finally {
       setListLoading(false);
       setRefreshing(false);
@@ -136,6 +141,7 @@ export default function Requests({ onAcceptOffer, onOffersChange, view: viewProp
       const result = await loadRequestDetailWithFallback(id);
       setDetail(result);
       setDemo(result.demo);
+      setServerError(result.demo ? getLastSpecialRequestsError() : '');
       markRequestSeen(result.id, (result.offers || []).length);
       loadList();
     } catch {
@@ -180,8 +186,8 @@ export default function Requests({ onAcceptOffer, onOffersChange, view: viewProp
     }
     setCreating(true);
     try {
-      const result = await createRequestWithFallback({
-        title: form.title.trim(),
+      await createRequestWithFallback({
+        title: String(form.title || '').trim(),
         notes: form.notes.trim(),
         space_type: form.space_type,
         capacity: Number(form.capacity),
@@ -194,18 +200,15 @@ export default function Requests({ onAcceptOffer, onOffersChange, view: viewProp
         amenities: form.amenities,
         budget: Number(form.budget) || 0,
       });
-      setDemo(result.demo);
       setForm(DEFAULT_FORM);
       setErrors({});
       setCurrentView('list');
-      await loadList(result.demo ? false : true);
-      showToast(
-        result.demo
-          ? 'تم نشر طلبك (وضع تجريبي) — ستظهر العروض هنا عند وصولها.'
-          : 'تم نشر طلبك بنجاح — سيصلك تنبيه عند وصول العروض.'
-      );
-    } catch {
-      showToast('تعذّر نشر الطلب. حاول مجدداً.', 'err');
+      await loadList();
+      showToast('تم نشر طلبك بنجاح — سيصلك تنبيه عند وصول العروض.');
+    } catch (err) {
+      // النشر لا يُحفظ محلياً أبداً: الفشل يعني أن الطلب غير موجود في الخادم،
+      // فنبقي النموذج معبّاً ونعرض سبب الفشل بدل رسالة عامة.
+      showToast(err?.message || 'تعذّر نشر الطلب. حاول مجدداً.', 'err');
     } finally {
       setCreating(false);
     }
@@ -226,9 +229,10 @@ export default function Requests({ onAcceptOffer, onOffersChange, view: viewProp
       }
       setConfirmOffer(null);
       loadList();
-    } catch {
-      showToast('تعذّر قبول العرض. حاول مجدداً.', 'err');
-      setConfirmOffer(null);
+    } catch (err) {
+      // القبول لم يُنفَّذ على الخادم: نُبقي النافذة مفتوحة ليُعيد المستخدم المحاولة
+      // دون أن يظن أن الحجز تمّ.
+      showToast(err?.message || 'تعذّر قبول العرض. حاول مجدداً.', 'err');
     } finally {
       setAcceptingId(null);
     }
@@ -247,9 +251,8 @@ export default function Requests({ onAcceptOffer, onOffersChange, view: viewProp
       setConfirmReject(null);
       showToast(result?.message || 'تم رفض العرض.', 'ok');
       loadList();
-    } catch {
-      showToast('تعذّر رفض العرض. حاول مجدداً.', 'err');
-      setConfirmReject(null);
+    } catch (err) {
+      showToast(err?.message || 'تعذّر رفض العرض. حاول مجدداً.', 'err');
     } finally {
       setRejectingId(null);
     }
@@ -267,9 +270,8 @@ export default function Requests({ onAcceptOffer, onOffersChange, view: viewProp
       setConfirmClose(false);
       showToast(result?.message || 'تم إغلاق الطلب.', 'ok');
       loadList();
-    } catch {
-      showToast('تعذّر إغلاق الطلب. حاول مجدداً.', 'err');
-      setConfirmClose(false);
+    } catch (err) {
+      showToast(err?.message || 'تعذّر إغلاق الطلب. حاول مجدداً.', 'err');
     } finally {
       setClosingId(null);
     }
@@ -356,11 +358,12 @@ export default function Requests({ onAcceptOffer, onOffersChange, view: viewProp
   const renderBanner = () => {
     if (!demo || bannerDismissed) return null;
     return (
-      <div className="dash__req-banner">
+      <div className="dash__req-banner" role="status">
         <Sparkles />
         <p>
-          <b>وضع تجريبي</b> — واجهة الخادم (API) غير مفعّلة بعد، البيانات أدناه للتجربة
-          وستُحفظ محلياً. عند نزول واجهة الباك إند سيتولّى النظام تلقائياً.
+          <b>تعذّر تحميل بياناتك من الخادم</b>
+          {serverError ? ` — ${serverError}` : ''}. البيانات المعروضة الآن تجريبية
+          ولا تُحفظ في الخادم. أي طلب تنشره لن يُحفظ حتى ينجح الاتصال، جرّب زر التحديث.
         </p>
         <button type="button" onClick={() => setBannerDismissed(true)} aria-label="إغلاق" className="dash__req-banner-x">
           <X />
@@ -946,7 +949,7 @@ export default function Requests({ onAcceptOffer, onOffersChange, view: viewProp
             <button
               type="button"
               className="dash__req-refresh"
-              onClick={() => loadList(true)}
+              onClick={() => loadList()}
               disabled={refreshing}
               aria-label="تحديث"
               title="تحديث"
