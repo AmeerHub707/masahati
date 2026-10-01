@@ -7,6 +7,7 @@ import {
   Check, Loader2, Building2, Phone, BadgeCheck, TrendingUp,
   CalendarCheck, CircleDollarSign, LocateFixed, RotateCcw,
   Snowflake, Mic, Presentation, ArrowUpDown, Funnel,
+  PanelRightClose, PanelRightOpen,
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -55,38 +56,100 @@ function createSpaceIcon(price, isSelected = false) {
   });
 }
 
-function MapController({ center, zoom }) {
+/* airspace الذي يشغله الشريط العائم فوق الخريطة (+ هامش).
+   أي شيء نضعه في هذا النطاق يكون مخفياً وغير قابل للنقر، فلا بد أن يعرفه Leaflet. */
+function overlayInset(overlayRef, gap = 16) {
+  const h = overlayRef?.current?.offsetHeight || 0;
+  return h ? h + gap : gap;
+}
+
+/* ضبط عرض الخريطة على النتائج فعلاً بدل setView بوسط تقريبي وبلا حشو —
+   كان هذا سبب اختفاء علامات صفّها العلوي خلف الشريط. */
+function MapController({ points, focus, zoom, overlayRef }) {
   const map = useMap();
+
   useEffect(() => {
-    if (center && center[0] && center[1]) {
-      map.setView(center, zoom || 12);
+    const topInset = overlayInset(overlayRef);
+
+    if (focus) {
+      map.setView([focus.lat, focus.lng], zoom);
+      return;
     }
-  }, [center, zoom, map]);
+    if (points.length > 1) {
+      map.fitBounds(L.latLngBounds(points), {
+        paddingTopLeft: [0, topInset],
+        paddingBottomRight: [0, 32],
+        maxZoom: zoom,
+      });
+      return;
+    }
+    if (points.length === 1) {
+      map.setView(points[0], zoom);
+      return;
+    }
+    map.setView([31.95, 35.91], 12);
+  }, [points, focus, zoom, map, overlayRef]);
+
   return null;
 }
 
-function SpaceMap({ spaces, onSelect, selectedId, focus }) {
+/* Leaflet لا يلاحظ تغيّر أبعاد حاويته (طيّ قائمة الخريطة، تغيير حجم النافذة،
+   التبديل بين src و map) فيرسم البلاطات بأبعاد قديمة حتى يحرّك المستخدم الخريطة. */
+function MapSizeWatcher() {
+  const map = useMap();
+
+  useEffect(() => {
+    const el = map.getContainer();
+    map.invalidateSize();
+
+    let lastW = 0;
+    let lastH = 0;
+    const ro = new ResizeObserver((entries) => {
+      const box = entries[0]?.contentRect;
+      if (!box) return;
+      // invalidateSize يغيّر المقاس بدوره، فالمقارنة تمنع استدعاءً لا نهائياً
+      if (box.width === lastW && box.height === lastH) return;
+      lastW = box.width;
+      lastH = box.height;
+      map.invalidateSize();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [map]);
+
+  return null;
+}
+
+/* اختيار بطاقة من القائمة الجانبية قد يضع علامتها خلف الشريط العائم.
+   نحرّك الخريطة فقط إن كانت العلامة مخفية فعلاً، تفادياً للقفزات غير المبرّرة. */
+function SelectionFocus({ space, overlayRef }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!space?.lat || !space?.lng) return;
+    const point = map.project([space.lat, space.lng], map.getZoom());
+    const topInset = overlayInset(overlayRef, 24);
+    if (point.y < topInset) map.panBy([0, topInset - point.y]);
+  }, [space, map, overlayRef]);
+
+  return null;
+}
+
+function SpaceMap({ spaces, onSelect, selected, focus, overlayRef }) {
   const navigate = useNavigate();
 
-  // مركز افتراضي يُشتق من مواقع المساحات المعروضة حتى تظهر العلامات داخل مجال الرؤية
-  const fallbackCenter = useMemo(() => {
-    const pts = spaces.filter((s) => s.lat && s.lng);
-    if (!pts.length) return [31.95, 35.91];
-    const lat = pts.reduce((a, s) => a + s.lat, 0) / pts.length;
-    const lng = pts.reduce((a, s) => a + s.lng, 0) / pts.length;
-    return [lat, lng];
-  }, [spaces]);
+  // نقاط المساحات الحاملة لإحداثيات — أساس ضبط حدود الخريطة
+  const points = useMemo(
+    () => spaces.filter((s) => s.lat && s.lng).map((s) => [s.lat, s.lng]),
+    [spaces]
+  );
 
-  // إن حدّد المستخدم موقعه نستخدمه، وإلا نشتق المركز من البيانات
-  const center = focus
-    ? [focus.lat, focus.lng]
-    : fallbackCenter;
   const zoom = focus ? 13 : 12;
 
   return (
     <div className="spaces__map-container">
       <MapContainer
-        center={center}
+        center={points[0] || [31.95, 35.91]}
         zoom={zoom}
         style={{ height: '100%', width: '100%' }}
         scrollWheelZoom={true}
@@ -95,10 +158,12 @@ function SpaceMap({ spaces, onSelect, selectedId, focus }) {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <MapController center={center} zoom={zoom} />
+        <MapController points={points} focus={focus} zoom={zoom} overlayRef={overlayRef} />
+        <MapSizeWatcher />
+        <SelectionFocus space={selected} overlayRef={overlayRef} />
         {spaces.map((s) => {
           if (!s.lat || !s.lng) return null;
-          const isSelected = String(s.id) === String(selectedId);
+          const isSelected = String(s.id) === String(selected?.id);
           return (
             <Marker
               key={s.id}
@@ -296,24 +361,31 @@ const AMENITY_ICONS = {
   whiteboard: Presentation,
 };
 
-/* قائمة منسدلة تُغلق عند النقر خارجها أو بالضغط على Escape */
-function Dropdown({ label, icon: Icon, active, activeText, width = '18rem', children, align = 'start' }) {
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef(null);
-
+/* إغلاق طبقة عند النقر خارجها أو بالضغط على Escape.
+   تُشارَك بين القوائم المنسدلة ولوحة الفلاتر حتى لا يختلف سلوك الإغلاق بينهما.
+   onClose يجب أن يكون ثابتاً (useCallback) وإلا أُعيد ربط المستمعين كل تصيير. */
+function useDismissable(ref, onClose, active) {
   useEffect(() => {
-    if (!open) return undefined;
+    if (!active) return undefined;
     const onDown = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target)) onClose();
     };
-    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('mousedown', onDown);
       document.removeEventListener('keydown', onKey);
     };
-  }, [open]);
+  }, [ref, onClose, active]);
+}
+
+/* قائمة منسدلة تُغلق عند النقر خارجها أو بالضغط على Escape */
+function Dropdown({ label, icon: Icon, active, activeText, width = '18rem', children, align = 'start' }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  const close = useCallback(() => setOpen(false), []);
+  useDismissable(wrapRef, close, open);
 
   return (
     <div className="fdrop" ref={wrapRef}>
@@ -430,7 +502,24 @@ function PriceRange({ min, max, onChange }) {
   );
 }
 
-function FilterSidebar({ filters, onChange, onReset, isOpen, onClose }) {
+/* عدد الفلاتر المفعّلة — مصدر واحد للحساب، تستخدمه الصفحة والشريط الجانبي
+   ولوحة الخريطة حتى لا تختلف الأرقام المعروضة في أي مكان. */
+function countActiveFilters(filters) {
+  let n = 0;
+  if (filters.search) n++;
+  if (filters.category) n++;
+  if (filters.min_price || filters.max_price) n++;
+  if (filters.amenities?.length) n++;
+  if (filters.area) n++;
+  if (filters.min_rating) n++;
+  if (filters.sort) n++;
+  return n;
+}
+
+/* جسم الفلاتر المشترك — يستخدمه الشريط الجانبي ولوحة الخريطة بنفس المحتوى،
+   فلا يمكن أن يتباين أحدهما عن الآخر. البحث ليس هنا: كل سطح يعرض حقله
+   في رأسه، والحقلان مربوطان بالحالة نفسها. */
+function FilterBody({ filters, onChange, includeSort = true }) {
   const update = (key, value) => onChange({ ...filters, [key]: value });
 
   const toggleAmenity = (key) => {
@@ -441,18 +530,134 @@ function FilterSidebar({ filters, onChange, onReset, isOpen, onClose }) {
     update('amenities', next);
   };
 
-  const amenityCount = (filters.amenities || []).length;
-  const activeCount = useMemo(() => {
-    let n = 0;
-    if (filters.search) n++;
-    if (filters.category) n++;
-    if (filters.min_price || filters.max_price) n++;
-    if (amenityCount) n++;
-    if (filters.area) n++;
-    if (filters.min_rating) n++;
-    if (filters.sort) n++;
-    return n;
-  }, [filters, amenityCount]);
+  return (
+    <>
+      <FilterSection title="نوع المساحة" icon={Building2} defaultOpen badge={filters.category ? 1 : 0}>
+        <div className="spaces__chips">
+          {SPACE_CATEGORIES.map((cat) => (
+            <button
+              key={cat.id}
+              type="button"
+              className={`spaces__chip${filters.category === cat.id ? ' is-active' : ''}`}
+              onClick={() => update('category', cat.id)}
+              aria-pressed={filters.category === cat.id}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
+      </FilterSection>
+
+      <FilterSection
+        title="السعر"
+        icon={CircleDollarSign}
+        defaultOpen
+        badge={filters.min_price || filters.max_price ? 1 : 0}
+      >
+        <PriceRange
+          min={filters.min_price}
+          max={filters.max_price}
+          onChange={(lo, hi) => onChange({ ...filters, min_price: lo, max_price: hi })}
+        />
+      </FilterSection>
+
+      <FilterSection
+        title="التقييم"
+        icon={Star}
+        defaultOpen
+        badge={filters.min_rating ? 1 : 0}
+      >
+        <div className="spaces__rating">
+          {RATING_FILTERS.map((r) => {
+            const isOn = filters.min_rating === r.id;
+            return (
+              <button
+                key={r.id}
+                type="button"
+                className={`spaces__rating-btn${isOn ? ' is-active' : ''}`}
+                onClick={() => update('min_rating', r.id)}
+                aria-pressed={isOn}
+              >
+                {r.id ? (
+                  <>
+                    <Star size={14} fill="currentColor" />
+                    <span>{r.id}+</span>
+                  </>
+                ) : (
+                  <span>الكل</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </FilterSection>
+
+      <FilterSection title="الموقع / المنطقة" icon={MapPin} badge={filters.area ? 1 : 0}>
+        <div className="spaces__search-wrap">
+          <MapPin className="spaces__search-icon" />
+          <input
+            type="search"
+            value={filters.area}
+            onChange={(e) => update('area', e.target.value)}
+            placeholder="مثال: وسط المدينة"
+            aria-label="الموقع أو المنطقة"
+          />
+        </div>
+      </FilterSection>
+
+      <FilterSection
+        title="المرافق"
+        icon={Funnel}
+        badge={(filters.amenities || []).length}
+      >
+        <div className="spaces__amenities">
+          {AMENITY_KEYS.map((key) => {
+            const isOn = (filters.amenities || []).includes(key);
+            const Icon = AMENITY_ICONS[key];
+            return (
+              <button
+                key={key}
+                type="button"
+                className={`spaces__amenity${isOn ? ' is-on' : ''}`}
+                onClick={() => toggleAmenity(key)}
+                aria-pressed={isOn}
+              >
+                <span className="spaces__amenity-ico">
+                  {isOn ? <Check size={13} /> : Icon ? <Icon size={13} /> : null}
+                </span>
+                {AMENITY_LABELS[key]}
+              </button>
+            );
+          })}
+        </div>
+      </FilterSection>
+
+      {includeSort && (
+        <FilterSection title="الترتيب" icon={ArrowUpDown} defaultOpen badge={filters.sort ? 1 : 0}>
+          <div className="spaces__sort">
+            {SORT_OPTIONS.map((opt) => {
+              const isOn = filters.sort === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  className={`spaces__sort-btn${isOn ? ' is-active' : ''}`}
+                  onClick={() => update('sort', opt.id)}
+                  aria-pressed={isOn}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </FilterSection>
+      )}
+    </>
+  );
+}
+
+function FilterSidebar({ filters, onChange, onReset, isOpen, onClose }) {
+  const activeCount = countActiveFilters(filters);
 
   return (
     <aside className={`spaces__sidebar${isOpen ? ' is-open' : ''}`}>
@@ -478,14 +683,14 @@ function FilterSidebar({ filters, onChange, onReset, isOpen, onClose }) {
               id="spaces-search"
               type="search"
               value={filters.search}
-              onChange={(e) => update('search', e.target.value)}
+              onChange={(e) => onChange({ ...filters, search: e.target.value })}
               placeholder="ابحث باسم المساحة أو الموقع..."
             />
             {filters.search && (
               <button
                 type="button"
                 className="spaces__search-clear"
-                onClick={() => update('search', '')}
+                onClick={() => onChange({ ...filters, search: '' })}
                 aria-label="مسح البحث"
               >
                 <X size={14} />
@@ -494,123 +699,7 @@ function FilterSidebar({ filters, onChange, onReset, isOpen, onClose }) {
           </div>
         </div>
 
-        <FilterSection title="نوع المساحة" icon={Building2} defaultOpen badge={filters.category ? 1 : 0}>
-          <div className="spaces__chips">
-            {SPACE_CATEGORIES.map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                className={`spaces__chip${filters.category === cat.id ? ' is-active' : ''}`}
-                onClick={() => update('category', cat.id)}
-                aria-pressed={filters.category === cat.id}
-              >
-                {cat.label}
-              </button>
-            ))}
-          </div>
-        </FilterSection>
-
-        <FilterSection
-          title="السعر"
-          icon={CircleDollarSign}
-          defaultOpen
-          badge={filters.min_price || filters.max_price ? 1 : 0}
-        >
-          <PriceRange
-            min={filters.min_price}
-            max={filters.max_price}
-            onChange={(lo, hi) => onChange({ ...filters, min_price: lo, max_price: hi })}
-          />
-        </FilterSection>
-
-        <FilterSection
-          title="التقييم"
-          icon={Star}
-          defaultOpen
-          badge={filters.min_rating ? 1 : 0}
-        >
-          <div className="spaces__rating">
-            {RATING_FILTERS.map((r) => {
-              const isOn = filters.min_rating === r.id;
-              return (
-                <button
-                  key={r.id}
-                  type="button"
-                  className={`spaces__rating-btn${isOn ? ' is-active' : ''}`}
-                  onClick={() => update('min_rating', r.id)}
-                  aria-pressed={isOn}
-                >
-                  {r.id ? (
-                    <>
-                      <Star size={14} fill="currentColor" />
-                      <span>{r.id}+</span>
-                    </>
-                  ) : (
-                    <span>الكل</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </FilterSection>
-
-        <FilterSection title="الموقع / المنطقة" icon={MapPin} badge={filters.area ? 1 : 0}>
-          <div className="spaces__search-wrap">
-            <MapPin className="spaces__search-icon" />
-            <input
-              type="search"
-              value={filters.area}
-              onChange={(e) => update('area', e.target.value)}
-              placeholder="مثال: وسط المدينة"
-            />
-          </div>
-        </FilterSection>
-
-        <FilterSection
-          title="المرافق"
-          icon={Funnel}
-          badge={amenityCount}
-        >
-          <div className="spaces__amenities">
-            {AMENITY_KEYS.map((key) => {
-              const isOn = (filters.amenities || []).includes(key);
-              const Icon = AMENITY_ICONS[key];
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  className={`spaces__amenity${isOn ? ' is-on' : ''}`}
-                  onClick={() => toggleAmenity(key)}
-                  aria-pressed={isOn}
-                >
-                  <span className="spaces__amenity-ico">
-                    {isOn ? <Check size={13} /> : Icon ? <Icon size={13} /> : null}
-                  </span>
-                  {AMENITY_LABELS[key]}
-                </button>
-              );
-            })}
-          </div>
-        </FilterSection>
-
-        <FilterSection title="الترتيب" icon={ArrowUpDown} defaultOpen badge={filters.sort ? 1 : 0}>
-          <div className="spaces__sort">
-            {SORT_OPTIONS.map((opt) => {
-              const isOn = filters.sort === opt.id;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  className={`spaces__sort-btn${isOn ? ' is-active' : ''}`}
-                  onClick={() => update('sort', opt.id)}
-                  aria-pressed={isOn}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
-        </FilterSection>
+        <FilterBody filters={filters} onChange={onChange} />
       </div>
 
       {/* شريط سفلي للجوال: تطبيق + عدد النتائج */}
@@ -939,6 +1028,150 @@ function ActiveFilterChips({ filters, onChange }) {
   );
 }
 
+/* ====== شريط الفلاتر فوق الخريطة ======
+   نسخة مضغوطة: صف واحد فقط فوق الخريطة، وبقية الفلاتر داخل لوحة تُفتح عند الطلب.
+   السبب: الشريط القديم كان يغطي 20–50% من الخريطة ويبتلع ضغط المؤشر على العلامات
+   تحته. الآن العنصر المرئي أمام المستخدم ثلاثة فقط: البحث، العدد، وزر الفلاتر. */
+function MapFilterBar({
+  filters, onChange, onReset, resultCount, loading, activeCount, onOpenDrawer,
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  const triggerRef = useRef(null);
+
+  const close = useCallback(() => setOpen(false), []);
+  useDismissable(wrapRef, close, open);
+
+  // أي إغلاق — Escape أو النقر خارجها أو زر الإغلاق — يعيد التركيز إلى الزر المُطلق
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (wasOpen.current && !open) triggerRef.current?.focus();
+    wasOpen.current = open;
+  }, [open]);
+
+  const sortOpt = SORT_OPTIONS.find((s) => s.id === filters.sort);
+
+  return (
+    <div className="mfbar" ref={wrapRef}>
+      <div className="fbar__search mfbar__search">
+        <Search className="fbar__search-icon" size={16} />
+        <input
+          type="search"
+          value={filters.search}
+          onChange={(e) => onChange({ ...filters, search: e.target.value })}
+          placeholder="ابحث باسم المساحة أو المنطقة..."
+          aria-label="البحث في المساحات"
+        />
+        {filters.search && (
+          <button
+            type="button"
+            className="fbar__search-clear"
+            onClick={() => onChange({ ...filters, search: '' })}
+            aria-label="مسح البحث"
+          >
+            <X size={14} />
+          </button>
+        )}
+      </div>
+
+      <span className="fbar__count mfbar__count" aria-live="polite">
+        {loading ? (
+          <>
+            <Loader2 size={13} className="spin" /> جارٍ البحث
+          </>
+        ) : (
+          <>
+            <strong>{fmtNumber(resultCount)}</strong> مساحة
+          </>
+        )}
+      </span>
+
+      {/* سطح المكتب: لوحة منبثقة. على الجوال يُخفى ويحلّ محلها زر يفتح الدرج. */}
+      <button
+        ref={triggerRef}
+        type="button"
+        className={`mfbar__toggle${open ? ' is-open' : ''}${activeCount > 0 ? ' is-active' : ''}`}
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+      >
+        <SlidersHorizontal size={15} />
+        الفلاتر
+        {activeCount > 0 && <span className="fbar__more-badge">{fmtNumber(activeCount)}</span>}
+        <ChevronDown size={14} className="fdrop__chev" />
+      </button>
+
+      {/* الجوال: نفس الفلاتر عبر الدرج الموجود أصلاً — لا واجهة جديدة */}
+      <button type="button" className="fbar__more mfbar__drawer" onClick={onOpenDrawer}>
+        <SlidersHorizontal size={16} /> الفلاتر
+        {activeCount > 0 && <span className="fbar__more-badge">{fmtNumber(activeCount)}</span>}
+      </button>
+
+      {/* الترتيب قرار سريع ومتكرّر، فيبقى ظاهراً ولا يُدفن داخل اللوحة */}
+      <Dropdown
+        label="الترتيب"
+        icon={ArrowUpDown}
+        active={!!filters.sort}
+        activeText={sortOpt?.label}
+        width="15rem"
+        align="end"
+      >
+        <div className="fdrop__title">ترتيب حسب</div>
+        <div className="spaces__sort">
+          {SORT_OPTIONS.map((opt) => {
+            const isOn = filters.sort === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                className={`spaces__sort-btn${isOn ? ' is-active' : ''}`}
+                onClick={() => onChange({ ...filters, sort: opt.id })}
+                aria-pressed={isOn}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </Dropdown>
+
+      {open && (
+        <div className="fpop" role="dialog" aria-label="تصفية النتائج">
+          <div className="fpop__head">
+            <span className="fpop__title">تصفية النتائج</span>
+            {activeCount > 0 && (
+              <button type="button" className="spaces__reset" onClick={onReset}>
+                <RotateCcw size={14} /> إعادة تعيين
+              </button>
+            )}
+          </div>
+
+          <div className="fpop__body">
+            <FilterBody filters={filters} onChange={onChange} includeSort={false} />
+          </div>
+
+          {activeCount > 0 && (
+            <div className="fpop__active">
+              <span className="fpop__active-label">الفلاتر النشطة</span>
+              <ActiveFilterChips filters={filters} onChange={onChange} />
+            </div>
+          )}
+
+          <div className="fpop__foot">
+            <span className="fpop__foot-count">
+              {loading ? <Loader2 size={13} className="spin" /> : <Check size={13} />}
+              {fmtNumber(resultCount)} نتيجة
+            </span>
+            <button type="button" className="btn-primary" onClick={close}>
+              عرض النتائج
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ====== هيدر تصفح إبداعي — بيانات حيّة من النتائج المعروضة ====== */
 function SpacesHead({ spaces, total, loading }) {
   // توزيع الأنواع بين النتائج الحالية — يعكس الفلاتر فور تغييرها
@@ -1070,6 +1303,8 @@ export default function SpacesPage() {
   }));
   const [view, setView] = useState('grid');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // قائمة المساحات بجانب الخريطة قابلة للطي — تُعطي الخريطة عرضها كاملاً
+  const [railOpen, setRailOpen] = useState(true);
   const [spaces, setSpaces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -1085,6 +1320,8 @@ export default function SpacesPage() {
 
   const [appliedFilters, setAppliedFilters] = useState(filters);
   const debounceRef = useRef(null);
+  // الشريط العائم فوق الخريطة — نقيس ارتفاعه ليبتعد Leaflet عن airspace الذي يحجبه
+  const overlayRef = useRef(null);
   const [stuck, setStuck] = useState(() => typeof window !== 'undefined' && window.scrollY > 8);
 
   // ظلّ أعلى الشريط عند التمرير — يعطي إحساس التثبيت
@@ -1183,17 +1420,7 @@ export default function SpacesPage() {
     );
   }, []);
 
-  const activeFilterCount = useMemo(() => {
-    let count = 0;
-    if (filters.search) count++;
-    if (filters.category) count++;
-    if (filters.min_price || filters.max_price) count++;
-    if (filters.amenities?.length) count++;
-    if (filters.area) count++;
-    if (filters.min_rating) count++;
-    if (filters.sort) count++;
-    return count;
-  }, [filters]);
+  const activeFilterCount = countActiveFilters(filters);
 
   return (
     <div className="min-h-screen font-['Cairo'] text-zinc-900 dir-rtl spaces-page">
@@ -1268,6 +1495,20 @@ export default function SpacesPage() {
                 <MapIcon />
               </button>
             </div>
+
+            {/* في عرض الخريطة فقط: طيّ قائمة المساحات يوسّع الخريطة لعرض النافذة */}
+            {view === 'map' && (
+              <button
+                type="button"
+                className={`spaces__rail-toggle${railOpen ? ' is-on' : ''}`}
+                onClick={() => setRailOpen((v) => !v)}
+                aria-expanded={railOpen}
+                aria-label={railOpen ? 'إخفاء قائمة المساحات' : 'إظهار قائمة المساحات'}
+              >
+                {railOpen ? <PanelRightClose /> : <PanelRightOpen />}
+                <span>القائمة</span>
+              </button>
+            )}
           </div>
 
           {error ? (
@@ -1300,24 +1541,28 @@ export default function SpacesPage() {
               </button>
             </div>
           ) : view === 'map' ? (
-            <div className="spaces__map-view">
+            <div className={`spaces__map-view${railOpen ? '' : ' is-rail-collapsed'}`}>
               <div className="spaces__map-main">
-                <div className={`spaces__filterbar is-over-map${stuck ? ' is-stuck' : ''}`}>
-                  <FilterBar
+                <div
+                  className={`spaces__filterbar is-over-map${stuck ? ' is-stuck' : ''}`}
+                  ref={overlayRef}
+                >
+                  <MapFilterBar
                     filters={filters}
                     onChange={handleFilterChange}
+                    onReset={handleReset}
                     resultCount={total}
                     loading={loading}
                     activeCount={activeFilterCount}
                     onOpenDrawer={() => setSidebarOpen(true)}
                   />
-                  <ActiveFilterChips filters={filters} onChange={handleFilterChange} />
                 </div>
                 <SpaceMap
                   spaces={spaces}
                   onSelect={handleSelectSpace}
-                  selectedId={selectedSpace?.id}
+                  selected={selectedSpace}
                   focus={nearby}
+                  overlayRef={overlayRef}
                 />
                 {hasMore && (
                   <button

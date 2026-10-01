@@ -4537,21 +4537,88 @@ html.dark .otour__popover{background:var(--surface);border-color:rgba(255,255,25
   box-shadow:0 10px 30px -18px rgba(0,0,0,.35);
 }
 
-/* في عرض الخريطة: الفلتر يطفو فوق الخريطة (فوق z-index الخاص بـ Leaflet الذي يصل إلى 1000) */
+/* في عرض الخريطة: صف واحد مضغوط يطفو فوق الخريطة.
+   الهدف ارتفاع ≤ 64px على سطح المكتب و≤ 56px على الجوال — أي أقل من ~10–15% من
+   الخريطة بدل 20–50% سابقاً. كل ما عدا ذلك يسكن لوحة تُفتح عند الطلب. */
 .spaces__map-main{position:relative;}
 .spaces__filterbar.is-over-map{
   position:absolute;inset-inline:.8rem;top:.8rem;z-index:1100;
-  margin:0;padding:.75rem .9rem;border-radius:var(--radius-card);
+  margin:0;padding:.45rem .55rem;border-radius:var(--radius-card);
   background:rgba(251,246,238,.94);
   backdrop-filter:blur(14px) saturate(1.3);
   border:1px solid var(--border);
   box-shadow:0 16px 38px -20px rgba(0,0,0,.45);
+  max-width:min(100%,44rem);
 }
-.spaces__filterbar.is-over-map .fbar{gap:.5rem;}
-.spaces__filterbar.is-over-map.is-stuck{border-bottom-color:var(--border);}
-@media (max-width:700px){
-  .spaces__filterbar.is-over-map{inset-inline:.5rem;top:.5rem;padding:.6rem .7rem;}
+.spaces__filterbar.is-over-map.is-stuck{box-shadow:0 20px 44px -18px rgba(0,0,0,.55);}
+
+/* ===== الشريط المضغوط فوق الخريطة ===== */
+.mfbar{position:relative;display:flex;align-items:center;gap:.4rem;}
+.mfbar__search{flex:1;min-width:0;}
+.mfbar__search input{padding:.55rem 2.5rem .55rem .9rem;font-size:.88rem;}
+.mfbar__search .fbar__search-icon{inset-inline-start:.75rem;width:.95rem;height:.95rem;}
+.mfbar__search .fbar__search-clear{inset-inline-end:.45rem;width:1.5rem;height:1.5rem;}
+.mfbar__count{flex:none;font-size:.8rem;}
+
+.mfbar__toggle{
+  display:inline-flex;align-items:center;gap:.35rem;flex:none;
+  min-height:2.25rem;padding:.4rem .8rem;
+  border:1.5px solid var(--border);border-radius:999px;background:#fff;
+  font-family:inherit;font-size:.82rem;font-weight:700;color:var(--text-strong);
+  cursor:pointer;transition:all .15s var(--ease);white-space:nowrap;
 }
+.mfbar__toggle:hover{border-color:var(--accent);color:var(--accent);}
+.mfbar__toggle.is-open{border-color:var(--accent);box-shadow:var(--ring);}
+.mfbar__toggle.is-active{
+  background:var(--gradient-brand);border-color:transparent;color:#fff;
+  box-shadow:0 8px 18px -8px rgba(249,115,22,.6);
+}
+.mfbar__toggle.is-active svg{color:#fff;}
+.mfbar__toggle .fdrop__chev{transition:transform .25s var(--ease);}
+.mfbar__toggle.is-open .fdrop__chev{transform:rotate(180deg);}
+.mfbar__toggle .fbar__more-badge{background:#fff;color:var(--accent);}
+
+/* ===== اللوحة المنبثقة: الفلاتر الكاملة عند الطلب فقط ===== */
+.fpop{
+  position:absolute;inset-inline-end:0;top:calc(100% + .45rem);z-index:70;
+  width:min(23rem,calc(100vw - 2rem));
+  max-height:min(70vh,30rem);
+  display:flex;flex-direction:column;overflow:hidden;
+  background:#fff;border:1px solid var(--border);border-radius:1.1rem;
+  box-shadow:0 24px 48px -18px rgba(0,0,0,.28);
+  animation:dropIn .16s var(--ease);
+}
+.fpop__head{
+  display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex:none;
+  padding:.75rem .9rem .6rem;border-bottom:1px solid var(--border);
+}
+.fpop__title{font-size:.9rem;font-weight:800;color:var(--text-strong);}
+.fpop__body{
+  flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  padding:.5rem .9rem;scrollbar-width:thin;
+}
+.fpop__active{
+  flex:none;padding:.6rem .9rem;border-top:1px solid var(--border);
+  background:var(--surface-2);
+}
+.fpop__active-label{
+  display:block;margin-bottom:.4rem;
+  font-size:.72rem;font-weight:800;color:var(--text-muted);
+}
+.fpop__active .spaces__chips-bar{
+  margin:0;padding:0;background:none;border:none;border-radius:0;animation:none;
+}
+.fpop__foot{
+  display:flex;align-items:center;justify-content:space-between;gap:.6rem;flex:none;
+  padding:.6rem .9rem;border-top:1px solid var(--border);background:#fff;
+}
+.fpop__foot-count{
+  display:inline-flex;align-items:center;gap:.3rem;
+  font-size:.78rem;font-weight:700;color:var(--text-muted);
+}
+.fpop__foot-count svg{color:var(--accent);flex:none;}
+.fpop__foot .btn-primary{min-height:2.2rem;padding:.4rem 1rem;font-size:.85rem;}
+
 .fbar{display:flex;flex-direction:column;gap:.7rem;}
 
 .fbar__top{display:flex;align-items:center;gap:1rem;}
@@ -4890,6 +4957,25 @@ html.dark .otour__popover{background:var(--surface);border-color:rgba(255,255,25
   display:grid;grid-template-columns:minmax(0,1fr) 21rem;
   gap:1.25rem;align-items:start;
 }
+/* طيّ قائمة المساحات: الخريطة تأخذ عرض النافذة كاملاً.
+   MapSizeWatcher في SpacesPage يُصلح أبعاد البلاطات بعد هذا التغيّر. */
+.spaces__map-view.is-rail-collapsed{grid-template-columns:minmax(0,1fr);gap:0;}
+.spaces__map-view.is-rail-collapsed .spaces__map-list{display:none;}
+
+/* زر طيّ قائمة الخريطة — يظهر في عرض الخريطة على كل المقاسات.
+   طيّها يمنح الخريطة عرض النافذة كاملاً، وMapSizeWatcher في SpacesPage
+   يُصلح أبعاد البلاطات بعد التغيّر. */
+.spaces__rail-toggle{
+  display:inline-flex;align-items:center;gap:.35rem;min-height:2.25rem;padding:.45rem .8rem;
+  border:1.5px solid var(--border);border-radius:999px;background:#fff;
+  font-family:inherit;font-size:.8rem;font-weight:700;color:var(--text-strong);
+  cursor:pointer;transition:all .15s var(--ease);white-space:nowrap;
+}
+.spaces__rail-toggle svg{width:1.05rem;height:1.05rem;color:var(--text-muted);}
+.spaces__rail-toggle:hover{border-color:var(--accent);color:var(--accent);}
+.spaces__rail-toggle:hover svg,
+.spaces__rail-toggle.is-on svg{color:var(--accent);}
+.spaces__rail-toggle.is-on{border-color:var(--accent);}
 .spaces__map-main{display:flex;flex-direction:column;gap:.9rem;min-width:0;}
 .spaces__map-container{
   height:min(68vh,38rem);border-radius:var(--radius-card);overflow:hidden;
@@ -5146,6 +5232,9 @@ html.dark .otour__popover{background:var(--surface);border-color:rgba(255,255,25
   .mcard{grid-template-columns:2.8rem minmax(0,1fr) auto;}
   .mcard__media{width:2.8rem;height:2.8rem;}
   .spaces__map-container{height:24rem;}
+  /* شريط الأدوات يزدحم على الجوال — نكتفي بالأيقونة ونضعها في نهاية الصف */
+  .spaces__rail-toggle{width:2.25rem;padding:0;justify-content:center;}
+  .spaces__rail-toggle span{display:none;}
   .spaces__fab{bottom:4.5rem;left:1rem;}
   .spaces__amenities,.spaces__sort{grid-template-columns:1fr;}
   .spaces__chip-clear{margin-inline-start:0;}
