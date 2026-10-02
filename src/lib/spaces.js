@@ -9,6 +9,8 @@ const SPACES_TIMEOUT_MS = 10000;
 
 const DEMO_FLAG_KEY = 'masahati_spaces_demo_v1';
 const DEMO_DATA_KEY = 'masahati_spaces_data_v1';
+const CATALOG_CACHE_KEY = 'masahati_spaces_catalog_v1';
+const CATALOG_TTL_MS = 5 * 60 * 1000;
 
 // ----- وضع تجريبي -----
 export function isSpacesDemo() {
@@ -479,9 +481,11 @@ export async function loadAllSpacesWithFallback(force = false) {
   if (isSpacesDemo() && !force) {
     return { demo: true, spaces: demoStore().spaces.map(mapSpace) };
   }
+  const cached = force ? null : readCatalogCache();
+  if (cached) return { demo: false, spaces: cached };
   const collected = [];
   let page = 1;
-  let lastPage = 1;
+  let lastPage;
   try {
     do {
       const result = await fetchSpaces(page);
@@ -491,10 +495,43 @@ export async function loadAllSpacesWithFallback(force = false) {
       if (page > 25) break; // سقف أمان: لا نقطة سيرفر أكثر من 25 صفحة
     } while (page <= lastPage);
     setDemoFlag(false);
+    writeCatalogCache(collected);
     return { demo: false, spaces: collected };
   } catch {
     setDemoFlag(true);
     return { demo: true, spaces: demoStore().spaces.map(mapSpace) };
+  }
+}
+
+// الكتالوج الكامل يحتاج ترقيماً متسلسلاً حتى ٢٥ صفحة، وكل فتح للصفحة يدفع الثمن
+// من جديد. نخزّنه مؤقتاً على القرص (نفس نمط owner.js) فتعود المقارنة فوراً،
+// ومع ذلك يُعاد بناؤه من الشبكة إن تجاوز الكاش عمره أو فشل.
+function readCatalogCache() {
+  try {
+    const raw = localStorage.getItem(CATALOG_CACHE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || !Array.isArray(data.spaces) || !Number.isFinite(data.at)) return null;
+    if (Date.now() - data.at > CATALOG_TTL_MS) return null;
+    return data.spaces;
+  } catch {
+    return null;
+  }
+}
+
+function writeCatalogCache(spaces) {
+  try {
+    localStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify({ at: Date.now(), spaces }));
+  } catch {
+    /* التخزين غير متاح أو ممتلئ: نتابع بلا كاش */
+  }
+}
+
+export function clearSpacesCatalogCache() {
+  try {
+    localStorage.removeItem(CATALOG_CACHE_KEY);
+  } catch {
+    /* التخزين غير متاح */
   }
 }
 

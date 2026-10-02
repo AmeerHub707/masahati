@@ -805,6 +805,49 @@ const builtCtx = customerAssistant.buildCustomerContext({
 });
 report('CS11 Context counts only real relationship data', builtCtx.activeBookingsCount === 2 && builtCtx.cancelledBookings === 1 && builtCtx.favoritesCount === 2 && builtCtx.openRequests === 1, JSON.stringify(builtCtx));
 
+// ============================================================
+// القسم 7: كاش الكتالوج الكامل — لا نعيد ترقيم ٢٥ صفحة كل فتح
+// ============================================================
+console.log('\n===== 7) spaces.js: catalog cache =====');
+const spaces = await server.ssrLoadModule('/src/lib/spaces.js');
+
+resetStorage();
+let pagesFetched = 0;
+globalThis.fetch = makeFetch({
+  'GET /api/spaces': ({ query }) => {
+    const page = Number(query.page || 1);
+    pagesFetched += 1;
+    return {
+      status: 200,
+      body: {
+        data: [
+          { space_id: 100 + page, title: `قاعة ${page}`, price_per_hour: 100 * page, capacity: 10, is_active: true },
+        ],
+        current_page: page,
+        last_page: 3,
+        total: 3,
+      },
+    };
+  },
+});
+
+const firstLoad = await spaces.loadAllSpacesWithFallback();
+report('7.1 Catalog pages through the whole result set', firstLoad.spaces.length === 3 && pagesFetched === 3, `n=${firstLoad.spaces.length} pages=${pagesFetched}`);
+report('7.2 First load is not the demo set', firstLoad.demo === false);
+
+const pagesAfterFirst = pagesFetched;
+const secondLoad = await spaces.loadAllSpacesWithFallback();
+report('7.3 Second load serves the cache without new requests', pagesFetched === pagesAfterFirst, `pages=${pagesFetched}`);
+report('7.4 Cached catalog has the same rows', secondLoad.spaces.length === firstLoad.spaces.length
+  && secondLoad.spaces[0].id === firstLoad.spaces[0].id, JSON.stringify(secondLoad.spaces.map((s) => s.id)));
+
+const forcedLoad = await spaces.loadAllSpacesWithFallback(true);
+report('7.5 force=true refetches from the network', pagesFetched > pagesAfterFirst && forcedLoad.spaces.length === 3, `pages=${pagesFetched}`);
+
+spaces.clearSpacesCatalogCache();
+const afterClear = await spaces.loadAllSpacesWithFallback();
+report('7.6 Clearing the cache refetches', pagesFetched > pagesAfterFirst + 3 && afterClear.spaces.length === 3, `pages=${pagesFetched}`);
+
 await server.close();
 
 console.log(`\n===== RESULT: ${pass} passed, ${fail} failed =====`);

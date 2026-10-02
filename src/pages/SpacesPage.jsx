@@ -1363,7 +1363,11 @@ export default function SpacesPage() {
     }
   }, [appliedFilters]);
 
+  // جلب أول صفحة عند التركيب وكلما تغيّرت الفلاتر المطبَّقة (غير المتأخّرة).
+  // `loadSpaces` تضبط `loading` قبل `await` عمداً ليظهر المؤشّر فوراً؛ وهذا
+  // جلب بيانات لا حساب مشتق، فالتنبيه يُسكَت هنا تحديداً.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadSpaces(1, false);
   }, [loadSpaces]);
 

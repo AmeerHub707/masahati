@@ -1,59 +1,44 @@
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, Reorder, useDragControls } from 'framer-motion';
 import {
   Check, Star, Users, TrendingUp, Wallet, Crown, Trophy,
   Search, X, Building2, Sparkles, CalendarCheck2, Gauge, Award, Scale, AlertTriangle,
+  GripVertical, ChevronRight, ChevronLeft, MessageSquareQuote, Receipt, HandCoins, Equal,
+  Lightbulb, Clock, MapPin, Ticket, Plus,
 } from 'lucide-react';
 import BackButton from '../components/common/BackButton';
 import { loadAllSpacesWithFallback, SPACE_CATEGORIES } from '../lib/spaces';
 import { AMENITY_LABELS } from '../lib/requests';
-import { fmtNumber, fmtRating } from '../lib/format';
+import { fmtNumber, fmtRating, fmtMoney } from '../lib/format';
+import { getHomePath, getCurrentRole } from '../lib/authStore';
+import {
+  pricePerHead,
+  buildCompareContext,
+  scoreAll,
+  normalizeRow,
+  rowHasDifference,
+} from '../lib/compareScore';
 
 const MAX_PICK = 4;
 const MIN_PICK = 2;
+const NARROW = '(max-width: 720px)';
 
 const catLabel = (id) => (SPACE_CATEGORIES.find((c) => c.id === id) || {}).label || '';
+const amenityText = (list) =>
+  (Array.isArray(list) ? list : []).map((a) => AMENITY_LABELS[a]).filter(Boolean).join('، ') || '—';
 
-// ----- مؤشر القيمة الإجمالي (0-100) ضمن المقارنة الحالية -----
-function valueScore(s, ctx) {
-  const price = s.price_per_hour || 0;
-  const rating = s.rating || 0;
-  const capacity = s.capacity || 0;
-  const occupancy = s.stats?.occupancy ?? 0;
-  const amenities = (s.amenities || []).length;
-  const reviews = s.review_count || 0;
-  const range = Math.max(1, ctx.maxPrice - ctx.minPrice);
-  const priceInv = 1 - (price - ctx.minPrice) / range;
-  const ratingNorm = rating / 5;
-  const capacityNorm = ctx.maxCapacity > 0 ? capacity / ctx.maxCapacity : 0;
-  const occupancyNorm = occupancy / 100;
-  const amenityNorm = ctx.totalAmenities > 0 ? amenities / ctx.totalAmenities : 0;
-  const reviewsNorm = ctx.maxReviews > 0 ? Math.min(1, reviews / ctx.maxReviews) : 0;
-  const score =
-    0.28 * ratingNorm +
-    0.22 * priceInv +
-    0.16 * capacityNorm +
-    0.16 * occupancyNorm +
-    0.1 * amenityNorm +
-    0.08 * reviewsNorm;
-  return Math.round(score * 100);
-}
-
-function buildContext(spaces) {
-  const prices = spaces.map((s) => s.price_per_hour || 0);
-  const allAmenityKeys = new Set();
-  spaces.forEach((s) => (s.amenities || []).forEach((a) => allAmenityKeys.add(a)));
-  return {
-    minPrice: Math.min(...prices),
-    maxPrice: Math.max(...prices),
-    maxCapacity: Math.max(...spaces.map((s) => s.capacity || 0)),
-    maxReviews: Math.max(...spaces.map((s) => s.review_count || 0)),
-    maxOccupancy: Math.max(...spaces.map((s) => s.stats?.occupancy ?? 0)),
-    minOccupancy: Math.min(...spaces.map((s) => s.stats?.occupancy ?? 0)),
-    totalAmenities: allAmenityKeys.size,
-  };
-}
+// الرسوم والجدول لا يعتمد على نص البحث، فنتجنب إعادة رسمها مع كل ضغطة مفتاح
+// بشرط أن تبقى هذه المراجع ثابتة الهوية: نرفعها إلى خارج المكوّن ونغلّف
+// الرسوم بـ memo فتكتفت بالحالة Memoise بلا سبب حقيقي لإعادة الرسم.
+const ICON_WALLET = <Wallet size={18} />;
+const ICON_RECEIPT = <Receipt size={18} />;
+const ICON_USERS = <Users size={18} />;
+const ICON_QUOTE = <MessageSquareQuote size={18} />;
+const pickPrice = (s) => s.price_per_hour;
+const pickPerHead = (s) => pricePerHead(s);
+const pickCapacity = (s) => s.capacity;
+const pickReviews = (s) => s.review_count;
 
 export default function ComparePage() {
   const [params, setParams] = useSearchParams();
@@ -61,10 +46,17 @@ export default function ComparePage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [demo, setDemo] = useState(false);
+  const [diffsOnly, setDiffsOnly] = useState(true);
+  const [announce, setAnnounce] = useState('');
+  const [isNarrow, setIsNarrow] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(NARROW).matches
+  );
+  const [tableOpen, setTableOpen] = useState(
+    () => !(typeof window !== 'undefined' && window.matchMedia(NARROW).matches)
+  );
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
     loadAllSpacesWithFallback()
       .then((res) => {
         if (!alive) return;
@@ -79,432 +71,743 @@ export default function ComparePage() {
     return () => { alive = false; };
   }, []);
 
-  const selectedIds = useMemo(() => params.getAll('sp'), [params]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const mq = window.matchMedia(NARROW);
+    const onChange = (e) => {
+      setIsNarrow(e.matches);
+      setTableOpen(!e.matches);
+    };
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
-  const selectable = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return allSpaces;
-    return allSpaces.filter((s) =>
-      `${s.title} ${s.location} ${s.area} ${catLabel(s.category)}`.toLowerCase().includes(q)
-    );
-  }, [allSpaces, query]);
+  // الترتيب يبقى ملك المستخدم: نقرأه كما هو من الرابط ولا نرتّب به.
+  const selectedIds = useMemo(() => params.getAll('sp').slice(0, MAX_PICK), [params]);
 
   const selected = useMemo(() => {
     const map = new Map(allSpaces.map((s) => [String(s.id), s]));
     return selectedIds.map((id) => map.get(String(id))).filter(Boolean);
   }, [allSpaces, selectedIds]);
 
-  const ctx = useMemo(() => (selected.length >= MIN_PICK ? buildContext(selected) : null), [selected]);
-  const ranked = useMemo(() => {
-    if (!ctx) return [];
-    return selected
-      .map((s) => ({ space: s, score: valueScore(s, ctx) }))
-      .sort((a, b) => b.score - a.score);
-  }, [selected, ctx]);
+  // التطبيع على الكتالوج كاملاً، لا على المختارة، وإلا قفزت الدرجة عند كل إضافة.
+  const ctx = useMemo(() => buildCompareContext(allSpaces), [allSpaces]);
+  const scored = useMemo(() => scoreAll(selected, ctx), [selected, ctx]);
+  const scoredSpaces = useMemo(() => scored.map((x) => x.space), [scored]);
+  const winnerId = useMemo(() => scored.find((x) => x.isWinner)?.space.id, [scored]);
+  const ready = scored.length >= MIN_PICK;
+  const toggleTable = useCallback(() => setTableOpen((v) => !v), []);
 
-  const toggle = (id) => {
-    const has = selectedIds.includes(String(id));
-    if (has) {
-      setParams(selectedIds.filter((x) => x !== String(id)).map((x) => ['sp', x]));
-    } else if (selectedIds.length < MAX_PICK) {
-      setParams([...selectedIds, String(id)].map((x) => ['sp', x]));
+  const membershipKey = useMemo(() => [...selectedIds].sort().join('|'), [selectedIds]);
+
+  const selectable = useMemo(() => {
+    const taken = new Set(selectedIds);
+    const q = query.trim().toLowerCase();
+    return allSpaces
+      .filter((s) => !taken.has(String(s.id)))
+      .filter((s) => !q || `${s.title} ${s.location} ${s.area} ${catLabel(s.category)}`.toLowerCase().includes(q));
+  }, [allSpaces, selectedIds, query]);
+
+  const writeIds = (ids) => setParams(ids.map((x) => ['sp', x]));
+  const full = selectedIds.length >= MAX_PICK;
+
+  const add = (id) => {
+    if (full) return;
+    writeIds([...selectedIds, String(id)]);
+  };
+
+  const remove = (id) => writeIds(selectedIds.filter((x) => x !== String(id)));
+
+  const move = (index, delta) => {
+    const target = index + delta;
+    if (target < 0 || target >= selectedIds.length) return;
+    const next = [...selectedIds];
+    [next[index], next[target]] = [next[target], next[index]];
+    writeIds(next);
+    setAnnounce(`انتقلت المساحة إلى العمود ${fmtNumber(target + 1)} من ${fmtNumber(next.length)}`);
+  };
+
+  const onReorder = (ids) => {
+    writeIds(ids);
+    setAnnounce(`أُعيد ترتيب المساحات: ${ids.map((id) => {
+      const s = selected.find((x) => String(x.id) === String(id));
+      return s ? s.title : id;
+    }).join(' ثم ')}`);
+  };
+
+  const clearAll = () => { setParams([]); setQuery(''); };
+
+  // شريحة "أضف مساحة أخرى" لا تفتح صينية مطوية (الصينية ظاهرة دائماً)،
+  // فتجعل التركيز ينزل إلى بحث الاختيار حيث ترى الخيارات وتختار منها.
+  // التركيز أولاً ليبقى مضموناً، ثم تمرير اختياري لا يسقط في بيئات بلا دعم.
+  const searchRef = useRef(null);
+  const focusTray = () => {
+    const el = searchRef.current;
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    if (typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
     }
   };
 
-  const clearAll = () => setParams([]);
-
   return (
     <div className="min-h-screen font-['Cairo'] compare-page">
+      {/* ---------- القسم الأعلى: الصورة هي القسم نفسه ----------
+          الصورة تمتدّ بعرض الصفحة وتذوب حوافّها في لون الصفحة، فأصبحت جزءاً
+          من القسم لا قصاصة عائمة. لونها الفاتح يحتمل نصاً داكناً، وهو ما
+          تعطيه الخلفية الحلزية تحتها. */}
+      <section className="compare-hero">
+        <img
+          className="compare-hero__img"
+          src="/Modern-Building.jpg"
+          alt=""
+          aria-hidden="true"
+          width="968"
+          height="379"
+          decoding="async"
+          fetchPriority="high"
+        />
+        <div className="wrap wrap--wide compare-hero__inner">
+          <BackButton
+            className="cmp-float-back"
+            fallback={getHomePath(getCurrentRole())}
+            ariaLabel="العودة إلى صفحة المقارنة"
+            label=""
+          />
+          <header className="compare__head">
+            <h1 className="compare__title">قارن بين المساحات واختر الأنسب</h1>
+            <p className="compare__subtitle">
+        اختر من {fmtNumber(MIN_PICK)} إلى {fmtNumber(MAX_PICK)} مساحات، ورتّبها بالترتيب الذي يناسبك
+        {demo && <em className="compare__demo-badge">وضع تجريبي</em>}
+            </p>
+          </header>
+        </div>
+      </section>
+
       <div className="wrap wrap--wide compare">
-        <BackButton className="ad-details__back" fallback="/spaces" label="العودة للتصفح" />
-        <header className="compare__head">
-          <span className="compare__eyebrow">مقارنة المساحات</span>
-          <h1 className="compare__title">قارن بين المساحات واختر الأنسب</h1>
-          <p className="compare__subtitle">
-            اختر من {fmtNumber(2)} إلى {fmtNumber(MAX_PICK)} مساحات لعرض المخططات والإحصاءات جنباً إلى جنب
-            {demo && <em className="compare__demo-badge">وضع تجريبي</em>}
-          </p>
-        </header>
+        <div className="sr-only" role="status" aria-live="polite">{announce}</div>
 
-        {/* أداة الاختيار */}
-        <section className="compare__picker" aria-label="اختيار المساحات للمقارنة">
-          <div className="compare__picker-top">
-            <div className="compare__search">
-              <Search className="compare__search-icon" size={17} />
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="ابحث بالاسم، المنطقة، أو النوع..."
-                aria-label="البحث في المساحات"
-              />
-              {query && (
-                <button type="button" className="compare__search-clear" onClick={() => setQuery('')} aria-label="مسح البحث">
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-            <div className="compare__counter">
-              <span className={`compare__counter-dot${selected.length >= MIN_PICK ? ' is-ok' : ''}`} />
-              <b>{fmtNumber(selected.length)}</b> <small>/ {fmtNumber(MAX_PICK)}</small>
-            </div>
-            {selected.length > 0 && (
-              <button type="button" className="btn-ghost compare__clear" onClick={clearAll}>
-                <X size={15} /> مسح الكل
-              </button>
-            )}
-          </div>
+        {/* ---------- الأعلى: الاختيار (العدّاد، الشرائح، ثم بحث الإضافة) ---------- */}
+        <section className="wb" aria-label="اختيار المساحات للمقارنة">
+                <div className="wb__bar">
+                  <h2 className="wb__bar-title"><Gauge size={18} /> مساحاتك على الطاولة</h2>
+                  <div className="wb__bar-tools">
+                    <div className="compare__counter">
+                      <span className={`compare__counter-dot${ready ? ' is-ok' : ''}`} />
+                      <b>{fmtNumber(selected.length)}</b> <small>/ {fmtNumber(MAX_PICK)}</small>
+                    </div>
+                    {selected.length > 0 && (
+                      <button type="button" className="btn-ghost compare__clear" onClick={clearAll}>
+                        <X size={15} /> مسح الكل
+                      </button>
+                    )}
+                  </div>
+                </div>
 
-          {loading ? (
-            <div className="compare__chips is-loading">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <span key={i} className="compare__chip-skeleton" />
-              ))}
-            </div>
-          ) : (
-            <div className="compare__chips">
-              {selectable.map((s) => {
-                const isOn = selectedIds.includes(String(s.id));
-                const locked = isOn ? false : selectedIds.length >= MAX_PICK;
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    className={`compare__chip${isOn ? ' is-on' : ''}${locked ? ' is-locked' : ''}`}
-                    onClick={() => toggle(s.id)}
-                    aria-pressed={isOn}
-                    disabled={locked}
-                    title={s.title}
-                  >
-                    <span className="compare__chip-check">{isOn && <Check size={13} />}</span>
-                    <span className="compare__chip-icon"><Building2 size={16} /></span>
-                    <span className="compare__chip-name">{s.title}</span>
-                    <span className="compare__chip-meta">{fmtNumber(s.price_per_hour)} ش.ج | {catLabel(s.category)}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+                {!loading && selected.length > 0 && (
+                  <nav className="cmp-chips" aria-label="المساحات المختارة للمقارنة">
+                    {selected.map((s) => (
+                      <span className="cmp-chip" key={s.id}>
+                        <span className="cmp-chip__name" title={s.title}>{s.title}</span>
+                        <button
+                          type="button"
+                          className="cmp-chip__x"
+                          onClick={() => remove(s.id)}
+                          aria-label={`إزالة ${s.title} من المقارنة`}
+                        >
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
+                    {!full && (
+                      <button
+                        type="button"
+                        className="cmp-chip cmp-chip--add"
+                        onClick={focusTray}
+                      >
+                        <Plus size={14} /> إضافة مساحة أخرى
+                      </button>
+                    )}
+                  </nav>
+                )}
+
+                <div className="wb__tray">
+                  <div className="compare__search">
+                    <Search className="compare__search-icon" size={17} />
+                    <input
+                      ref={searchRef}
+                      type="search"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="ابحث بالاسم، المنطقة، أو النوع..."
+                      aria-label="البحث في المساحات"
+                    />
+                    {query && (
+                      <button type="button" className="compare__search-clear" onClick={() => setQuery('')} aria-label="مسح البحث">
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                  {!loading && (
+                    <div className="wb__tray-list">
+                      {selectable.length === 0 && (
+                        <p className="wb__tray-empty">
+                          {full ? 'اكتمل الحد الأقصى للمقارنة' : 'لا نتائج مطابقة للبحث'}
+                        </p>
+                      )}
+                      {selectable.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          className="wb__tray-item"
+                          onClick={() => add(s.id)}
+                          disabled={full}
+                        >
+                          <Building2 size={15} />
+                          <span className="wb__tray-name">{s.title}</span>
+                          <span className="wb__tray-meta">{fmtNumber(s.price_per_hour)} ش.ج</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
         </section>
 
+        {/* ---------- الوسط: طاولة المقارنة، أعمدة المساحات المختارة ---------- */}
+        <section className="wb wb--cols" aria-label="أعمدة المساحات المختارة للمقارنة">
+                {loading ? (
+                  <div className="wb__slots is-loading">
+                    {Array.from({ length: MIN_PICK }).map((_, i) => <span key={i} className="wb__slot-skeleton" />)}
+                  </div>
+                ) : (
+                  <Reorder.Group
+                    axis="x"
+                    values={selectedIds}
+                    onReorder={onReorder}
+                    className="wb__slots"
+                    as="ul"
+                  >
+                    {scored.map(({ space, score, isWinner }, i) => (
+                      <Slot
+                        key={space.id}
+                        space={space}
+                        score={score}
+                        isWinner={isWinner}
+                        index={i}
+                        total={selectedIds.length}
+                        onMove={move}
+                        onRemove={remove}
+                      />
+                    ))}
+                    {!full && (
+                      <li className="wb__slot wb__slot--empty" aria-hidden="true">
+                        <span className="wb__slot-drop" />
+                        <span className="wb__slot-drop-text">أضف مساحة</span>
+                      </li>
+                    )}
+                  </Reorder.Group>
+                )}
+
+                {!loading && selected.length === 0 && (
+                  <div className="cmp-tip">
+                    <Lightbulb size={18} />
+                    <p>اختر مساحات من أنواع مختلفة أو مواقع مختلفة للحصول على مقارنة أكثر دقة وتفصيلاً.</p>
+                  </div>
+                )}
+        </section>
+
+        {/* ---------- الأسفل: كل الإحصاءات والرسوم وجدول المقارنة ---------- */}
+        {ready && (
+                <motion.div
+                  key={membershipKey}
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                  className="compare__results"
+                >
+                  {/* الفائز أولاً: القرار أهم من التفاصيل */}
+                  <div className="compare__recap">
+                    <div className="compare__winner">
+                      <Trophy size={22} />
+                      <div>
+                        <b>الأفضل إجمالاً</b>
+                        <span>{scoredSpaces.find((s) => String(s.id) === String(winnerId))?.title}</span>
+                      </div>
+                    </div>
+                    <Link className="btn-primary compare__cta" to={`/ads/${winnerId}`}>
+                      <CalendarCheck2 size={18} /> احجز الآن
+                    </Link>
+                  </div>
+
+                  <ul className="compare__legend" aria-label="مفتاح قراءة الألوان">
+                    <li><span className="compare__legend-key compare__legend-key--win"><Crown size={12} /></span> البرتقالي = الأفضل إجمالاً</li>
+                    <li><span className="compare__legend-key compare__legend-key--best"><Check size={12} /></span> الأخضر = الأفضل في هذا المعيار</li>
+                    <li><span className="compare__legend-key compare__legend-key--other">—</span> الرمادي = الطرف الآخر</li>
+                  </ul>
+
+                  <div className="compare__charts">
+                    <BarChart
+                      title="السعر (ش.ج/ساعة)"
+                      icon={ICON_WALLET}
+                      spaces={scoredSpaces}
+                      pick={pickPrice}
+                      format={fmtNumber}
+                      lowerIsBetter
+                      bestWord="الأقل سعراً"
+                      worstWord="الأعلى سعراً"
+                    />
+                    <RadialRatingChart spaces={scoredSpaces} />
+                    <BarChart
+                      title="السعر لكل شخص"
+                      icon={ICON_RECEIPT}
+                      spaces={scoredSpaces}
+                      pick={pickPerHead}
+                      format={fmtMoney}
+                      log
+                      lowerIsBetter
+                      bestWord="الأوفر لكل شخص"
+                      worstWord="الأعلى لكل شخص"
+                      unit="ش.ج/شخص"
+                    />
+                    <BarChart
+                      title="السعة القصوى"
+                      icon={ICON_USERS}
+                      spaces={scoredSpaces}
+                      pick={pickCapacity}
+                      format={fmtNumber}
+                      log
+                      lowerIsBetter={false}
+                      bestWord="الأكبر سعة"
+                      worstWord="الأقل سعة"
+                    />
+                    <BarChart
+                      title="عدد التقييمات"
+                      icon={ICON_QUOTE}
+                      spaces={scoredSpaces}
+                      pick={pickReviews}
+                      format={fmtNumber}
+                      log
+                      lowerIsBetter={false}
+                      bestWord="الأكثر ثقة"
+                      worstWord="الأقل ثقة"
+                    />
+                    <OccupancyChart spaces={scoredSpaces} />
+                  </div>
+
+                  <CompareTable
+                    spaces={scoredSpaces}
+                    winnerId={winnerId}
+                    diffsOnly={diffsOnly}
+                    onDiffsChange={setDiffsOnly}
+                    open={tableOpen}
+                    onToggleOpen={toggleTable}
+                    isNarrow={isNarrow}
+                  />
+                </motion.div>
+        )}
+
         {selected.length === 0 && !loading && (
-          <div className="compare__empty">
-            <div className="compare__empty-icon"><Scale size={44} /></div>
-            <h3>اختر مساحات لتقارنها</h3>
-            <p>اختر مساحتين على الأقل من القائمة أعلاه لعرض مقارنة تفاعلية بالمخططات.</p>
-          </div>
+                <div className="compare__empty">
+                  <div className="compare__empty-icon"><Scale size={44} /></div>
+                  <h3>اختر مساحات لتقارنها</h3>
+                  <p>أضف من {fmtNumber(MIN_PICK)} إلى {fmtNumber(MAX_PICK)} مساحات من الصينية أعلاه لتبدأ المقارنة.</p>
+                </div>
         )}
 
         {selected.length === 1 && !loading && (
-          <div className="compare__empty">
-            <div className="compare__empty-icon"><Sparkles size={44} /></div>
-            <h3>مساحة واحدة فقط… اختر غيرها</h3>
-            <p>المقارنة تحتاج إلى مساحتين على الأقل. أضف مساحة أخرى من القائمة.</p>
-          </div>
-        )}
-
-        {ctx && ranked.length >= MIN_PICK && (
-          <AnimatePresence>
-            <motion.div
-              key={selectedIds.join('|')}
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-              className="compare__results"
-            >
-              {/* البطاقات العلوية لكل مساحة */}
-              <div className="compare__overview">
-                {ranked.map(({ space, score }, i) => (
-                  <CompareCard
-                    key={space.id}
-                    space={space}
-                    score={score}
-                    rank={i + 1}
-                    isTop={i === 0}
-                    onRemove={() => toggle(space.id)}
-                  />
-                ))}
-              </div>
-
-              {/* المخططات */}
-              <div className="compare__charts">
-                <PriceChart spaces={ranked.map((r) => r.space)} ctx={ctx} />
-                <RatingGauges spaces={ranked.map((r) => r.space)} />
-                <OccupancyChart spaces={ranked.map((r) => r.space)} ctx={ctx} />
-                <CapacityChart spaces={ranked.map((r) => r.space)} ctx={ctx} />
-              </div>
-
-              {/* جدول المقارنة التفصيلي */}
-              <div className="compare__table-wrap">
-                <h2 className="compare__section-title">
-                  <Gauge size={20} /> جدول المقارنة الكامل
-                </h2>
-                <div className="compare__table" role="table" aria-label="مقارنة المساحات"
-                  style={{ '--cmp-cols': ranked.length }}>
-                  <div className="compare__row is-head" role="row">
-                    <span className="compare__metric" role="columnheader">المعيار</span>
-                    {ranked.map(({ space }) => (
-                      <span key={space.id} className="compare__cell is-head-cell" role="columnheader">
-                        {space.title}
-                      </span>
-                    ))}
-                  </div>
-
-                  <MetricRow label="السعر (ش.ج / ساعة)" values={ranked.map((r) => r.space)} pick={(s) => s.price_per_hour} format={fmtNumber} best="min" />
-                  <MetricRow label="السعة (أشخاص)" values={ranked.map((r) => r.space)} pick={(s) => s.capacity} format={fmtNumber} best="max" />
-                  <MetricRow label="التقييم" values={ranked.map((r) => r.space)} pick={(s) => s.rating} format={fmtRating} best="max" suffix="★" />
-                  <MetricRow label="عدد التقييمات" values={ranked.map((r) => r.space)} pick={(s) => s.review_count} format={fmtNumber} best="max" />
-                  <MetricRow label="حجوزات الشهر" values={ranked.map((r) => r.space)} pick={(s) => s.stats?.bookings ?? 0} format={fmtNumber} best="max" />
-                  <MetricRow label="الإيراد الشهري (ش.ج)" values={ranked.map((r) => r.space)} pick={(s) => s.stats?.revenue ?? 0} format={fmtNumber} best="max" />
-                  <MetricRow label="معدل الإشغال" values={ranked.map((r) => r.space)} pick={(s) => s.stats?.occupancy ?? 0} format={(v) => `${fmtNumber(v)}٪`} best="max" />
-                  <MetricRow label="أوقات العمل" values={ranked.map((r) => r.space)} pick={(s) => `${s.open_time || '—'} – ${s.close_time || '—'}`} format={(v) => v} best={null} />
-                  <MetricRow label="المنطقة" values={ranked.map((r) => r.space)} pick={(s) => s.area || s.location || '—'} format={(v) => v} best={null} />
-                  <MetricRow label="النوع" values={ranked.map((r) => r.space)} pick={(s) => catLabel(s.category) || '—'} format={(v) => v} best={null} />
-                  <MetricRow label="المرافق" values={ranked.map((r) => r.space)} pick={(s) => s.amenities || []} format={(arr) => arr.map((a) => AMENITY_LABELS[a]).filter(Boolean).join('، ') || '—'} best="more" />
-                  <MetricRow label="حجز فوري" values={ranked.map((r) => r.space)} pick={(s) => s.instant_booking} format={(v) => (v ? 'متاح' : 'غير متاح')} best={null} />
+                <div className="compare__empty">
+                  <div className="compare__empty-icon"><Sparkles size={44} /></div>
+                  <h3>مساحة واحدة فقط… اختر غيرها</h3>
+                  <p>المقارنة تحتاج مساحتين على الأقل. أضف واحدة أخرى من الصينية.</p>
                 </div>
-              </div>
-
-              {/* خلاصة */}
-              <div className="compare__recap">
-                <div className="compare__winner">
-                  <Trophy size={22} />
-                  <div>
-                    <b>الأفضل إجمالاً</b>
-                    <span>{ranked[0].space.title}</span>
-                  </div>
-                </div>
-                <Link className="btn-primary compare__cta" to={`/ads/${ranked[0].space.id}`}>
-                  <CalendarCheck2 size={18} /> احجز {ranked[0].space.title.split(' ')[0]}
-                </Link>
-              </div>
-            </motion.div>
-          </AnimatePresence>
         )}
-      </div>
+            </div>
     </div>
   );
 }
 
-// ----- بطاقة علوية لكل مساحة -----
-function CompareCard({ space, score, rank, isTop, onRemove }) {
+// ----- خانة واحدة على الطاولة -----
+function Slot({ space, score, isWinner, index, total, onMove, onRemove }) {
+  const controls = useDragControls();
+  // لا ساعة ولا شَرطة إن غاب وقتا العمل: « – » وحدها بصرياً بلا معنى.
+  const hours = `${space.open_time || ''}${space.close_time ? ` – ${space.close_time}` : ''}`.trim();
   return (
-    <div className={`compare__card${isTop ? ' is-top' : ''}`}>
-      {isTop && <span className="compare__card-crown"><Crown size={16} /></span>}
-      <div className="compare__card-head">
-        <div className="compare__card-rank">#{fmtNumber(rank)}</div>
-        <div className="compare__card-icon"><Building2 size={26} /></div>
-        <button type="button" className="compare__card-remove" onClick={onRemove} aria-label={`إزالة ${space.title}`}>
-          <X size={15} />
+    <Reorder.Item
+      value={String(space.id)}
+      dragListener={false}
+      dragControls={controls}
+      className={`wb__slot${isWinner ? ' is-winner' : ''}`}
+    >
+      {isWinner && <span className="wb__slot-crown"><Crown size={14} /></span>}
+      <div className="wb__slot-media">
+        {space.image ? (
+          <img src={space.image} alt="" className="wb__slot-img" />
+        ) : (
+          <Building2 size={22} />
+        )}
+      </div>
+      <div className="wb__slot-info">
+        <h3 className="wb__slot-name" title={space.title}>{space.title}</h3>
+        <div className="wb__slot-rate">
+          <Star size={13} />
+          {fmtRating(space.rating || 0)}
+          <span className="wb__slot-reviews">({fmtNumber(space.review_count || 0)})</span>
+        </div>
+        <div className="wb__slot-price">
+          <b>{fmtNumber(space.price_per_hour)}</b> <small>ش.ج/ساعة</small>
+        </div>
+        <div className="wb__slot-hours">
+          {hours && (
+            <>
+        <Clock size={13} />
+        {hours}
+            </>
+          )}
+          {space.instant_booking ? (
+            <span className="cmp-badge cmp-badge--ok">متاح</span>
+          ) : (
+            <span className="cmp-badge cmp-badge--off">غير متاح</span>
+          )}
+        </div>
+      </div>
+      <div className="wb__slot-score" title="مؤشر القيمة الإجمالي">
+        <span className="wb__slot-score-track"><span style={{ width: `${score}%` }} /></span>
+        <b>{fmtNumber(score)}</b>
+      </div>
+      <div className="wb__slot-tools">
+        <button
+          type="button"
+          className="wb__slot-move"
+          onClick={() => onMove(index, -1)}
+          disabled={index === 0}
+          aria-label={`نقل ${space.title} إلى العمود السابق`}
+        >
+          <ChevronRight size={15} />
+        </button>
+        <button
+          type="button"
+          className="wb__slot-move"
+          onClick={() => onMove(index, 1)}
+          disabled={index === total - 1}
+          aria-label={`نقل ${space.title} إلى العمود التالي`}
+        >
+          <ChevronLeft size={15} />
+        </button>
+        <button
+          type="button"
+          className="wb__slot-grip"
+          onPointerDown={(e) => controls.start(e)}
+          aria-label={`اسحب لإعادة ترتيب ${space.title}`}
+        >
+          <GripVertical size={15} />
+        </button>
+        <button
+          type="button"
+          className="wb__slot-remove"
+          onClick={() => onRemove(space.id)}
+          aria-label={`إزالة ${space.title}`}
+        >
+          <X size={14} />
         </button>
       </div>
-      <h3 className="compare__card-title">{space.title}</h3>
-      <div className="compare__card-rating">
-        <Star size={15} /> {fmtRating(space.rating)}
-        {space.review_count > 0 && <small>({fmtNumber(space.review_count)})</small>}
-      </div>
-      <div className="compare__card-price">
-        <b>{fmtNumber(space.price_per_hour)}</b> <small>ش.ج / ساعة</small>
-      </div>
-      <div className="compare__card-score">
-        <span style={{ width: `${score}%` }} />
-        <em>{fmtNumber(score)}</em>
-      </div>
-      <div className="compare__card-tags">
-        {space.capacity > 0 && <span><Users size={13} /> {fmtNumber(space.capacity)}</span>}
-        {space.instant_booking && <span className="is-flash"><Sparkles size={13} /> فوري</span>}
-      </div>
-    </div>
+    </Reorder.Item>
   );
 }
 
-// ----- مخطط أعمدة السعر -----
-function PriceChart({ spaces, ctx }) {
-  const peak = ctx.maxPrice || 1;
-  const varied = ctx.minPrice !== ctx.maxPrice;
+// ----- مخطط أعمدة موحّد، مطبَّع داخل الصف لا على المدى العام -----
+const BarChart = memo(function BarChart({ title, icon, spaces, pick, format, log = false, lowerIsBetter = true, bestWord, worstWord, unit }) {
+  const raw = spaces.map(pick);
+  const present = raw.filter((v) => Number.isFinite(v));
+  // المساحة التي لا تُحسب لها قيمة (سعة صفرية) تُوضع في الطرف الأسوأ صراحةً
+  const sentinel = present.length
+    ? (lowerIsBetter
+      ? Math.max(...present) * 1000
+      : Math.max(1, Math.min(...present) / 1000))
+    : 0;
+  const values = raw.map((v) => (Number.isFinite(v) ? v : sentinel));
+  const pcts = normalizeRow(values, { log, lowerIsBetter });
+  const best = present.length ? (lowerIsBetter ? Math.min(...present) : Math.max(...present)) : null;
+  const worst = present.length ? (lowerIsBetter ? Math.max(...present) : Math.min(...present)) : null;
+  const varied = best !== null && best !== worst;
+  const bestIdx = varied ? raw.findIndex((v) => Number.isFinite(v) && v === best) : -1;
+
   return (
     <div className="compare__chart">
-      <h3 className="compare__chart-title"><Wallet size={18} /> مقارنة السعر</h3>
+      <h3 className="compare__chart-title">{icon} {title}</h3>
       <div className="compare__bars">
-        {spaces.map((s) => {
-          const h = Math.max(6, ((s.price_per_hour || 0) / peak) * 100);
-          const isLow = varied && s.price_per_hour === ctx.minPrice;
-          const isHigh = varied && s.price_per_hour === ctx.maxPrice;
+        {spaces.map((s, i) => {
+          const has = Number.isFinite(raw[i]);
+          const isBest = i === bestIdx;
+          const isWorst = varied && has && raw[i] === worst;
           return (
             <div key={s.id} className="compare__bar">
-              <div className="compare__bar-track">
+        <div className="compare__bar-track">
                 <motion.span
-                  className={`compare__bar-fill${isLow ? ' is-best' : ''}${isHigh ? ' is-worst' : ''}`}
+                  className={`compare__bar-fill${isBest ? ' is-best' : ''}${isWorst ? ' is-worst' : ''}`}
                   initial={{ height: 0 }}
-                  animate={{ height: `${h}%` }}
+                  animate={{ height: `${has ? Math.max(pcts[i] * 100, 1.5) : 0}%` }}
                   transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
                 />
-              </div>
-              <b className="compare__bar-value">{fmtNumber(s.price_per_hour)}</b>
-              <small className="compare__bar-label">{s.title}</small>
-              {isLow && <em className="compare__bar-badge">الأقل سعراً</em>}
-              {isHigh && <em className="compare__bar-badge is-worst">الأعلى سعراً</em>}
+        </div>
+        <b className="compare__bar-value">{has ? format(raw[i]) : '—'}</b>
+        <small className="compare__bar-label">{s.title}</small>
+        {unit && <small className="compare__bar-unit">{unit}</small>}
+        {isBest && <em className="compare__bar-badge">{bestWord}</em>}
+        {isWorst && <em className="compare__bar-badge is-worst">{worstWord}</em>}
             </div>
           );
-        })}
+          })}
       </div>
     </div>
   );
-}
+});
 
-// ----- نصف دائرة التقييم لكل مساحة (SVG) -----
-function RatingGauges({ spaces }) {
-  const ratings = spaces.map((s) => Math.max(0, Math.min(5, s.rating || 0)));
-  const top = Math.max(...ratings);
-  const low = Math.min(...ratings);
-  const varied = top !== low;
+const RadialRatingChart = memo(function RadialRatingChart({ spaces }) {
+  const C = 2 * Math.PI * 52;
   return (
     <div className="compare__chart">
       <h3 className="compare__chart-title"><Star size={18} /> التقييم (من ٥)</h3>
-      <div className="compare__gauges">
+      <div className="cmp-donuts">
         {spaces.map((s, i) => {
-          const r = ratings[i];
-          const frac = r / 5;
-          const C = 2 * Math.PI * 42;
-          const isBest = varied && r === top;
-          const isWorst = varied && r === low;
+          const r = Math.max(0, Math.min(5, Number(s.rating) || 0));
+          const offset = C * (1 - r / 5);
           return (
-            <div
-              key={s.id}
-              className={`compare__gauge${isBest ? ' is-best' : ''}${isWorst ? ' is-worst' : ''}`}
-            >
-              <svg viewBox="0 0 100 100" className="compare__gauge-svg" aria-hidden="true">
-                <circle className="compare__gauge-track" cx="50" cy="50" r="42" />
-                <motion.circle
-                  className="compare__gauge-fill"
-                  cx="50"
-                  cy="50"
-                  r="42"
-                  strokeDasharray={C}
-                  initial={{ strokeDashoffset: C }}
-                  animate={{ strokeDashoffset: C * (1 - frac) }}
-                  transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-                />
-              </svg>
-              <div className="compare__gauge-center">
-                <b>{fmtRating(r)}</b>
-                <small>من ٥</small>
-              </div>
-              <span className="compare__gauge-name">{s.title}</span>
+            <div key={s.id}>
+        <div className="cmp-donut" role="img" aria-label={`${s.title}: التقييم ${fmtRating(r)} من ٥، ${fmtNumber(s.review_count || 0)} تقييم`}>
+                <svg viewBox="0 0 120 120" aria-hidden="true">
+                  <circle className="cmp-donut__track" r="52" cx="60" cy="60" stroke="var(--brand-050)" strokeWidth="10" />
+                  <motion.circle
+                    r="52" cx="60" cy="60" stroke="var(--brand-500)" strokeWidth="10" strokeDasharray={C}
+                    initial={{ strokeDashoffset: C }}
+                    animate={{ strokeDashoffset: offset }}
+                    transition={{ duration: 0.7, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
+                  />
+                </svg>
+                <span className="cmp-donut__val">{fmtRating(r)}</span>
+        </div>
+        <div className="cmp-donut__label">{s.title}</div>
             </div>
           );
         })}
       </div>
     </div>
   );
-}
+});
 
-// ----- أشرطة الإشغال الأفقية -----
-function OccupancyChart({ spaces, ctx }) {
-  const varied = ctx.maxOccupancy !== ctx.minOccupancy;
+// ----- أشرطة الإشغال الأفقية: المقياس 0-100 طبيعي، فلم يُمَسّ -----
+const OccupancyChart = memo(function OccupancyChart({ spaces }) {
+  const raw = spaces.map((s) => Math.max(0, Math.min(100, Number(s.stats?.occupancy) || 0)));
+  const best = Math.max(...raw);
+  const worst = Math.min(...raw);
+  const varied = best !== worst;
   return (
     <div className="compare__chart">
       <h3 className="compare__chart-title"><TrendingUp size={18} /> معدل الإشغال</h3>
       <div className="compare__hrows">
-        {spaces.map((s) => {
-          const occ = Math.max(0, Math.min(100, s.stats?.occupancy ?? 0));
-          const isBest = varied && occ === ctx.maxOccupancy;
-          const isWorst = varied && occ === ctx.minOccupancy;
-          return (
-            <div key={s.id} className="compare__hrow">
-              <span className="compare__hrow-label">{s.title}</span>
-              <span className="compare__hrow-track">
-                <motion.span
-                  className={`compare__hrow-fill${isBest ? ' is-best' : ''}${isWorst ? ' is-worst' : ''}`}
-                  initial={{ width: 0 }}
-                  animate={{ width: `${occ}%` }}
-                  transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-                />
-              </span>
-              <b className="compare__hrow-value">{fmtNumber(occ)}٪</b>
-            </div>
-          );
-        })}
+        {spaces.map((s, i) => (
+          <div
+            key={s.id}
+            className={`compare__hrow${varied && raw[i] === best ? ' is-best' : ''}${varied && raw[i] === worst ? ' is-worst' : ''}`}
+          >
+            <span className="compare__hrow-label">{s.title}</span>
+            <span className="compare__hrow-track">
+        <motion.span
+                className="compare__hrow-fill"
+                initial={{ width: 0 }}
+                animate={{ width: `${Math.max(raw[i], 3)}%` }}
+                transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+        />
+            </span>
+            <b className="compare__hrow-value">{fmtNumber(raw[i])}٪</b>
+          </div>
+        ))}
       </div>
     </div>
   );
-}
+});
 
-// ----- مقارنة السعة -----
-function CapacityChart({ spaces, ctx }) {
-  const peak = ctx.maxCapacity || 1;
-  const capacities = spaces.map((s) => s.capacity || 0);
-  const low = Math.min(...capacities);
-  const varied = low !== ctx.maxCapacity;
+const MAIN_ROWS = [
+  { id: 'perHead', label: 'السعر لكل شخص (ش.ج/شخص)', pick: (s) => pricePerHead(s), fmt: (v) => fmtMoney(v), better: 'min', log: true, icon: Receipt },
+  { id: 'price', label: 'السعر (ش.ج/ساعة)', pick: (s) => s.price_per_hour, fmt: fmtNumber, better: 'min', icon: Wallet },
+  { id: 'rating', label: 'التقييم (من ٥)', pick: (s) => Math.max(0, Math.min(5, Number(s.rating) || 0)), fmt: (v) => fmtRating(v), better: 'max', icon: Star },
+  { id: 'reviews', label: 'عدد التقييمات', pick: (s) => Number(s.review_count) || 0, fmt: fmtNumber, better: 'max', log: true, icon: MessageSquareQuote },
+  { id: 'capacity', label: 'السعة القصوى', pick: (s) => s.capacity, fmt: fmtNumber, better: 'max', log: true, icon: Users },
+  { id: 'amenities', label: 'المرافق', pick: (s) => (Array.isArray(s.amenities) ? s.amenities : []), fmt: amenityText, better: 'count', icon: Sparkles },
+  { id: 'category', label: 'نوع المساحة', pick: (s) => catLabel(s.category) || '—', icon: Building2 },
+  { id: 'area', label: 'المنطقة', pick: (s) => s.area || s.location || '—', icon: MapPin },
+  { id: 'hours', label: 'أوقات العمل', pick: (s) => (s.open_time && s.close_time ? `${s.open_time} – ${s.close_time}` : '—'), icon: Clock },
+  { id: 'instant', label: 'الحجز الفوري', pick: (s) => (s.instant_booking ? 'متاح' : 'غير متاح'), icon: CalendarCheck2 },
+];
+
+// مؤشرات المالك: أرقام تشغيلية خاصة بصاحب المساحة، لا معياراً للزبون.
+const OWNER_ROWS = [
+  { id: 'bookings', label: 'الحجوزات الشهرية', pick: (s) => Number(s.stats?.bookings) || 0, fmt: fmtNumber, better: 'max', log: true, icon: Ticket },
+  { id: 'revenue', label: 'الإيراد (ش.ج/شهر)', pick: (s) => Number(s.stats?.revenue) || 0, fmt: (v) => fmtMoney(v), better: 'max', log: true, icon: HandCoins },
+  { id: 'occupancy', label: 'معدل الإشغال (%)', pick: (s) => Math.max(0, Math.min(100, Number(s.stats?.occupancy) || 0)), fmt: (v) => `${fmtNumber(v)}%`, better: 'max', icon: TrendingUp },
+];
+
+// ----- جدول المقارنة: <table> حقيقي، وكل صف مطبَّع على مداه هو -----
+const CompareTable = memo(function CompareTable({ spaces, winnerId, diffsOnly, onDiffsChange, open, onToggleOpen, isNarrow }) {
+  const mainRows = diffsOnly ? MAIN_ROWS.filter((r) => rowHasDifference(spaces.map(r.pick))) : MAIN_ROWS;
+  const ownerRows = diffsOnly ? OWNER_ROWS.filter((r) => rowHasDifference(spaces.map(r.pick))) : OWNER_ROWS;
+
   return (
-    <div className="compare__chart">
-      <h3 className="compare__chart-title"><Users size={18} /> السعة القصوى</h3>
-      <div className="compare__bars">
-        {spaces.map((s) => {
-          const cap = s.capacity || 0;
-          const h = Math.max(6, (cap / peak) * 100);
-          const isMax = varied && cap === ctx.maxCapacity;
-          const isMin = varied && cap === low;
-          return (
-            <div key={s.id} className="compare__bar">
-              <div className="compare__bar-track">
-                <motion.span
-                  className={`compare__bar-fill compare__bar-fill--accent${isMax ? ' is-best' : ''}${isMin ? ' is-worst' : ''}`}
-                  initial={{ height: 0 }}
-                  animate={{ height: `${h}%` }}
-                  transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-                />
-              </div>
-              <b className="compare__bar-value">{fmtNumber(cap)}</b>
-              <small className="compare__bar-label">{s.title}</small>
-              {isMax && <em className="compare__bar-badge">الأكبر سعة</em>}
-              {isMin && <em className="compare__bar-badge is-worst">الأقل سعة</em>}
-            </div>
-          );
-        })}
+    <section className="cmp-table" aria-label="جدول المقارنة الكامل">
+      <div className="cmp-table__head">
+        <h2 className="compare__section-title"><Gauge size={20} /> جدول المقارنة الكامل</h2>
+        <div className="cmp-table__tools">
+          <label className="cmp-toggle">
+            <input
+        type="checkbox"
+        checked={diffsOnly}
+        onChange={(e) => onDiffsChange(e.target.checked)}
+            />
+            <span className="cmp-toggle__track" aria-hidden="true"><span className="cmp-toggle__knob" /></span>
+            <span className="cmp-toggle__text">الفروق فقط</span>
+          </label>
+          {(isNarrow || !open) && (
+            <button type="button" className="btn-ghost cmp-table__disclose" onClick={onToggleOpen}>
+        <Equal size={15} /> {open ? 'إخفاء الجدول' : 'عرض الجدول'}
+            </button>
+          )}
+        </div>
       </div>
-    </div>
-  );
-}
 
-// ----- صف في جدول المقارنة مع إبراز الأفضل (أخضر) والأسوأ (برتقالي) -----
-function MetricRow({ label, values, pick, format, best }) {
-  const mapped = values.map((s) => pick(s));
+      {(!isNarrow || open) && (
+        <div className="cmp-table__scroll">
+          <table className="cmp-table__grid">
+            <caption className="sr-only">
+        مقارنة تفصيلية بين {spaces.length} مساحات. الصفوف مطبَّعة على مدى الصف نفسه.
+            </caption>
+            <thead>
+        <tr>
+                <th scope="col" className="cmp-table__metric-head">المعيار</th>
+                {spaces.map((s) => (
+                  <th
+                    key={s.id}
+                    scope="col"
+                    className={`cmp-table__space-head${String(s.id) === String(winnerId) ? ' is-winner' : ''}`}
+                  >
+                    {String(s.id) === String(winnerId) && <Crown size={13} />}
+                    <span title={s.title}>{s.title}</span>
+                  </th>
+                ))}
+        </tr>
+            </thead>
+            <tbody>
+        {mainRows.map((row) => (
+                <Row key={row.id} row={row} spaces={spaces} />
+        ))}
+            </tbody>
+            {ownerRows.length > 0 && (
+        <>
+                <tbody className="cmp-table__owner-head">
+                  <tr>
+                    <th scope="colgroup" colSpan={spaces.length + 1}>
+                      <span className="cmp-table__owner-tag">
+                        <HandCoins size={14} /> مؤشرات المالك
+                        <em>أرقام تشغيلية خاصة بصاحب المساحة، لا تُستخدم في الترتيب</em>
+                      </span>
+                    </th>
+                  </tr>
+                </tbody>
+                <tbody>
+                  {ownerRows.map((row) => (
+                    <Row key={row.id} row={row} spaces={spaces} />
+                  ))}
+                </tbody>
+        </>
+            )}
+            <tfoot className="cmp-table__foot">
+        <tr>
+                <th scope="row" className="cmp-table__metric">
+                  <span className="cmp-table__metric-label">
+                    <span className="cmp-table__rowicon" aria-hidden="true"><Ticket size={14} /></span>
+                    الإجراء
+                  </span>
+                </th>
+                {spaces.map((s) => (
+                  <td key={s.id}>
+                    {s.instant_booking ? (
+                      <Link className="cmp-book" to={`/ads/${s.id}`}>حجز فوري</Link>
+                    ) : (
+                      <span className="cmp-book is-off">غير متاح</span>
+                    )}
+                  </td>
+                ))}
+        </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+      {(!isNarrow || open) && mainRows.length === 0 && (
+        <p className="cmp-table__none">لا فروق بين المساحات المختارة في أي معيار.</p>
+      )}
+    </section>
+  );
+});
+
+const Row = memo(function Row({ row, spaces }) {
+  const raw = spaces.map(row.pick);
+  const present = raw.filter((v) => Number.isFinite(v));
+  const sentinel = present.length
+    ? (row.better === 'min' ? Math.max(...present) * 1000 : Math.max(1, Math.min(...present) / 1000))
+    : 0;
+  const values = raw.map((v) => (Number.isFinite(v) ? v : sentinel));
+  const pcts = normalizeRow(values, { log: !!row.log, lowerIsBetter: row.better === 'min' });
+
   const sizeOf = (v) => (Array.isArray(v) ? v.length : v);
   let bestIdx = -1;
-  let worstIdx = -1;
-  if (best === 'min') {
-    bestIdx = mapped.reduce((bi, v, i) => (v < mapped[bi] ? i : bi), 0);
-    worstIdx = mapped.reduce((wi, v, i) => (v > mapped[wi] ? i : wi), 0);
-  } else if (best === 'max') {
-    bestIdx = mapped.reduce((bi, v, i) => (v > mapped[bi] ? i : bi), 0);
-    worstIdx = mapped.reduce((wi, v, i) => (v < mapped[wi] ? i : wi), 0);
-  } else if (best === 'more') {
-    bestIdx = mapped.reduce((bi, v, i) => (v.length > mapped[bi]?.length ? i : bi), 0);
-    worstIdx = mapped.reduce((wi, v, i) => (v.length < mapped[wi]?.length ? i : wi), 0);
+  if (row.better === 'min' && present.length) {
+    bestIdx = raw.findIndex((v) => Number.isFinite(v) && v === Math.min(...present));
+  } else if (row.better === 'max' && present.length) {
+    bestIdx = raw.findIndex((v) => Number.isFinite(v) && v === Math.max(...present));
+  } else if (row.better === 'count') {
+    const counts = raw.map((v) => (Array.isArray(v) ? v.length : 0));
+    const hi = Math.max(...counts);
+    if (hi > 0) bestIdx = counts.indexOf(hi);
   }
-  // لا نضع علامة "أسوأ" إن كانت كل القيم متساوية (وإلا صار أفضل وأسوأ في آن واحد)
-  const showWorst = best && worstIdx >= 0 && worstIdx !== bestIdx
-    && sizeOf(mapped[worstIdx]) !== sizeOf(mapped[bestIdx]);
+  const bestSize = bestIdx >= 0 ? sizeOf(raw[bestIdx]) : null;
+  const varied = bestIdx >= 0 && present.some((v) => sizeOf(v) !== bestSize);
 
   return (
-    <div className="compare__row" role="row">
-      <span className="compare__metric">{label}</span>
-      {mapped.map((v, i) => {
-        const isBest = Boolean(best) && i === bestIdx;
-        const isWorst = showWorst && i === worstIdx;
+    <tr>
+      <th scope="row" className="cmp-table__metric">
+        <span className="cmp-table__metric-label">
+          {row.icon && (
+            <span className="cmp-table__rowicon" aria-hidden="true">
+        <row.icon size={14} />
+            </span>
+          )}
+          {row.label}
+        </span>
+      </th>
+      {spaces.map((s, i) => {
+        const has = Number.isFinite(raw[i]);
+        const isBest = i === bestIdx;
+        const isWorst = varied && !isBest && sizeOf(raw[i]) !== bestSize;
+        const showBar = bestIdx >= 0 && present.length > 1 && row.better !== undefined;
         return (
-          <span
-            key={i}
-            className={`compare__cell${isBest ? ' is-best' : ''}${isWorst ? ' is-worst' : ''}`}
-            role="cell"
+          <td
+            key={s.id}
+            className={`cmp-table__cell${isBest ? ' is-best' : ''}${isWorst ? ' is-worst' : ''}`}
           >
-            {isBest && <Award size={13} className="compare__cell-award" />}
-            {isWorst && <AlertTriangle size={13} className="compare__cell-warn" />}
-            {format(v)}
-          </span>
+            <span className="cmp-table__val">
+        {isBest && <Award size={13} className="cmp-table__award" />}
+        {isWorst && <AlertTriangle size={13} className="cmp-table__warn" />}
+        {row.fmt ? row.fmt(raw[i]) : String(raw[i])}
+            </span>
+            {showBar && (
+        <span className="cmp-table__bar" aria-hidden="true">
+                <span
+                  className={`cmp-table__bar-fill${isBest ? ' is-best' : ''}${isWorst ? ' is-worst' : ''}`}
+                  style={{ width: `${has ? Math.max(pcts[i] * 100, 2) : 0}%` }}
+                />
+        </span>
+            )}
+          </td>
         );
       })}
-    </div>
+    </tr>
   );
-}
+});

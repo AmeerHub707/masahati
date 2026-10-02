@@ -169,7 +169,7 @@ export async function fetchNotifications() {
 
 export async function markNotificationsRead() {
   const res = await request('/api/notifications/read', {
-    method: 'PATCH',
+    method: 'POST',
     auth: true,
     timeoutMs: REQ_TIMEOUT_MS,
   });

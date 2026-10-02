@@ -17,23 +17,26 @@ import {
 export default function AdDetailsPage() {
   const { id } = useParams();
   const [space, setSpace] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  // «مُحمَّل» بدل «يحمّل»: الحالة تُشتق من معرّف طلبه، فلا داعي لضبط
+  // مؤشّر تحميل داخل التأثير (تحديث حالة متزامن = تحديث زائد).
+  const [loadedId, setLoadedId] = useState(null);
+  const loading = loadedId !== id;
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
-    setError(false);
     loadSpaceDetailWithFallback(id)
       .then((result) => {
         if (!alive) return;
         setSpace(result.space);
-        setLoading(false);
+        setError(false);
+        setLoadedId(id);
       })
       .catch(() => {
         if (!alive) return;
+        setSpace(null);
         setError(true);
-        setLoading(false);
+        setLoadedId(id);
       });
     return () => { alive = false; };
   }, [id]);

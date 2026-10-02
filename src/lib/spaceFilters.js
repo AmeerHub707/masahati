@@ -160,7 +160,9 @@ function popularity(space) {
   return toNumber(space.stats?.bookings) ?? toNumber(space.bookings_count) ?? 0;
 }
 
-export function sortSpaces(spaces, sort = DEFAULT_SORT, origin = null) {
+// الترتيب لا يحتاج مرجعاً جغرافياً: المسافة محسوبة مسبقاً كـ distance_km
+// في خطوة التصفية، والترتيب يقرأها فقط.
+export function sortSpaces(spaces, sort = DEFAULT_SORT) {
   const list = [...(spaces || [])];
   const byPrice = (a, b) => (toNumber(a.price_per_hour) ?? 0) - (toNumber(b.price_per_hour) ?? 0);
   const byRating = (a, b) => (toNumber(b.rating) ?? 0) - (toNumber(a.rating) ?? 0);
@@ -190,7 +192,7 @@ export function sortSpaces(spaces, sort = DEFAULT_SORT, origin = null) {
 
 // خطوتا与应用 الكاملتان: تصفية ثم ترتيب.
 export function applyFilters(spaces, filters = {}, origin = null) {
-  return sortSpaces(filterSpaces(spaces, filters, origin), filters.sort || DEFAULT_SORT, origin);
+  return sortSpaces(filterSpaces(spaces, filters, origin), filters.sort || DEFAULT_SORT);
 }
 
 // ----- شرائح الفلتر النشطة -----
