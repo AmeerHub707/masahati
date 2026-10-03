@@ -5882,16 +5882,10 @@ html.dark .top-spaces__empty{color:var(--text-muted);}
   transition:transform var(--card-transition),box-shadow var(--card-transition),border-color var(--card-transition);}
 .cmp-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-card-hover);border-color:#fed7aa;}
 .cmp-card.is-winner{border-color:var(--brand-500);box-shadow:0 18px 40px -26px rgba(232,99,38,.7);}
-.cmp-card__crown{position:absolute;inset-block-start:-.6rem;left:50%;transform:translateX(-50%);z-index:3;
-  width:26px;height:26px;display:grid;place-items:center;border-radius:50%;color:#fff;
-  background:linear-gradient(135deg,var(--brand-400),var(--brand-500));
-  box-shadow:0 6px 14px -6px rgba(232,99,38,.95);}
 .cmp-card__media{grid-area:media;position:relative;height:9rem;
   border-radius:var(--radius-card) var(--radius-card) 0 0;overflow:hidden;
   display:grid;place-items:center;color:var(--brand-400);background:linear-gradient(135deg,#f3e7dc,#e6d5c5);}
 .cmp-card__img{width:100%;height:100%;object-fit:cover;}
-.cmp-card__rank{position:absolute;inset-block-start:.5rem;inset-inline-start:.5rem;
-  background:rgba(0,0,0,.55);color:#fff;font-size:.7rem;font-weight:800;padding:.15rem .45rem;border-radius:999px;}
 .cmp-card__body{grid-area:body;min-width:0;display:flex;flex-direction:column;align-items:center;
   gap:.15rem;padding:.7rem .9rem .2rem;text-align:center;}
 .cmp-card__name{margin:0;width:100%;font-size:.95rem;font-weight:800;line-height:1.4;
@@ -6050,16 +6044,12 @@ html.dark .top-spaces__empty{color:var(--text-muted);}
 .cmp-matrix__cell{min-width:9rem;padding:.7rem 1rem;vertical-align:top;
   border-block-start:1px solid var(--cmp-line);border-inline-start:1px solid var(--cmp-line);}
 .cmp-matrix__cell.is-best{background:rgba(232,99,38,.06);}
-/* طھطھط¨ظ‘ط¹ ط¹ظ…ظˆط¯ ط§ظ„ظپط§ط¦ط² ط·ظˆط§ظ„ ط§ظ„ط¬ط¯ظˆظ„ ظ„ظٹط¹ط±ظپ ط§ظ„ط¹ظ…ظˆط¯Winner ظپظˆط±ط§ظ‹ */
-.cmp-matrix__cell.is-winner{background:rgba(232,99,38,.055);}
 .cmp-matrix__val{display:inline-flex;align-items:center;gap:.35rem;font-size:.9rem;font-weight:700;color:var(--text-strong);}
-.cmp-matrix__cell.is-low .cmp-matrix__val{font-weight:600;color:var(--text-secondary);}
 .cmp-matrix__award{color:var(--brand-500);flex:none;}
 .cmp-matrix__bar{display:block;height:6px;margin-top:.4rem;border-radius:999px;overflow:hidden;
   background:rgba(0,0,0,.06);}
 .cmp-matrix__barfill{display:block;height:100%;border-radius:999px;background:var(--cmp-chart-2);}
 .cmp-matrix__barfill.is-best{background:var(--cmp-chart-1);}
-.cmp-matrix__barfill.is-low{background:color-mix(in oklab,var(--cmp-chart-2) 45%,transparent);}
 .cmp-matrix tfoot .cmp-matrix__cell{background:var(--bg-page);border-block-start:2px solid var(--border-subtle);}
 .cmp-matrix__book{display:inline-flex;align-items:center;justify-content:center;width:100%;min-height:44px;
   border-radius:var(--radius-btn);background:var(--brand-500);color:#fff;text-decoration:none;
@@ -6295,7 +6285,7 @@ html.dark .cmp-matrix__metric,html.dark .cmp-matrix__cell{border-block-start-col
 html.dark .cmp-matrix__metric,html.dark .cmp-matrix__metric-head,
 html.dark .cmp-matrix__space,html.dark .cmp-matrix__cell{border-inline-color:rgba(255,255,255,.16);}
 html.dark .cmp-matrix__metric,html.dark .cmp-matrix__cell{border-block-start-color:rgba(255,255,255,.14);}
-html.dark .cmp-matrix__cell.is-winner{background:rgba(232,99,38,.1);}
+html.dark .cmp-matrix__cell.is-winner{background:color-mix(in oklab,var(--cmp-chart-1) 12%,transparent);}
 html.dark .cmp-matrix__grouprow th::before{background:var(--brand-400);}
 html.dark .cmp-matrix__grouprow--owner th{background:#232329;color:var(--text-secondary);}
 html.dark .cmp-matrix__grouprow--owner th::before{background:var(--text-secondary);}
@@ -6305,5 +6295,4 @@ html.dark .cmp-matrix__cell.is-best{background:rgba(249,115,22,.08);}
 html.dark .cmp-matrix__bar{background:rgba(255,255,255,.08);}
 html.dark .cmp-matrix__barfill{background:var(--cmp-chart-2);}
 html.dark .cmp-matrix__barfill.is-best{background:var(--cmp-chart-1);}
-html.dark .cmp-matrix__barfill.is-low{background:color-mix(in oklab,var(--cmp-chart-2) 45%,transparent);}
 html.dark .cmp-matrix__book.is-off{background:#131318;color:#a1a1aa;}

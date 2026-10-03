@@ -28,11 +28,10 @@ const amenityText = (list) =>
 const hoursText = (s) => (s.open_time && s.close_time ? `${s.open_time} – ${s.close_time}` : s.open_time || '');
 const toNum = (v) => (typeof v === 'number' ? v : Number(v));
 
-// A tie used to hand the row to the leftmost column, so a winner sitting on the
-// right lost every reason it had earned. `prefer` lets the winner keep its tie.
-function bestIndexFor(row, values, prefer = -1) {
-  if (!row.better) return -1;
-  const pick = (candidates) => (candidates.includes(prefer) ? prefer : candidates[0] ?? -1);
+// كل الفهارس التي تحقّق الأفضل، لا الأول منها: مساحتان متساويتان تُفضَّلان معاً،
+// الصف كله يُمنح للطرفين المتساوين، لا لأحدهما.
+function tiedIndexesFor(row, values) {
+  if (!row.better) return [];
   if (row.better === 'count') {
     // المصفوفة في الجدول والعدد في الرسوم: نقبل الشكلين
     const counts = values.map((v) => {
@@ -40,16 +39,24 @@ function bestIndexFor(row, values, prefer = -1) {
       return Number.isFinite(n) ? n : 0;
     });
     const hi = counts.length ? Math.max(...counts) : 0;
-    if (hi <= 0) return -1;
-    return pick(counts.map((c, i) => (c === hi ? i : -1)).filter((i) => i >= 0));
+    if (hi <= 0) return [];
+    return counts.map((c, i) => (c === hi ? i : -1)).filter((i) => i >= 0);
   }
   // null must stay absent, not become 0: two spaces with no data used to look
   // like two equal zeros, and one of them was then badged "الأفضل".
   const nums = values.map((v) => (v == null || v === '' ? NaN : toNum(v)));
   const finite = nums.filter(Number.isFinite);
-  if (!finite.length) return -1;
+  if (!finite.length) return [];
   const target = row.better === 'min' ? Math.min(...finite) : Math.max(...finite);
-  return pick(nums.map((v, i) => (Number.isFinite(v) && v === target ? i : -1)).filter((i) => i >= 0));
+  return nums.map((v, i) => (Number.isFinite(v) && v === target ? i : -1)).filter((i) => i >= 0);
+}
+
+// A tie used to hand the row to the leftmost column, so a winner sitting on the
+// right lost every reason it had earned. `prefer` lets the winner keep its tie.
+function bestIndexFor(row, values, prefer = -1) {
+  const tied = tiedIndexesFor(row, values);
+  if (!tied.length) return -1;
+  return tied.includes(prefer) ? prefer : tied[0];
 }
 
 const ROW_GROUPS = [
@@ -477,19 +484,12 @@ function SpaceCard({ space, score, isWinner, index, total, onMove, onRemove }) {
       dragControls={controls}
       className={`cmp-card${isWinner ? ' is-winner' : ''}`}
     >
-      {isWinner && (
-        <span className="cmp-card__crown" title="الأفضل إجمالاً">
-          <Crown size={13} aria-hidden="true" />
-        </span>
-      )}
-
       <div className="cmp-card__media">
         {space.image ? (
           <img className="cmp-card__img" src={space.image} alt="" loading="lazy" />
         ) : (
           <Building2 size={24} aria-hidden="true" />
         )}
-        <span className="cmp-card__rank">#{fmtNumber(index + 1)}</span>
       </div>
 
       <div className="cmp-card__body">
@@ -670,6 +670,7 @@ function useVizGroups(spaces) {
               return v == null || !Number.isFinite(Number(v)) ? null : Number(v);
             });
             const nums = values.map((v) => (Number.isFinite(v) ? v : 0));
+            const bestIdxs = tiedIndexesFor(row, nums);
             return {
               ...row,
               fmt: row.fmt || fmtNumber,
@@ -677,8 +678,10 @@ function useVizGroups(spaces) {
               numText: (v) => (Number.isFinite(v) ? fmtNumber(v) : '0'),
               values,
               nums,
+              bestIdxs,
+              bestIdx: bestIdxs[0] ?? -1,
+              // drawing two full bars and badging one of them
               pcts: normalizeRow(nums, { log: !!row.log, lowerIsBetter: row.better === 'min' }),
-              bestIdx: bestIndexFor(row, nums),
             };
           }),
         }))
@@ -737,7 +740,7 @@ const QuadPanel = memo(function QuadPanel({ spaces, winnerId, groups }) {
                 {cell.type === 'pills' && (
                   <div className="cmp-qpills">
                     {spaces.map((s, i) => {
-                      const best = i === r.bestIdx;
+                      const best = r.bestIdxs.includes(i);
                       return (
                         <div
                           key={s.id}
@@ -761,7 +764,7 @@ const QuadPanel = memo(function QuadPanel({ spaces, winnerId, groups }) {
                   <>
                     <div className="cmp-qvcols">
                       {spaces.map((s, i) => {
-                        const best = i === r.bestIdx;
+                        const best = r.bestIdxs.includes(i);
                         return (
                           <div
                             key={s.id}
@@ -785,7 +788,7 @@ const QuadPanel = memo(function QuadPanel({ spaces, winnerId, groups }) {
                       {spaces.map((s, i) => (
                         <span
                           key={s.id}
-                          className={`cmp-qname${i === r.bestIdx ? ' is-best' : ''}${String(s.id) === String(winnerId) ? ' is-win' : ''}`}
+                          className={`cmp-qname${r.bestIdxs.includes(i) ? ' is-best' : ''}${String(s.id) === String(winnerId) ? ' is-win' : ''}`}
                           title={s.title}
                         >
                           {s.title}
@@ -804,10 +807,10 @@ const QuadPanel = memo(function QuadPanel({ spaces, winnerId, groups }) {
                     {spaces.map((s, i) => (
                       <div
                         key={s.id}
-                        className={`cmp-dunit${r.bestIdx === i ? ' is-best' : ''}${String(s.id) === String(winnerId) ? ' is-win' : ''}`}
+                        className={`cmp-dunit${r.bestIdxs.includes(i) ? ' is-best' : ''}${String(s.id) === String(winnerId) ? ' is-win' : ''}`}
                       >
                         <span className="cmp-dunit__name" title={s.title}>{s.title}</span>
-                        <Donut pct={r.pcts[i]} best={r.bestIdx === i} label={s.title}>
+                        <Donut pct={r.pcts[i]} best={r.bestIdxs.includes(i)} label={s.title}>
                           {r.numText(r.values[i])}
                         </Donut>
                       </div>
@@ -851,7 +854,7 @@ const AxisChart = memo(function AxisChart({ spaces, row, winnerId }) {
         {spaces.map((s, i) => (
           <b
             key={s.id}
-            className={`cmp-axis__val${row.bestIdx === i ? ' is-best' : ''}`}
+            className={`cmp-axis__val${row.bestIdxs.includes(i) ? ' is-best' : ''}`}
           >
             {row.numText(values[i])}
           </b>
@@ -871,7 +874,7 @@ const AxisChart = memo(function AxisChart({ spaces, row, winnerId }) {
           <span className="cmp-axis__line is-base" />
           <span className="cmp-axis__cols">
             {spaces.map((s, i) => {
-              const best = i === row.bestIdx;
+              const best = row.bestIdxs.includes(i);
               const v = Number.isFinite(values[i]) ? Math.max(0, values[i]) : 0;
               return (
                 <span
@@ -942,7 +945,7 @@ const Matrix = memo(function Matrix({ spaces, winnerId, open, onToggleOpen }) {
         <div className="cmp-matrix__scroll">
           <table className="cmp-matrix__grid">
             <caption className="sr-only">
-              مقارنة تفصيلية بين {fmtNumber(spaces.length)} مساحات. كل صف مطبَّع على مدى الصف نفسه، والأخضر هو الأفضل في ذلك المعيار.
+              مقارنة تفصيلية بين {fmtNumber(spaces.length)} مساحات. كل صف مطبَّع على مدى الصف نفسه، والأفضل في ذلك المعيار يُميَّز باللون والإطار، وقد تتساوى أكثر من مساحة.
             </caption>
             <thead>
               <tr>
@@ -1022,17 +1025,19 @@ const Matrix = memo(function Matrix({ spaces, winnerId, open, onToggleOpen }) {
 
 const MetricRow = memo(function MetricRow({ row, spaces, winnerId }) {
   const values = spaces.map(row.pick);
-  const bestIdx = bestIndexFor(row, values);
+  // كل المتساوين يأخذون وسام "الأفضل": الصف لا ينحاز لعمود واحد بلا سبب
+  const bestIdxs = tiedIndexesFor(row, values);
+  const hasBest = bestIdxs.length > 0;
 
-  const sizeOf = (v) => (Array.isArray(v) ? v.length : v);
-  const bestSize = bestIdx >= 0 ? sizeOf(values[bestIdx]) : null;
   const numeric = values.filter((v) => typeof v === 'number' && Number.isFinite(v)).length > 1;
-  const varied = bestIdx >= 0 && numeric && values.some((v) => sizeOf(v) !== bestSize);
 
-  const barPcts = useMemo(() => {
-    if (bestIdx < 0 || !numeric) return null;
-    return normalizeRow(values.map(toNum), { log: !!row.log, lowerIsBetter: row.better === 'min' });
-  }, [values, bestIdx, numeric, row.log, row.better]);
+  // بلا useMemo: `values` يُبنى من جديد كل عرض، فكان الاعتماد جديداً دائماً
+  const barPcts = !hasBest || !numeric
+    ? null
+    : normalizeRow(values.map((v) => (v == null ? NaN : toNum(v))), {
+      log: !!row.log,
+      lowerIsBetter: row.better === 'min',
+    });
 
   return (
     <tr>
@@ -1045,13 +1050,12 @@ const MetricRow = memo(function MetricRow({ row, spaces, winnerId }) {
         </span>
       </th>
       {spaces.map((s, i) => {
-        const isBest = i === bestIdx;
-        const isLow = varied && !isBest && sizeOf(values[i]) !== bestSize;
+        const isBest = bestIdxs.includes(i);
         const isWinner = winnerId != null && String(s.id) === String(winnerId);
         return (
           <td
             key={s.id}
-            className={`cmp-matrix__cell${isBest ? ' is-best' : ''}${isLow ? ' is-low' : ''}${isWinner ? ' is-winner' : ''}`}
+            className={`cmp-matrix__cell${isBest ? ' is-best' : ''}${isWinner ? ' is-winner' : ''}`}
           >
             <span className="cmp-matrix__val">
               {isBest && <Award size={13} className="cmp-matrix__award" aria-label="الأفضل في هذا المعيار" />}
@@ -1064,7 +1068,7 @@ const MetricRow = memo(function MetricRow({ row, spaces, winnerId }) {
             {barPcts && (
               <span className="cmp-matrix__bar" aria-hidden="true">
                 <span
-                  className={`cmp-matrix__barfill${isBest ? ' is-best' : ''}${isLow ? ' is-low' : ''}`}
+                  className={`cmp-matrix__barfill${isBest ? ' is-best' : ''}`}
                   style={{ width: `${Math.max(barPcts[i] * 100, 2)}%` }}
                 />
               </span>
