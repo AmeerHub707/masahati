@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { loadAllSpacesWithFallback, SPACE_CATEGORIES } from '../lib/spaces';
 import { AMENITY_LABELS } from '../lib/requests';
+import ThemeToggle from '../components/common/ThemeToggle';
 import { fmtNumber, fmtRating, fmtMoney } from '../lib/format';
 import { getHomePath, getCurrentRole, isVisitor } from '../lib/authStore';
 import {
@@ -233,6 +234,8 @@ export default function ComparePage() {
               <Scale size={14} strokeWidth={2.5} aria-hidden="true" />
               مقارنة المساحات
             </p>
+
+            <ThemeToggle />
 
             <Link
               className="cmp-back"
@@ -817,12 +820,23 @@ const QuadPanel = memo(function QuadPanel({ spaces, winnerId, groups }) {
 // middle gridline is exactly half of it, so the scale reads true.
 const niceStep = (v) => (v <= 5 ? 1 : v <= 10 ? 2 : v <= 25 ? 5 : v <= 50 ? 10 : 20);
 
+// The mid gridline is pinned at 50% of the field, so the top has to stay even:
+// an odd top prints a fraction (1.5, 2.5) on a line that is not there.
+// Odd maxima are the common case, not the exception — amenity counts are small.
+function axisScale(values) {
+  const nums = values.map((v) => (Number.isFinite(v) ? Math.max(0, v) : 0));
+  const max = Math.max(0, ...nums);
+  if (max <= 0) return { top: 2, ticks: [2, 1, 0] };
+  const step = niceStep(max);
+  let top = Math.max(step, Math.ceil(max / step) * step);
+  if (top % 2 !== 0) top += step;
+  return { top, ticks: [top, top / 2, 0] };
+}
+
 // Services as a real X/Y chart: value row, plotted field, then the space names.
 const AxisChart = memo(function AxisChart({ spaces, row, winnerId }) {
   const values = row.nums;
-  const step = niceStep(Math.max(...values, 1));
-  const top = Math.max(step, Math.ceil((Math.max(...values, 1) || 1) / step) * step);
-  const ticks = [top, top / 2, 0];
+  const { top, ticks } = axisScale(values);
 
   return (
     <div className="cmp-axis" style={{ '--cmp-cols': spaces.length }}>
@@ -852,15 +866,16 @@ const AxisChart = memo(function AxisChart({ spaces, row, winnerId }) {
           <span className="cmp-axis__cols">
             {spaces.map((s, i) => {
               const best = i === row.bestIdx;
+              const v = Number.isFinite(values[i]) ? Math.max(0, values[i]) : 0;
               return (
                 <span
                   key={s.id}
                   className={`cmp-axis__col${best ? ' is-best' : ''}${String(s.id) === String(winnerId) ? ' is-win' : ''}`}
                 >
                   <motion.span
-                    className="cmp-axis__bar"
+                    className={`cmp-axis__bar${v <= 0 ? ' is-zero' : ''}`}
                     initial={{ height: 0 }}
-                    animate={{ height: `${(values[i] / top) * 100}%` }}
+                    animate={{ height: `${(v / top) * 100}%` }}
                     transition={{ duration: 0.55, ease: EASE }}
                   />
                 </span>
