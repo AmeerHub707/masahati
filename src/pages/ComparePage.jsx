@@ -1,17 +1,16 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { motion, Reorder, useDragControls } from 'framer-motion';
 import {
   Check, Star, Users, TrendingUp, Wallet, Crown, Trophy,
   Search, X, Building2, Sparkles, CalendarCheck2, Gauge, Award, Scale, AlertTriangle,
   GripVertical, ChevronRight, ChevronLeft, MessageSquareQuote, Receipt, HandCoins, Equal,
-  Lightbulb, Clock, MapPin, Ticket, Plus,
+  Lightbulb, Clock, MapPin, Ticket,
 } from 'lucide-react';
-import BackButton from '../components/common/BackButton';
 import { loadAllSpacesWithFallback, SPACE_CATEGORIES } from '../lib/spaces';
 import { AMENITY_LABELS } from '../lib/requests';
 import { fmtNumber, fmtRating, fmtMoney } from '../lib/format';
-import { getHomePath, getCurrentRole } from '../lib/authStore';
+import { getHomePath, getCurrentRole, isVisitor } from '../lib/authStore';
 import {
   pricePerHead,
   buildCompareContext,
@@ -100,13 +99,15 @@ export default function ComparePage() {
 
   const membershipKey = useMemo(() => [...selectedIds].sort().join('|'), [selectedIds]);
 
-  const selectable = useMemo(() => {
-    const taken = new Set(selectedIds);
+  const takenIds = useMemo(() => new Set(selectedIds), [selectedIds]);
+
+  // الصينية تعرض كل المساحات لا المتاحة منها فقط: المختارة تبقى ظاهرة
+  // معلّمةً بدل أن تختفي، فتبقى الصفحة مرجعاً واحداً للاختيار.
+  const trayList = useMemo(() => {
     const q = query.trim().toLowerCase();
     return allSpaces
-      .filter((s) => !taken.has(String(s.id)))
       .filter((s) => !q || `${s.title} ${s.location} ${s.area} ${catLabel(s.category)}`.toLowerCase().includes(q));
-  }, [allSpaces, selectedIds, query]);
+  }, [allSpaces, query]);
 
   const writeIds = (ids) => setParams(ids.map((x) => ['sp', x]));
   const full = selectedIds.length >= MAX_PICK;
@@ -137,44 +138,45 @@ export default function ComparePage() {
 
   const clearAll = () => { setParams([]); setQuery(''); };
 
-  // شريحة "أضف مساحة أخرى" لا تفتح صينية مطوية (الصينية ظاهرة دائماً)،
-  // فتجعل التركيز ينزل إلى بحث الاختيار حيث ترى الخيارات وتختار منها.
-  // التركيز أولاً ليبقى مضموناً، ثم تمرير اختياري لا يسقط في بيئات بلا دعم.
-  const searchRef = useRef(null);
-  const focusTray = () => {
-    const el = searchRef.current;
-    if (!el) return;
-    el.focus({ preventScroll: true });
-    if (typeof el.scrollIntoView === 'function') {
-      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    }
-  };
-
   return (
     <div className="min-h-screen font-['Cairo'] compare-page">
       {/* ---------- القسم الأعلى: الصورة هي القسم نفسه ----------
           الصورة تمتدّ بعرض الصفحة وتذوب حوافّها في لون الصفحة، فأصبحت جزءاً
           من القسم لا قصاصة عائمة. لونها الفاتح يحتمل نصاً داكناً، وهو ما
           تعطيه الخلفية الحلزية تحتها. */}
+      {/* الصورة 2:1 منخفضة الارتفاع، فنصهرها على ارتفاع القسم ونحافظ على
+          مركزها، والحجاب فوقها يضمن وضوح العنوان فوق أي جزء من الصورة. */}
       <section className="compare-hero">
         <img
           className="compare-hero__img"
-          src="/Modern-Building.jpg"
+          src="/Hero-Compare.avif"
           alt=""
           aria-hidden="true"
-          width="968"
-          height="379"
+          width="740"
+          height="370"
           decoding="async"
           fetchPriority="high"
         />
         <div className="wrap wrap--wide compare-hero__inner">
-          <BackButton
+{/*
+            زر العودة هنا رابط حقيقي لا "تراجع": مساره محسوب من الدور لا من
+            سجل المتصفح، فمن وصل من صفحة الترحيب يرجع إليها، ومن وصل من
+            لوحة العميل يرجع إلى "نظرة عامة"، ولا أحد يعود إلى صفحة سبقت
+            فتح هذه الصفحة بلا سبب. ولأنه رابط لا زرّ، يعمل معه الفتح في
+            تبويب جديد ونسخ العنوان كما يتوقع المستخدم.
+          */}
+          <Link
             className="cmp-float-back"
-            fallback={getHomePath(getCurrentRole())}
-            ariaLabel="العودة إلى صفحة المقارنة"
-            label=""
-          />
+            to={getHomePath(getCurrentRole())}
+            aria-label={isVisitor() ? 'العودة إلى الصفحة الرئيسية' : 'العودة إلى لوحة التحكم'}
+          >
+            <ChevronRight size={18} aria-hidden="true" />
+          </Link>
           <header className="compare__head">
+            <p className="compare__eyebrow">
+              <Scale size={13} strokeWidth={2.5} aria-hidden="true" />
+             مقارنة المساحات
+            </p>
             <h1 className="compare__title">قارن بين المساحات واختر الأنسب</h1>
             <p className="compare__subtitle">
         اختر من {fmtNumber(MIN_PICK)} إلى {fmtNumber(MAX_PICK)} مساحات، ورتّبها بالترتيب الذي يناسبك
@@ -204,38 +206,10 @@ export default function ComparePage() {
                   </div>
                 </div>
 
-                {!loading && selected.length > 0 && (
-                  <nav className="cmp-chips" aria-label="المساحات المختارة للمقارنة">
-                    {selected.map((s) => (
-                      <span className="cmp-chip" key={s.id}>
-                        <span className="cmp-chip__name" title={s.title}>{s.title}</span>
-                        <button
-                          type="button"
-                          className="cmp-chip__x"
-                          onClick={() => remove(s.id)}
-                          aria-label={`إزالة ${s.title} من المقارنة`}
-                        >
-                          <X size={12} />
-                        </button>
-                      </span>
-                    ))}
-                    {!full && (
-                      <button
-                        type="button"
-                        className="cmp-chip cmp-chip--add"
-                        onClick={focusTray}
-                      >
-                        <Plus size={14} /> إضافة مساحة أخرى
-                      </button>
-                    )}
-                  </nav>
-                )}
-
                 <div className="wb__tray">
                   <div className="compare__search">
                     <Search className="compare__search-icon" size={17} />
                     <input
-                      ref={searchRef}
                       type="search"
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
@@ -250,24 +224,29 @@ export default function ComparePage() {
                   </div>
                   {!loading && (
                     <div className="wb__tray-list">
-                      {selectable.length === 0 && (
-                        <p className="wb__tray-empty">
-                          {full ? 'اكتمل الحد الأقصى للمقارنة' : 'لا نتائج مطابقة للبحث'}
-                        </p>
+                      {full && (
+                        <p className="wb__tray-empty">اكتمل الحد الأقصى للمقارنة</p>
                       )}
-                      {selectable.map((s) => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          className="wb__tray-item"
-                          onClick={() => add(s.id)}
-                          disabled={full}
-                        >
-                          <Building2 size={15} />
-                          <span className="wb__tray-name">{s.title}</span>
-                          <span className="wb__tray-meta">{fmtNumber(s.price_per_hour)} ش.ج</span>
-                        </button>
-                      ))}
+                      {trayList.length === 0 && !full && (
+                        <p className="wb__tray-empty">لا نتائج مطابقة للبحث</p>
+                      )}
+                      {trayList.map((s) => {
+                        const picked = takenIds.has(String(s.id));
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            className={`wb__tray-item${picked ? ' is-picked' : ''}`}
+                            onClick={() => (picked ? remove(s.id) : add(s.id))}
+                            disabled={!picked && full}
+                            aria-pressed={picked}
+                          >
+                            {picked ? <Check size={15} /> : <Building2 size={15} />}
+                            <span className="wb__tray-name">{s.title}</span>
+                            <span className="wb__tray-meta">{fmtNumber(s.price_per_hour)} ش.ج</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -572,7 +551,7 @@ const RadialRatingChart = memo(function RadialRatingChart({ spaces }) {
           const r = Math.max(0, Math.min(5, Number(s.rating) || 0));
           const offset = C * (1 - r / 5);
           return (
-            <div key={s.id}>
+            <div key={s.id} className="cmp-donut__cell">
         <div className="cmp-donut" role="img" aria-label={`${s.title}: التقييم ${fmtRating(r)} من ٥، ${fmtNumber(s.review_count || 0)} تقييم`}>
                 <svg viewBox="0 0 120 120" aria-hidden="true">
                   <circle className="cmp-donut__track" r="52" cx="60" cy="60" stroke="var(--brand-050)" strokeWidth="10" />

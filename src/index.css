@@ -5736,13 +5736,19 @@ html.dark .top-spaces__empty{color:var(--text-muted);}
   background-color:var(--bg-page);
 }
 .compare{position:relative;padding-top:clamp(1rem,2.4vw,1.8rem);}
-.compare__head{max-width:46rem;margin:0 auto 1.1rem;text-align:center;}
+/* رأس القسم يلتصق بالحافة اليمنى (اتجاه البداية في RTL) بدل التوسيط:
+   العنوان يبدأ من جهة اليمين تحت الحجاب، والصورة تبقى ممتدّة خلفه. */
+.compare__head{max-width:46rem;margin-block:0 1.1rem;margin-inline:0 auto;text-align:start;}
 .compare__eyebrow{display:inline-flex;align-items:center;gap:.45rem;background:var(--accent-soft);
   color:var(--accent-text);border:1px solid rgba(249,115,22,.28);border-radius:999px;
-  padding:.3rem .8rem;font-size:.72rem;font-weight:800;}
-.compare__eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent);}
-.compare__title{margin:0 0 .4rem;font-size:clamp(1.6rem,3.4vw,2.4rem);font-weight:800;letter-spacing:-.02em;color:var(--text-strong);}
-.compare__subtitle{margin:0;color:var(--text-muted);font-size:.95rem;line-height:1.7;}
+  padding:.34rem .8rem;margin:0 0 .85rem;font-size:.75rem;font-weight:800;line-height:1;}
+.compare__eyebrow svg{flex:none;}
+/* الحروف العربية متّصلة: التباعد السالب يقرّبها من بعضها فيتشوّه وصلها،
+   فنلغيه في عنوان القسم ونعوّضه بعرض سطر مريح وموازنة أسطر. */
+.compare__title{margin:0 0 .5rem;font-size:clamp(1.75rem,3.8vw,2.7rem);font-weight:800;line-height:1.3;
+  letter-spacing:0;text-wrap:balance;color:var(--text-strong);}
+.compare__subtitle{margin-block:0;margin-inline:0 auto;max-width:38rem;color:var(--text-muted);font-size:clamp(.92rem,1.6vw,1.02rem);
+  line-height:1.85;text-wrap:pretty;}
 .compare__demo-badge{font-style:normal;margin-inline-start:.55rem;font-size:.72rem;font-weight:800;color:var(--accent);
   background:var(--accent-soft);border:1px solid rgba(249,115,22,.3);border-radius:999px;padding:.15rem .55rem;}
 
@@ -5768,10 +5774,18 @@ html.dark .top-spaces__empty{color:var(--text-muted);}
 .compare__counter small{color:var(--text-muted);}
 .compare__clear{min-height:44px;padding:.5rem .95rem;font-size:.85rem;}
 
-/* الخانات: 2-4 أعمدة متساوية، الترتيب بصرياً من اليمين لليسار */
-.wb__slots{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:.8rem;list-style:none;margin:0;padding:0;
-  min-height:8.5rem;}
-.wb__slots.is-loading{grid-auto-flow:row;grid-auto-columns:auto;}
+/* الخانات: عرض ثابت للعمود الواحد، فتبقى الخانة كما هي عند 2 أو 4 مختارة،
+   والزائد يزحف أفقياً بخط تمرير ظاهر بدل أن يتمدد العمودان أو ينكمش الأربعة.
+   الحشوة العلوية تفسح مكاناً للتاج الذي يخرج من حد الخانة، والسفلية لشريط التمرير. */
+.wb__slots{display:grid;grid-auto-flow:column;grid-auto-columns:min(17.5rem,80vw);gap:.8rem;list-style:none;
+  margin:0;padding:1rem .25rem .7rem;min-height:8.5rem;overflow-x:auto;overflow-y:hidden;
+  scroll-snap-type:x proximity;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+.wb__slots::-webkit-scrollbar{height:8px;}
+.wb__slots::-webkit-scrollbar-track{background:var(--surface-2);border-radius:999px;}
+.wb__slots::-webkit-scrollbar-thumb{background:var(--border);border-radius:999px;}
+.wb__slots::-webkit-scrollbar-thumb:hover{background:var(--accent);}
+.wb__slot{scroll-snap-align:start;}
+.wb__slots.is-loading{grid-auto-flow:row;grid-auto-columns:auto;overflow-x:hidden;}
 .wb__slot-skeleton{height:8.5rem;border-radius:1rem;background:linear-gradient(90deg,var(--surface-2) 25%,var(--surface) 50%,var(--surface-2) 75%);
   background-size:200% 100%;animation:wbShimmer 1.4s ease-in-out infinite;}
 @keyframes wbShimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
@@ -5831,16 +5845,21 @@ html.dark .top-spaces__empty{color:var(--text-muted);}
   color:var(--text-muted);cursor:pointer;}
 .compare__search-clear:hover{background:var(--accent);color:#fff;}
 
-.wb__tray-list{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:.75rem;}
-.wb__tray-empty{margin:.5rem 0 0;font-size:.85rem;color:var(--text-muted);}
-.wb__tray-item{display:inline-flex;align-items:center;gap:.45rem;min-height:44px;padding:.4rem .8rem;border-radius:999px;
+.wb__tray-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.45rem;margin-top:.75rem;}
+.wb__tray-empty{grid-column:1/-1;margin:.5rem 0 0;font-size:.85rem;color:var(--text-muted);}
+.wb__tray-item{display:flex;align-items:center;gap:.45rem;width:100%;min-width:0;min-height:44px;padding:.4rem .8rem;border-radius:999px;
   border:1.5px solid var(--border);background:var(--surface);color:var(--text-strong);font:inherit;font-size:.82rem;
   font-weight:700;cursor:pointer;transition:border-color .18s,transform .18s,box-shadow .18s;}
 .wb__tray-item:hover:not(:disabled){border-color:var(--accent);transform:translateY(-1px);
   box-shadow:0 10px 22px -14px rgba(249,115,22,.5);}
 .wb__tray-item svg{color:var(--accent);flex:none;}
-.wb__tray-name{max-width:12rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.wb__tray-meta{font-size:.72rem;color:var(--text-muted);font-weight:600;}
+.wb__tray-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.wb__tray-meta{flex:none;font-size:.72rem;color:var(--text-muted);font-weight:600;}
+/* المختارة تبقى في الصينية، بلون دافئ وعلامة صح، ونقرتها تزيلها. */
+.wb__tray-item.is-picked{background:var(--brand-050);border-color:var(--brand-400);color:var(--brand-700);box-shadow:none;}
+.wb__tray-item.is-picked:hover:not(:disabled){border-color:var(--brand-600);box-shadow:0 10px 22px -14px rgba(249,115,22,.5);}
+.wb__tray-item.is-picked svg{color:var(--brand-500);}
+.wb__tray-item.is-picked .wb__tray-meta{color:var(--brand-600);}
 .wb__tray-item:disabled{opacity:.42;cursor:not-allowed;}
 
 /* ═══════════════ النتائج والخلاصة ═══════════════ */
@@ -5869,14 +5888,23 @@ html.dark .top-spaces__empty{color:var(--text-muted);}
 .compare__legend-key--best{background:#dcfce7;color:#15803d;}
 .compare__legend-key--other{background:#f1f5f9;color:#64748b;}
 
-/* المخططات: 3x2 على الشاشات الكبيرة، صفّان ثم عمود واحد */
-.compare__charts{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;}
-.compare__chart{background:var(--surface);border:1px solid rgba(0,0,0,.07);border-radius:1.2rem;padding:1.1rem 1.15rem;
-  min-width:0;}
-.compare__chart-title{display:flex;align-items:center;gap:.45rem;margin:0 0 1rem;font-size:.95rem;font-weight:800;color:var(--text-strong);}
+/* المخططات: 3 أعمدة على الشاشات الكبيرة، صفّان ثم عمود واحد. هذه القاعدة
+   وحدها تملك الشبكة؛ ما بعدُ في الملف مستبدِلات skin لا تكرّر الشبكة. */
+.compare__charts{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;}
+.compare__chart{background:var(--surface);border:1px solid var(--border-subtle);border-radius:20px;padding:20px;
+  box-shadow:var(--shadow-card);transition:box-shadow .2s var(--ease);min-width:0;}
+.compare__chart:hover{box-shadow:var(--shadow-card-hover);}
+/* العنوان يلتفّ بدل أن يدفع الأيقونة خارج البطاقة. */
+.compare__chart-title{display:flex;align-items:center;flex-wrap:wrap;gap:.45rem;margin:0 0 1rem;
+  font-size:.95rem;font-weight:800;line-height:1.35;color:var(--text-strong);}
 .compare__chart-title svg{color:var(--accent);flex:none;}
+/* حاوية صفوف الإشغال: كانت بلا قاعدة إطلاقاً، فلم يبقَ بين الصفوف
+   إلا margin متكرر. الفجوة صارت على الحاوية وحدها. */
+.compare__hrows{display:flex;flex-direction:column;gap:.55rem;}
 
-.compare__bars{display:flex;align-items:flex-end;gap:.9rem;height:12.5rem;padding-top:.4rem;}
+/* الأعمدة: min-height لا height، وإلا خرج العمود من البطاقة حين التفّ
+   عنوان المساحة على سطرين فوق السطر الإضافي للوحدة. */
+.compare__bars{display:flex;align-items:flex-end;gap:clamp(.4rem,1.6vw,.9rem);min-height:12.5rem;}
 .compare__bar{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;position:relative;}
 .compare__bar-track{width:2rem;max-width:2.6rem;height:9.5rem;border-radius:999px;background:var(--surface-2);
   border:1px solid var(--border);display:block;overflow:hidden;flex:none;}
@@ -5884,26 +5912,39 @@ html.dark .top-spaces__empty{color:var(--text-muted);}
   background:linear-gradient(180deg,var(--accent-2),var(--accent) 60%,var(--accent-hover));
   box-shadow:0 -6px 14px -6px rgba(249,115,22,.55);}
 .compare__bar-fill.is-best{outline:2px solid #16a34a;outline-offset:1px;}
-.compare__bar-fill.is-worst{filter:saturate(.2) brightness(1.02);outline:2px dashed #cbd5e1;outline-offset:2px;}
-.compare__bar-value{margin-top:.4rem;font-size:.86rem;font-weight:800;color:var(--accent);white-space:nowrap;}
+.compare__bar-fill.is-worst{background:linear-gradient(180deg,#e2e8f0,#cbd5e1 55%,#94a3b8);box-shadow:none;
+  outline:2px dashed #cbd5e1;outline-offset:2px;}
+/* القيمة تحت العمود: نحدّها بعرض العمود حتى لا يبتلع رقم طويل
+   عمودَه المجاور. */
+.compare__bar-value{margin-top:.4rem;max-width:100%;font-size:.86rem;font-weight:800;color:var(--accent);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .compare__bar-label{font-size:.66rem;color:var(--text-muted);text-align:center;line-height:1.35;max-width:100%;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .compare__bar-unit{font-size:.6rem;color:var(--text-muted);font-weight:600;}
-.compare__bar-badge{position:absolute;bottom:calc(9.5rem + 1.1rem);font-style:normal;font-size:.6rem;font-weight:800;color:#fff;
-  background:#16a34a;padding:.15rem .5rem;border-radius:999px;white-space:nowrap;
-  box-shadow:0 6px 14px -6px rgba(22,163,74,.6);}
-.compare__bar-badge.is-worst{background:#64748b;box-shadow:0 6px 14px -6px rgba(100,116,139,.55);}
+/* الشارة تحت عنوان المساحة، في مجرى العمود لا فوقه absolutely. كانت مطلّقة
+   بـ top و bottom معاً (قاعدة قديمة) فتمطّطت صندوقاً أخضر طويلاً، وكانت
+   مقصوصة على عرض العمود فتنقطع "الأوفر لكل شخص". في التدفّق لا تصطدم
+   بجارٍ أبداً، وتلتفّ سطرين بدل أن تُقصّ. */
+.compare__bar-badge{margin-top:.4rem;max-width:100%;font-style:normal;font-size:.6rem;font-weight:800;
+  color:#fff;background:#16a34a;padding:.14rem .5rem;border-radius:999px;line-height:1.35;text-align:center;
+  overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.compare__bar-badge.is-worst{background:#64748b;}
 
-/* التقييم: شريط داخل مدى المقارنة + الرقم المطلق، لا حلقة 0-5 */
-.compare__hrow{display:flex;align-items:center;gap:.7rem;margin:.5rem 0;}
-.compare__hrow-label{font-size:.8rem;font-weight:700;color:var(--text-strong);flex:0 0 26%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* التقييم: شريط داخل مدى المقارنة + الرقم المطلق، لا حلقة 0-5.
+   تدرّج رمادي واحد للطرف الأضعف في كل المخططات، بدل filter:saturate(.2)
+   الذي كان يترك طرف شريط الإشغال نيلياً لا رمادياً. */
+.compare__hrow{display:flex;align-items:center;gap:.7rem;}
+.compare__hrow-label{font-size:.8rem;font-weight:700;color:var(--text-strong);flex:0 0 34%;min-width:0;
+  line-height:1.3;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .compare__hrow-track{flex:1;height:.7rem;border-radius:999px;background:var(--surface-2);border:1px solid var(--border);overflow:hidden;display:block;min-width:0;}
 .compare__hrow-fill{display:block;height:100%;width:0;border-radius:999px;
   background:linear-gradient(90deg,#a5b4fc,var(--accent) 60%,var(--accent-hover));
   box-shadow:0 -4px 10px -5px rgba(99,102,241,.6);}
-.compare__hrow-fill.is-best{background:linear-gradient(90deg,#86efac,#22c55e 60%,#16a34a);outline:1px solid rgba(22,163,74,.5);outline-offset:1px;}
-.compare__hrow-fill.is-worst{filter:saturate(.2) brightness(1.02);outline:2px dashed #cbd5e1;outline-offset:2px;}
+.compare__hrow-fill.is-best{background:linear-gradient(90deg,#86efac,#22c55e 60%,#16a34a);box-shadow:0 -4px 10px -5px rgba(34,197,94,.5);outline:1px solid rgba(22,163,74,.5);outline-offset:1px;}
+.compare__hrow-fill.is-worst{background:linear-gradient(90deg,#e2e8f0,#cbd5e1 55%,#94a3b8);box-shadow:none;
+  outline:2px dashed #cbd5e1;outline-offset:2px;}
 .compare__hrow.is-best .compare__hrow-label{color:#15803d;}
+.compare__hrow.is-worst .compare__hrow-label{color:#64748b;}
 .compare__hrow-value{font-size:.82rem;font-weight:800;color:var(--text-strong);flex:none;min-width:3.2rem;text-align:end;white-space:nowrap;}
 .compare__hrow-value small{font-size:.62rem;font-weight:600;color:var(--text-muted);}
 
@@ -5989,11 +6030,13 @@ html.dark .wb__slot-media{background:rgba(249,115,22,.16);}
 html.dark .wb__tray-item,
 html.dark .wb__slot-move,
 html.dark .wb__slot-grip{background:#1f1f26;border-color:rgba(255,255,255,.1);color:#a1a1aa;}
+html.dark .wb__tray-item.is-picked{background:rgba(249,115,22,.12);border-color:rgba(249,115,22,.42);color:#fb923c;}
+html.dark .wb__tray-item.is-picked svg{color:#fb923c;}
+html.dark .wb__tray-item.is-picked .wb__tray-meta{color:#fdba74;}
 html.dark .wb__slot-move:hover:not(:disabled),
 html.dark .wb__slot-grip:hover{background:rgba(249,115,22,.16);color:#fb923c;}
 html.dark .wb__slot-remove:hover{background:rgba(239,68,68,.2);border-color:rgba(239,68,68,.5);color:#fca5a5;}
 html.dark .wb__slot-skeleton{background:linear-gradient(90deg,#1c1c22 25%,#24242b 50%,#1c1c22 75%);background-size:200% 100%;}
-html.dark .compare__slot-name,
 html.dark .wb__slot-name{color:#f4f4f5;}
 html.dark .compare__legend-key--win{background:rgba(249,115,22,.16);border-color:rgba(249,115,22,.5);color:#fb923c;}
 html.dark .compare__legend-key--best{background:rgba(34,197,94,.16);color:#4ade80;}
@@ -6013,16 +6056,22 @@ html.dark .cmp-table__owner-tag{color:#a1a1aa;}
 html.dark .cmp-table__cta{background:var(--surface);color:var(--accent);}
 html.dark .cmp-float-back{background:rgba(38,38,44,.82);border-color:rgba(255,255,255,.1);color:#f4f4f5;}
 html.dark .compare-hero{background:#15151b;border-block-end-color:rgba(255,255,255,.08);}
-/* الوضع الداكن: 60% فوق خلفية شبه سوداء تترك العنوان الأبيض عند ~3.3:1 فقط،
-   فنخفضها إلى 30% (≈8:1). */
-html.dark .compare-hero__img{opacity:.3;}
-html.dark .cmp-chip{background:var(--surface-2);border-color:rgba(255,255,255,.1);color:#f4f4f5;}
-html.dark .cmp-chip--add{background:rgba(249,115,22,.12);border-color:rgba(249,115,22,.42);color:#fb923c;}
-html.dark .cmp-chip__x{color:#a1a1aa;}
+/* الوضع الداكن: الحجاب الفاتح كان يترك العنوان الأبيض عند ~3.3:1 فقط،
+   فنلبّد الصورة عند 50% ونجعل الحجاب نفسه أسود تقريباً (≈9:1). */
+html.dark .compare-hero__img{opacity:.5;}
+html.dark .compare-hero::after{background:
+radial-gradient(82% 118% at 72% 46%,rgba(21,21,27,.95) 0%,rgba(21,21,27,.89) 38%,rgba(21,21,27,.68) 70%,rgba(21,21,27,.42) 100%),
+    linear-gradient(to bottom,rgba(21,21,27,.55) 0%,rgba(21,21,27,0) 26%);}
 html.dark .cmp-tip{background:rgba(249,115,22,.1);border-color:rgba(249,115,22,.36);}
 html.dark .cmp-tip p{color:#d4d4d8;}
 html.dark .cmp-donut__track{stroke:rgba(255,255,255,.1);}
 html.dark .cmp-donut__val{color:#f4f4f5;}
+/* شريط الأضعف: الرمادي الفاتح يختفي على خلفية داكنة، فنرفعه درجة. */
+html.dark .compare__bar-fill.is-worst{background:linear-gradient(180deg,#71717a,#52525b 55%,#3f3f46);
+  outline-color:rgba(255,255,255,.28);}
+html.dark .compare__hrow-fill.is-worst{background:linear-gradient(90deg,#71717a,#52525b 55%,#3f3f46);
+  outline-color:rgba(255,255,255,.28);}
+html.dark .compare__hrow.is-worst .compare__hrow-label{color:#8b8b96;}
 html.dark .cmp-book.is-off{background:#2a2a31;color:#a1a1aa;}
 html.dark .cmp-table__foot td{background:rgba(255,255,255,.03);}
 
@@ -6034,24 +6083,26 @@ html.dark .cmp-table__foot td{background:rgba(255,255,255,.03);}
 
 
 /* ===== Compare: القسم الأعلى + شريحة + تلميح =====
-   لا شريط علوي. القسم الأعلى هو الصورة نفسها: تمتدّ بعرض الصفحة فيصبح
-   وجه الصفحة بدل قصاصة عائمة. ألوان الصورة مستخرجة من بكسلاتها: كريمي
-   فاتح (#FFE0C0) بتدرّج دافئ، لذا خلفية القسم كريمية والنص فوقها داكن.
-   بلا تدرّج: الصورة بشفافية 60% فوق خلفية القسم فقط، وحافّتها السفلية
-   خطّ واحد يحدّ القسم. */
+   لا شريط علوي. القسم الأعلى هو الصورة نفسها: تمتدّ بعرض الصفحة فيصير وجه
+   الصفحة لا قصاصة عائمة. الصورة (Hero-Compare.avif) شريط عريض 740×370 بنسبة
+   2:1، فنصهره على ارتفاع القسم فنقصّ أعلاه وأسفله ونُبقي مركزه، ثم نضع فوقه
+   حجاباً كريمياً متدرّجاً يضمن وضوح النص فوق أي جزء منها. */
 .compare-hero{position:relative;isolation:isolate;overflow:hidden;background:#FDF0E1;border-block-end:1px solid var(--border-subtle);}
-.compare-hero__img{position:absolute;inset:0;z-index:-2;width:100%;height:100%;object-fit:cover;object-position:center 28%;opacity:.6;}
-.compare-hero__inner{position:relative;padding-top:clamp(34px,5.5vw,68px);padding-bottom:clamp(20px,3vw,36px);}
+.compare-hero__img{position:absolute;inset:0;z-index:-2;width:100%;height:100%;object-fit:cover;object-position:center;}
+/* الحجاب: أثقل عند جهة النص (اليمين بعد محاذاة الرأس) ووسط الارتفاع،
+   ويخفّ عند الطرف الآخر، فيبقى القسم مقروءاً مهما امتلأت الصورة بتفاصيل
+   داكنة. */
+.compare-hero::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(82% 118% at 72% 46%,rgba(253,240,225,.95) 0%,rgba(253,240,225,.87) 38%,rgba(253,240,225,.62) 70%,rgba(253,240,225,.36) 100%),
+    linear-gradient(to bottom,rgba(253,240,225,.5) 0%,rgba(253,240,225,0) 26%);}
+.compare-hero__inner{position:relative;padding-top:clamp(40px,6vw,76px);padding-bottom:clamp(26px,3.5vw,44px);}
 
-.cmp-float-back{position:absolute;inset-inline-start:0;top:0;width:40px;height:40px;min-height:40px;min-width:40px;padding:0;border-radius:999px;display:grid;place-items:center;background:rgba(255,255,255,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--border-subtle);color:var(--brand-500);box-shadow:var(--shadow-card);transition:transform .2s var(--ease),box-shadow .2s;}
-.cmp-float-back:hover{background:#fff;transform:translateY(-2px);box-shadow:var(--shadow-card-hover);}
+/* رابط عائم فوق القسم: كان زرّاً فنقلنا مقاسه وخصائصه كما هي، وأبقينا
+   grid ليتمركز السهم، و color على :hover لأن الرابط يورث لوناً آخر. */
+.cmp-float-back{position:absolute;inset-inline-start:0;top:0;width:40px;height:40px;min-height:40px;min-width:40px;padding:0;border-radius:999px;display:grid;place-items:center;background:rgba(255,255,255,.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--border-subtle);color:var(--brand-500);box-shadow:var(--shadow-card);transition:transform .2s var(--ease),box-shadow .2s;text-decoration:none;}
+.cmp-float-back:hover{background:#fff;transform:translateY(-2px);box-shadow:var(--shadow-card-hover);color:var(--brand-500);}
 
-.cmp-chips{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 24px;}
-.cmp-chip{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:var(--radius-pill);background:#fff;border:1px solid var(--border-subtle);font:600 14px/20px var(--font);color:var(--text-primary);box-shadow:var(--shadow-card);cursor:pointer;min-height:40px;max-width:min(20rem,72vw);}
-.cmp-chip__name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.cmp-chip__x{display:grid;place-items:center;flex:none;width:22px;height:22px;border-radius:999px;color:var(--text-secondary);}
-.cmp-chip__x:hover{background:var(--danger);color:#fff;}
-.cmp-chip--add{background:var(--brand-050);border-style:dashed;border-color:color-mix(in srgb,var(--brand-400) 55%,transparent);color:var(--brand-700);box-shadow:none;}
 .cmp-tip{display:flex;gap:12px;padding:16px 20px;margin:0 0 24px;background:var(--brand-050);border:1px dashed color-mix(in srgb,var(--brand-400) 55%,transparent);border-radius:16px;}
 .cmp-tip svg{color:var(--brand-400);flex:none;filter:drop-shadow(0 0 10px rgba(248,157,42,.55));}
 .cmp-tip p{margin:0;font:var(--body-md);color:var(--text-secondary);}
@@ -6070,18 +6121,27 @@ html.dark .cmp-table__foot td{background:rgba(255,255,255,.03);}
 .cmp-badge--off{background:#F0EAE5;color:var(--text-secondary);}
 .cmp-badge--off::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--text-secondary);}
 
-.compare__charts{grid-template-columns:repeat(3,1fr);gap:24px;}
-.compare__chart{border:1px solid var(--border-subtle);border-radius:20px;padding:20px;box-shadow:var(--shadow-card);}
-.compare__chart:hover{box-shadow:var(--shadow-card-hover);}
+/* استبدالات الوسم البصري فقط: الشبكة صارت في القاعدة أعلاه، فلا نكرّرها. */
 .compare__bar-track{background:var(--brand-050);border-color:var(--border-subtle);}
 .compare__bar-fill{border-radius:8px 8px 4px 4px;background:linear-gradient(180deg,var(--brand-400),var(--brand-500));box-shadow:0 6px 14px -6px rgba(232,99,38,.45);}
 .compare__bar-fill.is-best{outline:2px solid var(--success);outline-offset:1px;}
-.cmp-donuts{display:flex;justify-content:space-evenly;gap:12px;flex-wrap:wrap;}
-.cmp-donut{position:relative;width:104px;height:104px;display:grid;place-items:center;}
+/* هذه الطبقة تُعاد كتابة لون شريط الأعمدة، فتحتاج تدرّجها الرمادي
+   هي أيضاً، وإلا عاد البرتقالي. */
+.compare__bar-fill.is-worst{background:linear-gradient(180deg,#e2e8f0,#cbd5e1 55%,#94a3b8);box-shadow:none;
+  outline:2px dashed #cbd5e1;outline-offset:2px;}
+/* الحلقات: صفّ مرنّ يملأ ارتفاع صفّ الشبكة. كل خانة تتقاسّم العرض
+   بالتساوي، فصار اتساعها واحداً ولا يزيح جارَهَ عنوان طويل. */
+.cmp-donuts{display:flex;align-items:center;justify-content:center;gap:1rem;flex-wrap:wrap;
+  flex:1;align-content:center;}
+.cmp-donut__cell{flex:1 1 6.5rem;min-width:0;display:flex;flex-direction:column;align-items:center;}
+/* الحلقة لمقاس ثابت 104px، وأربع حلقات في عمود واحد بعرض نحو 337px
+   تتجاوز عرضه بـ127px فتداخلت. صارت تأخذ عرض خانتها وتحترم النسبة. */
+.cmp-donut{position:relative;width:100%;max-width:104px;aspect-ratio:1;display:grid;place-items:center;}
 .cmp-donut svg{position:absolute;inset:0;transform:rotate(-90deg);}
 .cmp-donut circle{fill:none;stroke-linecap:round;}
-.cmp-donut__val{position:relative;font:700 28px/34px var(--font);color:var(--text-primary);}
-.cmp-donut__label{margin-top:8px;font:400 12px/18px var(--font);color:var(--text-secondary);text-align:center;max-width:104px;}
+.cmp-donut__val{position:relative;font:700 clamp(15px,1.9vw,28px)/1.2 var(--font);color:var(--text-primary);}
+.cmp-donut__label{margin-top:8px;max-width:100%;font:400 12px/18px var(--font);color:var(--text-secondary);text-align:center;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
 .cmp-table{border:1px solid var(--border-subtle);border-radius:20px;padding:20px;box-shadow:var(--shadow-card);}
 .cmp-table__grid tbody tr:nth-child(even) .cmp-table__cell,
 .cmp-table__grid tbody tr:nth-child(even) .cmp-table__metric{background:color-mix(in srgb,var(--brand-050) 45%,transparent);}
@@ -6098,26 +6158,22 @@ html.dark .cmp-table__foot td{background:rgba(255,255,255,.03);}
 .cmp-book.is-off{background:#e8e2dd;color:var(--text-secondary);box-shadow:none;cursor:not-allowed;pointer-events:none;}
 .cmp-page :focus-visible{outline:2px solid var(--brand-500);outline-offset:2px;border-radius:inherit;}
 
-@media (max-width:1024px){
-  .wb__slots{grid-auto-flow:column;grid-auto-columns:minmax(15rem,1fr);overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding-bottom:8px;}
-  .wb__slot{scroll-snap-align:start;}
-  .compare__charts{grid-template-columns:repeat(3,1fr);}
-}
 @media (max-width:768px){
   .wb__slot,.wb__slot--empty{min-height:0;}
   .compare__charts{grid-template-columns:1fr;}
-  .compare__bars{height:11rem;}
+  .compare__bars{min-height:11rem;}
   .compare__bar-track{height:8rem;}
-  .compare__bar-badge{bottom:calc(8rem + 1.1rem);}
   .cmp-table__metric{min-width:7rem;}
   .cmp-table__cell{min-width:6.5rem;}
-  .cmp-chips{flex-wrap:nowrap;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none;}
-  .cmp-chip{flex:0 0 auto;scroll-snap-align:start;}
-  .wb__slots{grid-auto-columns:minmax(13.5rem,1fr);}
+  .wb__tray-list{grid-template-columns:1fr;}
 }
 /* على الجوال يبقى القسم أعلى الصورة، ويصغر ارتفاعه قليلاً حتى لا يبتلع
-   الشاشة قبل طاولة المقارنة. */
+   الشاشة قبل طاولة المقارنة. الحجاب يتّسع أفقياً ويصير أثقل، لأن النص
+   يملأ العرض كله والصورة تصير أضيق. */
 @media (max-width:768px){
-  .compare-hero__inner{padding-top:44px;}
-  .compare-hero__img{object-position:center 22%;}
+  .compare-hero__inner{padding-top:52px;padding-bottom:30px;}
+  .compare-hero::after{background:
+    radial-gradient(132% 96% at 66% 44%,rgba(253,240,225,.96) 0%,rgba(253,240,225,.91) 44%,rgba(253,240,225,.7) 76%,rgba(253,240,225,.44) 100%);}
+  html.dark .compare-hero::after{background:
+    radial-gradient(132% 96% at 66% 44%,rgba(21,21,27,.96) 0%,rgba(21,21,27,.91) 44%,rgba(21,21,27,.72) 76%,rgba(21,21,27,.46) 100%);}
 }

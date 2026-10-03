@@ -69,7 +69,7 @@ const server = await createServer({
 const ComparePage = (await server.ssrLoadModule('/src/pages/ComparePage.jsx')).default;
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
-const settle = async () => { for (let i = 0; i < 30; i++) await flush(); };
+const settle = async () => { for (let i = 0; i < 200; i++) await flush(); };
 
 async function renderAt(query) {
   const el = dom.window.document.createElement('div');
@@ -190,37 +190,48 @@ console.log('\n===== compare page smoke =====');
   }
 }
 
-// 10) شرائح الاختيار: تحاكي الخانات وتزيل فعلاً
+// 10) صينية الاختيار: كل المساحات ظاهرة، والمختارة منها تبقى معلّمة
+//     (لم تعد هناك شرائح للمختارة: صارت صينية البحث هي مكان الاختيار كله)
 {
   const { el } = await renderAt('?sp=sp-6&sp=sp-10&sp=sp-1');
-  const chips = () => Array.from(el.querySelectorAll('.cmp-chips .cmp-chip:not(.cmp-chip--add)'));
-  const beforeChips = chips();
-  report('C30 شريحة لكل خانة', beforeChips.length === 3, `got ${beforeChips.length}`);
-  report('C31 ترتيب الشرائح يتبع ترتيب الخانات',
-    beforeChips.map((c) => c.querySelector('.cmp-chip__name').textContent.trim()).join('|')
-      === slotNames(el).join('|'),
-    beforeChips.map((c) => c.querySelector('.cmp-chip__name').textContent.trim()).join('|'));
-  const addChip = el.querySelector('.cmp-chip--add');
-  report('C32 شريحة الإضافة تظهر ما لم يمتلئ الحد', Boolean(addChip));
-  beforeChips[0].querySelector('.cmp-chip__x').click();
-  await settle();
-  report('C33 إزالة الشريحة تزيل الخانة',
-    chips().length === 2 && slotNames(el).length === 2
-      && !slotNames(el).includes(beforeChips[0].querySelector('.cmp-chip__name').textContent.trim()),
-    `chips=${chips().length} slots=${slotNames(el).length}`);
-  report('C34 زر الإزالة له اسم مقروء', /إزالة/.test(beforeChips[0].querySelector('.cmp-chip__x').getAttribute('aria-label') || ''));
+  const trayItems = () => Array.from(el.querySelectorAll('.wb__tray-item'));
+  const trayName = (b) => (b.querySelector('.wb__tray-name') || {}).textContent?.trim() || '';
+  const before = trayItems();
+  const pickedInTray = before.filter((b) => b.classList.contains('is-picked')).map(trayName);
+  report('C30 صينية الاختيار تعرض مساحات', before.length > 0, `got ${before.length}`);
+  report('C31 كل حبة تحمل عنصر اسم', before.length > 0 && before.every((b) => Boolean(b.querySelector('.wb__tray-name'))),
+    `got ${before.length}`);
+  report('C32 المختارة تبقى في الصينية ولا تختفي',
+    slotNames(el).length > 0 && slotNames(el).every((n) => pickedInTray.includes(n)),
+    `picked=${pickedInTray.join('|')} slots=${slotNames(el).join('|')}`);
+  report('C32b غير المختارة غير معلّمة',
+    before.filter((b) => !b.classList.contains('is-picked')).every((b) => b.getAttribute('aria-pressed') === 'false'));
+  report('C33 لا شرائح مختارة في الصفحة', el.querySelector('.cmp-chips') === null);
 }
 
-// 11) شريحة الإضافة توجّه التركيز إلى بحث الاختيار
+// 11) حبة الصينية: تنقر فتضيف، وتُنقر المختارة فتزيل
 {
-  const { el } = await renderAt('?sp=sp-6&sp=sp-1');
-  const addChip = el.querySelector('.cmp-chip--add');
-  if (addChip) {
-    addChip.click();
+  const { el } = await renderAt('?sp=sp-6&sp=sp-10&sp=sp-1');
+  const trayItems = () => Array.from(el.querySelectorAll('.wb__tray-item'));
+  const trayName = (b) => (b.querySelector('.wb__tray-name') || {}).textContent?.trim() || '';
+  const target = trayItems().find((b) => !b.classList.contains('is-picked'));
+  if (target) {
+    const title = trayName(target);
+    target.click();
     await settle();
-    const search = el.querySelector('.compare__search input');
-    report('C35 شريحة الإضافة تنقل التركيز إلى البحث', dom.window.document.activeElement === search,
-      `active=${dom.window.document.activeElement && dom.window.document.activeElement.tagName}`);
+    report('C35 النقر على حبة غير مختارة يضيفها', slotNames(el).includes(title),
+      `slots=${slotNames(el).join('|')} title="${title}"`);
+    const nowPicked = trayItems().find((b) => trayName(b) === title);
+    if (nowPicked) {
+      nowPicked.click();
+      await settle();
+      report('C35b النقر على حبة مختارة يزيلها', !slotNames(el).includes(title),
+        `slots=${slotNames(el).join('|')}`);
+    } else {
+      report('C35b النقر على حبة مختارة يزيلها', false, 'tray pill vanished after add');
+    }
+  } else {
+    report('C35 النقر على حبة غير مختارة يضيفها', false, 'no unpicked tray pill');
   }
 }
 
@@ -236,12 +247,19 @@ console.log('\n===== compare page smoke =====');
     back ? back.getAttribute('aria-label') : 'missing');
   const photo = el.querySelector('.compare-hero__img');
   report('C39 صورة القسم موجودة ومزخرفة (alt فارغ)',
-    Boolean(photo) && photo.getAttribute('src') === '/Modern-Building.jpg' && photo.getAttribute('alt') === ''
+    Boolean(photo) && photo.getAttribute('src') === '/Hero-Compare.avif' && photo.getAttribute('alt') === ''
     && photo.getAttribute('aria-hidden') === 'true' && photo.parentElement === hero,
     photo ? `src=${photo.getAttribute('src')} alt="${photo.getAttribute('alt')}"` : 'missing');
-  // حارس انحدار: اسم الشريحة هو ما يقصّه CSS (min-width:0 + ellipsis).
-  const chipNames = el.querySelectorAll('.cmp-chips .cmp-chip:not(.cmp-chip--add) .cmp-chip__name');
-  report('C40 كل شريحة تحمل عنصر اسم', chipNames.length === 3, `got ${chipNames.length}`);
+  // شارة القسم: أيقونة ميزان + نص، وفوق العنوان لا تحته.
+  const eyebrow = hero.querySelector('.compare__eyebrow');
+  report('C39b شارة "مقارنة المساحات" فوق العنوان',
+    Boolean(eyebrow) && Boolean(eyebrow.querySelector('svg'))
+    && eyebrow.textContent.trim().length > 0
+    && eyebrow.nextElementSibling && eyebrow.nextElementSibling.classList.contains('compare__title'),
+    eyebrow ? `text="${eyebrow.textContent.trim()}" svg=${Boolean(eyebrow.querySelector('svg'))}` : 'missing');
+  // حارس انحدار: اسم الخانة هو ما يقصّه CSS (min-width:0 + ellipsis).
+  const colNames = el.querySelectorAll('.wb__slot:not(.wb__slot--empty) .wb__slot-name');
+  report('C40 كل خانة تحمل عنصر اسم', colNames.length === 3, `got ${colNames.length}`);
 }
 
 // 13) على الجوال يبقى الجدول مطوياً ويُفتح بزرّه الخاص (لم يعد هناك شريط)
