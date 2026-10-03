@@ -17,7 +17,6 @@ import {
   buildCompareContext,
   scoreAll,
   normalizeRow,
-  rowHasDifference,
 } from '../lib/compareScore';
 
 const MAX_PICK = 4;
@@ -29,8 +28,11 @@ const amenityText = (list) =>
 const hoursText = (s) => (s.open_time && s.close_time ? `${s.open_time} – ${s.close_time}` : s.open_time || '');
 const toNum = (v) => (typeof v === 'number' ? v : Number(v));
 
-function bestIndexFor(row, values) {
+// A tie used to hand the row to the leftmost column, so a winner sitting on the
+// right lost every reason it had earned. `prefer` lets the winner keep its tie.
+function bestIndexFor(row, values, prefer = -1) {
   if (!row.better) return -1;
+  const pick = (candidates) => (candidates.includes(prefer) ? prefer : candidates[0] ?? -1);
   if (row.better === 'count') {
     // المصفوفة في الجدول والعدد في الرسوم: نقبل الشكلين
     const counts = values.map((v) => {
@@ -38,13 +40,16 @@ function bestIndexFor(row, values) {
       return Number.isFinite(n) ? n : 0;
     });
     const hi = counts.length ? Math.max(...counts) : 0;
-    return hi > 0 ? counts.indexOf(hi) : -1;
+    if (hi <= 0) return -1;
+    return pick(counts.map((c, i) => (c === hi ? i : -1)).filter((i) => i >= 0));
   }
-  const nums = values.map(toNum);
+  // null must stay absent, not become 0: two spaces with no data used to look
+  // like two equal zeros, and one of them was then badged "الأفضل".
+  const nums = values.map((v) => (v == null || v === '' ? NaN : toNum(v)));
   const finite = nums.filter(Number.isFinite);
   if (!finite.length) return -1;
   const target = row.better === 'min' ? Math.min(...finite) : Math.max(...finite);
-  return nums.findIndex((v) => Number.isFinite(v) && v === target);
+  return pick(nums.map((v, i) => (Number.isFinite(v) && v === target ? i : -1)).filter((i) => i >= 0));
 }
 
 const ROW_GROUPS = [
@@ -113,7 +118,6 @@ export default function ComparePage() {
   const [query, setQuery] = useState('');
   const [demo, setDemo] = useState(false);
   const [announce, setAnnounce] = useState('');
-  const [diffsOnly, setDiffsOnly] = useState(true);
   const [tableOpen, setTableOpen] = useState(false);
   const toggleTable = useCallback(() => setTableOpen((v) => !v), []);
   const searchRef = useRef(null);
@@ -134,7 +138,17 @@ export default function ComparePage() {
     return () => { alive = false; };
   }, []);
 
-  const selectedIds = useMemo(() => params.getAll('sp').slice(0, MAX_PICK), [params]);
+  // The URL is the source of truth, but it can be stale or hand-written:
+// an unknown id used to survive into selectedIds while the board renders only
+// what the catalog knows, so Reorder.Group got more values than it had children.
+// Unknowns and duplicates are dropped as soon as the catalog is known.
+const selectedIds = useMemo(() => {
+  const raw = params.getAll('sp').slice(0, MAX_PICK).map(String);
+  const unique = [...new Set(raw)];
+  if (!allSpaces.length) return unique;
+  const known = new Set(allSpaces.map((s) => String(s.id)));
+  return unique.filter((id) => known.has(id));
+}, [params, allSpaces]);
 
   const selected = useMemo(() => {
     const map = new Map(allSpaces.map((s) => [String(s.id), s]));
@@ -168,7 +182,7 @@ export default function ComparePage() {
     if (idx < 0) return [];
     return ROW_GROUPS
       .flatMap((g) => g.rows)
-      .filter((row) => row.better && bestIndexFor(row, scoredSpaces.map(row.pick)) === idx)
+      .filter((row) => row.better && bestIndexFor(row, scoredSpaces.map(row.pick), idx) === idx)
       .map((row) => row.label);
   }, [scoredSpaces, winnerId]);
 
@@ -179,7 +193,18 @@ export default function ComparePage() {
     return Math.max(0, Math.max(...prices) - win);
   }, [scoredSpaces, winnerId]);
 
-  const writeIds = (ids) => setParams(ids.map((x) => ['sp', x]));
+  // setParams with a flat list replaces the whole query string, so any other
+// param (?from, ?cat, ...) was silently dropped on the first selection change.
+const writeIds = useCallback(
+  (ids) => {
+    const rest = [];
+    params.forEach((value, key) => {
+      if (key !== 'sp') rest.push([key, value]);
+    });
+    setParams([...rest, ...ids.map((x) => ['sp', String(x)])]);
+  },
+  [params, setParams]
+);
 
   const add = (id) => {
     if (full) return;
@@ -427,15 +452,11 @@ export default function ComparePage() {
             <CompareViews
               spaces={scoredSpaces}
               winnerId={winnerId}
-              diffsOnly={diffsOnly}
-              onDiffsChange={setDiffsOnly}
             />
 
             <Matrix
               spaces={scoredSpaces}
               winnerId={winnerId}
-              diffsOnly={diffsOnly}
-              onDiffsChange={setDiffsOnly}
               open={tableOpen}
               onToggleOpen={toggleTable}
             />
@@ -623,7 +644,7 @@ const VIZ_METRIC_IDS = ['capacity', 'price', 'amenities', 'rating'];
 
 const EASE = [0.22, 1, 0.36, 1];
 const pctOf = (p) => `${Math.max(0, Math.min(1, Number(p) || 0)) * 100}%`;
-function useVizGroups(spaces, diffsOnly) {
+function useVizGroups(spaces) {
   return useMemo(
     () => {
       const all = [...ROW_GROUPS, OWNER_GROUP];
@@ -643,37 +664,32 @@ function useVizGroups(spaces, diffsOnly) {
       return picked
         .map((group) => ({
           ...group,
-          rows: group.rows
-            .map((row) => {
-              const values = spaces.map((s) => {
-                const v = row.num(s);
-                return v == null || !Number.isFinite(Number(v)) ? null : Number(v);
-              });
-              const nums = values.map((v) => (Number.isFinite(v) ? v : 0));
-              return {
-                ...row,
-                fmt: row.fmt || fmtNumber,
-                // plain number for chart labels: never a dash
-                numText: (v) => (Number.isFinite(v) ? fmtNumber(v) : '0'),
-                values,
-                nums,
-                pcts: normalizeRow(nums, { log: !!row.log, lowerIsBetter: row.better === 'min' }),
-                bestIdx: bestIndexFor(row, nums),
-              };
-            })
-            .filter((r) => !diffsOnly || rowHasDifference(r.nums)),
+          rows: group.rows.map((row) => {
+            const values = spaces.map((s) => {
+              const v = row.num(s);
+              return v == null || !Number.isFinite(Number(v)) ? null : Number(v);
+            });
+            const nums = values.map((v) => (Number.isFinite(v) ? v : 0));
+            return {
+              ...row,
+              fmt: row.fmt || fmtNumber,
+              // plain number for chart labels: never a dash
+              numText: (v) => (Number.isFinite(v) ? fmtNumber(v) : '0'),
+              values,
+              nums,
+              pcts: normalizeRow(nums, { log: !!row.log, lowerIsBetter: row.better === 'min' }),
+              bestIdx: bestIndexFor(row, nums),
+            };
+          }),
         }))
         .filter((g) => g.rows.length > 0);
     },
-    [spaces, diffsOnly]
+    [spaces]
   );
 }
 
-const CompareViews = memo(function CompareViews({
-  spaces, winnerId, diffsOnly, onDiffsChange,
-}) {
-  const groups = useVizGroups(spaces, diffsOnly);
-  const total = groups.reduce((n, g) => n + g.rows.length, 0);
+const CompareViews = memo(function CompareViews({ spaces, winnerId }) {
+  const groups = useVizGroups(spaces);
 
   return (
     <section className="cmp-views" aria-label="عروض المقارنة">
@@ -681,19 +697,9 @@ const CompareViews = memo(function CompareViews({
         <h2 className="cmp-section-title">
           <LayoutDashboard size={18} aria-hidden="true" /> عرض المقارنات
         </h2>
-
-        <label className="cmp-toggle">
-          <input type="checkbox" checked={diffsOnly} onChange={(e) => onDiffsChange(e.target.checked)} />
-          <span className="cmp-toggle__track" aria-hidden="true"><span className="cmp-toggle__knob" /></span>
-          <span className="cmp-toggle__text">الفروق فقط</span>
-        </label>
       </div>
 
-      {total === 0 ? (
-        <p className="cmp-views__none">لا فروق بين المساحات في أي معيار.</p>
-      ) : (
-        <QuadPanel spaces={spaces} winnerId={winnerId} groups={groups} />
-      )}
+      <QuadPanel spaces={spaces} winnerId={winnerId} groups={groups} />
     </section>
   );
 });
@@ -914,17 +920,8 @@ const Donut = memo(function Donut({ pct, best, label, children }) {
 });
 // The full metric table: every metric, owner indicators and the booking row.
 // Collapsed by default on every screen size; the summary above stays visible.
-const Matrix = memo(function Matrix({ spaces, winnerId, diffsOnly, onDiffsChange, open, onToggleOpen }) {
-  const visible = useMemo(() => {
-    const keep = (rows) => (diffsOnly ? rows.filter((r) => rowHasDifference(spaces.map(r.pick))) : rows);
-    const groups = ROW_GROUPS
-      .map((g) => ({ ...g, rows: keep(g.rows) }))
-      .filter((g) => g.rows.length > 0);
-    const owner = keep(OWNER_GROUP.rows);
-    return { groups, owner };
-  }, [diffsOnly, spaces]);
-
-  const totalRows = visible.groups.reduce((n, g) => n + g.rows.length, 0) + visible.owner.length;
+const Matrix = memo(function Matrix({ spaces, winnerId, open, onToggleOpen }) {
+  const visible = { groups: ROW_GROUPS, owner: OWNER_GROUP.rows };
 
   return (
     <section className="cmp-matrix" aria-label="جدول المقارنة الكامل">
@@ -933,15 +930,6 @@ const Matrix = memo(function Matrix({ spaces, winnerId, diffsOnly, onDiffsChange
           <Gauge size={18} aria-hidden="true" /> جدول المقارنة الكامل
         </h2>
         <div className="cmp-matrix__tools">
-          <label className="cmp-toggle">
-            <input
-              type="checkbox"
-              checked={diffsOnly}
-              onChange={(e) => onDiffsChange(e.target.checked)}
-            />
-            <span className="cmp-toggle__track" aria-hidden="true"><span className="cmp-toggle__knob" /></span>
-            <span className="cmp-toggle__text">الفروق فقط</span>
-          </label>
           <button type="button" className="btn-ghost cmp-matrix__disclose" onClick={onToggleOpen}
             aria-expanded={open}
           >
@@ -950,11 +938,7 @@ const Matrix = memo(function Matrix({ spaces, winnerId, diffsOnly, onDiffsChange
         </div>
       </div>
 
-      {open && totalRows === 0 && (
-        <p className="cmp-matrix__none">لا فروق بين المساحات المختارة في أي معيار.</p>
-      )}
-
-      {open && totalRows > 0 && (
+      {open && (
         <div className="cmp-matrix__scroll">
           <table className="cmp-matrix__grid">
             <caption className="sr-only">
@@ -1071,7 +1055,11 @@ const MetricRow = memo(function MetricRow({ row, spaces, winnerId }) {
           >
             <span className="cmp-matrix__val">
               {isBest && <Award size={13} className="cmp-matrix__award" aria-label="الأفضل في هذا المعيار" />}
-              {row.fmt ? row.fmt(values[i]) : String(values[i] ?? '—')}
+              {values[i] == null
+                ? '—'
+                : row.fmt
+                  ? row.fmt(values[i])
+                  : String(values[i])}
             </span>
             {barPcts && (
               <span className="cmp-matrix__bar" aria-hidden="true">
