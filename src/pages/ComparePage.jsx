@@ -3,8 +3,9 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { motion, Reorder, useDragControls } from 'framer-motion';
 import {
   Award, Building2, CalendarCheck2, Check, ChevronLeft, ChevronRight,
-  Clock, Crown, Equal, Gauge, GripVertical, HandCoins, Lightbulb, MapPin, MessageSquareQuote,
-  Receipt, Scale, Search, Sparkles, Star, Ticket, TrendingUp, Trophy, Users, Wallet, X,
+  Clock, Crown, Equal, Gauge, GripVertical, HandCoins, LayoutDashboard, Lightbulb,
+  MapPin, MessageSquareQuote, Receipt, Scale, Search, Sparkles, Star, Ticket, TrendingUp,
+  Trophy, Users, Wallet, X,
 } from 'lucide-react';
 import { loadAllSpacesWithFallback, SPACE_CATEGORIES } from '../lib/spaces';
 import { AMENITY_LABELS } from '../lib/requests';
@@ -20,7 +21,6 @@ import {
 
 const MAX_PICK = 4;
 const MIN_PICK = 2;
-const NARROW = '(max-width: 900px)';
 
 const catLabel = (id) => (SPACE_CATEGORIES.find((c) => c.id === id) || {}).label || '';
 const amenityText = (list) =>
@@ -31,7 +31,11 @@ const toNum = (v) => (typeof v === 'number' ? v : Number(v));
 function bestIndexFor(row, values) {
   if (!row.better) return -1;
   if (row.better === 'count') {
-    const counts = values.map((v) => (Array.isArray(v) ? v.length : 0));
+    // المصفوفة في الجدول والعدد في الرسوم: نقبل الشكلين
+    const counts = values.map((v) => {
+      const n = Array.isArray(v) ? v.length : toNum(v);
+      return Number.isFinite(n) ? n : 0;
+    });
     const hi = counts.length ? Math.max(...counts) : 0;
     return hi > 0 ? counts.indexOf(hi) : -1;
   }
@@ -47,24 +51,32 @@ const ROW_GROUPS = [
     id: 'cost',
     label: 'الكلفة',
     rows: [
-      { id: 'perHead', label: 'السعر لكل شخص', pick: pricePerHead, fmt: fmtMoney, better: 'min', log: true, icon: Receipt },
-      { id: 'price', label: 'السعر بالساعة', pick: (s) => Number(s.price_per_hour) || 0, fmt: fmtNumber, better: 'min', icon: Wallet },
+      { id: 'perHead', label: 'السعر لكل شخص', pick: pricePerHead, num: (s) => {
+        const v = pricePerHead(s);
+        return v == null || !Number.isFinite(Number(v)) ? null : Number(v);
+      }, fmt: fmtMoney, better: 'min', log: true, icon: Receipt },
+      { id: 'price', label: 'السعر بالساعة', pick: (s) => Number(s.price_per_hour) || 0,
+        num: (s) => Number(s.price_per_hour) || 0, fmt: fmtNumber, better: 'min', icon: Wallet },
     ],
   },
   {
     id: 'trust',
     label: 'الثقة',
     rows: [
-      { id: 'rating', label: 'التقييم', pick: (s) => Math.max(0, Math.min(5, Number(s.rating) || 0)), fmt: fmtRating, better: 'max', icon: Star },
-      { id: 'reviews', label: 'عدد التقييمات', pick: (s) => Number(s.review_count) || 0, fmt: fmtNumber, better: 'max', log: true, icon: MessageSquareQuote },
+      { id: 'rating', label: 'التقييم', pick: (s) => Math.max(0, Math.min(5, Number(s.rating) || 0)),
+        num: (s) => Math.max(0, Math.min(5, Number(s.rating) || 0)), fmt: fmtRating, better: 'max', icon: Star },
+      { id: 'reviews', label: 'عدد التقييمات', pick: (s) => Number(s.review_count) || 0,
+        num: (s) => Number(s.review_count) || 0, fmt: fmtNumber, better: 'max', log: true, icon: MessageSquareQuote },
     ],
   },
   {
     id: 'fit',
     label: 'المساحة',
     rows: [
-      { id: 'capacity', label: 'السعة القصوى', pick: (s) => Number(s.capacity) || 0, fmt: fmtNumber, better: 'max', log: true, icon: Users },
-      { id: 'amenities', label: 'المرافق', pick: (s) => (Array.isArray(s.amenities) ? s.amenities : []), fmt: amenityText, better: 'count', icon: Sparkles },
+      { id: 'capacity', label: 'السعة القصوى', pick: (s) => Number(s.capacity) || 0,
+        num: (s) => Number(s.capacity) || 0, fmt: fmtNumber, better: 'max', log: true, icon: Users },
+      { id: 'amenities', label: 'المرافق', pick: (s) => (Array.isArray(s.amenities) ? s.amenities : []),
+        num: (s) => (Array.isArray(s.amenities) ? s.amenities.length : 0), fmt: amenityText, better: 'count', icon: Sparkles },
     ],
   },
   {
@@ -84,9 +96,12 @@ const OWNER_GROUP = {
   label: 'مؤشرات المالك',
   note: 'أرقام تشغيلية خاصة بصاحب المساحة، لا تدخل في الترتيب',
   rows: [
-    { id: 'bookings', label: 'الحجوزات الشهرية', pick: (s) => Number(s.stats?.bookings) || 0, fmt: fmtNumber, better: 'max', log: true, icon: Ticket },
-    { id: 'revenue', label: 'الإيراد الشهري', pick: (s) => Number(s.stats?.revenue) || 0, fmt: fmtMoney, better: 'max', log: true, icon: HandCoins },
-    { id: 'occupancy', label: 'معدل الإشغال', pick: (s) => Math.max(0, Math.min(100, Number(s.stats?.occupancy) || 0)), fmt: (v) => `${fmtNumber(v)}٪`, better: 'max', icon: TrendingUp },
+    { id: 'bookings', label: 'الحجوزات الشهرية', pick: (s) => Number(s.stats?.bookings) || 0,
+      num: (s) => Number(s.stats?.bookings) || 0, fmt: fmtNumber, better: 'max', log: true, icon: Ticket },
+    { id: 'revenue', label: 'الإيراد الشهري', pick: (s) => Number(s.stats?.revenue) || 0,
+      num: (s) => Number(s.stats?.revenue) || 0, fmt: fmtMoney, better: 'max', log: true, icon: HandCoins },
+    { id: 'occupancy', label: 'معدل الإشغال', pick: (s) => Math.max(0, Math.min(100, Number(s.stats?.occupancy) || 0)),
+      num: (s) => Math.max(0, Math.min(100, Number(s.stats?.occupancy) || 0)), fmt: (v) => `${fmtNumber(v)}٪`, better: 'max', icon: TrendingUp },
   ],
 };
 
@@ -96,14 +111,10 @@ export default function ComparePage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [demo, setDemo] = useState(false);
-  const [diffsOnly, setDiffsOnly] = useState(true);
   const [announce, setAnnounce] = useState('');
-  const [isNarrow, setIsNarrow] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia(NARROW).matches
-  );
-  const [tableOpen, setTableOpen] = useState(
-    () => !(typeof window !== 'undefined' && window.matchMedia(NARROW).matches)
-  );
+  const [diffsOnly, setDiffsOnly] = useState(true);
+  const [tableOpen, setTableOpen] = useState(false);
+  const toggleTable = useCallback(() => setTableOpen((v) => !v), []);
   const searchRef = useRef(null);
 
   useEffect(() => {
@@ -120,17 +131,6 @@ export default function ComparePage() {
         setLoading(false);
       });
     return () => { alive = false; };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-    const mq = window.matchMedia(NARROW);
-    const onChange = (e) => {
-      setIsNarrow(e.matches);
-      setTableOpen(!e.matches);
-    };
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
   }, []);
 
   const selectedIds = useMemo(() => params.getAll('sp').slice(0, MAX_PICK), [params]);
@@ -177,8 +177,6 @@ export default function ComparePage() {
     const win = Number(scoredSpaces.find((s) => String(s.id) === String(winnerId))?.price_per_hour) || 0;
     return Math.max(0, Math.max(...prices) - win);
   }, [scoredSpaces, winnerId]);
-
-  const toggleTable = useCallback(() => setTableOpen((v) => !v), []);
 
   const writeIds = (ids) => setParams(ids.map((x) => ['sp', x]));
 
@@ -299,7 +297,8 @@ export default function ComparePage() {
             </div>
 
             <div className="cmp-picker__tools">
-              <span className="cmp-counter">
+              <span className="cmp-counter" title={ready ? `العدد جاهز (${selected.length}/${MAX_PICK})` : `اختر من ${MIN_PICK} إلى ${MAX_PICK} مساحات`}
+                    role="status" aria-live="polite">
                 <span className={`cmp-counter__dot${ready ? ' is-ok' : ''}`} />
                 <b>{fmtNumber(selected.length)}</b>
                 <small>/ {fmtNumber(MAX_PICK)}</small>
@@ -318,7 +317,7 @@ export default function ComparePage() {
               {!full && trayList.length === 0 && (
                 <p className="cmp-pills__note">لا نتائج مطابقة للبحث</p>
               )}
-              {trayList.map((s) => {
+{trayList.map((s) => {
                 const picked = takenIds.has(String(s.id));
                 return (
                   <button
@@ -333,6 +332,7 @@ export default function ComparePage() {
                       {picked ? <Check size={14} /> : <Building2 size={14} />}
                     </span>
                     <span className="cmp-pill__name">{s.title}</span>
+                    <span className="cmp-pill__meta">{fmtNumber(s.price_per_hour)} ش.ج</span>
                   </button>
                 );
               })}
@@ -383,15 +383,15 @@ export default function ComparePage() {
                   onRemove={remove}
                 />
               ))}
-              {!full && (
-                <li className="cmp-card cmp-card--add">
-                  <button type="button" onClick={focusSearch}>
-                    <Search size={20} aria-hidden="true" />
-                    <span>أضف مساحة</span>
-                  </button>
-                </li>
-              )}
-            </Reorder.Group>
+            {!full && (
+              <li className="cmp-card cmp-card--add">
+                <button type="button" onClick={focusSearch}>
+                  <Search size={20} aria-hidden="true" />
+                  <span>أضف مساحة</span>
+                </button>
+              </li>
+            )}
+          </Reorder.Group>
           )}
 
           {!loading && selected.length === 1 && (
@@ -406,6 +406,7 @@ export default function ComparePage() {
         {ready && (
           <motion.div
             key={membershipKey}
+            className="cmp-stack"
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
@@ -420,6 +421,13 @@ export default function ComparePage() {
               saving={saving}
             />
 
+            <CompareViews
+              spaces={scoredSpaces}
+              winnerId={winnerId}
+              diffsOnly={diffsOnly}
+              onDiffsChange={setDiffsOnly}
+            />
+
             <Matrix
               spaces={scoredSpaces}
               winnerId={winnerId}
@@ -427,7 +435,6 @@ export default function ComparePage() {
               onDiffsChange={setDiffsOnly}
               open={tableOpen}
               onToggleOpen={toggleTable}
-              isNarrow={isNarrow}
             />
           </motion.div>
         )}
@@ -567,6 +574,9 @@ const Verdict = memo(function Verdict({ spaces, winnerId, winnerSpace, scores, s
           ) : (
             <li><Check size={14} aria-hidden="true" /> الأعلى في مؤشر القيمة الإجمالي</li>
           )}
+          {reasons.length > 4 && (
+            <li><Check size={14} aria-hidden="true" /> … و+{reasons.length - 4} أكثر</li>
+          )}
           {saving > 0 && (
             <li><Wallet size={14} aria-hidden="true" /> أوفر بـ {fmtMoney(saving)} ش.ج/ساعة من الأغلى</li>
           )}
@@ -588,6 +598,7 @@ const Verdict = memo(function Verdict({ spaces, winnerId, winnerSpace, scores, s
                     transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
                   />
                 </span>
+                <Link to={`/ads/${s.id}`} className="cmp-spread__book" aria-label={`احجز ${s.title}`}>احجز</Link>
                 <b className="cmp-spread__val">{fmtNumber(scores[i])}</b>
               </div>
             );
@@ -600,8 +611,295 @@ const Verdict = memo(function Verdict({ spaces, winnerId, winnerSpace, scores, s
     </section>
   );
 });
+const MIN_TAG = 'الأقل أفضل';
+const MAX_TAG = 'الأكثر أفضل';
+const SECTION_LABELS = ['السعر والتقييم', 'السعة والمرافق'];
 
-const Matrix = memo(function Matrix({ spaces, winnerId, diffsOnly, onDiffsChange, open, onToggleOpen, isNarrow }) {
+// Only four metrics carry the comparison, in priority order.
+const VIZ_METRIC_IDS = ['capacity', 'price', 'amenities', 'rating'];
+
+const EASE = [0.22, 1, 0.36, 1];
+const pctOf = (p) => `${Math.max(0, Math.min(1, Number(p) || 0)) * 100}%`;
+function useVizGroups(spaces, diffsOnly) {
+  return useMemo(
+    () => {
+      const all = [...ROW_GROUPS, OWNER_GROUP];
+      const picked = [];
+      VIZ_METRIC_IDS.forEach((id) => {
+        const src = all.find((g) => g.rows.some((r) => r.id === id));
+        const row = src && src.rows.find((r) => r.id === id);
+        if (!row) return;
+        let group = picked.find((p) => p.id === src.id);
+        if (!group) {
+          group = { id: src.id, label: src.label, note: src.note, rows: [] };
+          picked.push(group);
+        }
+        group.rows.push(row);
+      });
+
+      return picked
+        .map((group) => ({
+          ...group,
+          rows: group.rows
+            .map((row) => {
+              const values = spaces.map((s) => {
+                const v = row.num(s);
+                return v == null || !Number.isFinite(Number(v)) ? null : Number(v);
+              });
+              const nums = values.map((v) => (Number.isFinite(v) ? v : 0));
+              return {
+                ...row,
+                fmt: row.fmt || fmtNumber,
+                // plain number for chart labels: never a dash
+                numText: (v) => (Number.isFinite(v) ? fmtNumber(v) : '0'),
+                values,
+                nums,
+                pcts: normalizeRow(nums, { log: !!row.log, lowerIsBetter: row.better === 'min' }),
+                bestIdx: bestIndexFor(row, nums),
+              };
+            })
+            .filter((r) => !diffsOnly || rowHasDifference(r.nums)),
+        }))
+        .filter((g) => g.rows.length > 0);
+    },
+    [spaces, diffsOnly]
+  );
+}
+
+const CompareViews = memo(function CompareViews({
+  spaces, winnerId, diffsOnly, onDiffsChange,
+}) {
+  const groups = useVizGroups(spaces, diffsOnly);
+  const total = groups.reduce((n, g) => n + g.rows.length, 0);
+
+  return (
+    <section className="cmp-views" aria-label="عروض المقارنة">
+      <div className="cmp-views__bar">
+        <h2 className="cmp-section-title">
+          <LayoutDashboard size={18} aria-hidden="true" /> عرض المقارنات
+        </h2>
+
+        <label className="cmp-toggle">
+          <input type="checkbox" checked={diffsOnly} onChange={(e) => onDiffsChange(e.target.checked)} />
+          <span className="cmp-toggle__track" aria-hidden="true"><span className="cmp-toggle__knob" /></span>
+          <span className="cmp-toggle__text">الفروق فقط</span>
+        </label>
+      </div>
+
+      {total === 0 ? (
+        <p className="cmp-views__none">لا فروق بين المساحات في أي معيار.</p>
+      ) : (
+        <QuadPanel spaces={spaces} winnerId={winnerId} groups={groups} />
+      )}
+    </section>
+  );
+});
+// Two rows, two squares each: a pill column and a donut column.
+// Row 1: price per hour | feedbacks.  Row 2: capacity | services.
+const QUAD_LAYOUT = [
+  [{ id: 'price', type: 'vbars' }, { id: 'rating', type: 'donut' }],
+  [{ id: 'capacity', type: 'pills' }, { id: 'amenities', type: 'axis' }],
+];
+
+const QuadPanel = memo(function QuadPanel({ spaces, winnerId, groups }) {
+  const byId = useMemo(() => {
+    const map = new Map();
+    groups.forEach((g) => g.rows.forEach((r) => map.set(r.id, { ...r, groupLabel: g.label })));
+    return map;
+  }, [groups]);
+
+  return (
+    <div className="cmp-quad">
+      {QUAD_LAYOUT.map((rowCells, ri) => (
+        <section key={ri} className="cmp-quad__row" aria-label={SECTION_LABELS[ri]}>
+          {rowCells.map((cell) => {
+            const r = byId.get(cell.id);
+            if (!r) return null;
+            return (
+              <article key={cell.id} className={`cmp-qcard cmp-qcard--${cell.type}`}>
+                <header className="cmp-qcard__head">
+                  {r.icon && <r.icon size={15} aria-hidden="true" />}
+                  <b>{r.label}</b>
+                  <span className="cmp-qcard__tag">
+                    {r.better === 'min' ? MIN_TAG : MAX_TAG}
+                  </span>
+                </header>
+
+                {cell.type === 'pills' && (
+                  <div className="cmp-qpills">
+                    {spaces.map((s, i) => {
+                      const best = i === r.bestIdx;
+                      return (
+                        <div
+                          key={s.id}
+                          className={`cmp-qpill${best ? ' is-best' : ''}${String(s.id) === String(winnerId) ? ' is-win' : ''}`}
+                          title={s.title}
+                        >
+                          <span
+                            className="cmp-qpill__fill"
+                            style={{ width: pctOf(r.pcts[i]) }}
+                            aria-hidden="true"
+                          />
+                          <span className="cmp-qpill__name">{s.title}</span>
+                          <b className="cmp-qpill__val">{r.numText(r.values[i])}</b>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {cell.type === 'vbars' && (
+                  <>
+                    <div className="cmp-qvcols">
+                      {spaces.map((s, i) => {
+                        const best = i === r.bestIdx;
+                        return (
+                          <div
+                            key={s.id}
+                            className={`cmp-qvcol${best ? ' is-best' : ''}${String(s.id) === String(winnerId) ? ' is-win' : ''}`}
+                          >
+                            <span className="cmp-qvcol__val">{r.numText(r.values[i])}</span>
+                            <span className="cmp-qvcol__track">
+                              <motion.span
+                                className="cmp-qvcol__fill"
+                                initial={{ height: 0 }}
+                                animate={{ height: pctOf(r.pcts[i]) }}
+                                transition={{ duration: 0.55, ease: EASE }}
+                              />
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="cmp-qnames">
+                      {spaces.map((s, i) => (
+                        <span
+                          key={s.id}
+                          className={`cmp-qname${i === r.bestIdx ? ' is-best' : ''}${String(s.id) === String(winnerId) ? ' is-win' : ''}`}
+                          title={s.title}
+                        >
+                          {s.title}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {cell.type === 'axis' && (
+                  <AxisChart spaces={spaces} row={r} winnerId={winnerId} />
+                )}
+
+                {cell.type === 'donut' && (
+                  <div className="cmp-qcard__set">
+                    {spaces.map((s, i) => (
+                      <div
+                        key={s.id}
+                        className={`cmp-dunit${r.bestIdx === i ? ' is-best' : ''}${String(s.id) === String(winnerId) ? ' is-win' : ''}`}
+                      >
+                        <span className="cmp-dunit__name" title={s.title}>{s.title}</span>
+                        <Donut pct={r.pcts[i]} best={r.bestIdx === i} label={s.title}>
+                          {r.numText(r.values[i])}
+                        </Donut>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </article>
+            );
+          })}
+        </section>
+      ))}
+    </div>
+  );
+});
+// A round axis: the top gridline always sits on a friendly number, and the
+// middle gridline is exactly half of it, so the scale reads true.
+const niceStep = (v) => (v <= 5 ? 1 : v <= 10 ? 2 : v <= 25 ? 5 : v <= 50 ? 10 : 20);
+
+// Services as a real X/Y chart: value row, plotted field, then the space names.
+const AxisChart = memo(function AxisChart({ spaces, row, winnerId }) {
+  const values = row.nums;
+  const step = niceStep(Math.max(...values, 1));
+  const top = Math.max(step, Math.ceil((Math.max(...values, 1) || 1) / step) * step);
+  const ticks = [top, top / 2, 0];
+
+  return (
+    <div className="cmp-axis" style={{ '--cmp-cols': spaces.length }}>
+      <div className="cmp-axis__r">
+        <span className="cmp-axis__pad" aria-hidden="true" />
+        {spaces.map((s, i) => (
+          <b
+            key={s.id}
+            className={`cmp-axis__val${row.bestIdx === i ? ' is-best' : ''}`}
+          >
+            {row.numText(values[i])}
+          </b>
+        ))}
+      </div>
+
+      <div className="cmp-axis__r">
+        <span className="cmp-axis__y" aria-hidden="true">
+          {ticks.map((tv, ti) => (
+            <span key={ti} className={`cmp-axis__ytick is-${ti}`}>{row.numText(tv)}</span>
+          ))}
+        </span>
+
+        <span className="cmp-axis__field">
+          <span className="cmp-axis__line is-top" />
+          <span className="cmp-axis__line is-mid" />
+          <span className="cmp-axis__line is-base" />
+          <span className="cmp-axis__cols">
+            {spaces.map((s, i) => {
+              const best = i === row.bestIdx;
+              return (
+                <span
+                  key={s.id}
+                  className={`cmp-axis__col${best ? ' is-best' : ''}${String(s.id) === String(winnerId) ? ' is-win' : ''}`}
+                >
+                  <motion.span
+                    className="cmp-axis__bar"
+                    initial={{ height: 0 }}
+                    animate={{ height: `${(values[i] / top) * 100}%` }}
+                    transition={{ duration: 0.55, ease: EASE }}
+                  />
+                </span>
+              );
+            })}
+          </span>
+        </span>
+      </div>
+
+      <div className="cmp-axis__r">
+        <span className="cmp-axis__pad" aria-hidden="true" />
+        {spaces.map((s) => (
+          <span key={s.id} className="cmp-axis__name" title={s.title}>{s.title}</span>
+        ))}
+      </div>
+    </div>
+  );
+});
+const Donut = memo(function Donut({ pct, best, label, children }) {
+  const R = 26;
+  const C = 2 * Math.PI * R;
+  const on = Math.max(0.02, Math.min(1, Number(pct) || 0));
+  return (
+    <span className={`cmp-donut${best ? ' is-best' : ''}`} title={label}>
+      <svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">
+        <circle cx="32" cy="32" r={R} className="cmp-donut__track" />
+        <circle
+          cx="32" cy="32" r={R} className="cmp-donut__fill"
+          style={{ strokeDasharray: `${on * C} ${C}` }}
+          transform="rotate(-90 32 32)"
+        />
+      </svg>
+      <span className="cmp-donut__mid">{children}</span>
+    </span>
+  );
+});
+// The full metric table: every metric, owner indicators and the booking row.
+// Collapsed by default on every screen size; the summary above stays visible.
+const Matrix = memo(function Matrix({ spaces, winnerId, diffsOnly, onDiffsChange, open, onToggleOpen }) {
   const visible = useMemo(() => {
     const keep = (rows) => (diffsOnly ? rows.filter((r) => rowHasDifference(spaces.map(r.pick))) : rows);
     const groups = ROW_GROUPS
@@ -629,24 +927,23 @@ const Matrix = memo(function Matrix({ spaces, winnerId, diffsOnly, onDiffsChange
             <span className="cmp-toggle__track" aria-hidden="true"><span className="cmp-toggle__knob" /></span>
             <span className="cmp-toggle__text">الفروق فقط</span>
           </label>
-          {(isNarrow || !open) && (
-            <button type="button" className="btn-ghost cmp-matrix__disclose" onClick={onToggleOpen}>
-              <Equal size={15} aria-hidden="true" /> {open ? 'إخفاء الجدول' : 'عرض الجدول'}
-            </button>
-          )}
+          <button type="button" className="btn-ghost cmp-matrix__disclose" onClick={onToggleOpen}
+            aria-expanded={open}
+          >
+            <Equal size={15} aria-hidden="true" /> {open ? 'إخفاء الجدول' : 'عرض الجدول'}
+          </button>
         </div>
       </div>
 
-      {(!isNarrow || open) && totalRows === 0 && (
+      {open && totalRows === 0 && (
         <p className="cmp-matrix__none">لا فروق بين المساحات المختارة في أي معيار.</p>
       )}
 
-      {(!isNarrow || open) && totalRows > 0 && (
+      {open && totalRows > 0 && (
         <div className="cmp-matrix__scroll">
           <table className="cmp-matrix__grid">
             <caption className="sr-only">
-              مقارنة تفصيلية بين {fmtNumber(spaces.length)} مساحات. كل صف مطبَّع على مدى الصف نفسه،
-              والأخضر هو الأفضل في ذلك المعيار.
+              مقارنة تفصيلية بين {fmtNumber(spaces.length)} مساحات. كل صف مطبَّع على مدى الصف نفسه، والأخضر هو الأفضل في ذلك المعيار.
             </caption>
             <thead>
               <tr>
@@ -670,7 +967,7 @@ const Matrix = memo(function Matrix({ spaces, winnerId, diffsOnly, onDiffsChange
                   <th scope="colgroup" colSpan={spaces.length + 1}>{group.label}</th>
                 </tr>
                 {group.rows.map((row) => (
-                  <MetricRow key={row.id} row={row} spaces={spaces} />
+                  <MetricRow key={row.id} row={row} spaces={spaces} winnerId={winnerId} />
                 ))}
               </tbody>
             ))}
@@ -689,7 +986,7 @@ const Matrix = memo(function Matrix({ spaces, winnerId, diffsOnly, onDiffsChange
                 </tbody>
                 <tbody>
                   {visible.owner.map((row) => (
-                    <MetricRow key={row.id} row={row} spaces={spaces} />
+<MetricRow key={row.id} row={row} spaces={spaces} winnerId={winnerId} />
                   ))}
                 </tbody>
               </>
@@ -704,7 +1001,10 @@ const Matrix = memo(function Matrix({ spaces, winnerId, diffsOnly, onDiffsChange
                   </span>
                 </th>
                 {spaces.map((s) => (
-                  <td key={s.id} className="cmp-matrix__cell">
+                  <td
+                    key={s.id}
+                    className={`cmp-matrix__cell${String(s.id) === String(winnerId) ? ' is-winner' : ''}`}
+                  >
                     {s.instant_booking ? (
                       <Link className="cmp-matrix__book" to={`/ads/${s.id}`}>حجز فوري</Link>
                     ) : (
@@ -721,7 +1021,7 @@ const Matrix = memo(function Matrix({ spaces, winnerId, diffsOnly, onDiffsChange
   );
 });
 
-const MetricRow = memo(function MetricRow({ row, spaces }) {
+const MetricRow = memo(function MetricRow({ row, spaces, winnerId }) {
   const values = spaces.map(row.pick);
   const bestIdx = bestIndexFor(row, values);
 
@@ -748,10 +1048,11 @@ const MetricRow = memo(function MetricRow({ row, spaces }) {
       {spaces.map((s, i) => {
         const isBest = i === bestIdx;
         const isLow = varied && !isBest && sizeOf(values[i]) !== bestSize;
+        const isWinner = winnerId != null && String(s.id) === String(winnerId);
         return (
           <td
             key={s.id}
-            className={`cmp-matrix__cell${isBest ? ' is-best' : ''}${isLow ? ' is-low' : ''}`}
+            className={`cmp-matrix__cell${isBest ? ' is-best' : ''}${isLow ? ' is-low' : ''}${isWinner ? ' is-winner' : ''}`}
           >
             <span className="cmp-matrix__val">
               {isBest && <Award size={13} className="cmp-matrix__award" aria-label="الأفضل في هذا المعيار" />}
