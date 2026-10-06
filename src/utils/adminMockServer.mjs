@@ -187,7 +187,10 @@ export function createFixtureServer() {
     if (/^\/api\/admin\/users\/\d+\/verify$/.test(path) && method === 'PATCH') {
       const row = findBy('users', path.split('/')[4]);
       if (!row) return missing();
+      // عقد A4.5: التوثيق يضع `verified` و`status` معاً — لا يبقى معتمدٌ
+      // بحالة `pending` بعد أن قرّر الأدمن اعتماده.
       row.verified = true;
+      row.status = 'active';
       return ok(row);
     }
     if (/^\/api\/admin\/users\/\d+$/.test(path)) {
