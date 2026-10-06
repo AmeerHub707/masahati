@@ -4,6 +4,7 @@
 // يخزّن البيانات محلياً حتى لا تكسر التجربة.
 
 import { request, imageUrl } from './api';
+import { createDemoFlag } from './demoFlag';
 
 // مهلة الطلب: نحاكي الافتراضية في api.js. كانت 8 ثوانٍ فأسقطت كل الطلبات على
 // مخدم Render أثناء الإقلاع البارد (30–60 ثانية)، وهو ما كان يفعّل الوضع
@@ -42,21 +43,14 @@ export function describeRequestError(err) {
 }
 
 // ----- وضع تجريبي -----
+const demoFlag = createDemoFlag(DEMO_FLAG_KEY);
+
 export function isSpecialRequestsDemo() {
-  try {
-    return localStorage.getItem(DEMO_FLAG_KEY) === '1';
-  } catch {
-    return false;
-  }
+  return demoFlag.isOn();
 }
 
 function setDemoFlag(on) {
-  try {
-    if (on) localStorage.setItem(DEMO_FLAG_KEY, '1');
-    else localStorage.removeItem(DEMO_FLAG_KEY);
-  } catch {
-    /* التخزين غير متاح */
-  }
+  demoFlag.set(on);
 }
 
 function readDemoStore() {

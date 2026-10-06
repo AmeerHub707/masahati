@@ -2,11 +2,11 @@
   "meta": {
     "baseUrl": "https://back-end-kwba.onrender.com",
     "node": "v24.19.0",
-    "startedAt": "2026-09-27T17:09:46.976Z",
+    "startedAt": "2026-10-05T17:39:16.828Z",
     "warmup": {
       "status": 200,
       "ok": true,
-      "ms": 627,
+      "ms": 34251,
       "allow": "POST",
       "contentType": "text/html; charset=utf-8",
       "json": null,
@@ -33,7 +33,7 @@
         "verdict": "EXISTS",
         "detail": "route present, validation rejected probe body",
         "status": 422,
-        "ms": 4400,
+        "ms": 4701,
         "allow": "",
         "snippet": "{\"message\":\"The login field is required. (and 1 more error)\",\"errors\":{\"login\":[\"The login field is required.\"],\"password\":[\"The password field is required.\"]}}"
       }
@@ -70,7 +70,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 247,
+        "ms": 264,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -94,7 +94,7 @@
         "verdict": "EXISTS",
         "detail": "route present, validation rejected probe body",
         "status": 422,
-        "ms": 3022,
+        "ms": 3026,
         "allow": "",
         "snippet": "{\"message\":\"The name field is required. (and 3 more errors)\",\"errors\":{\"name\":[\"The name field is required.\"],\"phone\":[\"The phone field is required.\"],\"email\":[\"The email field is required.\"],\"password\":[\"The password field is required.\"]}}"
       }
@@ -119,7 +119,7 @@
         "verdict": "EXISTS",
         "detail": "route present, validation rejected probe body",
         "status": 422,
-        "ms": 3030,
+        "ms": 3019,
         "allow": "",
         "snippet": "{\"message\":\"The name field is required. (and 3 more errors)\",\"errors\":{\"name\":[\"The name field is required.\"],\"phone\":[\"The phone field is required.\"],\"email\":[\"The email field is required.\"],\"password\":[\"The password field is required.\"]}}"
       }
@@ -143,7 +143,7 @@
         "verdict": "EXISTS",
         "detail": "route present, validation rejected probe body",
         "status": 422,
-        "ms": 2989,
+        "ms": 2996,
         "allow": "",
         "snippet": "{\"message\":\"The id token field is required.\",\"errors\":{\"id_token\":[\"The id token field is required.\"]}}"
       }
@@ -167,7 +167,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 277,
+        "ms": 288,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -191,7 +191,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 285,
+        "ms": 467,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -221,7 +221,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 412,
+        "ms": 298,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -251,7 +251,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 361,
+        "ms": 1549,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -270,7 +270,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 902,
+        "ms": 606,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -289,7 +289,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 279,
+        "ms": 354,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -313,7 +313,7 @@
         "verdict": "EXISTS",
         "detail": "route present, validation rejected probe body",
         "status": 422,
-        "ms": 3520,
+        "ms": 4176,
         "allow": "",
         "snippet": "{\"message\":\"The email field is required.\",\"errors\":{\"email\":[\"The email field is required.\"]}}"
       }
@@ -332,9 +332,9 @@
         "verdict": "EXISTS",
         "detail": "client error 429 (route present, reached handler)",
         "status": 429,
-        "ms": 1802,
+        "ms": 1862,
         "allow": "",
-        "snippet": "{ \"message\": \"Too Many Attempts.\" }"
+        "snippet": "{\"message\":\"\\u0639\\u062f\\u062f \\u0627\\u0644\\u0645\\u062d\\u0627\\u0648\\u0644\\u0627\\u062a \\u0643\\u0628\\u064a\\u0631\\u060c \\u064a\\u0631\\u062c\\u0649 \\u0627\\u0644\\u0645\\u062d\\u0627\\u0648\\u0644\\u0629 \\u0628\\u0639\\u062f \\u0642\\u0644\\u064a\\u0644\"}"
       }
     },
     {
@@ -351,9 +351,9 @@
         "verdict": "EXISTS",
         "detail": "client error 429 (route present, reached handler)",
         "status": 429,
-        "ms": 1856,
+        "ms": 1917,
         "allow": "",
-        "snippet": "{ \"message\": \"Too Many Attempts.\" }"
+        "snippet": "{\"message\":\"\\u0639\\u062f\\u062f \\u0627\\u0644\\u0645\\u062d\\u0627\\u0648\\u0644\\u0627\\u062a \\u0643\\u0628\\u064a\\u0631\\u060c \\u064a\\u0631\\u062c\\u0649 \\u0627\\u0644\\u0645\\u062d\\u0627\\u0648\\u0644\\u0629 \\u0628\\u0639\\u062f \\u0642\\u0644\\u064a\\u0644\"}"
       }
     },
     {
@@ -370,9 +370,9 @@
         "verdict": "EXISTS",
         "detail": "client error 429 (route present, reached handler)",
         "status": 429,
-        "ms": 1863,
+        "ms": 1814,
         "allow": "",
-        "snippet": "{ \"message\": \"Too Many Attempts.\" }"
+        "snippet": "{\"message\":\"\\u0639\\u062f\\u062f \\u0627\\u0644\\u0645\\u062d\\u0627\\u0648\\u0644\\u0627\\u062a \\u0643\\u0628\\u064a\\u0631\\u060c \\u064a\\u0631\\u062c\\u0649 \\u0627\\u0644\\u0645\\u062d\\u0627\\u0648\\u0644\\u0629 \\u0628\\u0639\\u062f \\u0642\\u0644\\u064a\\u0644\"}"
       }
     },
     {
@@ -402,7 +402,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 247,
+        "ms": 279,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -446,7 +446,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 256,
+        "ms": 291,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -491,7 +491,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 255,
+        "ms": 293,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -533,7 +533,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 291,
+        "ms": 292,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -552,7 +552,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 355,
+        "ms": 641,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -583,9 +583,188 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 269,
+        "ms": 611,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces",
+      "group": "Catalog & booking",
+      "file": "src/lib/spaces.js:391",
+      "fn": "fetchSpaces/loadSpacesWithFallback/loadAllSpacesWithFallback",
+      "role": "public",
+      "live": true,
+      "bodyNote": "query: page, search, category, min_price, max_price, amenities (csv), area, min_rating, sort",
+      "note": "absent from every BACKEND_*.md; no public catalog route is specified anywhere",
+      "expect": [
+        [
+          "data",
+          "spaces"
+        ],
+        [
+          "current_page"
+        ],
+        [
+          "last_page"
+        ],
+        [
+          "has_more"
+        ],
+        [
+          "total"
+        ],
+        [
+          "space_id",
+          "id"
+        ],
+        [
+          "title"
+        ],
+        [
+          "description"
+        ],
+        [
+          "location"
+        ],
+        [
+          "lat",
+          "latitude"
+        ],
+        [
+          "lng",
+          "lon",
+          "longitude"
+        ],
+        [
+          "image"
+        ],
+        [
+          "gallery"
+        ],
+        [
+          "price_per_hour"
+        ],
+        [
+          "capacity"
+        ],
+        [
+          "amenities"
+        ],
+        [
+          "rating"
+        ]
+      ],
+      "resolvedPath": "/api/spaces",
+      "unauth": {
+        "verdict": "MISSING",
+        "detail": "no route registered",
+        "status": 404,
+        "ms": 1165,
+        "allow": "",
+        "snippet": "{ \"message\": \"The route api/spaces could not be found.\" }"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces/{id}",
+      "group": "Catalog & booking",
+      "file": "src/lib/spaces.js:408",
+      "fn": "fetchSpaceDetail/loadSpaceDetailWithFallback",
+      "role": "public",
+      "live": true,
+      "dynamic": true,
+      "bodyNote": "no body; mapper reads body.space ?? body, so the space may be wrapped in `space`",
+      "note": "absent from every BACKEND_*.md",
+      "expect": [
+        [
+          "space"
+        ],
+        [
+          "space_id",
+          "id"
+        ],
+        [
+          "title"
+        ],
+        [
+          "description"
+        ],
+        [
+          "location"
+        ],
+        [
+          "lat",
+          "latitude"
+        ],
+        [
+          "lng",
+          "lon",
+          "longitude"
+        ],
+        [
+          "image"
+        ],
+        [
+          "gallery"
+        ],
+        [
+          "price_per_hour"
+        ],
+        [
+          "capacity"
+        ],
+        [
+          "open_time"
+        ],
+        [
+          "close_time"
+        ],
+        [
+          "contact_phone"
+        ],
+        [
+          "amenities"
+        ],
+        [
+          "internet"
+        ],
+        [
+          "power"
+        ],
+        [
+          "rating"
+        ]
+      ],
+      "resolvedPath": "/api/spaces/1",
+      "unauth": {
+        "verdict": "MISSING",
+        "detail": "no route registered",
+        "status": 404,
+        "ms": 287,
+        "allow": "",
+        "snippet": "{ \"message\": \"The route api/spaces/1 could not be found.\" }"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/bookings",
+      "group": "Catalog & booking",
+      "file": "src/lib/spaces.js:551",
+      "fn": "createBooking",
+      "role": "both",
+      "live": true,
+      "bodyNote": "JSON { space_id, booking_date, start_time, end_time, hours }; reads booking|data|id; maps 401/403/409/422 to distinct reasons",
+      "note": "absent from every BACKEND_*.md; spaces.js:539 claims it is not implemented in the backend",
+      "resolvedPath": "/api/bookings",
+      "unauth": {
+        "verdict": "MISSING",
+        "detail": "no route registered",
+        "status": 404,
+        "ms": 324,
+        "allow": "",
+        "snippet": "{ \"message\": \"The route api/bookings could not be found.\" }"
       }
     },
     {
@@ -655,7 +834,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 304,
+        "ms": 779,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -674,7 +853,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 280,
+        "ms": 309,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -733,7 +912,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 244,
+        "ms": 292,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -753,7 +932,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 377,
+        "ms": 316,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -773,7 +952,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 287,
+        "ms": 1160,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -793,7 +972,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 574,
+        "ms": 16461,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -847,7 +1026,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 627,
+        "ms": 316,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -864,12 +1043,12 @@
       "bodyNote": "JSON { space_id, price_per_hour, duration_hours, notes, currency }",
       "resolvedPath": "/api/special-requests/1/offers",
       "unauth": {
-        "verdict": "MISSING",
-        "detail": "no route registered",
-        "status": 404,
-        "ms": 258,
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 265,
         "allow": "",
-        "snippet": "{ \"message\": \"The route api/special-requests/1/offers could not be found.\" }"
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
     },
     {
@@ -961,7 +1140,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 254,
+        "ms": 312,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -980,7 +1159,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 320,
+        "ms": 1486,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -1001,7 +1180,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 1238,
+        "ms": 331,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -1022,7 +1201,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 257,
+        "ms": 241,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -1043,7 +1222,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 246,
+        "ms": 404,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -1105,7 +1284,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 366,
+        "ms": 715,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -1126,7 +1305,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 330,
+        "ms": 284,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -1188,7 +1367,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 256,
+        "ms": 917,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -1231,7 +1410,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 280,
+        "ms": 267,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -1252,7 +1431,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 251,
+        "ms": 258,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -1305,7 +1484,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 252,
+        "ms": 351,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -1371,7 +1550,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 301,
+        "ms": 620,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -1410,7 +1589,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 328,
+        "ms": 308,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -1430,7 +1609,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 727,
+        "ms": 444,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -1450,7 +1629,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 346,
+        "ms": 951,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -1491,7 +1670,7 @@
         "verdict": "EXISTS",
         "detail": "auth middleware rejected (route present)",
         "status": 401,
-        "ms": 243,
+        "ms": 283,
         "allow": "",
         "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
@@ -1507,12 +1686,12 @@
       "bodyNote": "no body",
       "resolvedPath": "/api/notifications/read",
       "unauth": {
-        "verdict": "WRONG-METHOD",
-        "detail": "route present, allowed: POST",
-        "status": 405,
-        "ms": 235,
-        "allow": "POST",
-        "snippet": "{ \"message\": \"The PATCH method is not supported for route api/notifications/read. Supported methods: POST.\" }"
+        "verdict": "EXISTS",
+        "detail": "auth middleware rejected (route present)",
+        "status": 401,
+        "ms": 285,
+        "allow": "",
+        "snippet": "{\"message\":\"Unauthenticated.\"}"
       }
     },
     {
@@ -1538,7 +1717,7 @@
         "verdict": "EXISTS",
         "detail": "route present, validation rejected probe body",
         "status": 422,
-        "ms": 3003,
+        "ms": 5087,
         "allow": "",
         "snippet": "{\"message\":\"The message field is required.\",\"errors\":{\"message\":[\"The message field is required.\"]}}"
       }
@@ -1650,29 +1829,44 @@
       "allow": "GET,HEAD",
       "error": ""
     },
+    "/api/spaces": {
+      "status": 404,
+      "allow": "",
+      "error": ""
+    },
+    "/api/spaces/{id}": {
+      "status": 404,
+      "allow": "",
+      "error": ""
+    },
+    "/api/bookings": {
+      "status": 404,
+      "allow": "",
+      "error": ""
+    },
     "/api/special-requests": {
       "status": 200,
       "allow": "GET,HEAD,POST",
       "error": ""
     },
     "/api/special-requests/{id}": {
-      "status": 200,
-      "allow": "GET,HEAD",
+      "status": 404,
+      "allow": "",
       "error": ""
     },
     "/api/special-requests/{requestId}/offers/{offerId}/accept": {
-      "status": 200,
-      "allow": "POST",
+      "status": 404,
+      "allow": "",
       "error": ""
     },
     "/api/special-requests/{requestId}/offers/{offerId}/reject": {
-      "status": 200,
-      "allow": "POST",
+      "status": 404,
+      "allow": "",
       "error": ""
     },
     "/api/special-requests/{requestId}/close": {
-      "status": 200,
-      "allow": "POST",
+      "status": 404,
+      "allow": "",
       "error": ""
     },
     "/api/special-requests/open": {
@@ -1747,7 +1941,7 @@
     },
     "/api/notifications/read": {
       "status": 200,
-      "allow": "POST",
+      "allow": "POST,PATCH",
       "error": ""
     },
     "/api/assistant/chat": {
@@ -1756,67 +1950,34 @@
       "error": ""
     }
   },
-  "auth": {
-    "owner": {
-      "ok": true,
-      "viaField": "login",
-      "role": null
-    },
-    "customer": {
-      "ok": true,
-      "viaField": "login",
-      "role": null
-    }
-  },
-  "ids": {},
-  "reads": [
+  "publicReads": [
     {
-      "path": "/api/profile",
-      "role": "owner",
-      "probe": null,
-      "verdict": "EXISTS",
-      "detail": "201 (route present and reachable)",
-      "status": 201,
-      "ms": 3205,
+      "path": "/api/spaces",
+      "method": "GET",
+      "role": "public",
+      "verdict": "MISSING",
+      "detail": "no route registered",
+      "status": 404,
+      "ms": 292,
       "shape": {
-        "checked": 5,
-        "missing": [],
-        "found": 5,
-        "arrays": [],
-        "mode": "CHECKED",
-        "wrapperPresent": true
-      },
-      "snippet": "{\"name\":\"Ameer-Ayyad\",\"phone\":\"[number]\",\"email\":\"[email]\",\"role\":\"space_owner\",\"picture\":null,\"proof_document\":null}"
-    },
-    {
-      "path": "/api/profile",
-      "role": "customer",
-      "probe": null,
-      "verdict": "EXISTS",
-      "detail": "201 (route present and reachable)",
-      "status": 201,
-      "ms": 1906,
-      "shape": {
-        "checked": 5,
-        "missing": [],
-        "found": 5,
-        "arrays": [],
-        "mode": "CHECKED",
-        "wrapperPresent": true
-      },
-      "snippet": "{\"name\":\"Ameer\",\"phone\":\"[number]\",\"email\":\"[email]\",\"role\":\"customer\",\"picture\":null,\"proof_document\":null}"
-    },
-    {
-      "path": "/api/owner/spaces",
-      "role": "owner",
-      "probe": null,
-      "verdict": "EXISTS",
-      "detail": "200 (route present and reachable)",
-      "status": 200,
-      "ms": 2154,
-      "shape": {
-        "checked": 21,
+        "checked": 17,
         "missing": [
+          [
+            "data",
+            "spaces"
+          ],
+          [
+            "current_page"
+          ],
+          [
+            "last_page"
+          ],
+          [
+            "has_more"
+          ],
+          [
+            "total"
+          ],
           [
             "space_id",
             "id"
@@ -1846,8 +2007,69 @@
             "gallery"
           ],
           [
-            "price_per_hour",
-            "price"
+            "price_per_hour"
+          ],
+          [
+            "capacity"
+          ],
+          [
+            "amenities"
+          ],
+          [
+            "rating"
+          ]
+        ],
+        "found": 0,
+        "arrays": [],
+        "mode": "CHECKED",
+        "wrapperPresent": true
+      },
+      "snippet": "{ \"message\": \"The route api/spaces could not be found.\" }"
+    },
+    {
+      "path": "/api/spaces/1",
+      "method": "GET",
+      "role": "public",
+      "verdict": "MISSING",
+      "detail": "no route registered",
+      "status": 404,
+      "ms": 264,
+      "shape": {
+        "checked": 18,
+        "missing": [
+          [
+            "space"
+          ],
+          [
+            "space_id",
+            "id"
+          ],
+          [
+            "title"
+          ],
+          [
+            "description"
+          ],
+          [
+            "location"
+          ],
+          [
+            "lat",
+            "latitude"
+          ],
+          [
+            "lng",
+            "lon",
+            "longitude"
+          ],
+          [
+            "image"
+          ],
+          [
+            "gallery"
+          ],
+          [
+            "price_per_hour"
           ],
           [
             "capacity"
@@ -1865,356 +2087,13 @@
             "amenities"
           ],
           [
-            "internet",
-            "has_internet",
-            "wifi"
+            "internet"
           ],
           [
-            "power",
-            "has_power",
-            "electricity"
-          ],
-          [
-            "status",
-            "is_active"
-          ],
-          [
-            "docs"
+            "power"
           ],
           [
             "rating"
-          ],
-          [
-            "stats"
-          ]
-        ],
-        "found": 1,
-        "arrays": [
-          {
-            "path": "spaces",
-            "length": 0
-          }
-        ],
-        "mode": "EMPTY",
-        "wrapperPresent": true
-      },
-      "snippet": "{\"spaces\":[]}"
-    },
-    {
-      "path": "/api/owner/offers",
-      "role": "owner",
-      "probe": null,
-      "verdict": "EXISTS",
-      "detail": "200 (route present and reachable)",
-      "status": 200,
-      "ms": 2179,
-      "shape": {
-        "checked": 9,
-        "missing": [
-          [
-            "offer_id",
-            "id"
-          ],
-          [
-            "request_id"
-          ],
-          [
-            "request_title",
-            "title"
-          ],
-          [
-            "status"
-          ],
-          [
-            "price_per_hour",
-            "price"
-          ],
-          [
-            "currency"
-          ],
-          [
-            "duration_hours",
-            "hours"
-          ],
-          [
-            "created_at",
-            "created"
-          ]
-        ],
-        "found": 1,
-        "arrays": [
-          {
-            "path": "offers",
-            "length": 0
-          }
-        ],
-        "mode": "EMPTY",
-        "wrapperPresent": true
-      },
-      "snippet": "{\"offers\":[]}"
-    },
-    {
-      "path": "/api/owner/bookings",
-      "role": "owner",
-      "probe": null,
-      "verdict": "EXISTS",
-      "detail": "200 (route present and reachable)",
-      "status": 200,
-      "ms": 2120,
-      "shape": {
-        "checked": 11,
-        "missing": [
-          [
-            "booking_id",
-            "id"
-          ],
-          [
-            "space_id"
-          ],
-          [
-            "space_name",
-            "title"
-          ],
-          [
-            "date"
-          ],
-          [
-            "time_from",
-            "start_time"
-          ],
-          [
-            "time_to",
-            "end_time"
-          ],
-          [
-            "hours",
-            "duration_hours"
-          ],
-          [
-            "price",
-            "cost"
-          ],
-          [
-            "customer",
-            "customer_name"
-          ],
-          [
-            "status"
-          ]
-        ],
-        "found": 1,
-        "arrays": [
-          {
-            "path": "bookings",
-            "length": 0
-          }
-        ],
-        "mode": "EMPTY",
-        "wrapperPresent": true
-      },
-      "snippet": "{\"bookings\":[]}"
-    },
-    {
-      "path": "/api/owner/reviews",
-      "role": "owner",
-      "probe": null,
-      "verdict": "EXISTS",
-      "detail": "200 (route present and reachable)",
-      "status": 200,
-      "ms": 2498,
-      "shape": {
-        "checked": 11,
-        "missing": [
-          [
-            "review_id",
-            "id"
-          ],
-          [
-            "space_id"
-          ],
-          [
-            "space_name"
-          ],
-          [
-            "space_image",
-            "image"
-          ],
-          [
-            "rating"
-          ],
-          [
-            "title"
-          ],
-          [
-            "comment",
-            "text",
-            "review"
-          ],
-          [
-            "customer_name",
-            "customer"
-          ],
-          [
-            "customer_avatar",
-            "avatar"
-          ],
-          [
-            "date",
-            "created_at"
-          ]
-        ],
-        "found": 1,
-        "arrays": [
-          {
-            "path": "reviews",
-            "length": 0
-          }
-        ],
-        "mode": "EMPTY",
-        "wrapperPresent": true
-      },
-      "snippet": "{\"reviews\":[]}"
-    },
-    {
-      "path": "/api/owner/documents",
-      "role": "owner",
-      "probe": null,
-      "verdict": "EXISTS",
-      "detail": "200 (route present and reachable)",
-      "status": 200,
-      "ms": 2483,
-      "shape": {
-        "checked": 7,
-        "missing": [
-          [
-            "assets"
-          ],
-          [
-            "cert"
-          ]
-        ],
-        "found": 5,
-        "arrays": [
-          {
-            "path": "files",
-            "length": 0
-          }
-        ],
-        "mode": "EMPTY",
-        "wrapperPresent": true
-      },
-      "snippet": "{\"status\":\"none\",\"files\":[],\"note\":null,\"review_note\":null,\"admin_note\":null,\"submitted_at\":null,\"submittedAt\":null,\"reviewed_at\":null,\"reviewedAt\":null}"
-    },
-    {
-      "path": "/api/owner/ads",
-      "role": "owner",
-      "probe": null,
-      "verdict": "EXISTS",
-      "detail": "200 (route present and reachable)",
-      "status": 200,
-      "ms": 2821,
-      "shape": {
-        "checked": 13,
-        "missing": [
-          [
-            "ad_id",
-            "id"
-          ],
-          [
-            "title"
-          ],
-          [
-            "description",
-            "notes"
-          ],
-          [
-            "link",
-            "url"
-          ],
-          [
-            "image"
-          ],
-          [
-            "target"
-          ],
-          [
-            "space_id",
-            "space"
-          ],
-          [
-            "status"
-          ],
-          [
-            "created_at",
-            "created"
-          ],
-          [
-            "sent_at"
-          ],
-          [
-            "impressions",
-            "impressions_count"
-          ],
-          [
-            "schedule"
-          ]
-        ],
-        "found": 1,
-        "arrays": [
-          {
-            "path": "ads",
-            "length": 0
-          }
-        ],
-        "mode": "EMPTY",
-        "wrapperPresent": true
-      },
-      "snippet": "{\"ads\":[]}"
-    },
-    {
-      "path": "/api/special-requests/open",
-      "role": "owner",
-      "probe": null,
-      "verdict": "MISSING",
-      "detail": "no route registered",
-      "status": 404,
-      "ms": 2117,
-      "shape": {
-        "checked": 10,
-        "missing": [
-          [
-            "requests",
-            "data"
-          ],
-          [
-            "request_id",
-            "id"
-          ],
-          [
-            "title"
-          ],
-          [
-            "space_type"
-          ],
-          [
-            "capacity"
-          ],
-          [
-            "schedule"
-          ],
-          [
-            "preferred_time"
-          ],
-          [
-            "area",
-            "location"
-          ],
-          [
-            "amenities"
-          ],
-          [
-            "budget",
-            "max_budget"
           ]
         ],
         "found": 0,
@@ -2222,359 +2101,23 @@
         "mode": "CHECKED",
         "wrapperPresent": true
       },
-      "snippet": "{ \"message\": \"No query results for model [App\\\\Models\\\\SpecialRequest].\" }"
-    },
-    {
-      "path": "/api/special-requests",
-      "role": "customer",
-      "probe": null,
-      "verdict": "EXISTS",
-      "detail": "200 (route present and reachable)",
-      "status": 200,
-      "ms": 2312,
-      "shape": {
-        "checked": 15,
-        "missing": [
-          [
-            "request_id",
-            "id"
-          ],
-          [
-            "title"
-          ],
-          [
-            "notes",
-            "description",
-            "details"
-          ],
-          [
-            "space_type"
-          ],
-          [
-            "capacity"
-          ],
-          [
-            "schedule"
-          ],
-          [
-            "preferred_time"
-          ],
-          [
-            "area",
-            "location"
-          ],
-          [
-            "amenities"
-          ],
-          [
-            "budget",
-            "max_budget"
-          ],
-          [
-            "status",
-            "is_accepted"
-          ],
-          [
-            "offers_count"
-          ],
-          [
-            "created_at"
-          ],
-          [
-            "expires_at"
-          ]
-        ],
-        "found": 1,
-        "arrays": [
-          {
-            "path": "requests",
-            "length": 0
-          }
-        ],
-        "mode": "EMPTY",
-        "wrapperPresent": true
-      },
-      "snippet": "{\"requests\":[],\"message\":\"\\u062a\\u0645 \\u062c\\u0644\\u0628 \\u0627\\u0644\\u0637\\u0644\\u0628\\u0627\\u062a \\u0627\\u0644\\u062e\\u0627\\u0635\\u0629 \\u0628\\u0646\\u062c\\u0627\\u062d\"}"
-    },
-    {
-      "path": "/api/dashboard/stats",
-      "role": "customer",
-      "probe": null,
-      "verdict": "EXISTS",
-      "detail": "200 (route present and reachable)",
-      "status": 200,
-      "ms": 3041,
-      "shape": {
-        "checked": 4,
-        "missing": [],
-        "found": 4,
-        "arrays": [],
-        "mode": "CHECKED",
-        "wrapperPresent": true
-      },
-      "snippet": "{\"upcoming_bookings_count\":0,\"total_hours\":0,\"favorite_spaces_count\":0,\"booked_hours_this_month\":0}"
-    },
-    {
-      "path": "/api/dashboard/upcoming-booking",
-      "role": "customer",
-      "probe": null,
-      "verdict": "EXISTS",
-      "detail": "200 (route present and reachable)",
-      "status": 200,
-      "ms": 2534,
-      "shape": {
-        "checked": 7,
-        "missing": [
-          [
-            "booking_id",
-            "id"
-          ],
-          [
-            "space_name",
-            "title"
-          ],
-          [
-            "date"
-          ],
-          [
-            "time_from"
-          ],
-          [
-            "time_to"
-          ],
-          [
-            "status"
-          ]
-        ],
-        "found": 1,
-        "arrays": [
-          {
-            "path": "data",
-            "length": 0
-          }
-        ],
-        "mode": "EMPTY",
-        "wrapperPresent": true
-      },
-      "snippet": "{\"data\":[]}"
-    },
-    {
-      "path": "/api/dashboard/bookings",
-      "role": "customer",
-      "probe": null,
-      "verdict": "EXISTS",
-      "detail": "201 (route present and reachable)",
-      "status": 201,
-      "ms": 2136,
-      "shape": {
-        "checked": 7,
-        "missing": [
-          [
-            "booking_id",
-            "id"
-          ],
-          [
-            "space_name",
-            "title"
-          ],
-          [
-            "date"
-          ],
-          [
-            "hours"
-          ],
-          [
-            "price",
-            "cost"
-          ],
-          [
-            "status"
-          ]
-        ],
-        "found": 1,
-        "arrays": [
-          {
-            "path": "data",
-            "length": 0
-          }
-        ],
-        "mode": "EMPTY",
-        "wrapperPresent": true
-      },
-      "snippet": "{\"data\":[]}"
-    },
-    {
-      "path": "/api/dashboard/favorites",
-      "role": "customer",
-      "probe": null,
-      "verdict": "EXISTS",
-      "detail": "201 (route present and reachable)",
-      "status": 201,
-      "ms": 2163,
-      "shape": {
-        "checked": 6,
-        "missing": [
-          [
-            "space_id",
-            "id"
-          ],
-          [
-            "title",
-            "name"
-          ],
-          [
-            "location"
-          ],
-          [
-            "price",
-            "price_per_hour"
-          ],
-          [
-            "rating"
-          ]
-        ],
-        "found": 1,
-        "arrays": [
-          {
-            "path": "data",
-            "length": 0
-          }
-        ],
-        "mode": "EMPTY",
-        "wrapperPresent": true
-      },
-      "snippet": "{\"data\":[]}"
-    },
-    {
-      "path": "/api/notifications",
-      "role": "customer",
-      "probe": null,
-      "verdict": "EXISTS",
-      "detail": "200 (route present and reachable)",
-      "status": 200,
-      "ms": 2121,
-      "shape": {
-        "checked": 6,
-        "missing": [
-          [
-            "id",
-            "notification_id"
-          ],
-          [
-            "time"
-          ],
-          [
-            "read"
-          ],
-          [
-            "created_at"
-          ]
-        ],
-        "found": 2,
-        "arrays": [
-          {
-            "path": "notifications",
-            "length": 0
-          }
-        ],
-        "mode": "EMPTY",
-        "wrapperPresent": true
-      },
-      "snippet": "{\"notifications\":[],\"message\":\"\\u062a\\u0645 \\u062c\\u0644\\u0628 \\u0627\\u0644\\u0625\\u0634\\u0639\\u0627\\u0631\\u0627\\u062a \\u0628\\u0646\\u062c\\u0627\\u062d\"}"
-    },
-    {
-      "path": "/api/notifications",
-      "role": "owner",
-      "probe": null,
-      "verdict": "EXISTS",
-      "detail": "200 (route present and reachable)",
-      "status": 200,
-      "ms": 2155,
-      "shape": {
-        "checked": 6,
-        "missing": [
-          [
-            "id",
-            "notification_id"
-          ],
-          [
-            "time"
-          ],
-          [
-            "read"
-          ],
-          [
-            "created_at"
-          ]
-        ],
-        "found": 2,
-        "arrays": [
-          {
-            "path": "notifications",
-            "length": 0
-          }
-        ],
-        "mode": "EMPTY",
-        "wrapperPresent": true
-      },
-      "snippet": "{\"notifications\":[],\"message\":\"\\u062a\\u0645 \\u062c\\u0644\\u0628 \\u0627\\u0644\\u0625\\u0634\\u0639\\u0627\\u0631\\u0627\\u062a \\u0628\\u0646\\u062c\\u0627\\u062d\"}"
-    },
-    {
-      "path": "/api/special-requests/1",
-      "role": "customer",
-      "probe": "route-order",
-      "verdict": "MISSING",
-      "detail": "no route registered",
-      "status": 404,
-      "ms": 2120,
-      "shape": {
-        "checked": 11,
-        "missing": [
-          [
-            "request"
-          ],
-          [
-            "title"
-          ],
-          [
-            "offers"
-          ],
-          [
-            "offer_id",
-            "id"
-          ],
-          [
-            "owner_name"
-          ],
-          [
-            "price_per_hour"
-          ],
-          [
-            "currency"
-          ],
-          [
-            "duration_hours",
-            "hours"
-          ],
-          [
-            "location"
-          ],
-          [
-            "status",
-            "is_accepted"
-          ]
-        ],
-        "found": 1,
-        "arrays": [],
-        "mode": "CHECKED",
-        "wrapperPresent": true
-      },
-      "snippet": "{ \"message\": \"No query results for model [App\\\\Models\\\\SpecialRequest].\" }"
+      "snippet": "{ \"message\": \"The route api/spaces/1 could not be found.\" }"
     }
   ],
+  "auth": {
+    "owner": {
+      "ok": false,
+      "reason": "credentials not supplied",
+      "response": null
+    },
+    "customer": {
+      "ok": false,
+      "reason": "credentials not supplied",
+      "response": null
+    }
+  },
   "summary": {
-    "EXISTS": 46,
-    "MISSING": 1,
-    "WRONG-METHOD": 1
+    "EXISTS": 48,
+    "MISSING": 3
   }
 }

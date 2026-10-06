@@ -10,6 +10,7 @@ import {
 import { loadAllSpacesWithFallback, SPACE_CATEGORIES } from '../lib/spaces';
 import { AMENITY_LABELS } from '../lib/requests';
 import ThemeToggle from '../components/common/ThemeToggle';
+import BackButton from '../components/common/BackButton';
 import { fmtNumber, fmtRating, fmtMoney } from '../lib/format';
 import { getHomePath, getCurrentRole, isVisitor } from '../lib/authStore';
 import {
@@ -269,13 +270,10 @@ const writeIds = useCallback(
 
             <ThemeToggle />
 
-            <Link
-              className="cmp-back"
+            <BackButton
               to={getHomePath(getCurrentRole())}
-              aria-label={isVisitor() ? 'العودة إلى الصفحة الرئيسية' : 'العودة إلى لوحة التحكم'}
-            >
-              <ChevronRight size={18} aria-hidden="true" />
-            </Link>
+              ariaLabel={isVisitor() ? 'العودة إلى الصفحة الرئيسية' : 'العودة إلى لوحة التحكم'}
+            />
           </div>
         </div>
       </section>

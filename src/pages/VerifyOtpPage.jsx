@@ -296,20 +296,8 @@ export default function VerifyOtpPage() {
         .brand { display: flex; align-items: center; gap: 0.6rem; }
         .brand-logo { height: 2.4rem; width: auto; object-fit: contain; filter: drop-shadow(0 6px 14px rgba(249,115,22,0.3)); }
 
-        .back-home {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.45rem;
-          font-weight: 700;
-          font-size: 0.82rem;
-          color: #fff;
-          text-decoration: none;
-          padding: 0.5rem 0.9rem;
-          border: 1.5px solid rgba(255,255,255,0.35);
-          border-radius: 999px;
-          transition: all 0.2s var(--ease);
-        }
-        .back-home:hover { border-color: var(--accent); background: rgba(249,115,22,0.18); }
+        /* الشكل يأتي من .back-circle؛ يبقى هنا占地面积 فقط */
+        .back-home { flex: none; }
 
         .auth-form h2 {
           margin: 0 0 0.35rem;
@@ -365,7 +353,6 @@ export default function VerifyOtpPage() {
           .auth-form { background: rgba(18,16,14,0.78); padding: 1.8rem 1.3rem 1.6rem; }
           .btn { font-size: 1.02rem; padding: 0.9rem 1rem; min-height: 52px; }
           .otp-box { font-size: 1.4rem; }
-          .back-home { padding: 0.6rem 1rem; min-height: 44px; }
           .auth-wrapper { padding: calc(env(safe-area-inset-top) + 0.5rem) 0.75rem calc(env(safe-area-inset-bottom) + 0.5rem); }
         }
       `}</style>
@@ -401,7 +388,7 @@ export default function VerifyOtpPage() {
             <div className="brand">
               <img src="/Logo.png" alt="Masahati" className="brand-logo" />
             </div>
-            <BackButton className="back-home" fallback="/" label="رجوع للرئيسية" />
+            <BackButton className="back-home" fallback="/" ariaLabel="رجوع للرئيسية" />
           </div>
 
           {verified ? (

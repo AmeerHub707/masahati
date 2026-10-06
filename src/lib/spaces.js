@@ -4,6 +4,7 @@
 
 import { request } from './api';
 import { mapSpace } from './owner';
+import { createDemoFlag } from './demoFlag';
 
 const SPACES_TIMEOUT_MS = 10000;
 
@@ -13,21 +14,18 @@ const CATALOG_CACHE_KEY = 'masahati_spaces_catalog_v1';
 const CATALOG_TTL_MS = 5 * 60 * 1000;
 
 // ----- وضع تجريبي -----
+// العلم مؤرّخ وصالحته محدودة، فيُعاد محاولة الاتصال الحقيقي تلقائياً بعد انتهائها
+// (أنظر demoFlag.js). هذا مهم هنا تحديداً: كتالوج المساحات العام لم يكن منفَّذاً
+// في الباك إند، فبدون صلاحية انتهاء تبقى الواجهة عالقة على البيانات التجريبية
+// حتى بعد تنفيذه.
+const demoFlag = createDemoFlag(DEMO_FLAG_KEY);
+
 export function isSpacesDemo() {
-  try {
-    return localStorage.getItem(DEMO_FLAG_KEY) === '1';
-  } catch {
-    return false;
-  }
+  return demoFlag.isOn();
 }
 
 function setDemoFlag(on) {
-  try {
-    if (on) localStorage.setItem(DEMO_FLAG_KEY, '1');
-    else localStorage.removeItem(DEMO_FLAG_KEY);
-  } catch {
-    /* التخزين غير متاح */
-  }
+  demoFlag.set(on);
 }
 
 function readDemoStore() {

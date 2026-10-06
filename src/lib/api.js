@@ -246,6 +246,24 @@ export async function request(path, options = {}) {
       clearUser();
       expireSession();
     }
+
+    // 429 ليس عطل خادم: الخادم يطلب الانتظار. الرسالة العامة كانت تُعرض للمستخدم
+    // كخطأ خادم، مع أن نقاط OTP (verify/resend/reset-password) تُوقع المستخدم في
+    // تحديد المعدل بشكل طبيعي لأن الواجهة تفرض تبريداً مدته 30 ثانية.
+    if (res.status === 429) {
+      // بعض الاستجابات (أو بيئات الاختبار) تصل بلا كائن headers، فلا نفترض وجوده.
+      const retryAfterHeader = res.headers?.get?.('retry-after') ?? null;
+      const retryAfter = Number(retryAfterHeader);
+      const seconds = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : null;
+      throw new ApiError(
+        seconds
+          ? `تم تجاوز عدد المحاولات المسموح. حاول مجدداً بعد ${seconds} ثانية.`
+          : 'تم تجاوز عدد المحاولات المسموح. انتظر قليلاً ثم حاول مجدداً.',
+        429,
+        { retryAfterSeconds: seconds, url }
+      );
+    }
+
     throw new ApiError(
       extractErrorMessage(data, `تعذر إتمام الطلب (${res.status}).`),
       res.status,

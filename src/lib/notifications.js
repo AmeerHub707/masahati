@@ -4,6 +4,7 @@
 
 import { request } from './api';
 import { isSpecialRequestsDemo } from './requests';
+import { createDemoFlag } from './demoFlag';
 
 const REQ_TIMEOUT_MS = 8000;
 
@@ -11,21 +12,14 @@ const DEMO_FLAG_KEY = 'masahati_notifications_demo_v1';
 const READ_FLAG_KEY = 'masahati_notifications_read_v1';
 const REQ_DATA_KEY = 'masahati_special_requests_data_v1';
 
+const demoFlag = createDemoFlag(DEMO_FLAG_KEY);
+
 export function isNotificationsDemo() {
-  try {
-    return localStorage.getItem(DEMO_FLAG_KEY) === '1';
-  } catch {
-    return false;
-  }
+  return demoFlag.isOn();
 }
 
 function setDemoFlag(on) {
-  try {
-    if (on) localStorage.setItem(DEMO_FLAG_KEY, '1');
-    else localStorage.removeItem(DEMO_FLAG_KEY);
-  } catch {
-    /* التخزين غير متاح */
-  }
+  demoFlag.set(on);
 }
 
 function wasMarkedRead() {

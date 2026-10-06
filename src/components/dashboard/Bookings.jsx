@@ -7,7 +7,7 @@ const STATUS_META = {
   cancelled: { label: 'ملغى', cls: 'badge--cancelled', Icon: X },
 };
 
-export default function Bookings({ data, onCancel, cancellingId }) {
+export default function Bookings({ data, onCancel, cancellingId, cancelNotice }) {
   const bookings = data.bookings || [];
 
   return (
@@ -15,6 +15,10 @@ export default function Bookings({ data, onCancel, cancellingId }) {
       <div className="dash__section-head">
         <h2><CalendarCheck /> كل الحجوزات</h2>
       </div>
+
+      {cancelNotice && (
+        <p className="dash__booking-notice" role="status">{cancelNotice}</p>
+      )}
 
       {bookings.length === 0 ? (
         <div className="dash__state">
@@ -52,6 +56,7 @@ export default function Bookings({ data, onCancel, cancellingId }) {
                       className="dash__cancel"
                       onClick={() => onCancel(b.id)}
                       disabled={cancellingId === b.id}
+                      title="إلغاء الحجز غير مدعوم من الخادم بعد"
                     >
                       <X />
                       {cancellingId === b.id ? '…' : 'إلغاء الحجز'}

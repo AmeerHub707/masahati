@@ -18,6 +18,9 @@ export default function AdDetailsPage() {
   const { id } = useParams();
   const [space, setSpace] = useState(null);
   const [error, setError] = useState(false);
+  // نقطة تفاصيل المساحة (GET /api/spaces/{id}) غير منفَّذة في الباك إند، فالصفحة
+  // تعرض بيانات تجريبية. كان الشريط يقول «متاحة للحجز» و«حجز فوري» بلا تنبيه.
+  const [demo, setDemo] = useState(false);
   // «مُحمَّل» بدل «يحمّل»: الحالة تُشتق من معرّف طلبه، فلا داعي لضبط
   // مؤشّر تحميل داخل التأثير (تحديث حالة متزامن = تحديث زائد).
   const [loadedId, setLoadedId] = useState(null);
@@ -29,6 +32,7 @@ export default function AdDetailsPage() {
       .then((result) => {
         if (!alive) return;
         setSpace(result.space);
+        setDemo(Boolean(result.demo));
         setError(false);
         setLoadedId(id);
       })
@@ -56,7 +60,11 @@ export default function AdDetailsPage() {
         <div className="wrap">
           <h1>المساحة غير موجودة</h1>
           <p>المساحة التي تبحث عنها غير متاحة حالياً.</p>
-          <BackButton className="ad-details__back" fallback="/spaces" label="العودة للتصفح" />
+          <BackButton
+            className="ad-details__back"
+            fallback="/spaces"
+            ariaLabel="العودة إلى تصفح المساحات"
+          />
           <Link className="btn-primary" to="/spaces">تصفح المساحات</Link>
         </div>
       </div>
@@ -71,7 +79,11 @@ export default function AdDetailsPage() {
   return (
     <div className="ad-details">
       <div className="wrap">
-        <BackButton className="ad-details__back" fallback="/spaces" label="العودة للتصفح" />
+        <BackButton
+          className="ad-details__back"
+          fallback="/spaces"
+          ariaLabel="العودة إلى تصفح المساحات"
+        />
 
         <div className="ad-details__hero">
           <div className="ad-details__gallery">
@@ -93,6 +105,9 @@ export default function AdDetailsPage() {
               </span>
               {space.instant_booking && (
                 <span className="ad-details__instant"><Zap size={14} /> حجز فوري</span>
+              )}
+              {demo && (
+                <span className="spaces__demo-badge">وضع تجريبي</span>
               )}
             </div>
 

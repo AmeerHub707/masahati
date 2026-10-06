@@ -5,6 +5,7 @@
 import { request, imageUrl } from './api';
 import { getUser } from './authStore';
 import { mapRequest, mapOffer, listOf, isRequestOpen } from './requests';
+import { createDemoFlag } from './demoFlag';
 
 const REQ_TIMEOUT_MS = 8000;
 
@@ -14,21 +15,14 @@ const CUSTOMER_REQ_DATA_KEY = 'masahati_special_requests_data_v1';
 const CACHE_KEY = 'masahati_owner_cache';
 
 // ----- وضع تجريبي -----
+const demoFlag = createDemoFlag(DEMO_FLAG_KEY);
+
 export function isOwnerDemo() {
-  try {
-    return localStorage.getItem(DEMO_FLAG_KEY) === '1';
-  } catch {
-    return false;
-  }
+  return demoFlag.isOn();
 }
 
 function setDemoFlag(on) {
-  try {
-    if (on) localStorage.setItem(DEMO_FLAG_KEY, '1');
-    else localStorage.removeItem(DEMO_FLAG_KEY);
-  } catch {
-    /* التخزين غير متاح */
-  }
+  demoFlag.set(on);
 }
 
 function readDemoStore() {
@@ -787,8 +781,10 @@ export async function loadReviewsWithFallback(spaceId, force = false) {
   }
 }
 
-// يؤكّد أو يرفض حجزاً على مساحة المالك. الواجهة غير مفعّلة بعد في الباك إند،
-// لذا تعتمد على نمط «جرّب API ثم الوضع التجريبي» الموجود في باقي الوحدة.
+// يؤكّد أو يرفض حجزاً على مساحة المالك.
+// الواجهة منفَّذة في الباك إند (PATCH /api/owner/bookings/{id}/status، مؤكَّدة
+// 2026-10-05: تُرجع 401 بلا توكن و Allow: PATCH). كان فوق هذا السطر تعليق يقول
+// «غير مفعّلة بعد في الباك إند»، وهو سبب مباشر في استبعادها من المتابعة.
 export async function updateOwnerBookingStatus(bookingId, status) {
   const res = await request(`/api/owner/bookings/${bookingId}/status`, {
     method: 'PATCH',

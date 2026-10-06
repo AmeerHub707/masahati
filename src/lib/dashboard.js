@@ -7,11 +7,16 @@
 //   - GET api/dashboard/bookings
 //   - GET api/dashboard/favorites
 //   - POST api/dashboard/favorites/toggle
-//   - GET api/dashboard/spaces
+//   - GET api/ads/open  (تغذية إعلانات العميل — عبر ads.js)
+//
+// ملاحظة: كانت هنا دالة fetchSpaces تستدعي GET api/dashboard/spaces، وهي غير
+// مستوردة من أي مكان في المشروع فحُذفت. كتالوج المساحات يُجلب من spaces.js عبر
+// GET /api/spaces، لا من نقطة dashboard.
 
 import { request, imageUrl } from './api';
 import { getUser } from './authStore';
 import { extractPicturePath, resolvePictureUrl, getCachedPictureUrl } from './profilePicture';
+import { loadCustomerAdsWithFallback } from './ads';
 
 // مؤقت لبيانات لوحة التحكم: كان 8s يقطع الطلبات أثناء cold start (قياس فعلي:
 // profile ~8.4s و stats ~11.1s بالتوازي بعد توقف Render). 15s يوازن بين
@@ -116,12 +121,15 @@ function listOf(res, key) {
 
 // جلب بيانات لوحة التحكم بالكامل (بالتوازي) ودمجها مع الملف الشخصي.
 export async function fetchDashboard() {
-  const [stats, upcomingApi, historyApi, favoritesApi, profileApi] = await Promise.all([
+  const [stats, upcomingApi, historyApi, favoritesApi, profileApi, adsRes] = await Promise.all([
     request('/api/dashboard/stats', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
     request('/api/dashboard/upcoming-booking', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
     request('/api/dashboard/bookings', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
     request('/api/dashboard/favorites', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
     request('/api/profile', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
+    // كان هذا الحقل مثبّتاً علىads: [] فلم تكن تغذية إعلانات العميل موصولة
+    // بأي نقطة إطلاقاً. الآن تُقرأ من /api/ads/open، وقائمة فارغة عند فشلها.
+    loadCustomerAdsWithFallback(),
   ]);
 
   const s = stats || {};
@@ -156,7 +164,7 @@ export async function fetchDashboard() {
     upcoming: mapBookings(listOf(upcomingApi, 'bookings')),
     bookings: mapBookings(listOf(historyApi, 'bookings')),
     favorites: mapFavorites(listOf(favoritesApi, 'favorites')),
-    ads: [],
+    ads: (adsRes?.ads || []).filter((a) => a.title),
   };
 
   // حفظ نسخة للعرض الفوري عند الرجوع للوحة (تُحدَّث في الخلفية لاحقاً).
@@ -178,28 +186,19 @@ export async function toggleFavorite(spaceId) {
   return { message: res?.message || '', isFavorited };
 }
 
-// تصفّح المساحات (صفحات) — GET api/dashboard/spaces (paginate)
-export async function fetchSpaces(page = 1) {
-  const res = await request(`/api/dashboard/spaces?page=${page}`, { method: 'GET', auth: true });
-  // Laravel paginator يعيد { data: [...] } وقد تُغلَّف النتيجة أحياناً في res.data مرة أخرى.
-  const rawItems = res?.data?.data || res?.data || res?.spaces || [];
-  const items = Array.isArray(rawItems) ? rawItems : [];
-  return {
-    spaces: items.map((sp) => ({
-      id: sp.space_id ?? sp.id,
-      title: sp.title ?? '',
-      description: sp.description || '',
-      location: sp.location || '',
-      image: imageUrl(sp.image) || '',
-    })),
-    current_page: res?.current_page ?? res?.data?.current_page ?? page,
-    last_page: res?.last_page ?? res?.data?.last_page ?? 1,
-    has_more: res?.has_more ?? res?.data?.has_more ?? false,
-  };
-}
+// إلغاء حجز — غير مدعوم من الباك إند حالياً.
+//
+// كان التنفيذ هنا ينتظر 250ms ويُرجع { ok: true } بلا أي طلب HTTP، فيعدّل
+// الاستدعاء حالة الحجز محلياً ويعرض «تم الإلغاء» بينما لا يعرف الخادم شيئاً.
+// النتيجة: الإلغاء يضيع كلياً عند إعادة تحميل الصفحة.
+//
+// لا نخترع مساراً غير متفق عليه، لذا نُبلغ الفشل صراحةً بدل ادّعاء النجاح.
+// هذا يبقي الاستدعاء متوافقاً مع أي تنفيذ مستقبلي: يكفي استبدال جسم الدالة
+// بطلب حقيقي عند نزول نقطة الإلغاء في الباك إند، دون تعديل أي مكوّن.
+export const CANCEL_BOOKING_UNSUPPORTED = 'إلغاء الحجز غير متاح من الخادم حالياً، وسيُضاف قريباً.';
 
-// إلغاء حجز — ملاحظة: نقطة /api.txt لا تدرج نقطة إلغاء حجز، تُترك كـ placeholder.
-export async function cancelBooking(bookingId) {
-  await new Promise((r) => setTimeout(r, 250));
-  return { ok: true, id: bookingId };
+// لا نأخذ bookingId لأن شيئاً لا يستهلكه بعد؛ الاستدعاء يمرره الآن ويستخدمه
+// التنفيذ المستقبلي عند نزول نقطة الإلغاء في الباك إند.
+export async function cancelBooking() {
+  return { ok: false, reason: 'unsupported', message: CANCEL_BOOKING_UNSUPPORTED };
 }

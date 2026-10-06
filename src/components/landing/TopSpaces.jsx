@@ -72,6 +72,10 @@ function TopSpaceCard({ space, rank }) {
 export default function TopSpaces() {
   const [spaces, setSpaces] = useState([]);
   const [loading, setLoading] = useState(true);
+  // كتالوج المساحات العام (GET /api/spaces) غير منفَّذ في الباك إند، فهذه
+  // البطاقات قد تكون بيانات تجريبية. كان القسم يعرضها تحت ادّعاء «جودة مضمونة»
+  // دون أي تنبيه، فصار التنبيه جزءاً من الواجهة.
+  const [demo, setDemo] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -83,6 +87,7 @@ export default function TopSpaces() {
           .sort((a, b) => b.rating - a.rating)
           .slice(0, 3);
         setSpaces(sorted);
+        setDemo(Boolean(result.demo));
         setLoading(false);
       })
       .catch(() => {
@@ -99,6 +104,9 @@ export default function TopSpaces() {
             <span className="top-spaces__eyebrow">الأعلى تقييماً</span>
             <h2>أفضل 3 مساحات هذا الشهر</h2>
             <p>مساحات حصلت على أعلى تقييمات من المستخدمين — جودة مضمونة وتجربة مثالية.</p>
+            {demo && (
+              <span className="spaces__demo-badge">وضع تجريبي</span>
+            )}
           </div>
           <Link to="/spaces" className="top-spaces__all">
             عرض الكل

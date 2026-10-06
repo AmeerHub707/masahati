@@ -4,6 +4,7 @@
 
 import { request, imageUrl } from './api';
 import { listOf } from './requests';
+import { createDemoFlag } from './demoFlag';
 
 const REQ_TIMEOUT_MS = 8000;
 
@@ -11,21 +12,14 @@ const DEMO_FLAG_KEY = 'masahati_owner_ads_demo_v1';
 const DEMO_DATA_KEY = 'masahati_owner_ads_data_v1';
 
 // ----- وضع تجريبي -----
+const demoFlag = createDemoFlag(DEMO_FLAG_KEY);
+
 export function isAdsDemo() {
-  try {
-    return localStorage.getItem(DEMO_FLAG_KEY) === '1';
-  } catch {
-    return false;
-  }
+  return demoFlag.isOn();
 }
 
 function setDemoFlag(on) {
-  try {
-    if (on) localStorage.setItem(DEMO_FLAG_KEY, '1');
-    else localStorage.removeItem(DEMO_FLAG_KEY);
-  } catch {
-    /* التخزين غير متاح */
-  }
+  demoFlag.set(on);
 }
 
 function readDemoStore() {
@@ -109,6 +103,60 @@ export function mapAd(a) {
     impressions: Number(a.impressions || a.impressions_count || 0),
     schedule: a.schedule ?? null,
   };
+}
+
+// ----- تغذية إعلانات العميل -----
+// GET /api/ads/open — موصوفة في BACKEND_OWNER_ADS_CONTRACT.md §7 لكنها غير منفَّذة
+// في الباك إند حالياً، فتبقى القائمة فارغة ونحتفظ بسلوك آمن (قائمة فارغة) بدل
+// عرض بيانات مُختلقة على شريط إعلانات العميل.
+
+const CUSTOMER_TAG_DEFAULT = 'عرض';
+const CUSTOMER_TAG_SEGMENTED = 'خاص';
+
+// يحوّل عنصر إعلان من نقطة /api/ads/open إلى الشكل الذي يعرضه AdBanner، وهو
+// { id, tag, title, spaceName }. العقد يقبل { data: [...] } أو { ads: [...] }
+// أو مصفوفة مباشرة.
+export function mapCustomerAd(a) {
+  const expires = a.expires_at ?? a.expiresAt ?? '';
+  return {
+    id: a.ad_id ?? a.id,
+    title: a.title ?? '',
+    description: a.description ?? a.notes ?? '',
+    link: a.link ?? a.url ?? '',
+    image: imageUrl(a.image) || '',
+    ownerName: a.owner_name ?? '',
+    spaceName: a.owner_name ?? a.space_name ?? '',
+    tag: a.target === 'space_customers' ? CUSTOMER_TAG_SEGMENTED : CUSTOMER_TAG_DEFAULT,
+    expiresAt: expires,
+  };
+}
+
+function isExpired(ad) {
+  if (!ad.expiresAt) return false;
+  const t = Date.parse(ad.expiresAt);
+  // تاريخ غير قابل للتحليل => لا نخفيه (العقد يذكر أن expires_at اختياري).
+  return Number.isFinite(t) && t < Date.now();
+}
+
+export async function fetchOpenAds() {
+  const res = await request('/api/ads/open', {
+    method: 'GET',
+    auth: true,
+    timeoutMs: REQ_TIMEOUT_MS,
+  });
+  return listOf(res, 'ads')
+    .map(mapCustomerAd)
+    .filter((a) => !isExpired(a));
+}
+
+// احتياط: أي فشل (النقطة غير منفَّذة حالياً) يعطي قائمة فارغة، فلا نخزّن بيانات
+// تجريبية في شريط إعلانات العميل ولا نعرض بيانات مُختلقة.
+export async function loadCustomerAdsWithFallback() {
+  try {
+    return { demo: false, ads: await fetchOpenAds() };
+  } catch {
+    return { demo: true, ads: [] };
+  }
 }
 
 // ----- واجهة برمجية حقيقية -----

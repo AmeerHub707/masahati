@@ -99,6 +99,23 @@ const ENDPOINTS = [
   { method: 'GET', path: '/api/dashboard/spaces', group: 'Customer dashboard', file: 'src/lib/dashboard.js:183', fn: 'fetchSpaces', role: 'customer', live: false,
     note: 'dead code - no importer', expect: [['data', 'spaces'], ['current_page'], ['last_page']] },
 
+  // --- Public catalog & booking ------------------------------------------
+  // These three live in src/lib/spaces.js and were absent from the original
+  // 48-endpoint harness, so they were never probed. They are the customer's
+  // primary entry point (browse / view / book) and must be in scope.
+  { method: 'GET', path: '/api/spaces', group: 'Catalog & booking', file: 'src/lib/spaces.js:391', fn: 'fetchSpaces/loadSpacesWithFallback/loadAllSpacesWithFallback', role: 'public', live: true,
+    bodyNote: 'query: page, search, category, min_price, max_price, amenities (csv), area, min_rating, sort',
+    note: 'absent from every BACKEND_*.md; no public catalog route is specified anywhere',
+    expect: [['data', 'spaces'], ['current_page'], ['last_page'], ['has_more'], ['total'],
+      ['space_id', 'id'], ['title'], ['description'], ['location'], ['lat', 'latitude'], ['lng', 'lon', 'longitude'], ['image'], ['gallery'], ['price_per_hour'], ['capacity'], ['amenities'], ['rating']] },
+  { method: 'GET', path: '/api/spaces/{id}', group: 'Catalog & booking', file: 'src/lib/spaces.js:408', fn: 'fetchSpaceDetail/loadSpaceDetailWithFallback', role: 'public', live: true, dynamic: true,
+    bodyNote: 'no body; mapper reads body.space ?? body, so the space may be wrapped in `space`',
+    note: 'absent from every BACKEND_*.md',
+    expect: [['space'], ['space_id', 'id'], ['title'], ['description'], ['location'], ['lat', 'latitude'], ['lng', 'lon', 'longitude'], ['image'], ['gallery'], ['price_per_hour'], ['capacity'], ['open_time'], ['close_time'], ['contact_phone'], ['amenities'], ['internet'], ['power'], ['rating']] },
+  { method: 'POST', path: '/api/bookings', group: 'Catalog & booking', file: 'src/lib/spaces.js:551', fn: 'createBooking', role: 'both', live: true,
+    bodyNote: 'JSON { space_id, booking_date, start_time, end_time, hours }; reads booking|data|id; maps 401/403/409/422 to distinct reasons',
+    note: 'absent from every BACKEND_*.md; spaces.js:539 claims it is not implemented in the backend' },
+
   // --- Special requests --------------------------------------------------
   { method: 'GET', path: '/api/special-requests', group: 'Special requests', file: 'src/lib/requests.js:412', fn: 'fetchMyRequests', role: 'customer', live: true,
     expect: [['requests', 'data'], ['request_id', 'id'], ['title'], ['notes', 'description', 'details'], ['space_type'], ['capacity'], ['schedule'], ['preferred_time'], ['area', 'location'], ['amenities'], ['budget', 'max_budget'], ['status', 'is_accepted'], ['offers_count'], ['created_at'], ['expires_at']] },
@@ -388,6 +405,30 @@ async function main() {
       await sleep(GAP_MS);
     }
   }
+
+  // --- Sweep P: public reads ---------------------------------------------
+  // Runs with no token at all, so the public catalog surface is verified even
+  // when no test credentials are supplied. These are the only endpoints whose
+  // response *shape* can be fully confirmed without an account, because the
+  // catalogue is the one collection that should never be empty in production.
+  console.log('\n[P] Public reads (no token required)');
+  const publicPlans = ENDPOINTS.filter((e) => e.group === 'Catalog & booking' && e.method === 'GET');
+  const publicReads = [];
+  for (const plan of publicPlans) {
+    const path = materialize(plan.path, {});
+    const r = await probe(path, {});
+    const c = classify(r);
+    const shape = checkShape(r.json, plan.expect);
+    publicReads.push({ path, method: 'GET', role: 'public', ...c, status: r.status, ms: r.ms, shape, snippet: r.snippet });
+    const note = shape?.mode === 'EMPTY'
+      ? `EMPTY ${shape.arrays.map((a) => `${a.path}[${a.length}]`).join(' ')} - field names unverifiable`
+      : shape?.missing?.length
+        ? `MISSING: ${shape.missing.map((a) => a.join('|')).join(', ')}`
+        : shape ? `all ${shape.checked} expected keys present` : '';
+    console.log(`  ${c.verdict.padEnd(12)} ${String(r.status).padEnd(4)} ${path} [public] ${note}`);
+    await sleep(GAP_MS);
+  }
+  results.publicReads = publicReads;
 
   // --- Sweep B: authenticated, GET only ----------------------------------
   console.log('\n[B] Authenticating (GET-only sweep, no writes with a valid token)');

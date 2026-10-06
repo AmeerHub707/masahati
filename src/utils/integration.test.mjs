@@ -39,6 +39,7 @@ const server = await createServer({
 const api = await server.ssrLoadModule('/src/lib/api.js');
 const authStore = await server.ssrLoadModule('/src/lib/authStore.js');
 const dashboard = await server.ssrLoadModule('/src/lib/dashboard.js');
+const demoFlag = await server.ssrLoadModule('/src/lib/demoFlag.js');
 const requests = await server.ssrLoadModule('/src/lib/requests.js');
 const notifications = await server.ssrLoadModule('/src/lib/notifications.js');
 const passwordRules = await server.ssrLoadModule('/src/lib/passwordRules.js');
@@ -70,15 +71,17 @@ function makeFetch(routes, onRequest) {
       return {
         ok: false,
         status: 404,
+        headers: { get: () => null },
         text: async () => JSON.stringify({ message: 'not found' }),
       };
     }
     const r = typeof store === 'function' ? store({ method, query: q }) : store;
-    return {
-      ok: r.status >= 200 && r.status < 300,
-      status: r.status,
-      text: async () => (typeof r.body === 'string' ? r.body : JSON.stringify(r.body)),
-    };
+return {
+        ok: r.status >= 200 && r.status < 300,
+        status: r.status,
+        headers: { get: (k) => (r.headers && r.headers[k.toLowerCase()] !== undefined ? r.headers[k.toLowerCase()] : null) },
+        text: async () => (typeof r.body === 'string' ? r.body : JSON.stringify(r.body)),
+      };
   };
 }
 
@@ -350,6 +353,80 @@ globalThis.fetch = makeFetch({
 });
 const tog = await dashboard.toggleFavorite(7);
 report('3.17 toggleFavorite parses is_favorited', tog.isFavorited === true && tog.message === 'أُضيفت');
+
+// ---- 3.18 إلغاء الحجز: لا_SUCCESS وهمي، ولا طلب HTTP ----
+let cancelHitNetwork = false;
+globalThis.fetch = makeFetch({}, () => { cancelHitNetwork = true; });
+const cancelRes = await dashboard.cancelBooking(9);
+report('3.18 cancelBooking does not fake success', cancelRes.ok === false && cancelRes.reason === 'unsupported');
+report('3.19 cancelBooking makes no HTTP request', cancelHitNetwork === false);
+report('3.20 cancelBooking explains itself to the user', typeof cancelRes.message === 'string' && cancelRes.message.length > 0);
+
+// ---- 3.21 تغذية إعلانات العميل مقروءة من الخادم ----
+resetStorage();
+api.setToken(TOKEN);
+api.setUser({ name: 'س', role: 'customer' });
+globalThis.fetch = makeFetch({
+  'GET /api/dashboard/stats': { status: 200, body: { upcoming_bookings_count: 1 } },
+  'GET /api/dashboard/upcoming-booking': { status: 200, body: {} },
+  'GET /api/dashboard/bookings': { status: 200, body: [] },
+  'GET /api/dashboard/favorites': { status: 200, body: [] },
+  'GET /api/profile': { status: 200, body: { name: 'س' } },
+  'GET /api/ads/open': { status: 200, body: { data: [
+    { ad_id: 71, title: 'خصم 20%', owner_name: 'قاعة النخيل', published_at: '2026-10-01', expires_at: '2099-01-01' },
+    { ad_id: 72, title: 'منتهي', owner_name: 'ق', published_at: '2026-01-01', expires_at: '2026-02-01' },
+  ] } },
+});
+const withAds = await dashboard.fetchDashboard();
+report('3.21 customer ads reach the dashboard', withAds.ads.length === 1 && withAds.ads[0].id === 71 && withAds.ads[0].title === 'خصم 20%');
+report('3.22 expired ads are filtered out', !withAds.ads.some((a) => a.id === 72));
+
+// ---- 3.23 نقطة الإعلانات غير منفَّذة => قائمة فارغة، لا بيانات مُختلقة ----
+globalThis.fetch = makeFetch({
+  'GET /api/dashboard/stats': { status: 200, body: {} },
+  'GET /api/dashboard/upcoming-booking': { status: 200, body: {} },
+  'GET /api/dashboard/bookings': { status: 200, body: [] },
+  'GET /api/dashboard/favorites': { status: 200, body: [] },
+  'GET /api/profile': { status: 200, body: { name: 'س' } },
+});
+const noAds = await dashboard.fetchDashboard();
+report('3.23 missing /api/ads/open degrades to empty, not fake ads', noAds.ads.length === 0);
+
+// ---- 3.24 حالة 429: رسالة «انتظر» بدل «عطل خادم» ----
+resetStorage();
+globalThis.fetch = makeFetch({
+  'POST /api/resend-otp': { status: 429, headers: { 'retry-after': '30' }, body: { message: 'Too Many Attempts.' } },
+});
+let otpErr = null;
+try {
+  await api.request('/api/resend-otp', { method: 'POST', body: { identifier: 'x' } });
+} catch (e) {
+  otpErr = e;
+}
+report('3.24 429 surfaces a wait message, not a server error', otpErr?.status === 429 && /انتظر|بعد/.test(otpErr.message) && !otpErr.message.includes('تعذر'));
+report('3.25 429 keeps Retry-After seconds', otpErr?.data?.retryAfterSeconds === 30);
+
+globalThis.fetch = makeFetch({ 'POST /api/resend-otp': { status: 429, body: { message: 'Too Many Attempts.' } } });
+let otpErrNoHeader = null;
+try {
+  await api.request('/api/resend-otp', { method: 'POST', body: { identifier: 'x' } });
+} catch (e) {
+  otpErrNoHeader = e;
+}
+report('3.26 429 without Retry-After still explains', otpErrNoHeader?.status === 429 && otpErrNoHeader.data?.retryAfterSeconds === null);
+
+// ---- 3.27 عَلَم تجريبي لا يعلق: انتهاء بعد TTL ----
+resetStorage();
+const flag = demoFlag.createDemoFlag('test_demo_flag', { ttlMs: 40 });
+report('3.27 demo flag starts off', flag.isOn() === false);
+flag.set(true);
+report('3.28 demo flag reads back', flag.isOn() === true);
+await new Promise((r) => setTimeout(r, 70));
+report('3.29 demo flag self-heals after TTL', flag.isOn() === false);
+localStorage.setItem('test_demo_flag', '1');
+report('3.30 legacy "1" value is treated as expired', flag.isOn() === false);
+flag.set(false);
+report('3.31 demo flag can be cleared', flag.isOn() === false && localStorage.getItem('test_demo_flag') === null);
 
 // ============================================================
 // القسم 4: requests.js — حالات الأمان السريعة + notifications.js

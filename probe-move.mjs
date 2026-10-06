@@ -11,7 +11,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function waitForJson(url, tries = 80) {
   for (let i = 0; i < tries; i++) {
-    try { const r = await fetch(url); if (r.ok) return await r.json(); } catch {}
+    try { const r = await fetch(url); if (r.ok) return await r.json(); } catch { /* not up yet */ }
     await sleep(250);
   }
   throw new Error('devtools endpoint never came up');
@@ -49,7 +49,7 @@ class CDP {
 
 const userDir = mkdtempSync(join(tmpdir(), 'edge-move-'));
 const vite = spawn('npx', ['vite', '--port', '5197', '--strictPort'], { cwd: process.cwd(), stdio: 'ignore', shell: true });
-for (let i = 0; i < 160; i++) { try { const r = await fetch('http://localhost:5197/'); if (r.ok) break; } catch {} await sleep(250); }
+for (let i = 0; i < 160; i++) { try { const r = await fetch('http://localhost:5197/'); if (r.ok) break; } catch { /* not up yet */ } await sleep(250); }
 console.log('vite up on 5197');
 
 const child = spawn(EDGE, [

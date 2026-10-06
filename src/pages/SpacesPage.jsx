@@ -20,6 +20,7 @@ import {
   RATING_FILTERS,
 } from '../lib/spaces';
 import { AMENITY_LABELS } from '../lib/requests';
+import { getHomePath, getCurrentRole, isVisitor } from '../lib/authStore';
 import { fmtNumber, fmtRating } from '../lib/format';
 
 // Fix Leaflet default icon paths
@@ -1212,7 +1213,10 @@ function SpacesHead({ spaces, total, loading }) {
 
       <div className="wrap wrap--wide sh__inner">
         <div className="sh__copy">
-          <BackButton className="back-btn" fallback="/" label="رجوع" />
+          <BackButton
+            to={getHomePath(getCurrentRole())}
+            ariaLabel={isVisitor() ? 'العودة إلى الصفحة الرئيسية' : 'العودة إلى لوحة التحكم'}
+          />
           <span className="sh__live">
             <span className="sh__pulse" />
             {loading ? (

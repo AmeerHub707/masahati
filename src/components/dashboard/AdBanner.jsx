@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Tag } from 'lucide-react';
+import SafeLink from '../safe/SafeLink';
 
 export default function AdBanner({ ads, dismissed }) {
   const visible = ads.filter((a) => !dismissed.includes(a.id));
@@ -63,12 +64,32 @@ function Marquee({ ads }) {
 }
 
 // إعلان صغير داخل شريط الأخبار: يرتفع ثم يهبط أثناء السير.
+//
+// العقد (BACKEND_OWNER_ADS_CONTRACT.md §7) يعطي كل إعلان حقل link، فاستخدامه
+// مقصود بدل إرسال كل إعلان إلى /spaces. الروابط الداخلية تمر عبر Link الخاص بـ
+// SPA، والخارجية عبر SafeLink حتى لا يُنفَّذ javascript:/data: القادم من الخادم.
 function AdPill({ ad }) {
-  return (
-    <Link className="dash__news-item" to="/spaces">
+  const body = (
+    <>
       <span className="dash__news-tag"><Tag /> {ad.tag}</span>
       <span className="dash__news-title">{ad.title}</span>
       <span className="dash__news-space">— {ad.spaceName}</span>
-    </Link>
+    </>
+  );
+
+  const target = ad.link || '/spaces';
+
+  if (typeof target === 'string' && target.startsWith('/')) {
+    return (
+      <Link className="dash__news-item" to={target}>
+        {body}
+      </Link>
+    );
+  }
+
+  return (
+    <SafeLink className="dash__news-item" href={target}>
+      {body}
+    </SafeLink>
   );
 }

@@ -12,7 +12,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function waitForJson(url, tries = 80) {
   for (let i = 0; i < tries; i++) {
-    try { const r = await fetch(url); if (r.ok) return await r.json(); } catch {}
+    try { const r = await fetch(url); if (r.ok) return await r.json(); } catch { /* not up yet */ }
     await sleep(250);
   }
   throw new Error('devtools endpoint never came up: ' + url);
@@ -56,7 +56,7 @@ const vite = spawn('npx', ['vite', '--port', '5198', '--strictPort'], {
 });
 async function waitForServer(tries = 160) {
   for (let i = 0; i < tries; i++) {
-    try { const r = await fetch('http://localhost:5198/'); if (r.ok) return; } catch {}
+    try { const r = await fetch('http://localhost:5198/'); if (r.ok) return; } catch { /* not up yet */ }
     await sleep(250);
   }
   throw new Error('vite never came up on 5198');

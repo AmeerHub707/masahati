@@ -70,6 +70,7 @@ export default function CustomerDashboard() {
   const [data, setData] = useState(null);
   const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
   const [cancellingId, setCancellingId] = useState(null);
+  const [cancelNotice, setCancelNotice] = useState('');
   const [togglingId, setTogglingId] = useState(null);
   const [dismissedAds] = useState([]);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -160,20 +161,14 @@ export default function CustomerDashboard() {
     writeDashboardCache(data);
   }, [data]);
 
+  // الإلغاء غير مدعوم في الخادم بعد. كنا نعدّل الحالة محلياً ونعرض «تم الإلغاء»
+  // بلا أي طلب مُرسَل، فيضيع الإلغاء عند إعادة التحميل. الآن نعرض رسالة صريحة
+  // ولا نلمس الحالة إطلاقاً.
   const handleCancel = async (id) => {
     setCancellingId(id);
     try {
-      await cancelBooking(id);
-      setData((prev) => ({
-        ...prev,
-        bookings: (prev.bookings || []).map((b) =>
-          b.id === id ? { ...b, status: 'cancelled' } : b
-        ),
-        stats: {
-          ...prev.stats,
-          upcomingBookings: Math.max(0, (prev.stats.upcomingBookings || 1) - 1),
-        },
-      }));
+      const res = await cancelBooking(id);
+      setCancelNotice(res?.ok ? '' : (res?.message || 'تعذّر إلغاء الحجز.'));
     } finally {
       setCancellingId(null);
     }
@@ -374,7 +369,12 @@ export default function CustomerDashboard() {
       (active === 'overview' ? (
         <Overview data={data} />
       ) : active === 'bookings' ? (
-        <Bookings data={data} onCancel={handleCancel} cancellingId={cancellingId} />
+        <Bookings
+          data={data}
+          onCancel={handleCancel}
+          cancellingId={cancellingId}
+          cancelNotice={cancelNotice}
+        />
       ) : active === 'favorites' ? (
         <Favorites data={{ ...(data || {}), togglingId }} onToggleFavorite={handleToggleFavorite} />
       ) : active === 'requests' ? (

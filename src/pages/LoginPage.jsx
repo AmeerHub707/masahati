@@ -363,24 +363,8 @@ export default function LoginPage() {
         .brand-name { font-size: 1.4rem; font-weight: 800; color: #fff; direction: ltr; }
         .brand-name span { color: var(--accent); }
 
-        .back-home {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.45rem;
-          font-weight: 700;
-          font-size: 0.82rem;
-          color: #fff;
-          text-decoration: none;
-          padding: 0.5rem 0.9rem;
-          border: 1.5px solid rgba(255,255,255,0.35);
-          border-radius: 999px;
-          transition: all 0.2s var(--ease);
-        }
-        .back-home:hover {
-          border-color: var(--accent);
-          color: #fff;
-          background: rgba(249,115,22,0.18);
-        }
+        /* الشكل يأتي من .back-circle؛ يبقى هنا占地面积 فقط */
+        .back-home { flex: none; }
 
         .auth-form h2 {
           margin: 0 0 0.35rem;
@@ -643,7 +627,6 @@ export default function LoginPage() {
           }
           .field input { font-size: 16px; padding: 0.8rem 0.9rem; }
           .btn { font-size: 1.02rem; padding: 0.9rem 1rem; min-height: 52px; }
-          .back-home { padding: 0.55rem 0.85rem; }
           .auth-wrapper {
             padding: calc(env(safe-area-inset-top) + 0.5rem) 0.75rem calc(env(safe-area-inset-bottom) + 0.5rem);
           }
@@ -685,7 +668,7 @@ export default function LoginPage() {
               <img src="/Logo.png" alt="Masahati" className="brand-logo" />
             </div>
 
-            <BackButton className="back-home" fallback="/" label="رجوع للرئيسية" />
+            <BackButton className="back-home" fallback="/" ariaLabel="رجوع للرئيسية" />
           </div>
 
           <form onSubmit={handleSubmit} noValidate>
