@@ -60,7 +60,10 @@ export default function App() {
       <Route path="/dashboard/customer" element={<RequireAuth><DashboardPage /></RequireAuth>} />
       <Route path="/dashboard/space-owner" element={<RequireAuth><DashboardPage /></RequireAuth>} />
       
-      {/* لوحة تحكم المشرف — مسار شامل واحد حتى لا يُعاد تركيب الصفحة بين التبويبات */}
+      {/* لوحة تحكم المشرف — مسار شامل واحد حتى لا يُعاد تركيب الصفحة بين التبويبات.
+          مسار صريح قبل الشامل: يمرّر :id إلى useParams، فالرابط المباشر
+          /admin/users/:id يعمل بالطريقتين (المسار + قراءة pathname). */}
+      <Route path="/admin/users/:id" element={<AdminDashboardPage />} />
       <Route path="/admin/*" element={<AdminDashboardPage />} />
       
       {/* مسار احتياطي للصفحات غير الموجودة 404 */}
