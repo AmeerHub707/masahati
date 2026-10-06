@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import BackButton from '../components/common/BackButton';
-import { login, googleLogin, getHomePath, ApiError, consumeSessionExpired } from '../lib/authStore';
-import useGoogleAuth from '../hooks/useGoogleAuth';
-import { useForceLight } from '../hooks/useTheme';
+import BackButton from '@/components/ui/BackButton';
+import { login, googleLogin, getHomePath, ApiError, consumeSessionExpired } from '@/lib/authStore';
+import useGoogleAuth from '@/hooks/useGoogleAuth';
+import { useForceLight } from '@/hooks/useTheme';
 
 export default function LoginPage() {
   useForceLight();

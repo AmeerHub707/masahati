@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Check } from 'lucide-react';
-import BackButton from '../components/common/BackButton';
-import { login, getHomePath, ApiError, request, getUser, setUser } from '../lib/authStore';
-import WhatsAppBubble from '../components/common/WhatsAppBubble';
+import BackButton from '@/components/ui/BackButton';
+import { login, getHomePath, ApiError, request, getUser, setUser } from '@/lib/authStore';
+import WhatsAppBubble from '@/components/ui/WhatsAppBubble';
 
 export default function VerifyOtpPage() {
   const navigate = useNavigate();

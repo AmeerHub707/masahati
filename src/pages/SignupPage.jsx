@@ -6,18 +6,18 @@ import {
   Upload,
   FileCheck
 } from 'lucide-react';
-import BackButton from '../components/common/BackButton';
+import BackButton from '@/components/ui/BackButton';
 import {
   registerCustomer,
   registerOwner,
   googleLogin,
   getHomePath,
   ApiError,
-} from '../lib/authStore';
-import useGoogleAuth from '../hooks/useGoogleAuth';
-import WhatsAppBubble from '../components/common/WhatsAppBubble';
-import { useForceLight } from '../hooks/useTheme';
-import { checkPassword, getPasswordChecks, PASSWORD_RULES } from '../lib/passwordRules';
+} from '@/lib/authStore';
+import useGoogleAuth from '@/hooks/useGoogleAuth';
+import WhatsAppBubble from '@/components/ui/WhatsAppBubble';
+import { useForceLight } from '@/hooks/useTheme';
+import { checkPassword, getPasswordChecks, PASSWORD_RULES } from '@/lib/passwordRules';
 
 export default function SignupPage() {
   useForceLight();

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import BackButton from '../components/common/BackButton';
-import { request, ApiError } from '../lib/authStore';
-import { useForceLight } from '../hooks/useTheme';
+import BackButton from '@/components/ui/BackButton';
+import { request, ApiError } from '@/lib/authStore';
+import { useForceLight } from '@/hooks/useTheme';
 
 // ترجمة رسائل الخطأ الإنجليزية القادمة من Laravel إلى العربية.
 function translate(msg) {

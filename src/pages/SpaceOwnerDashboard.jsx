@@ -1,33 +1,33 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { logout, deleteUser, updateProfile, updateProfilePicture, uploadPicture, getUser, setUser } from '../lib/authStore';
+import { logout, deleteUser, updateProfile, updateProfilePicture, uploadPicture, getUser, setUser } from '@/lib/authStore';
 import {
   loadOwnerDashboardWithFallback,
   readOwnerCache,
   writeOwnerCache,
   clearOwnerCache,
-} from '../lib/owner';
-import { extractPicturePath, resolveNewPictureUrl, getCachedPictureUrl } from '../lib/profilePicture';
-import OwnerLayout from '../components/dashboard/owner/OwnerLayout';
-import DashboardLoading from '../components/dashboard/DashboardLoading';
-import OwnerOverview from '../components/dashboard/owner/OwnerOverview';
-import Reviews from '../components/dashboard/owner/Reviews';
-import Market from '../components/dashboard/owner/Market';
-import OwnerAds from '../components/dashboard/owner/OwnerAds';
-import Spaces from '../components/dashboard/owner/Spaces';
-import Bookings from '../components/dashboard/owner/Bookings';
-import Financials from '../components/dashboard/owner/Financials';
-import Settings from '../components/dashboard/Settings';
-import OwnerDocumentation from '../components/dashboard/owner/OwnerDocumentation';
-import ScrollProgress from '../components/common/ScrollProgress';
-import LogoutOverlay from '../components/common/LogoutOverlay';
-import Footer from '../components/layout/Footer';
-import OwnerAssistant from '../components/assistant/OwnerAssistant';
-import DashboardTour from '../components/dashboard/DashboardTour';
-import { hasCompletedDashboardTour, markDashboardTourCompleted } from '../lib/dashboardTour';
+} from '@/lib/owner';
+import { extractPicturePath, resolveNewPictureUrl, getCachedPictureUrl } from '@/lib/profilePicture';
+import OwnerLayout from '@/features/owner/OwnerLayout';
+import DashboardLoading from '@/components/dashboard/DashboardLoading';
+import OwnerOverview from '@/features/owner/OwnerOverview';
+import Reviews from '@/features/owner/Reviews';
+import Market from '@/features/owner/Market';
+import OwnerAds from '@/features/owner/OwnerAds';
+import Spaces from '@/features/owner/Spaces';
+import Bookings from '@/features/owner/Bookings';
+import Financials from '@/features/owner/Financials';
+import Settings from '@/components/dashboard/Settings';
+import OwnerDocumentation from '@/features/owner/OwnerDocumentation';
+import ScrollProgress from '@/components/ui/ScrollProgress';
+import LogoutOverlay from '@/components/ui/LogoutOverlay';
+import Footer from '@/components/layout/Footer';
+import OwnerAssistant from '@/features/owner/OwnerAssistant';
+import DashboardTour from '@/components/dashboard/DashboardTour';
+import { hasCompletedDashboardTour, markDashboardTourCompleted } from '@/lib/dashboardTour';
 import { AlertCircle, Trash2 } from 'lucide-react';
-import { useDialogA11y } from '../lib/dialogA11y';
+import { useDialogA11y } from '@/lib/dialogA11y';
 
 const OWNER_TOUR_ID = 'owner-tour';
 

@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams, useParams } from 'react-router-dom';
-import BackButton from '../components/common/BackButton';
-import { request, ApiError } from '../lib/authStore';
+import BackButton from '@/components/ui/BackButton';
+import { request, ApiError } from '@/lib/authStore';
 import {
   checkPassword,
   getPasswordStrength,
   strengthLabels,
   PASSWORD_LENGTH_MESSAGE,
   PASSWORD_FORMAT_MESSAGE,
-} from '../lib/passwordRules';
+} from '@/lib/passwordRules';
 
 // ترجمة رسائل الخطأ الإنجليزية القادمة من Laravel إلى العربية.
 function translateError(msg, status) {

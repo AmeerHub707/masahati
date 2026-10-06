@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Check, X } from 'lucide-react';
-import { useDialogA11y } from '../../lib/dialogA11y';
+import { useDialogA11y } from '@/lib/dialogA11y';
 
 const SPOTLIGHT_PADDING = 10;
 const GAP = 14;

@@ -1,18 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import ReactPullToRefresh from 'react-pull-to-refresh';
-import Navbar from '../components/layout/Navbar';
-import Hero from '../components/landing/Hero';
-import TopSpaces from '../components/landing/TopSpaces';
-import Features from '../components/landing/Features';
-import HowItWorks from '../components/landing/HowItWorks';
-import Roles from '../components/landing/Roles';
-import About from '../components/landing/About';
-import CtaBand from '../components/landing/CtaBand';
-import Footer from '../components/layout/Footer';
-import AssistantWidget from '../components/assistant/AssistantWidget';
-import Reveal from '../components/common/Reveal';
-import ScrollProgress from '../components/common/ScrollProgress';
-import SectionDivider from '../components/common/SectionDivider';
+import Navbar from '@/components/layout/Navbar';
+import Hero from '@/features/landing/Hero';
+import TopSpaces from '@/features/landing/TopSpaces';
+import Features from '@/features/landing/Features';
+import HowItWorks from '@/features/landing/HowItWorks';
+import Roles from '@/features/landing/Roles';
+import About from '@/features/landing/About';
+import CtaBand from '@/features/landing/CtaBand';
+import Footer from '@/components/layout/Footer';
+import AssistantWidget from '@/features/landing/AssistantWidget';
+import Reveal from '@/components/ui/Reveal';
+import ScrollProgress from '@/components/ui/ScrollProgress';
+import SectionDivider from '@/components/ui/SectionDivider';
 
 export default function LandingPage() {
   const [showTop, setShowTop] = useState(false);

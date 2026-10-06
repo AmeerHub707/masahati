@@ -12,16 +12,16 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import BackButton from '../components/common/BackButton';
+import BackButton from '@/components/ui/BackButton';
 import {
   loadSpacesWithFallback,
   SPACE_CATEGORIES,
   SORT_OPTIONS,
   RATING_FILTERS,
-} from '../lib/spaces';
-import { AMENITY_LABELS } from '../lib/requests';
-import { getHomePath, getCurrentRole, isVisitor } from '../lib/authStore';
-import { fmtNumber, fmtRating } from '../lib/format';
+} from '@/lib/spaces';
+import { AMENITY_LABELS } from '@/lib/requests';
+import { getHomePath, getCurrentRole, isVisitor } from '@/lib/authStore';
+import { fmtNumber, fmtRating } from '@/lib/format';
 
 // Fix Leaflet default icon paths
 delete L.Icon.Default.prototype._getIconUrl;

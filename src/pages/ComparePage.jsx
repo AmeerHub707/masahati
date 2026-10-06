@@ -7,18 +7,18 @@ import {
   MapPin, MessageSquareQuote, Receipt, Scale, Search, Sparkles, Star, Ticket, TrendingUp,
   Trophy, Users, Wallet, X,
 } from 'lucide-react';
-import { loadAllSpacesWithFallback, SPACE_CATEGORIES } from '../lib/spaces';
-import { AMENITY_LABELS } from '../lib/requests';
-import ThemeToggle from '../components/common/ThemeToggle';
-import BackButton from '../components/common/BackButton';
-import { fmtNumber, fmtRating, fmtMoney } from '../lib/format';
-import { getHomePath, getCurrentRole, isVisitor } from '../lib/authStore';
+import { loadAllSpacesWithFallback, SPACE_CATEGORIES } from '@/lib/spaces';
+import { AMENITY_LABELS } from '@/lib/requests';
+import ThemeToggle from '@/components/ui/ThemeToggle';
+import BackButton from '@/components/ui/BackButton';
+import { fmtNumber, fmtRating, fmtMoney } from '@/lib/format';
+import { getHomePath, getCurrentRole, isVisitor } from '@/lib/authStore';
 import {
   pricePerHead,
   buildCompareContext,
   scoreAll,
   normalizeRow,
-} from '../lib/compareScore';
+} from '@/lib/compareScore';
 
 const MAX_PICK = 4;
 const MIN_PICK = 2;

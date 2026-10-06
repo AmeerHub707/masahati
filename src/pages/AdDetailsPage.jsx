@@ -5,14 +5,14 @@ import {
   Loader2, BadgeCheck, CircleDollarSign, TrendingUp,
   Lock, Info, CalendarPlus, CalendarX2, Building2, Send,
 } from 'lucide-react';
-import BackButton from '../components/common/BackButton';
-import { loadSpaceDetailWithFallback, createBooking } from '../lib/spaces';
-import { AMENITY_LABELS } from '../lib/requests';
-import { fmtNumber, fmtRating, fmtMoney } from '../lib/format';
+import BackButton from '@/components/ui/BackButton';
+import { loadSpaceDetailWithFallback, createBooking } from '@/lib/spaces';
+import { AMENITY_LABELS } from '@/lib/requests';
+import { fmtNumber, fmtRating, fmtMoney } from '@/lib/format';
 import {
   getCurrentRole, ownsSpace,
   ROLE_VISITOR, ROLE_SPACE_OWNER,
-} from '../lib/authStore';
+} from '@/lib/authStore';
 
 export default function AdDetailsPage() {
   const { id } = useParams();

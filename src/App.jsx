@@ -1,20 +1,20 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import LandingPage from './pages/LandingPage';
-import { AppReadyContext } from './context/AppReadyContext';
+import LandingPage from '@/pages/LandingPage';
+import { AppReadyContext } from '@/context/AppReadyContext';
 
 // ملاحظة: قم بإنشاء ملفات وهمية/مؤقتة لهذه الصفحات لحين بنائها تفصيلياً
-import SpacesPage from './pages/SpacesPage';
-import LoginPage from './pages/LoginPage';
-import SignupPage from './pages/SignupPage';
-import VerifyOtpPage from './pages/VerifyOtpPage';
-import ForgotPasswordPage from './pages/ForgotPasswordPage';
-import ResetPasswordPage from './pages/ResetPasswordPage';
-import PendingApprovalPage from './pages/PendingApprovalPage';
-import CustomerDashboard from './pages/CustomerDashboard';
-import SpaceOwnerDashboard from './pages/SpaceOwnerDashboard';
-import AdDetailsPage from './pages/AdDetailsPage';
-import ComparePage from './pages/ComparePage';
-import { isLoggedIn, getUser, getHomePath, normalizeRole } from './lib/authStore';
+import SpacesPage from '@/pages/SpacesPage';
+import LoginPage from '@/pages/LoginPage';
+import SignupPage from '@/pages/SignupPage';
+import VerifyOtpPage from '@/pages/VerifyOtpPage';
+import ForgotPasswordPage from '@/pages/ForgotPasswordPage';
+import ResetPasswordPage from '@/pages/ResetPasswordPage';
+import PendingApprovalPage from '@/pages/PendingApprovalPage';
+import CustomerDashboard from '@/pages/CustomerDashboard';
+import SpaceOwnerDashboard from '@/pages/SpaceOwnerDashboard';
+import AdDetailsPage from '@/pages/AdDetailsPage';
+import ComparePage from '@/pages/ComparePage';
+import { isLoggedIn, getUser, getHomePath, normalizeRole } from '@/lib/authStore';
 
 // حماية المسار: الزائر غير المسجّل يُحوَّل للصفحة الرئيسية
 function RequireAuth({ children }) {

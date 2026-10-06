@@ -1,27 +1,27 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { logout, deleteUser, updateProfile, updateProfilePicture, uploadPicture, getUser, setUser } from '../lib/authStore';
-import { fetchDashboard, readDashboardCache, clearDashboardCache, writeDashboardCache, cancelBooking, toggleFavorite } from '../lib/dashboard';
-import { extractPicturePath, resolveNewPictureUrl, getCachedPictureUrl } from '../lib/profilePicture';
-import { acceptOfferWithFallback } from '../lib/requests';
-import DashboardLayout from '../components/dashboard/DashboardLayout';
-import DashboardLoading from '../components/dashboard/DashboardLoading';
-import Overview from '../components/dashboard/Overview';
-import Bookings from '../components/dashboard/Bookings';
-import Favorites from '../components/dashboard/Favorites';
-import Requests from '../components/dashboard/Requests';
-import Settings from '../components/dashboard/Settings';
-import ScrollProgress from '../components/common/ScrollProgress';
-import LogoutOverlay from '../components/common/LogoutOverlay';
-import Footer from '../components/layout/Footer';
-import CustomerAssistant from '../components/assistant/CustomerAssistant';
-import DashboardTour from '../components/dashboard/DashboardTour';
+import { logout, deleteUser, updateProfile, updateProfilePicture, uploadPicture, getUser, setUser } from '@/lib/authStore';
+import { fetchDashboard, readDashboardCache, clearDashboardCache, writeDashboardCache, cancelBooking, toggleFavorite } from '@/lib/dashboard';
+import { extractPicturePath, resolveNewPictureUrl, getCachedPictureUrl } from '@/lib/profilePicture';
+import { acceptOfferWithFallback } from '@/lib/requests';
+import DashboardLayout from '@/features/customer/DashboardLayout';
+import DashboardLoading from '@/components/dashboard/DashboardLoading';
+import Overview from '@/features/customer/Overview';
+import Bookings from '@/features/customer/Bookings';
+import Favorites from '@/features/customer/Favorites';
+import Requests from '@/features/customer/Requests';
+import Settings from '@/components/dashboard/Settings';
+import ScrollProgress from '@/components/ui/ScrollProgress';
+import LogoutOverlay from '@/components/ui/LogoutOverlay';
+import Footer from '@/components/layout/Footer';
+import CustomerAssistant from '@/features/customer/CustomerAssistant';
+import DashboardTour from '@/components/dashboard/DashboardTour';
 import {
   hasCompletedDashboardTour,
   markDashboardTourCompleted,
-} from '../lib/dashboardTour';
-import AdBanner from '../components/dashboard/AdBanner';
+} from '@/lib/dashboardTour';
+import AdBanner from '@/features/customer/AdBanner';
 import { AlertCircle, Trash2 } from 'lucide-react';
 
 const CUSTOMER_TOUR_ID = 'customer-tour';

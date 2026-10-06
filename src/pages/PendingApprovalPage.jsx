@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, Hourglass, LogOut } from 'lucide-react';
-import BackButton from '../components/common/BackButton';
-import { getUser } from '../lib/authStore';
-import { useForceLight } from '../hooks/useTheme';
+import BackButton from '@/components/ui/BackButton';
+import { getUser } from '@/lib/authStore';
+import { useForceLight } from '@/hooks/useTheme';
 
 export default function PendingApprovalPage() {
   useForceLight();

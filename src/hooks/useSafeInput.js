@@ -8,7 +8,7 @@
 //   أو: <input value={name.value} onChange={name.onChange} />
 
 import { useCallback, useState } from 'react';
-import { sanitizeText } from '../utils/sanitize';
+import { sanitizeText } from '@/utils/sanitize';
 
 export default function useSafeInput(initial = '', options = {}) {
   const { maxLength, trim = false } = options;

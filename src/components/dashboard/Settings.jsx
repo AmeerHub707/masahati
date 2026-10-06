@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react';
 import { LogOut, User, Pencil, HelpCircle, KeyRound, Eye, EyeOff, CheckCircle2, AlertCircle, Camera, Trash2 } from 'lucide-react';
-import { changePassword, ApiError, getUser, setUser } from '../../lib/authStore';
-import { getCachedPictureUrl } from '../../lib/profilePicture';
-import useSafeInput from '../../hooks/useSafeInput';
-import { checkPassword, PASSWORD_LENGTH_MESSAGE, PASSWORD_FORMAT_MESSAGE } from '../../lib/passwordRules';
+import { changePassword, ApiError, getUser, setUser } from '@/lib/authStore';
+import { getCachedPictureUrl } from '@/lib/profilePicture';
+import useSafeInput from '@/hooks/useSafeInput';
+import { checkPassword, PASSWORD_LENGTH_MESSAGE, PASSWORD_FORMAT_MESSAGE } from '@/lib/passwordRules';
 
 function initialsOf(name) {
   return (name || 'م').trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('') || 'م';

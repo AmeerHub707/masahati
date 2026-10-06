@@ -6,6 +6,12 @@
 /dist
 /build
 
+# Logs
+*.log
+
+# Generated audit reports
+api-audit-results.json
+
 # Local environment & Temp files
 .env
 .env.local
@@ -15,8 +21,6 @@
 .ds_store
 Thumbs.db
 masahati.pptx
-BACKEND_PASSWORD_RESET_CONTRACT.md
-dev.log
 
 # Vite / Bundler caches
 /.vite

@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback, useContext } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, useAnimation } from 'framer-motion';
 import NavTab from './NavTab';
-import MagneticButton from '../common/MagneticButton';
-import ThemeToggle from '../common/ThemeToggle';
-import { AppReadyContext } from '../../context/AppReadyContext';
+import MagneticButton from '@/components/ui/MagneticButton';
+import ThemeToggle from '@/components/ui/ThemeToggle';
+import { AppReadyContext } from '@/context/AppReadyContext';
 
 const LINKS = [
   { label: 'تصفح المساحات', to: '/spaces' },
