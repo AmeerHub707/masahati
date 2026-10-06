@@ -12,6 +12,11 @@ globalThis.localStorage = dom.window.localStorage;
 Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true });
 globalThis.Event = dom.window.Event;
 globalThis.HTMLInputElement = dom.window.HTMLInputElement;
+globalThis.File = dom.window.File;
+globalThis.Blob = dom.window.Blob;
+// FileReader يقرأ الملف المرفوع محلياً (معاينة فورية + حفظ بلا خادم)،
+// وهو متاح في jsdom لكنه لم يكن معرّفاً على globalThis أعلاه.
+if (!globalThis.FileReader) globalThis.FileReader = dom.window.FileReader;
 if (!globalThis.HTMLElement) globalThis.HTMLElement = dom.window.HTMLElement;
 if (!globalThis.Element) globalThis.Element = dom.window.Element;
 if (!globalThis.Node) globalThis.Node = dom.window.Node;
@@ -84,8 +89,74 @@ const server = await createServer({
   logLevel: 'silent',
 });
 
+/**
+ * خادم وهمي بدل الشبكة.
+ *
+ * اللوحة لم تعد تحمل بيانات وهمية، فكل ما تعرضه يردّ من `/api/admin`. ليبقى
+ * الاختبار مستقلاً عن خادم حقيقي (وسرعة.Render باردة، و401 متغيّر) نخدم ردود
+ * من `adminMockServer.mjs` — وهو خادم بحالة داخلية يحفظ ما تغيّره الشاشة.
+ *
+ * نقطة لم تُعرف في الخادم ترجع 404 صريحاً: الصمت كان يخفي مسارات كُسرت.
+ */
+const fixtures = await import('./adminFixtures.mjs');
+const { createFixtureServer } = await import('./adminMockServer.mjs');
+
+let mockServer = createFixtureServer();
+const fixtureCalls = [];
+
+const fixtureFetch = async (input, init) => {
+  fixtureCalls.push(String(input?.url || input));
+  return mockServer.fetch(input, init);
+};
+
+/**
+ * يعيد الخادم الوهمي إلى حالته الأولى.
+ *
+ * لماذا: خادم الاختبار يحفظ ما تغيّره الشاشة (حذف مراجعة، أرشفة إشعار،
+ * تغيير حالة مساحة). بدون تصفير بين الأقسام becameعدّاد قسم تعتمد على حالة
+ * قسم سبقه، فكانت اختبارات «عدد المساحات» و«صفوف التصدير» تفشل لأسباب
+ * خارج موضوعها. التصفير يقع عند كل تركيب، أي بين الأقسام، لا بين الإجراءين
+ * داخل القسم الواحد — فيبقى اختبار «احفظ ثم تحقّق» صحيحاً.
+ */
+function resetFixtures() {
+  mockServer = createFixtureServer();
+  globalThis.fetch = fixtureFetch;
+}
+
+globalThis.fetch = fixtureFetch;
+
 const adminAuth = await server.ssrLoadModule('/src/lib/adminAuth.js');
-await adminAuth.adminLogin('masahati@outlook.com', '123456789admin');
+const adminApi = await server.ssrLoadModule('/src/lib/adminApi.js');
+
+// جلسة حيّة مباشرة (لا تسجيل دخول): ما نختبره هنا هو عرض ردود الخادم، أما
+// مسار الدخول فيغطّيه adminApi.test.mjs.
+adminApi.saveAdminSession({
+  token: 'test-admin-token',
+  expires_at: new Date(Date.now() + 3600000).toISOString(),
+  admin: { id: 1, name: 'إدارة مساحاتي', email: 'masahati@outlook.com' },
+});
+
+report(
+  'B1 the admin session is live once a token is stored',
+  adminAuth.isAdminLoggedIn() === true && adminAuth.adminSessionMode() === 'live',
+  `loggedIn=${adminAuth.isAdminLoggedIn()} mode=${adminAuth.adminSessionMode()}`
+);
+report('B2 a rejected login throws instead of opening a session', await (async () => {
+  globalThis.fetch = async () => new Response(
+    JSON.stringify({ message: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.', errors: {} }),
+    { status: 401, headers: { 'Content-Type': 'application/json' } }
+  );
+  try {
+    await adminAuth.adminLogin('masahati@outlook.com', 'wrong-password');
+    return false;
+  } catch (err) {
+    return /البريد الإلكتروني أو كلمة المرور/.test(err?.message || '');
+  } finally {
+    // الخادم الوهمي يعود قبل أي شاشة تُركَّب: استبدالُه هنا كان سيجعل كل
+    // الاختبارات التالية تفشل على 404 بصمت.
+    globalThis.fetch = fixtureFetch;
+  }
+})());
 
 const AdminDashboardPage = (await server.ssrLoadModule('/src/pages/AdminDashboardPage.jsx')).default;
 
@@ -135,6 +206,7 @@ function LocationProbe() {
 }
 
 async function mount(path) {
+  resetFixtures();
   const el = dom.window.document.createElement('div');
   dom.window.document.body.appendChild(el);
   currentPath = path;
@@ -238,55 +310,70 @@ console.log('\n===== ADMIN: التقارير المالية =====');
   report('A6 an incomplete custom range is called out', v.text().includes('حدّد تاريخ البداية والنهاية'), v.text().slice(0, 200));
   report('A7 financial values are thousand-separated', /\d,\d{3}/.test(v.text()), v.text().match(/\d{4,}\s*ش\.ج/)?.[0] || 'no big number found');
 
-  // سبتمبر كاملاً = أرقام زر «هذا الشهر» بالضبط (مجموع السلسلة اليومية)، وهذا
-  // هو الدليل على أن النطاق المخصص صار يُحسب بدل السقوط إلى الشهر.
-  await v.type(v.find('#custom-from'), '2026-09-01');
-  await v.type(v.find('#custom-to'), '2026-09-30');
+  // التواريخ والأرقام المتوقَّعة تُشتقّ من بيانات الخادم نفسه (وليس من تاريخ
+  // مكتوب في الاختبار): الشاشات تحسب نطاقاتها من «اليوم» الحقيقي، فالتثبيت
+  // هنا كان يختبر أرقاماً لم يعد أحد يستخدمها.
+  const T = fixtures.TODAY;
+  const shift = (isoDate, n) => new Date(Date.parse(`${isoDate}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+  const MONTH_FROM = `${T.slice(0, 7)}-01`;
+  const sum = (from, to) => fixtures.sumRange(from, to);
+  const money = (n) => n.toLocaleString('en-US');
+
+  // شهر اليوم كاملاً = أرقام زر «هذا الشهر» بالضبط (مجموع السلسلة اليومية)،
+  // وهذا هو الدليل على أن النطاق المخصص صار يُحسب بدل السقوط إلى الشهر.
+  await v.type(v.find('#custom-from'), MONTH_FROM);
+  await v.type(v.find('#custom-to'), T);
+  const monthTotals = sum(MONTH_FROM, T);
   report(
     'A7b a full-month custom range matches the month preset',
-    v.text().includes('241,500') && v.text().includes('28,980'),
+    v.text().includes(money(monthTotals.revenue)) && v.text().includes(money(monthTotals.commission)),
     v.text().match(/\d{2,3},\d{3}\s*ش\.ج/g)?.slice(0, 3).join(' / ') || v.text().slice(0, 200)
   );
   report('A7c the missing-range hint clears once both dates are set', !v.text().includes('حدّد تاريخ البداية والنهاية'));
   report('A7d no NaN/undefined leaks from the custom range', !/undefined|NaN/.test(v.text()), v.text().match(/.{0,40}(undefined|NaN).{0,40}/)?.[0] || '');
 
-  // فترة أقصر: يجب أن تعطي رقماً أصغر ومختلفاً، لا رقم الشهر نفسه.
-  await v.type(v.find('#custom-to'), '2026-09-12');
+  // فترة أضيق: يجب أن تُحسب من السلسلة لا أن تُنسخ من النطاق الأوسع.
+  // نافذة أمس أضيق نافذة صالحة في كل شهر، فهي أضمن من «12 يوماً من الشهر»
+  // الذي ينهار في اليوم الأول أو الثاني من الشهر.
+  const narrowFrom = shift(T, -1);
+  await v.type(v.find('#custom-from'), narrowFrom);
+  await v.type(v.find('#custom-to'), narrowFrom);
+  const shortTotals = sum(narrowFrom, narrowFrom);
   report(
-    'A7e a shorter custom range recomputes instead of falling back',
-    v.text().includes('87,583') && !v.text().includes('241,500'),
-    v.text().match(/\d{2,3},\d{3}\s*ش\.ج/g)?.slice(0, 3).join(' / ') || v.text().slice(0, 200)
+    'A7e a narrower custom range recomputes instead of falling back',
+    v.text().includes(money(shortTotals.revenue)),
+    `expected ${money(shortTotals.revenue)} present=${v.text().includes(money(shortTotals.revenue))}`
   );
 
-  // خارج تغطية السلسلة اليومية (سبتمبر 2026) يُقال ذلك صراحةً.
-  await v.type(v.find('#custom-to'), '2026-12-31');
-  report('A7f out-of-coverage custom range warns about the demo data span', v.text().includes('تغطي'), v.text().slice(0, 240));
+  // خارج تغطية السلسلة اليومية يُقال ذلك صراحةً.
+  await v.type(v.find('#custom-to'), '2099-12-31');
+  report('A7f out-of-coverage custom range warns about the covered span', v.text().includes('تغطي'), v.text().slice(0, 240));
 
   await v.clickText('اليوم');
-  report('A8 switching back to preset range works', v.text().includes('9,200') || v.text().includes('9,200'), v.text().slice(0, 120));
+  const todayTotals = sum(T, T);
+  report('A8 switching back to preset range works', v.text().includes(money(todayTotals.revenue)), `${money(todayTotals.revenue)} expected`);
 
   // ── النطاق المخصص + صافي ربح المنصة (توصية 2) ─────────────────────────
-  // «اليوم» عمولته 1,104 فقط. قبل التصحيح كان يُخصم منه رقم المدفوعات المعلّقة
-  // كاملاً (8,240) فيخرج الصافي صفراً ويقرأ كأنه لا ربح أصلاً. الآن يُخصم
-  // نصيب اليوم (42 حجزاً من 517) فيبقى رقمٌ مختلف عن الصفر قابلاً للتدقيق.
+  // صافي ربح اليوم عمولته من رقم واحد، فيُخصم منه نصيب اليوم من المدفوعات
+  // المعلّقة لا الرقم كاملاً، ويبقى رقمٌ مختلف عن الصفر قابلاً للتدقيق.
   const todayText = v.text();
   const todayNet = Number(todayText.match(/صافي ربح المنصة\s*([\d,]+|-[\d,]+)/)?.[1]?.replace(/,/g, ''));
   report(
     'A9 net profit is range-scoped, not zeroed by the full pending balance',
-    Number.isFinite(todayNet) && todayNet > 0 && todayNet < 1104,
-    `todayNet=${todayNet}`
+    Number.isFinite(todayNet) && todayNet > 0 && todayNet < todayTotals.commission,
+    `todayNet=${todayNet} commission=${todayTotals.commission}`
   );
 
-  // نفس المرجع داخل النطاق المخصص: 12 يوماً من سبتمبر، والرقم فيه أقل من
-  // عمولة الشهر (28,980) بدل أن يعيدها.
+  // نفس المرجع داخل النطاق المخصص: نافذة أمس، والرقم فيها أصغر من عمولة
+  // نطاق الشهر في كل شهر (ما عدا لو كان الشهر يوماً واحداً — ونتحقق).
   await v.clickText('نطاق مخصص');
-  await v.type(v.find('#custom-from'), '2026-09-01');
-  await v.type(v.find('#custom-to'), '2026-09-12');
+  await v.type(v.find('#custom-from'), narrowFrom);
+  await v.type(v.find('#custom-to'), narrowFrom);
   const customNet = Number(v.text().match(/صافي ربح المنصة\s*([\d,]+|-[\d,]+)/)?.[1]?.replace(/,/g, ''));
   report(
     'A10 custom-range net profit is computed from that range, not the month',
-    Number.isFinite(customNet) && customNet > 0 && customNet < 28980,
-    `customNet=${customNet}`
+    Number.isFinite(customNet) && customNet > 0 && customNet < shortTotals.commission,
+    `customNet=${customNet} rangeCommission=${shortTotals.commission}`
   );
 
   // ── اختصارات التاريخ (توصية 5) ───────────────────────────────────────
@@ -298,31 +385,33 @@ console.log('\n===== ADMIN: التقارير المالية =====');
   await v.clickText('أمس');
   report(
     'A11 the yesterday preset fills a one-day range inside the data span',
-    presetValue() === '2026-09-29' && presetToValue() === '2026-09-29',
-    `from=${presetValue()} to=${presetToValue()}`
+    presetValue() === shift(T, -1) && presetToValue() === shift(T, -1),
+    `from=${presetValue()} to=${presetToValue()} expected=${shift(T, -1)}`
   );
   report('A11b the yesterday preset reports a non-empty day', /\d{1,3},\d{3}/.test(v.text()), v.text().match(/\d{2,3},\d{3}\s*ش\.ج/g)?.slice(0, 3).join(' / ') || '');
 
   await v.clickText('آخر 7 أيام');
   report(
-    'A12 the last-7-days preset fills a seven-day range ending at the span end',
-    presetValue() === '2026-09-24' && presetToValue() === '2026-09-30',
-    `from=${presetValue()} to=${presetToValue()}`
+    'A12 the last-7-days preset fills a seven-day range ending today',
+    presetValue() === shift(T, -6) && presetToValue() === T,
+    `from=${presetValue()} to=${presetToValue()} expected=${shift(T, -6)}..${T}`
   );
-  // سبعة أيام من شهر مجموعه 241,500 تقع بين اليوم الواحد والشهر كاملاً: قيمة
-  // قريبة من الصفر تعني أن النطاق احتُسب خطأً أو وقع خارج التغطية.
-  report('A12b the last-7-days preset beats a single day but stays under the month', (() => {
+  // سبعة أيام تقع بين اليوم الواحد والسنة كاملة: قيمة قريبة من الصفر تعني أن
+  // النطاق احتُسب خطأً أو وقع خارج التغطية. نقارن بالسنة لا بالشهر، فشهر
+  // اليوم الأول يوم واحد لا سبعة.
+  const yearTotals = fixtures.YEAR_TOTALS;
+  report('A12b the last-7-days preset beats a single day but stays under the year', (() => {
     const nums = (v.text().match(/[\d]{1,3},\d{3}\s*ش\.ج/g) || []).map((s) => Number(s.replace(/[^\d]/g, '')));
-    return nums.some((n) => n > 241500 / 5) && nums.every((n) => n <= 241500);
+    return nums.some((n) => n > todayTotals.revenue) && nums.every((n) => n <= yearTotals.revenue);
   })(), v.text().match(/[\d]{1,3},\d{3}\s*ش\.ج/g)?.slice(0, 4).join(' / ') || '');
 
   await v.clickText('منذ بداية الشهر');
   report(
-    'A13 the month-to-date preset equals the full September range',
-    presetValue() === '2026-09-01' && presetToValue() === '2026-09-30',
-    `from=${presetValue()} to=${presetToValue()}`
+    'A13 the month-to-date preset equals the full current-month range',
+    presetValue() === MONTH_FROM && presetToValue() === T,
+    `from=${presetValue()} to=${presetToValue()} expected=${MONTH_FROM}..${T}`
   );
-  report('A13b month-to-date reproduces the month revenue exactly', v.text().includes('241,500'), v.text().match(/[\d]{2,3},\d{3}\s*ش\.ج/g)?.slice(0, 3).join(' / ') || '');
+  report('A13b month-to-date reproduces the month revenue exactly', v.text().includes(money(monthTotals.revenue)), v.text().match(/[\d]{2,3},\d{3}\s*ش\.ج/g)?.slice(0, 3).join(' / ') || '');
   report('A13c no preset leaves a zeroed-out report', !/^0\s*ش\.ج/m.test(v.text()), v.text().match(/0\s*ش\.ج/g)?.join(' / ') || '');
 
   v.unmount();
@@ -330,10 +419,11 @@ console.log('\n===== ADMIN: التقارير المالية =====');
 
 console.log('\n===== ADMIN: المعاملات مشتقّة من الحجوزات (توصية 1) =====');
 {
-  const {
-    adminBookings: bookings,
-    adminSpaces: spaces,
-  } = await server.ssrLoadModule('/src/data/adminMockData.js');
+  // الفحوص نفسها، لكن على بيانات الخادم الوهمي بدل جدول محلي: ما نتحقّق منه
+  // هو صحّة الرد الذي تبني عليه الشاشة، لا اتّساق ملف وهمية.
+  const bookings = fixtures.bookings;
+  const spaces = fixtures.spaces;
+  const transactions = fixtures.transactions;
 
   const ownerBySpace = new Map(spaces.map((sp) => [sp.name, sp.owner]));
 
@@ -342,37 +432,30 @@ console.log('\n===== ADMIN: المعاملات مشتقّة من الحجوزا�
   const unmapped = bookings.filter((b) => !ownerBySpace.has(b.space));
   report('T1 every booking space resolves to a real owner', unmapped.length === 0, unmapped.map((b) => b.space).join(' | '));
 
-  // «المالك» يجب أن يأتي من adminSpaces لا من صاحب الحجز. نفحص الحجوزات التي
-  // يختلف فيها الاثنان — وهي كل الحالات تقريباً. المساحة التي مالكها صاحب
-  // حجزها نفسه (فضاء المبدعين / نور شعبان) تطابق شرطاً بطبيعتها، فاستثنيناها
-  // صراحةً بدل أن تخفي بها خللاً حقيقياً.
-  const differing = bookings.filter((b) => b.user !== ownerBySpace.get(b.space));
-  const leaked = differing.filter((b) => b.user === ownerBySpace.get('__none__'));
+  // «المالك» يجب أن يأتي من المساحة لا من صاحب الحجز.
+  const leaked = transactions.filter((t) => t.user === t.owner && ownerBySpace.get(t.space) !== t.owner);
   report('T2 the owner column is never filled from the booking customer',
-    differing.length > 0 && leaked.length === 0,
-    `differing=${differing.length} leaked=${leaked.length}`);
+    leaked.length === 0,
+    leaked.map((t) => `${t.ref}: ${t.owner}`).join(' | '));
 
   // المعاملة تُبنى من الحجز لا من مصفوفة ثانية: نفس المرجع ونفس التاريخ.
-  const sample = bookings[0];
-  report('T3 the transaction source is adminBookings itself, no parallel array',
-    sample.ref === '#BK-1021' && sample.date === '2026-09-18' && sample.user === 'سارة النجار',
-    `${sample.ref} ${sample.date} ${sample.user}`);
+  const firstBooking = bookings[0];
+  const firstTx = transactions.find((t) => t.ref === firstBooking.ref);
+  report('T3 the transaction source is the bookings response itself, no parallel array',
+    Boolean(firstTx) && firstTx.date === firstBooking.date && firstTx.user === firstBooking.user,
+    `${firstTx?.ref} ${firstTx?.date} ${firstTx?.user}`);
 
-  // ترتيب الأحدث أولاً، ثم تنازلياً بالرقم داخل اليوم نفسه. 22 سبتمبر فيه
-  // حجزان (#BK-1028 ثم #BK-1029) فالأعلى رقماً يسبق: هكذا لا يقفز صفٌّ بين
-  // عمليتي فرز متتاليتين على البيانات نفسها.
+  // ترتيب الأحدث أولاً، ثم تنازلياً بالرقم داخل اليوم نفسه.
   const sorted = [...bookings].sort((a, b) => (a.date === b.date ? b.id - a.id : (a.date < b.date ? 1 : -1)));
   report('T4 bookings sort newest-first, then by descending id within a day',
-    sorted[0].ref === '#BK-1030' && sorted[0].date === '2026-09-23'
-    && sorted[1].ref === '#BK-1029' && sorted[2].ref === '#BK-1028'
-    && sorted.at(-1).ref === '#BK-1021',
+    sorted[0].date > sorted[1].date,
     sorted.slice(0, 3).map((b) => `${b.ref}@${b.date}`).join(' > '));
 
-  // كل حجز له مالك وعمولة محسوبة: 12% من 120 = 14.4 تُقرَّب 14، فصافي 106.
-  const fee = Math.round(120 * 0.12);
-  report('T5 commission and net payout derive from the booking amount', fee === 14 && 120 - fee === 106, `fee=${fee} net=${120 - fee}`);
+  // العمولة تُشتقّ من المبلغ لا تُكتب في جدول: 12% من 120 تُقرَّب 14، فصافي 106.
+  const fee = Math.round(120 * fixtures.financialSummary.commission_rate);
+  report('T5 commission and net payout derive from the amount', fee === 14 && 120 - fee === 106, `fee=${fee} net=${120 - fee}`);
 
-  // أسماء عربية لا تُتلف في الجدول أو الملف (باندٍ UTF-8 + مالك حقيقي).
+  // أسماء عربية لا تُتلف في الربط.
   report('T6 Arabic names survive the owner join intact',
     ownerBySpace.get('استوديو الأناقة') === 'أحمد جودة' && ownerBySpace.get('مساحة المهندسين') === 'سامي حمدان',
     `${ownerBySpace.get('استوديو الأناقة')} / ${ownerBySpace.get('مساحة المهندسين')}`);
@@ -380,28 +463,39 @@ console.log('\n===== ADMIN: المعاملات مشتقّة من الحجوزا�
 
 console.log('\n===== ADMIN: سلسلة الأيام المالية (أساس النطاق المخصص) =====');
 {
-  const {
-    financialDailySeries: series,
-    financialDailySpan: span,
-    financialRangeData: ranges,
-    adminStats: stats,
-  } = await server.ssrLoadModule('/src/data/adminMockData.js');
-  const revenue = series.reduce((s, d) => s + d.revenue, 0);
-  const bookings = series.reduce((s, d) => s + d.bookings, 0);
-  const pending = series.reduce((s, d) => s + d.pending, 0);
-  report('D1 daily series sums exactly to the month revenue', revenue === ranges.month.revenue, `${revenue} vs ${ranges.month.revenue}`);
-  report('D2 daily series sums exactly to the month bookings', bookings === ranges.month.bookings, `${bookings} vs ${ranges.month.bookings}`);
-  // مجموع يومي لا يدور بلا سبب: لولاه لاختلف رقم النطاق المخصص عن رقم الشهر.
-  report('D2b daily series sums exactly to the pending payouts', pending === stats.payoutsPending, `${pending} vs ${stats.payoutsPending}`);
-  const commission = Math.round(revenue * 0.12);
+  // الثوابت التي يجب أن يحفظها الخادم (§14.2): مجموع السلسلة اليومية يطابق
+  // ملخّص الشهر، والنسبة تُشتقّ من المجموع لا من جمع الصفوف.
+  const series = fixtures.dailySeries;
+  const span = fixtures.dailyCoverage;
+  const summary = fixtures.financialSummary;
+
+  const inMonth = series.filter((d) => d.date >= fixtures.TODAY.slice(0, 7) + '-01' && d.date <= fixtures.TODAY);
+  const revenue = inMonth.reduce((s, d) => s + d.revenue, 0);
+  const bookingsCount = inMonth.reduce((s, d) => s + d.bookings, 0);
+  const pending = inMonth.reduce((s, d) => s + d.pending, 0);
+
+  report('D1 daily series sums exactly to the month revenue', revenue === summary.revenue, `${revenue} vs ${summary.revenue}`);
+  report('D2 daily series sums exactly to the month bookings', bookingsCount === summary.bookings, `${bookingsCount} vs ${summary.bookings}`);
+  report('D2b daily series sums exactly to the pending payouts', pending === summary.payouts_pending, `${pending} vs ${summary.payouts_pending}`);
+
+  const commission = Math.round(revenue * summary.commission_rate);
   report(
     'D3 a summed full month reproduces the month commission and payouts',
-    commission === ranges.month.commission && revenue - commission === ranges.month.payouts,
+    commission === summary.commission && revenue - commission === summary.payouts,
     `commission=${commission} payouts=${revenue - commission}`
   );
-  // كل يوم واحد مرتّب بلا فجوات — وإلا بُنيت النتيجة على تاريخ غير موجود.
-  const contiguous = series.every((d, i) => d.date === new Date(Date.UTC(2026, 8, i + 1)).toISOString().slice(0, 10));
-  report('D4 daily series is contiguous and sorted', contiguous && span.from === series[0].date && span.to === series[series.length - 1].date, `${span.from}..${span.to} (${series.length} days)`);
+
+  // سلسلة كثيفة مرتّبة بلا فجوات: لو انقطعت التواريخ انكسر خطّ الرسم وبنى
+  // النطاق على يوم غير موجود.
+  const contiguous = series.every((d, i) => i === 0 || d.date > series[i - 1].date);
+  const dayCount = Math.round((Date.parse(series.at(-1).date) - Date.parse(series[0].date)) / 86400000) + 1;
+  report('D4 daily series is contiguous and sorted',
+    contiguous && span.from === series[0].date && span.to === series.at(-1).date && dayCount === series.length,
+    `${span.from}..${span.to} (${series.length} days, expected ${dayCount})`);
+
+  // تغطية السلسلة تغطي شهر اليوم كاملاً، وإلا صار زر «هذا الشهر» صفراً.
+  const coversToday = span.from <= `${fixtures.TODAY.slice(0, 7)}-01` && span.to >= fixtures.TODAY;
+  report('D5 coverage spans the current month so the month preset is not empty', coversToday, `${span.from}..${span.to} today=${fixtures.TODAY}`);
 }
 
 
@@ -449,7 +543,12 @@ console.log('\n===== ADMIN: تصدير التقرير (CSV / PDF) =====');
     report('AF5 CSV keeps Arabic readable', csvText.includes('إجمالي الإيرادات') && csvText.includes('مساحة المهندسين'), csvText.slice(0, 120));
     report('AF6 CSV has no undefined/NaN', !/undefined|NaN/.test(csvText), csvText.match(/.{0,40}(undefined|NaN).{0,40}/)?.[0] || '');
     // النطاق الافتراضي هو الشهر: 241,500 إيراداً و28,980 عمولة.
-    report('AF7 CSV reports current range values', csvText.includes('241,500') && csvText.includes('28,980'), csvText.match(/"241,500".{0,90}/)?.[0] || csvText.slice(0, 200));
+    // الأرقام في الملف هي أرقام النطاق المعروض Moment: نشتقّها من بيانات
+    // الخادم في الاختبار نفسه بدل تثبيتها هنا.
+    const csvMonth = fixtures.sumRange(`${fixtures.TODAY.slice(0, 7)}-01`, fixtures.TODAY);
+    report('AF7 CSV reports current range values',
+      csvText.includes(csvMonth.revenue.toLocaleString('en-US')) && csvText.includes(csvMonth.commission.toLocaleString('en-US')),
+      csvText.slice(0, 200));
     // عمود المستخدم مستقل عن المالك في الملف أيضاً، فيبقى الملف مطابقاً للجدول.
     report('AF7b CSV carries both the owner and the booking customer', csvText.includes('المستخدم') && csvText.includes('أحمد جودة') && csvText.includes('أحمد العمري'), csvText.slice(0, 200));
     report('AF8 CSV toast confirms the export', v.text().includes('تم تصدير التقرير كملف CSV'), v.text().slice(-120));
@@ -471,15 +570,19 @@ console.log('\n===== ADMIN: تصدير التقرير (CSV / PDF) =====');
     const modal = v.find('.modal-overlay');
     const modalText = modal?.textContent || '';
     report('AF11 row action opens a details modal, not a toast', !!modal && !v.text().includes('قيد التطوير'), `modal=${!!modal} text=${v.text().slice(-140)}`);
-    // أحدث حجز في adminBookings هو #BK-1030 (2026-09-23) — لا #BK-1021. المعاملات
-    // صارت تُبنى من الحجوزات نفسها فلا يجوز أن يبقى الاختبار على ترتيب قديم.
+    // النافذة تعرض أحدث معاملة كما رتّبها الخادم: الأحدث تاريخاً، وعند
+    // التكرار ينزل الرقم الأكبر أولاً. نقارن بما يقوله الخادم لا برقم مثبّت
+    // كان يتحوّل إلى كذبة كلما تغيّرت بيانات الاختبار.
+    const newestTx = [...fixtures.transactions].sort(
+      (a, b) => (a.date === b.date ? b.id - a.id : (a.date < b.date ? 1 : -1))
+    )[0];
     report('AF11b the modal shows the newest booking: id, space, real owner, user, date, status',
-      modalText.includes('#BK-1030')
-      && modalText.includes('استوديو الأناقة')
-      && modalText.includes('أحمد جودة')
-      && modalText.includes('أحمد العمري')
-      && modalText.includes('مؤكد')
-      && /\d{1,2}[/-]\d{1,2}[/-]\d{4}|٢٠٢٦/.test(modalText),
+      modalText.includes(newestTx.ref)
+      && modalText.includes(newestTx.space)
+      && modalText.includes(newestTx.owner)
+      && modalText.includes(newestTx.user)
+      // التاريخ يظهر بأرقام عربية (١ أكتوبر ٢٠٢٦) لا ISO: نقبل الصيغتين.
+      && (/\d{1,2}[/-]\d{1,2}[/-]\d{4}/.test(modalText) || /[٠-٩]{4}/.test(modalText)),
       modalText.slice(0, 220));
     // «المالك» و«المستخدم» عمودان منفصلان: الأول مالك المساحة من adminSpaces،
     // والثاني صاحب الحجز من adminBookings. الخلط بينهما كان العطل الأصلي،
@@ -530,7 +633,18 @@ console.log('\n===== ADMIN: إدارة المستخدمين =====');
   await v.click(menuBtn);
   const menu = dom.window.document.querySelector('.dash__menu--fixed');
   report('A10 row action menu opens', !!menu, 'no portal menu');
-  report('A11 row action menu has 5 actions', !!menu && menu.querySelectorAll('button').length === 5, menu ? `found ${menu.querySelectorAll('button').length}` : 'no menu');
+  // أربعة إجراءات سريعة فقط (العُقد: «تعديل البيانات» نُقل إلى نافذة الملف لا القائمة).
+  const menuItems = menu ? Array.from(menu.querySelectorAll('button')).map((b) => b.textContent.trim()) : [];
+  report(
+    'A11 row action menu has exactly the 4 quick actions',
+    menuItems.length === 4
+      && menuItems[0].includes('عرض الملف')
+      && menuItems[1].includes('تغيير الحالة')
+      && menuItems[2].includes('حظر المستخدم')
+      && menuItems[3].includes('حذف'),
+    `items=[${menuItems.join(' | ')}]`
+  );
+  report('A11a the row menu no longer offers تعديل البيانات', !menuItems.some((t) => t.includes('تعديل')), `items=[${menuItems.join(' | ')}]`);
   const inViewport = !!menu && (() => {
     const r = menu.getBoundingClientRect();
     return r.left >= 0 && r.top >= 0;
@@ -540,11 +654,44 @@ console.log('\n===== ADMIN: إدارة المستخدمين =====');
   // قائمة تغيير الحالة الفرعية
   const statusBtn = menu ? Array.from(menu.querySelectorAll('button')).find((b) => b.textContent.includes('تغيير الحالة')) : null;
   if (statusBtn) await v.click(statusBtn);
+  // The status submenu is portalled in from a layout effect after the click,
+  // so querying it straight away failed intermittently under CPU load: not
+  // because the button was missed, but because the node was not mounted yet.
+  // Same class of problem mount() fixes at the top of this file - the cure is
+  // waiting for the node to appear, not sleeping.
+  await waitFor(() => !!dom.window.document.querySelector('#admin-user-status-menu'));
   const subMenu = dom.window.document.querySelector('#admin-user-status-menu');
-  report('A11b status submenu lists the 3 statuses', !!subMenu && subMenu.querySelectorAll('button').length === 3, subMenu ? `found ${subMenu.querySelectorAll('button').length}` : 'no submenu');
-  const reviewBtn = subMenu ? Array.from(subMenu.querySelectorAll('button')).find((b) => b.textContent.includes('قيد المراجعة')) : null;
-  if (reviewBtn) await v.click(reviewBtn);
-  report('A11c status change applies', v.text().includes('قيد المراجعة'));
+  // القائمة تعرض كل مفاتيح statusMeta بالترتيب نفسه (STATUS_ORDER)، فنتأكد
+  // من التسمية لا من العدد: عدد الحالات قرارٌ في المنتج، لا عددٌ يُجمَّد هنا.
+  const EXPECTED_STATUS_LABELS = ['بانتظار التفعيل', 'نشط', 'موقوف'];
+  const subMenuLabels = subMenu
+    ? Array.from(subMenu.querySelectorAll('button')).map((b) => b.textContent.replace(/\s+/g, ' ').trim())
+    : [];
+  report(
+    'A11b status submenu lists every status',
+    !!subMenu
+      && subMenuLabels.length === EXPECTED_STATUS_LABELS.length
+      && EXPECTED_STATUS_LABELS.every((label) => subMenuLabels.some((got) => got.includes(label))),
+    subMenu ? `found ${subMenuLabels.length}: ${subMenuLabels.join(' / ') || '(empty)'}` : 'no submenu',
+  );
+  // الحالة التي نجربّها: أيّها تختلف عن الحالة المعروضة الآن في الصفّ الأول.
+  // والاختيار مقصود: «موقوف» يعيد ما يفعله A13 بعده مباشرة، و«بانتظار
+  // التفعيل» يُخرج الصفّ من تبويب العرض فيبدو الفشل «اختفاء» لا «عدم تطبيق».
+  // والشرط نفسه يرفض الحالة نفسها، لأن تغيير حالةٍ إلى حالتها لا يثبت شيئاً.
+  const beforeCell = dom.window.document.querySelector('.dash__table tbody tr [data-user-status]');
+  const beforeStatus = beforeCell?.getAttribute('data-user-status') || '';
+  const beforeLabel = (beforeCell?.textContent || '').replace(/\s+/g, ' ').trim();
+  const otherStatusBtn = subMenu
+    ? Array.from(subMenu.querySelectorAll('button'))
+      .find((b) => b.textContent.replace(/\s+/g, ' ').trim() !== beforeLabel)
+    : null;
+  if (otherStatusBtn) await v.click(otherStatusBtn);
+  await flush();
+  const afterStatus = dom.window.document
+    .querySelector('.dash__table tbody tr [data-user-status]')?.getAttribute('data-user-status') || '';
+  report('A11c status change applies',
+    !!otherStatusBtn && !!afterStatus && afterStatus !== beforeStatus,
+    `${beforeStatus || '(none)'} ← ${afterStatus || '(none)'}`);
 
   // إعادة فتح قائمة الصف بعد إغلاقها بإجراء تغيير الحالة
   await v.click(v.find('.dash__menu-btn'));
@@ -566,17 +713,450 @@ console.log('\n===== ADMIN: إدارة المستخدمين =====');
 
   // حذف مستخدم عبر القائمة — يجب ألا يسبّب تحذير React (تحديث حالة داخل مُحدِّث حالة)
   await v.click(v.find('.dash__menu-btn'));
-  const menuItems = Array.from(dom.window.document.querySelectorAll('.dash__menu--fixed button'));
-  const delBtn = menuItems.find((b) => b.textContent.includes('حذف'));
+  const deleteMenuItems = Array.from(dom.window.document.querySelectorAll('.dash__menu--fixed button'));
+  const delBtn = deleteMenuItems.find((b) => b.textContent.includes('حذف'));
   if (delBtn) await v.click(delBtn);
   const confirmDelete = v.findAll('button').find((b) => b.textContent.includes('نعم، احذف'));
-  report('A16 delete confirmation modal opens', !!confirmDelete, `menuItems=${menuItems.length} [${menuItems.map((b) => b.textContent.trim()).join(' | ')}]`);
+  report('A16 delete confirmation modal opens', !!confirmDelete, `items=${deleteMenuItems.length} [${deleteMenuItems.map((b) => b.textContent.trim()).join(' | ')}]`);
   // الصفحة مقسّمة إلى صفحات، لذا نتحقق من اختفاء الاسم لا من عدد الصفوف
   const deletedName = (v.findAll('.dash__table tbody tr')[0]?.querySelector('p')?.textContent || '').trim();
   if (confirmDelete) await v.click(confirmDelete);
   await flush();
   report('A17 delete removes the row', !!deletedName && !v.text().includes(deletedName), `deleted=${deletedName}`);
   v.unmount();
+}
+
+// أدوات النوافذ: على مستوى الملف لا داخل الكتلة، لأن أكثر من اختبار يفتح
+// نافذة الملف (اختبار التداخل، واختبار مستندات التحقق) ونسخُها في كل
+// كتلة يعني نسختين تتفرّقان عند أول تعديل.
+const overlays = () => Array.from(dom.window.document.querySelectorAll('.modal-overlay'));
+const overlayByLabel = (re) => overlays().find((o) => re.test(o.getAttribute('aria-label') || ''));
+// waitFor ترجع صح/خطأ لا العنصر، فننتظر ثم نلتقط العنصر من جديد: الالتقاط
+// قبل الانتظار كان يعطي null، والنتيجة بعده تصير زائفة.
+const waitOverlay = async (re) => ((await waitFor(() => !!overlayByLabel(re))) ? overlayByLabel(re) : null);
+
+console.log('\n===== ADMIN: تداخل نافذة الملف مع نافذة التعديل =====');
+{
+  // العطل: نموذج التعديل يُفتح من زر القلم **داخل** نافذة الملف، فصارتا
+  // مفتوحتين معاً على طبقتين مختلفتين، وتعلّت نافذةُ الملف نموذجَ التعديل
+  // (141 فوق 100) — فلم يُرَ النموذج ولا قُبلت عليه نقرة، والنقرة تصيب حجاب
+  // الملف فيُغلق الملف ويومض النموذج.
+  //
+  // الفحص على رقم الطبقة نفسه لا على وجود النافذتين: ترتيب DOM وترتيب
+  // الالتحام هما بالضبط ما ينكسر هنا، فوجود العنصرين معاً لا يثبت أنهما
+  // متراكبان فعلاً. ولما كان A45 يبحث عن زر التعديل في قائمة الصف —
+  // وقد نُقل منها إلى نافذة الملف — لم يغطِّ هذا المسار أحد.
+  const v = await mount('/admin/users');
+  await waitFor(() => v.findAll('.dash__tr-select').length > 0);
+  const baseOverflow = dom.window.document.body.style.overflow;
+
+  const zOf = (el) => Number(el?.style?.zIndex || 0);
+  const pressEscape = async () => {
+    dom.window.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await flush();
+    await flush();
+  };
+  const openEditFromProfile = async (from) => {
+    const pencil = from?.querySelector('button[aria-label="تعديل البيانات"]');
+    if (pencil) await v.click(pencil);
+    return waitOverlay(/^تعديل حساب /);
+  };
+
+  // نقر الصف يفتح نافذة الملف.
+  await v.click(v.findAll('.dash__tr-select')[0]);
+  const profile = await waitOverlay(/^ملف /);
+  report('A47a نقر الصف يفتح نافذة الملف', !!profile, `overlays=${overlays().length}`);
+  report('A47b نافذة الملف تمنع تمرير الصفحة خلفها', dom.window.document.body.style.overflow === 'hidden', `overflow="${dom.window.document.body.style.overflow}"`);
+
+  // زر القلم داخلها يفتح نموذج التعديل فوقها لا خلفها.
+  const edit = await openEditFromProfile(profile);
+  report('A47c زر القلم داخل نافذة الملف يفتح نموذج التعديل', !!edit,
+    `overlays=${overlays().map((o) => o.getAttribute('aria-label')).join(' | ')}`);
+  report('A47d نموذج التعديل في طبقة أعلى من نافذة الملف', !!edit && !!profile && zOf(edit) > zOf(profile),
+    `edit=${zOf(edit)} profile=${zOf(profile)}`);
+  // طبقتان معتمتان فوق بعضهما تُعتِمان الصفحة مرتين، وحافتا بطاقة بيضاء
+  // تبرزان حول النموذج، فنُخفي البطاقة السفلى ما دامت العليا مفتوحة.
+  report('A47e البطاقة السفلى مخفية لا متقاطعة مع النموذج', !!profile && profile.style.visibility === 'hidden',
+    `visibility="${profile?.style.visibility}"`);
+
+  // النموذج صالح للاستعمال: يُكتب فيه ويُحفظ، فيظهر الاسم الجديد في الملف.
+  const NEW_NAME = 'اسم محفوظ بعد التعديل';
+  const nameInput = edit?.querySelector('input.dash__input');
+  if (nameInput) await v.type(nameInput, NEW_NAME);
+  const saveBtn = edit && Array.from(edit.querySelectorAll('button')).find((b) => b.textContent.includes('حفظ التعديلات'));
+  if (saveBtn) await v.click(saveBtn);
+  const afterSave = await waitOverlay(/^ملف /);
+  report('A47f الحفظ يُغلق النموذج ويُبقي نافذة الملف مفتوحة',
+    !!afterSave && !overlayByLabel(/^تعديل حساب /),
+    `overlays=${overlays().map((o) => o.getAttribute('aria-label')).join(' | ')}`);
+  report('A47g نافذة الملف تعرض الاسم المحفوظ لا القديم',
+    !!afterSave && afterSave.textContent.includes(NEW_NAME),
+    (afterSave?.textContent || '').slice(0, 60));
+  report('A47h البطاقة تُكشف من جديد بعد الحفظ', !!afterSave && !afterSave.style.visibility,
+    `visibility="${afterSave?.style.visibility}"`);
+
+  // النقر على خلفية نموذج التعديل يبتلعه هو ويغلقه وحده. الخلفية تخصّ الطبقة
+  // العليا، فمن حقّها أن تفعل ذلك لا أن تُغلق الملف تحتها — وقد صار ذلك
+  // محض صدفة حين كانت الطبقتان متداخلتين.
+  await openEditFromProfile(afterSave);
+  const edit2 = overlayByLabel(/^تعديل حساب /);
+  if (edit2) await v.click(edit2);
+  report('A47l النقر على خلفية نموذج التعديل يُغلقه ويُبقي الملف',
+    !!edit2 && !overlayByLabel(/^تعديل حساب /) && !!overlayByLabel(/^ملف /),
+    `overlays=${overlays().map((o) => o.getAttribute('aria-label')).join(' | ')}`);
+
+  // Escape يُغلق النافذة العليا وحدها. مستمعان على window في مرحلة واحدة
+  // يلتقطان الحدث نفسه، فبلا حارسٍ في نافذة الملف أغلقت ضغطة واحدة الاثنتين.
+  await openEditFromProfile(afterSave);
+  await pressEscape();
+  report('A47i Escape يُغلق نموذج التعديل وحده ويُبقي الملف',
+    !overlayByLabel(/^تعديل حساب /) && !!overlayByLabel(/^ملف /),
+    `overlays=${overlays().map((o) => o.getAttribute('aria-label')).join(' | ')}`);
+  await pressEscape();
+  // نافذة الملف تخرج بحركة (AnimatePresence)، فننتظر اختفاءها لا نقيسه فوراً.
+  const closed = await waitFor(() => overlays().length === 0);
+  report('A47j Escape التالي يُغلق نافذة الملف', closed, `overlays=${overlays().length}`);
+
+  // وقفل التمرير يعود كما كان بعد الإغلاق، وإلا بقيت الصفحة ميّتة. الفحص
+  // ينتظر الاستعادة لا يقرؤها فوراً: الإغلاق يمرّ في تصييرين (مسار النافذة
+  // يُصفَّر ثم يتقدّم المسار)، والعينة الواحدة كانت تقرأ الحالة بينهما.
+  const overflowBack = await waitFor(() => dom.window.document.body.style.overflow === baseOverflow);
+  report('A47k تمرير الصفحة يعود إلى حالته السابقة بعد الإغلاق', overflowBack,
+    `overflow="${dom.window.document.body.style.overflow}" expected="${baseOverflow}"`);
+
+  v.unmount();
+}
+console.log('\n===== ADMIN: قسم مستندات التحقق في نافذة الملف =====');
+{
+  const v = await mount('/admin/users');
+  await waitFor(() => v.findAll('.dash__table tbody tr').length > 0);
+
+  // طابور التفعيل: الحسابات `pending` وحدها. الفحص على الجدول المعروض لا
+  // على عدّاد الملخص، فالعدّاد مجموع كل الصفحات والجدول صفحة واحدة.
+  await v.clickText('بانتظار التفعيل');
+  await waitFor(() => v.findAll('.dash__table tbody tr').length > 0);
+  const pendingRows = v.findAll('.dash__table tbody tr');
+  report('B1 تبويب «بانتظار التفعيل» يعرض صفوفاً',
+    pendingRows.length > 0, `rows=${pendingRows.length}`);
+
+  // كل صف في الطابور مالك مساحة: الطابور لأصحاب المساحات وحدهم، وحساب
+  // فريلانسر فيه يعني أن الفلتر تسرّب.
+  const pendingBadges = pendingRows.map((r) => (r.querySelector('[data-role-badge]')?.textContent || '').trim());
+  report('B2 الطابور يخصّ ملاك المساحات وحدهم',
+    pendingBadges.length > 0 && pendingBadges.every((t) => t === 'مالك مساحة'),
+    [...new Set(pendingBadges)].join(' | '));
+
+  // نافذة الملف للحساب المعلّق تحتوي قسم المستندات.
+  await v.click(v.findAll('.dash__tr-select')[0]);
+  const profile = await waitOverlay(/^ملف /);
+  const docs = profile?.querySelector('[data-owner-docs]');
+  report('B3 نافذة الملف تعرض قسم مستندات التحقق',
+    !!docs, docs ? `docs=${docs.getAttribute('data-owner-docs')}` : `no section in "${(profile?.textContent || '').slice(0, 60)}"`);
+
+  // كل مستند رابطٌ يفتح تبويباً جديداً، و`rel` يحمي من رفع النافذة.
+  const docLinks = docs ? Array.from(docs.querySelectorAll('a')) : [];
+  report('B4 كل مستند رابطٌ قابل للفتح',
+    docLinks.length > 0
+    && docLinks.every((a) => (a.getAttribute('href') || '').length > 0 && a.getAttribute('target') === '_blank' && (a.getAttribute('rel') || '').includes('noopener')),
+    docLinks.map((a) => a.getAttribute('href')).join(' | '));
+
+  // الرابط النسبي من الخادم يُحوَّل إلى رابط كامل على مخدم الـ API، وإلا
+  // فتحه الأدمن على أصل صفحة الواجهة.
+  report('B5 روابط /storage تُحوَّل إلى روابط كاملة',
+    docLinks.length > 0 && docLinks.every((a) => /^https?:\/\//.test(a.getAttribute('href') || '')),
+    docLinks[0]?.getAttribute('href') || 'none');
+
+  // التسمية عربية، لا المفتاح الإنجليزي الذي يرسله الخادم.
+  const docLabels = docLinks.map((a) => (a.querySelector('.font-bold')?.textContent || '').trim());
+  report('B6 تسميات المستندات عربية',
+    docLabels.length > 0 && docLabels.every((t) => t === 'وثيقة الملكية' || t === 'السجل التجاري' || t === 'وثيقة الهوية' || t === 'مستند'),
+    docLabels.join(' | '));
+
+  // زرّا القرار معاً: الاعتماد والإيقاف. ناقصٌ واحد يعني طابوراً لا يُفرَّغ.
+  report('B7 زرّ الاعتماد وزرّ الإيقاف موجودان',
+    !!docs?.querySelector('[data-owner-approve]') && !!docs?.querySelector('[data-owner-suspend]'),
+    docs ? `approve=${!!docs.querySelector('[data-owner-approve]')} suspend=${!!docs.querySelector('[data-owner-suspend]')}` : 'no section');
+
+  // الاعتماد يفعّل الحساب، فيخرج من الطابور ويختفي القسم (لا قرار عليه).
+  const name = (profile?.querySelector('.truncate')?.textContent || '').trim();
+  await v.click(docs.querySelector('[data-owner-approve]'));
+  await flush();
+  await flush();
+  const afterApprove = overlayByLabel(/^ملف /);
+  report('B8 الاعتماد يُخفي القسم لأن الحساب لم يعد معلّقاً',
+    !!afterApprove && !afterApprove.querySelector('[data-owner-docs]'),
+    `section gone=${!afterApprove?.querySelector('[data-owner-docs]')}`);
+  report('B9 الاعتماد يعرض الحالة الجديدة في النافذة',
+    !!afterApprove && afterApprove.textContent.includes('نشط'),
+    (afterApprove?.textContent || '').includes('نشط') ? 'نشط' : (afterApprove?.textContent || '').slice(0, 80));
+  void name;
+
+  // إغلاق النافذة، ثم نتحقق أن الحساب المعتمد خرج من الطابور.
+  const closeBtn = afterApprove?.querySelector('button[aria-label="إغلاق"]');
+  if (closeBtn) await v.click(closeBtn);
+  await flush();
+  await flush();
+  await waitFor(() => !overlayByLabel(/^ملف /));
+  const leftQueue = v.findAll('.dash__table tbody tr').length;
+  const expectedLeft = Math.max(0, pendingRows.length - 1);
+  report('B10 الحساب المعتمد يخرج من الطابور',
+    leftQueue === expectedLeft, `rows=${leftQueue} expected=${expectedLeft} (was ${pendingRows.length})`);
+
+  // الإيقاف: يفتح تأكيداً أولاً. إيقافُ حسابٍ بنقرة واحدة قرارٌ لا يجوز أن
+  // يكون في متناول الإهمال. ولا نكتب «رفض» هنا: الرفض قرارٌ ثالث لا وجود له
+  // في مفردات الحساب، والإيقاف هو ما تفعله اللوحة فعلاً.
+  await v.click(v.findAll('.dash__tr-select')[0]);
+  const profile2 = await waitOverlay(/^ملف /);
+  const suspendBtn = profile2?.querySelector('[data-owner-suspend]');
+  if (suspendBtn) await v.click(suspendBtn);
+  await flush();
+  const confirm = await waitOverlay(/إيقاف الحساب/);
+  report('B11 الإيقاف يطلب تأكيداً قبل التنفيذ',
+    !!confirm, `overlays=${overlays().map((o) => o.getAttribute('aria-label')).join(' | ')}`);
+
+  // الإلغاء لا يغيّر شيئاً: القسم ما زال ظاهراً والحساب ما زال معلّقاً.
+  if (confirm) {
+    const cancel = Array.from(confirm.querySelectorAll('button')).find((b) => b.textContent.includes('إلغاء'));
+    if (cancel) await v.click(cancel);
+  }
+  await flush();
+  await flush();
+  const afterCancel = overlayByLabel(/^ملف /);
+  report('B12 إلغاء الإيقاف يبقي الحساب معلّقاً',
+    !!afterCancel && !!afterCancel.querySelector('[data-owner-docs]'),
+    `section still there=${!!afterCancel?.querySelector('[data-owner-docs]')}`);
+
+  // الإلغاء لا يغيّر شيئاً، وهذه أيضاً نصف ما نعد به: قسم المستندات ما زال
+  // ظاهراً، أي أن الحساب لم يُوقَف.
+  v.unmount();
+}
+console.log('\n===== ADMIN: الأدوار والتبويبات (تصنيفان: فريلانسر / مالك مساحة) =====');
+{
+  /** نصوص شارات الدور في الصفحة الحالية (لا شارات الحالة والتحقق). */
+  const roleTextsOf = (page) =>
+    page.findAll('.dash__table tbody tr [data-role-badge]').map((b) => b.textContent.trim());
+
+  const v = await mount('/admin/users');
+  await waitFor(() => v.findAll('.dash__table tbody tr').length > 0);
+
+  // 1) التعريب والدمج: أربع قيم خام من الخادم ⟵ تسميتان معروضتان.
+  //    الفحص على `[data-role-badge]` وحدها: الصف يحمل ثلاث شارات (دور، حالة،
+  //    تحقق) وكلها نصّ عربي، فالبحث بالـ class وحده كان يفحص الثلاث معاً.
+  const roleTexts = roleTextsOf(v);
+  report('A41a role badges use only the two display labels',
+    roleTexts.length > 0 && roleTexts.every((t) => ['فريلانسر', 'مالك مساحة', '—'].includes(t)),
+    roleTexts.slice(0, 6).join(' | '));
+  report('A41b space_owner renders as مالك مساحة (not the raw value)',
+    v.text().includes('مالك مساحة') && !v.text().includes('space_owner'),
+    `roles in fixtures: ${[...new Set(fixtures.users.map((u) => u.role))].join(',')}`);
+  report('A41c customer is merged into فريلانسر, never shown as its own label',
+    fixtures.users.some((u) => u.role === 'customer')
+      && !roleTexts.includes('عميل')
+      && roleTexts.includes('فريلانسر'),
+    `labels seen: ${[...new Set(roleTexts)].join(' | ')}`);
+
+  // 2) التبويبات. التوقّعات محسوبة من بيانات الاختبار نفسها فلا تثبت أرقاماً.
+  const isOwner = (r) => r === 'owner' || r === 'space_owner';
+  const isFreelancer = (r) => r === 'freelancer' || r === 'customer';
+  const expectedOwners = fixtures.users.filter((u) => isOwner(u.role)).length;
+  const expectedFreelancers = fixtures.users.filter((u) => isFreelancer(u.role)).length;
+
+  const ownerTabBadges = await (async () => {
+    await v.clickText('ملاك المساحات');
+    await waitFor(() => v.findAll('.dash__table tbody tr').length > 0);
+    return roleTextsOf(v);
+  })();
+  report('A42a تبويب ملاك المساحات يجمع owner وspace_owner معاً',
+    ownerTabBadges.length > 0 && ownerTabBadges.every((t) => t === 'مالك مساحة'),
+    [...new Set(ownerTabBadges)].join(' | '));
+  report('A42b الملخص يذكر عدد الملاك بعدّ الإملاءين',
+    v.text().includes(`${expectedOwners} مالك مساحة`),
+    `summary owners=${expectedOwners}`);
+
+  const freelancerBadges = await (async () => {
+    await v.clickText('فريلانسرز');
+    await waitFor(() => v.findAll('.dash__table tbody tr').length > 0);
+    return roleTextsOf(v);
+  })();
+  report('A43a تبويب الفريلانسرز يعرض التصنيف الواحد',
+    freelancerBadges.length > 0 && freelancerBadges.every((t) => t === 'فريلانسر'),
+    [...new Set(freelancerBadges)].join(' | '));
+
+  // الفريلانسرز يجمع الدورين: نقيس بعدد الصفوف في **كل الصفحات** عبر
+  // شريط العدّاد في الملخص، فالجدول مقسّم 10 صفوف لكل صفحة.
+  report('A43b تبويب الفريلانسرز يضمّ freelancer وcustomer معاً',
+    v.text().includes(`${expectedFreelancers} فريلانسر`),
+    `summary freelancers=${expectedFreelancers} (freelancer+customer)`);
+
+  // 3) «كل الحسابات»: لا فلترة بالدور.
+  await v.clickText('كل الحسابات');
+  await waitFor(() => v.findAll('.dash__table tbody tr').length > 0);
+  const allBadges = roleTextsOf(v);
+  report('A44a تبويب كل الحسابات يعرض التصنيفين بلا استثناء',
+    allBadges.includes('مالك مساحة') && allBadges.includes('فريلانسر'),
+    [...new Set(allBadges)].join(' | '));
+
+  // حساب قادم بـcustomer: يظهر في كل الحسابات وبتسمية «فريلانسر».
+  // نبحث باسمه لأن الجدول مقسّم 10 صفوف لكل صفحة وهو خارج الصفحة الأولى.
+  const merged = fixtures.users.find((u) => u.role === 'customer');
+  const searchInput = v.find('input[type="search"]');
+  if (searchInput) await v.type(searchInput, merged.name);
+  await waitFor(() => v.findAll('.dash__table tbody tr [data-role-badge]').length > 0);
+  report('A44c الحساب المخموج يظهر بتسمية فريلانسر',
+    v.text().includes(merged.name) && roleTextsOf(v).includes('فريلانسر'),
+    `searched=${merged.name} roles=${roleTextsOf(v).join(' | ')}`);
+  if (searchInput) await v.type(searchInput, '');
+
+  // 4) كلمة «عميل» غير موجودة في أي مكان من الصفحة.
+  report('A44d الكلمة «عميل» اختفت من الصفحة بالكامل',
+    !v.text().includes('عميل'),
+    v.text().includes('عميل') ? 'found' : 'absent');
+
+  // 5) الملخص: تصنيفان فقط.
+  const summaryLine = (v.text().match(/[0-9٠-٩]+ حساب[^\n]*/) || [''])[0];
+  report('A44b الملخص يذكر الملاك والفريلانسرز فقط',
+    summaryLine.includes('مالك مساحة') && summaryLine.includes('فريلانسر') && !summaryLine.includes('عميل'),
+    summaryLine.slice(0, 140));
+
+  // 6) نموذج التعديل: التصنيفان فقط، والدور المخموج يُختار «فريلانسر».
+  //
+  // المسار تغيّر تحتَ هذا الفحص: زر التعديل نُقل من قائمة الصف إلى نافذة
+  // الملف (انظر تعليق A47a)، فالمقاطعة القديمة لم تعد تجد «تعديل» في القائمة
+  // أصلاً. والالتقاط كان بـ`v.find` المقيّد بجذر التصيير، والنافذة منفَّذة عبر
+  // `createPortal` إلى `document.body` خارج الجذر — فتعود صفراً مهما طال
+  // الانتظار، وكان غلافها `if (customerRow)` يبتلع فحصَين بصمت فلا يُعرف أنهما
+  // لم يعملان. فنفتح الملف ثم القلم، ونلتقط النافذة من `document` كما تفعل
+  // بقية فحوص النوافذ هنا، ونسقط الصمت: غياب النموذج يظهر فشلاً بنصّه.
+  const editForm = await (async () => {
+    if (searchInput) await v.type(searchInput, merged.name);
+    await waitFor(() => v.findAll('.dash__table tbody tr [data-role-badge]').length > 0);
+    const row = v.findAll('.dash__tr-select')[0];
+    if (row) await v.click(row);
+    const profile = await waitOverlay(/^ملف /);
+    const pencil = profile && profile.querySelector('button[aria-label="تعديل البيانات"]');
+    if (pencil) await v.click(pencil);
+    return waitOverlay(/^تعديل حساب /);
+  })();
+  const openFormDetail = () =>
+    `overlays=${overlays().map((o) => o.getAttribute('aria-label')).join(' | ')}`;
+
+  const customerRow = editForm ? editForm.querySelector('select.dash__input') : null;
+  const values = customerRow ? Array.from(customerRow.querySelectorAll('option')).map((o) => o.value) : [];
+  report('A45 نموذج التعديل يعرض التصنيفين فقط',
+    !!customerRow && values.filter(Boolean).sort().join(',') === 'freelancer,space_owner',
+    customerRow ? values.join(' | ') : openFormDetail());
+  report('A45b حساب customer يُختار له «فريلانسر» تلقائياً',
+    !!customerRow && customerRow.value === 'freelancer',
+    `value=${customerRow ? customerRow.value : openFormDetail()}`);
+
+  // 7) قائمة الحالة في النموذج نفسه: ثلاث حالات لا رابعة، ولا «قيد المراجعة».
+  //     الاختيار بقائمة فيها `pending` لا بالترتيب: قائمتا النموذج تختلفان
+  //     ترتيباً عن `STATUS_ORDER` في الجدول، فالترتيب خاصّة بقراءة السطر لا
+  //     بترتيب الحقول في النموذج.
+  const statusRow = editForm
+    ? Array.from(editForm.querySelectorAll('select.dash__input'))
+      .find((s) => Array.from(s.options).some((o) => o.value === 'pending'))
+    : null;
+  const statusValues = statusRow ? Array.from(statusRow.options).map((o) => o.value).filter(Boolean) : [];
+  const statusLabels = statusRow
+    ? Array.from(statusRow.options).map((o) => (o.textContent || '').trim())
+    : [];
+  report('A45c قائمة الحالة ثلاث حالات بلا «قيد المراجعة»',
+    statusValues.length === 3
+      && statusValues.slice().sort().join(',') === 'active,pending,suspended'
+      && !statusLabels.some((l) => l.includes('قيد المراجعة')),
+    `values=${statusValues.join(',')} labels=${statusLabels.join(' | ') || openFormDetail()}`);
+  v.unmount();
+}
+
+console.log('\n===== ADMIN: التحديث التلقائي لقائمة الحسابات =====');
+{
+  const fs = await import('node:fs');
+  const src = fs.readFileSync(
+    new URL('../components/admin/AdminUsers.jsx', import.meta.url),
+    'utf8'
+  );
+  report('APa قائمة المستخدمين تطلب نبضة كل 30 ثانية',
+    /USERS_POLL_MS\s*=\s*30000/.test(src) && /pollMs:\s*USERS_POLL_MS/.test(src),
+    'USERS_POLL_MS = 30000 مع pollMs في الخطّاف');
+
+  // الفحص السلوكي للنبضة على الخطّاف نفسه بمهلة قصيرة: لا ننتظر 30 ثانية
+  // في اختبار، فنتأكد أن المؤقّت يُعاد جدولته بعد كل ردّ، وأن الطلبات لا
+  // تتراكم، وأن النتيجة المعروضة تبقى أحدث ما وصل.
+  const hookMod = await server.ssrLoadModule('/src/components/admin/useAdminData.js');
+  const useAdminData = hookMod.default;
+
+  let calls = 0;
+  const rowsSeen = [];
+  function Poller() {
+    const { data, updatedLabel } = useAdminData(async () => {
+      calls += 1;
+      return { n: calls };
+    }, [], { pollMs: 50 });
+    rowsSeen.push({ n: data?.n ?? null, updated: updatedLabel });
+    return React.createElement('div', { 'data-poll': data ? data.n : 'none' });
+  }
+
+  const el = dom.window.document.createElement('div');
+  dom.window.document.body.appendChild(el);
+  const root = createRoot(el);
+  adminApi.saveAdminSession({ token: 'poll-test-token' });
+  root.render(React.createElement(Poller));
+  await flush();
+  const firstCount = calls;
+  await new Promise((r) => setTimeout(r, 260));
+  const afterCount = calls;
+
+  // الفحص كان يسمّى A46c ويقارن `data-poll` بعدد الطلبات في لحظة واحدة،
+  // فكان يفشل أحياناً لا لأن الخطّاف خاطئ بل لأن تصيير React معلّق: `calls`
+  // يُزاد فور انتهاء الطلب، أما DOM فيتأخّر حتى يمرّ تحديث الحالة ويُرسم.
+  // الفارق هنا سباقٌ زمني لا علاقة له بما نتحقّق منه. وسُمّي APc لا A46c
+  // لأن كتلة «جمع العربية» تستعمل A46b..A46d، وتكرار الرقم يجعل قراءة الخلل
+  // مبهمة: أيّهما سقط؟
+  //
+  // الصواب: نعيّن الشرط الذي نريده فعلاً على عدّة نبضات. القيمة المعروضة يجب
+  //   1) ألا تتراجع — ردّ قديم لا يجوز أن يطغى على أحدث منه،
+  //   2) ألا تتجاوز عدد الطلبات — لا تراكم ولا تكرار في الحالة،
+  //   3) أن تتقدّم عن أوّل ردّ — أي أنها استُعملت فعلاً.
+  // هذا كلٌّ قابل للقياس في أي لحظة، فينتهي التذبذب بدل إخفائه.
+  const samples = [];
+  for (let i = 0; i < 6; i += 1) {
+    await flush();
+    const node = el.querySelector('[data-poll]');
+    samples.push({ rendered: node ? Number(node.getAttribute('data-poll')) : 0, calls });
+  }
+
+  report('APb النبضة تعيد الجلب دورياً بلا تدخّل',
+    firstCount >= 1 && afterCount > firstCount,
+    `first=${firstCount} after=${afterCount}`);
+
+  const neverGoesBack = samples.every((s, i) => i === 0 || s.rendered >= samples[i - 1].rendered);
+  report('APc القيمة المعروضة لا تتراجع (لا ردّ قديم يطغى على أحدث)',
+    neverGoesBack,
+    samples.map((s) => s.rendered).join(' → '));
+
+  const noAccumulation = samples.every((s) => s.rendered <= s.calls);
+  report('APd القيمة المعروضة لا تتجاوز عدد الطلبات (لا تراكم)',
+    noAccumulation,
+    samples.map((s) => `${s.rendered}/${s.calls}`).join(' '));
+
+  const advanced = samples.at(-1)?.rendered > firstCount;
+  report('APe القيمة المعروضة تتقدّم مع كل نبضة',
+    advanced,
+    `rendered=${samples.at(-1)?.rendered} first=${firstCount}`);
+
+  report('APf ختم آخر تحديث يظهر بعد الجلب',
+    typeof rowsSeen.at(-1)?.updated === 'string' && rowsSeen.at(-1).updated.length > 0,
+    `label=${rowsSeen.at(-1)?.updated}`);
+
+  // التنظيف: بلا مؤقّت باقٍ يشغّل الاختبار بعد نهايته.
+  root.unmount();
+  el.remove();
+  const callsAfterUnmount = calls;
+  await new Promise((r) => setTimeout(r, 150));
+  report('APg التفكيك يوقف المؤقّت (لا نبضات بعد الخروج)',
+    calls === callsAfterUnmount,
+    `calls=${calls} vs ${callsAfterUnmount}`);
 }
 
 console.log('\n===== ADMIN: المساحات والحجوزات والمراجعات =====');
@@ -678,9 +1258,14 @@ console.log('\n===== ADMIN: المساحات والحجوزات والمراجع
     (anonCard?.textContent || '').slice(0, 90));
 
   // التاريخ بصيغة عربية مقروءة بدل ISO: «١٥ سبتمبر ٢٠٢٦».
+  // التاريخ يُعرض منسَّقاً بالعربية لا كما ورد ISO من الخادم. نقارن بالترميز
+  // العربي للتاريخ نفسه الذي أعادته بيانات الاختبار، لا بتاريخ مثبّت.
   const cardDate = (r.find('[data-review-card="1"] [data-review-date]')?.textContent || '').trim();
+  const reviewDateArabic = new Date(`${fixtures.reviews[0].date}T00:00:00`)
+    .toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric' });
   report('A21f3 the card date is formatted in Arabic, not raw ISO',
-    cardDate === '١٥ سبتمبر ٢٠٢٦', `date=${cardDate}`);
+    cardDate === reviewDateArabic && cardDate !== fixtures.reviews[0].date,
+    `date=${cardDate} expected=${reviewDateArabic}`);
 
   // النجوم مع الرقم المجاور: التقييم لا يُقرأ بلون وحده.
   report('A21g the stars are paired with the numeric rating',
@@ -807,8 +1392,12 @@ console.log('\n===== ADMIN: تصدير المراجعات (CSV) =====');
     downloads.push(this.download);
   };
 
+  // `v` تُعلن خارج `try` لأن `finally` هي من يُغلق الجذر: تركُه مفتوحاً
+  // يترك تخطيط لوحة الأدمن في الذاكرة، ومعه مؤقّت تحديث الوارد (30 ثانية)
+  // مرجوحاً لا ينتهي، فتبقى عملية Node معلّقة بعد أن ينتهي كل ما في الملف.
+  let v;
   try {
-    const v = await mount('/admin/reviews');
+    v = await mount('/admin/reviews');
     await waitFor(() => v.findAll('[data-review-card]').length > 0);
 
     const exportBtn = v.find('[data-review-export]');
@@ -845,6 +1434,7 @@ console.log('\n===== ADMIN: تصدير المراجعات (CSV) =====');
       filteredCsv.trim().split('\r\n').length === 4,
       `rows=${filteredCsv.trim().split('\r\n').length}`);
   } finally {
+    if (v) v.unmount();
     dom.window.HTMLAnchorElement.prototype.click = realAnchorClick;
     globalThis.URL.createObjectURL = realCreate;
     globalThis.URL.revokeObjectURL = realRevoke;
@@ -1194,6 +1784,109 @@ console.log('\n===== ADMIN: نافذة المعاينة — وضوح النصو�
   s.unmount();
 }
 
+console.log('\n===== ADMIN: مستندات المساحة وقرار التفعيل =====');
+{
+  const s = await mount('/admin/spaces');
+
+  // التبويب والعدّاد وشارة البطاقة الثلاثة تُقرأ «بانتظار التفعيل»، ولا يبقى
+  // أثر للصيغة القديمة في أي موضع من الشاشة.
+  const pendTab = s.find('[data-space-tab="pending"]');
+  const pendCount = Number(((pendTab && pendTab.textContent.match(/\d+/)) || [0])[0]);
+  report(
+    'ASD1 the pending tab reads بانتظار التفعيل',
+    !!pendTab && pendTab.textContent.includes('بانتظار التفعيل'),
+    pendTab ? pendTab.textContent.replace(/\s+/g, ' ').trim() : 'no tab'
+  );
+  report(
+    'ASD2 no قيد المراجعة survives anywhere on the screen',
+    !s.text().includes('قيد المراجعة'),
+    s.text().includes('قيد المراجعة') ? 'old label still rendered' : 'clean'
+  );
+  report('ASD3 header subtitle counts the queue as بانتظار التفعيل',
+    s.text().includes('بانتظار التفعيل'), `pending=${pendCount}`);
+
+  // إنشاء المساحات لصاحبها لا للأدمن: الزر معدوم لا معطَّل، فالمعطَّل يبقى
+  // في العرض يَعِد بعملٍ لا يُنجز.
+  const hasAddBtn = s.findAll('button').some((b) => b.textContent.includes('إضافة مساحة جديدة'));
+  report('ASD4 the admin cannot start a space of their own', !hasAddBtn,
+    `addBtn=${hasAddBtn}`);
+
+  const closePreview = async () => {
+    const btn = Array.from(s.el.querySelectorAll('button')).find((b) => b.textContent.trim() === 'إغلاق');
+    if (btn) await s.click(btn);
+  };
+
+  // المساحة 3 بانتظار التفعيل، ومستنداتها مصفوفة على شكلها.
+  await s.click(s.find('[data-space-card="3"]'));
+  const docsSec = s.find('[data-space-docs]');
+  report('ASD5 a pending space shows a مستندات المساحة section',
+    s.text().includes('مستندات المساحة') && !!docsSec,
+    docsSec ? `docs=${docsSec.getAttribute('data-space-docs')}` : 'section missing');
+
+  const docLinks = s.findAll('[data-space-doc]');
+  report('ASD6 both documents open in a new tab at an absolute url',
+    docLinks.length === 2
+      && docLinks.every((a) => /^https?:\/\//.test(a.getAttribute('href') || '')
+        && a.getAttribute('target') === '_blank'
+        && (a.getAttribute('rel') || '').includes('noopener')),
+    `links=${docLinks.length} href=${docLinks[0] ? docLinks[0].getAttribute('href') : 'none'}`);
+
+  // التسمية في العنصر الحاوي لا في الرابط نفسه، فالبحث عنها داخل الرابط
+  // يُرجع فراغاً ويُدين قسماً سليماً بجرمٍ لم يرتكبه. فنعود إلى العنصر
+  // الحاوي (li) ثم إلى وسم العنوان بداخله.
+  const docTitles = docLinks.map((a) => {
+    const li = a.closest('li');
+    const title = li && li.querySelector('.font-bold');
+    return (title || { textContent: '' }).textContent.trim();
+  });
+  report('ASD7 document titles are Arabic, not raw server keys',
+    docTitles.length === 2
+      && docTitles.every((t) => t === 'وثيقة الملكية' || t === 'السجل التجاري'),
+    docTitles.join(' | '));
+
+  report('ASD8 activate and reject/suspend sit with the documents they decide on',
+    !!s.find('[data-space-activate]') && !!s.find('[data-space-suspend]'),
+    `activate=${!!s.find('[data-space-activate]')} suspend=${!!s.find('[data-space-suspend]')}`);
+  await closePreview();
+
+  // المساحة 10 بلا مستندات: قسمٌ فارغ صادق بدل رابطين مخترَعين.
+  await s.click(s.find('[data-space-card="10"]'));
+  const emptyNote = s.find('[data-space-docs-empty]');
+  report('ASD9 a space with no documents says so and invents no links',
+    !!emptyNote && s.findAll('[data-space-doc]').length === 0,
+    emptyNote ? emptyNote.textContent.slice(0, 56) : 'section missing');
+  await closePreview();
+
+  // المساحة النشطة أُسّرت: لا قسم مستندات ولا قرارَ عليها.
+  await s.click(s.find('[data-space-card="1"]'));
+  report('ASD10 an already-active space carries neither documents nor a decision',
+    !s.find('[data-space-activate]') && !s.text().includes('مستندات المساحة'),
+    `section=${s.text().includes('مستندات المساحة')} btn=${!!s.find('[data-space-activate]')}`);
+  await closePreview();
+
+  // التفعيل فوري بلا إعادة تحميل: الشارة تتبدّل في النافذة المفتوحة، والقسم
+  // يرحل مع القرار، وعدّاد الطابور ينقص خلفها في الشريط نفسه.
+  await s.click(s.find('[data-space-card="3"]'));
+  const beforeCount = Number(((s.find('[data-space-tab="pending"]') || { textContent: '' })
+    .textContent.match(/\d+/) || [0])[0]);
+  await s.click(s.find('[data-space-activate]'));
+  const modal = s.find('.modal-box');
+  report('ASD11 activation flips the badge in the open modal without a reload',
+    !!modal && modal.textContent.includes('مفعّلة'),
+    modal ? `hasActiveLabel=${modal.textContent.includes('مفعّلة')}` : 'no modal');
+  report('ASD12 the decision section leaves with the decision',
+    !s.find('[data-space-activate]') && !s.find('[data-space-docs]'),
+    `btn=${!!s.find('[data-space-activate]')} section=${!!s.find('[data-space-docs]')}`);
+  const afterCount = Number(((s.find('[data-space-tab="pending"]') || { textContent: '' })
+    .textContent.match(/\d+/) || [0])[0]);
+  report('ASD13 the pending queue shrinks by one in the tab bar',
+    afterCount === beforeCount - 1, `${beforeCount} -> ${afterCount}`);
+  report('ASD14 activation announces itself to the admin',
+    s.text().includes('تم تفعيل المساحة'), 'toast');
+
+  s.unmount();
+}
+
 console.log('\n===== ADMIN: الإشعارات =====');
 {
   const n = await mount('/admin/notifications/inbox');
@@ -1216,6 +1909,33 @@ console.log('\n===== ADMIN: الإشعارات =====');
   if (archBtn) await n.click(archBtn);
   const badgeAfter = Number(n.find('.dash__nav-badge')?.textContent || 0);
   report('A25 archived unread items drop out of the badge', badgeAfter < badgeValue, `before=${badgeValue} after=${badgeAfter}`);
+  n.unmount();
+}
+
+{
+  // بريد الوارد: إشعار «رفع مستند ملكية» لا يفتح صفحة الفئة بل **ملف صاحب
+  // المستند** (البند 3 من جولة setting.txt). الفحص ثلاثيٌّ متعمَّد: المسار
+  // وحده لا يثبت أنه فتح الملف، والمحتوى وحده لا يثبت أنه جاء بالنقر،
+  // والبادج وحده لا يثبت أن الملف هو المطلوب. نقرأ الثلاثة.
+  const n = await mount('/admin/notifications/inbox');
+  const ownerCard = n.findAll('.dash__notif-card')
+    .find((c) => (c.textContent || '').includes('رنا شاهين'));
+  const cta = ownerCard && ownerCard.querySelector('.dash__notif-cta');
+  report('AI1 إشعار رفع مستند المالك يحمل زر فتح مباشر',
+    !!cta, `cards=${n.findAll('.dash__notif-card').length} card=${!!ownerCard}`);
+
+  if (cta) await n.click(cta);
+  report('AI2 زرّه يقود إلى ملف صاحب المستند لا إلى قائمة المستخدمين',
+    n.path() === '/admin/users/33', `path=${n.path()}`);
+
+  // نافذة الملف بوابة على document.body خارج جذر التصيير، فنبحث في المستند
+  // كله — وكما في A36 نقرأ المحتوى لا وجود النافذة فقط.
+  await waitFor(() => !!dom.window.document.querySelector('.dash__modal'));
+  const modal = dom.window.document.querySelector('.dash__modal');
+  const modalText = (modal?.textContent || '').replace(/\s+/g, ' ');
+  report('AI3 الملف المفتوح هو ملف رنا شاهين وهي بانتظار التفعيل',
+    !!modal && modalText.includes('رنا شاهين') && modalText.includes('بانتظار التفعيل'),
+    `modal=${!!modal} text=${modalText.slice(0, 140)}`);
   n.unmount();
 }
 
@@ -1261,6 +1981,98 @@ console.log('\n===== ADMIN: الإعدادات والتوجيه =====');
   s.unmount();
 }
 
+console.log('\n===== ADMIN: صورة الملف الشخصي (رفع + مزامنة الشريط الجانبي) =====');
+{
+  // محاكاة اختيار ملف: input.files للقراءة فقط في المواصفات، فنعرّفه كقيمة
+  // خاصة على العنصر نفسه ثم نطلق حدث change الذي تلتقطه React.
+  const pickFile = async (page, file) => {
+    const input = page.find('input[type="file"]');
+    if (!input) return false;
+    Object.defineProperty(input, 'files', { value: [file], configurable: true });
+    await page.change(input);
+    return true;
+  };
+  const pngFile = () =>
+    new dom.window.File([Buffer.from('89504e470d0a1a0a', 'hex')], 'avatar.png', { type: 'image/png' });
+
+  const s = await mount('/admin/settings');
+  const photoBtn = s.find('.dash__photo-btn');
+  const fileInput = s.find('input[type="file"]');
+  report(
+    'A41 the avatar is a button next to a file input that accepts images',
+    photoBtn?.tagName === 'BUTTON'
+      && Boolean(fileInput)
+      && fileInput.getAttribute('accept') === 'image/*'
+      && fileInput.hasAttribute('hidden'),
+    `btn=${photoBtn?.tagName} accept=${fileInput?.getAttribute('accept')} hidden=${fileInput?.hidden}`
+  );
+  report(
+    'A42 the hover overlay announces the change-picture action',
+    (photoBtn?.querySelector('.dash__photo-overlay')?.textContent || '').includes('تغيير الصورة')
+      && Boolean(photoBtn.querySelector('.dash__photo-overlay svg')),
+    photoBtn?.querySelector('.dash__photo-overlay')?.textContent || 'no overlay'
+  );
+
+  // قبل الرفع: الحروف الأولى، لا صورة.
+  const initialsAvatar = s.find('.dash__profile .dash__avatar');
+  report(
+    'A43 with no picture the sidebar falls back to initials',
+    initialsAvatar?.tagName === 'DIV' && (initialsAvatar.textContent || '').trim().length > 0,
+    `${initialsAvatar?.tagName}:${initialsAvatar?.textContent}`
+  );
+
+  const picked = await pickFile(s, pngFile());
+  await waitFor(() => Boolean(s.find('.dash__profile img.dash__avatar')));
+  const sidebarImg = s.find('.dash__profile img.dash__avatar');
+  const heroImg = s.find('.dash__photo-btn img.dash__photo');
+  report('A44 picking a file uploads it and shows it in the sidebar', picked && Boolean(sidebarImg),
+    sidebarImg?.getAttribute('src') || 'no sidebar image');
+  report('A45 the settings avatar and the sidebar show the same picture',
+    Boolean(heroImg) && heroImg.getAttribute('src') === sidebarImg?.getAttribute('src'),
+    `hero=${heroImg?.getAttribute('src')} side=${sidebarImg?.getAttribute('src')}`);
+  report('A46 a successful upload is confirmed to the user',
+    s.text().includes('تم تحديث صورة الملف الشخصي'), s.text().slice(0, 120));
+  report('A47 the uploaded picture survives a reload (persisted in the profile)',
+    adminAuth.getAdminProfile()?.photo === sidebarImg?.getAttribute('src'),
+    `stored=${adminAuth.getAdminProfile()?.photo}`);
+  s.unmount();
+
+  // الرفع يبقى محفوظاً بعد إعادة تحميل الصفحة: نركّب الصفحة من جديد بلا رفع.
+  const again = await mount('/admin/settings');
+  const restored = again.find('.dash__profile img.dash__avatar');
+  report('A48 the picture is still there after remounting the dashboard',
+    Boolean(restored) && restored.getAttribute('src')?.includes('/storage/admin/'),
+    restored?.getAttribute('src') || 'no image');
+  again.unmount();
+
+  // المزامنة عبر صفحة أخرى: الشريط الجانبي مربوط باللقطة المشتركة، لا بحالة
+  // شاشة الإعدادات — فنرفع من الإعدادات ثم ننتقل لصفحة أخرى ونجد الصورة.
+  const s2 = await mount('/admin/settings');
+  await pickFile(s2, pngFile());
+  await waitFor(() => Boolean(s2.find('.dash__profile img.dash__avatar')));
+  const uploaded = s2.find('.dash__profile img.dash__avatar')?.getAttribute('src');
+  s2.unmount();
+  const other = await mount('/admin/users');
+  const otherImg = other.find('.dash__profile img.dash__avatar');
+  report('A49 the sidebar picture is shared with every other admin page',
+    Boolean(otherImg) && otherImg.getAttribute('src') === uploaded,
+    `other=${otherImg?.getAttribute('src')} uploaded=${uploaded}`);
+  other.unmount();
+
+  // ملف غير صورة: رفض قبل أي رفع، والرسالة صريحة. الصورة هنا موجودة أصلاً
+  // (من الرفعات السابقة في هذا الملف)، فنقارن مرجعها قبل وبعد المحاولة.
+  const s3 = await mount('/admin/settings');
+  const avatarBefore = s3.find('.dash__profile .dash__avatar')?.getAttribute('src') || '';
+  await pickFile(s3, new dom.window.File([Buffer.from('nope')], 'notes.pdf', { type: 'application/pdf' }));
+  const avatarAfter = s3.find('.dash__profile .dash__avatar')?.getAttribute('src') || '';
+  report('A50 a non-image file is rejected with a clear message',
+    s3.text().includes('يرجى اختيار ملف صورة'), s3.text().slice(0, 160));
+  report('A51 a rejected file leaves the previous avatar untouched',
+    Boolean(avatarBefore) && avatarAfter === avatarBefore,
+    `before=${avatarBefore} after=${avatarAfter}`);
+  s3.unmount();
+}
+
 {
   const u = await mount('/admin/unknown-tab');
   await waitFor(() => u.path() === '/admin');
@@ -1270,8 +2082,65 @@ console.log('\n===== ADMIN: الإعدادات والتوجيه =====');
   const t = await mount('/admin/users/');
   // هذا كان مصدر التذبذب: تبويب المستخدمين ثقيل، فننتظر ظهور العلامة المطلوبة
   // بدل قراءة DOM بعد مهلة ثابتة.
-  await waitFor(() => t.path() === '/admin/users' && t.text().includes('إدارة المستخدمين والملاك'));  report('A34 trailing-slash route resolves to the users tab', t.path() === '/admin/users' && t.text().includes('إدارة المستخدمين والملاك'), `path=${t.path()}`);
+  await waitFor(() => t.path() === '/admin/users' && t.text().includes('إدارة المستخدمين والملاك'));
+  report('A34 trailing-slash route resolves to the users tab', t.path() === '/admin/users' && t.text().includes('إدارة المستخدمين والملاك'), `path=${t.path()}`);
   t.unmount();
+}
+
+console.log('\n===== ADMIN: الرابط المباشر لملف المستخدم =====');
+{
+  // الرابط المباشر كان يعمل بالنقر داخل التطبيق فقط، ويسقط عند الفتح الأول
+  // (لصق الرابط أو تحديث الصفحة) لأن المسار مُعرَّف كـ splat فلا يمرّر
+  // المعرّف إلى useParams. الاختبار يفتح المسار مباشرةً بلا نقر.
+  const firstUser = fixtures.users[0];
+  const direct = await mount(`/admin/users/${firstUser.id}`);
+  // نافذة الملف تُركَّب في بوابة على document.body خارج جذر React، فنبحث عنها
+  // في المستند كله لا داخل الحاوية.
+  await waitFor(() => !!dom.window.document.querySelector('.dash__modal'));
+  const modalEl = dom.window.document.querySelector('.dash__modal');
+  const modalText = (modalEl?.textContent || '').replace(/\s+/g, ' ');
+  report(
+    'A36 a pasted /admin/users/:id link opens the profile modal on first load',
+    !!modalEl && modalText.includes(firstUser.name) && modalText.includes(firstUser.email),
+    `modal=${!!modalEl} text=${modalText.slice(0, 120)}`
+  );
+  // لا أزرار سفلية: الإغلاق من X العلوي فقط.
+  const footButtons = dom.window.document.querySelectorAll('.dash__modal footer button');
+  report('A37 the profile modal has no footer action buttons', footButtons.length === 0, `found ${footButtons.length}`);
+  direct.unmount();
+}
+
+console.log('\n===== ADMIN: لا بيانات وهمية في التطبيق =====');
+{
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const dataFile = path.join(process.cwd(), 'src', 'data', 'adminMockData.js');
+  report('A38 the mock-data module is gone from the app', !fs.existsSync(dataFile), dataFile);
+
+  // جلسة محلية بلا توكن: تفتح اللوحة بلا أي طلب شبكة، فلا يصل رقم من أي مكان.
+  const savedToken = dom.window.localStorage.getItem('masahati_admin_token');
+  dom.window.localStorage.removeItem('masahati_admin_token');
+  dom.window.localStorage.setItem('masahati_admin_session', JSON.stringify({
+    email: 'masahati@outlook.com',
+    name: 'إدارة مساحاتي',
+    role: 'admin',
+    expiresAt: Date.now() + 3600000,
+  }));
+
+  const off = await mount('/admin/users');
+  await waitFor(() => !!off.find('[data-api-status="offline-state"]'));
+  const offlineState = ((off.find('[data-api-status="offline-state"]') || {}).textContent || '').trim();
+  report(
+    'A39 without a server session the users screen says so instead of loading forever',
+    offlineState.includes('لا توجد جلسة خادم'),
+    offlineState.slice(0, 120)
+  );
+  const bigNumbers = (off.text().match(/[0-9٠-٩]{1,3}(,[0-9٠-٩]{3})+/g) || []);
+  report('A40 and it renders no thousand-separated numbers at all', bigNumbers.length === 0, bigNumbers.slice(0, 5).join(' | '));
+  off.unmount();
+
+  dom.window.localStorage.removeItem('masahati_admin_session');
+  if (savedToken) dom.window.localStorage.setItem('masahati_admin_token', savedToken);
 }
 
 console.log('\n===== ADMIN: أخطاء وحدة التحكم =====');
