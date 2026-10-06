@@ -1,17 +1,37 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Wallet, Percent, HandCoins, TrendingUp, ReceiptText, ChevronDown, ChevronLeft, Printer } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import {
-  financialRangeData,
-  financialDailySeries,
-  financialDailySpan,
-  commissionBreakdown,
-  adminStats,
-  adminBookings,
-  adminSpaces,
-} from '../../data/adminMockData';
-import { StatCard, SectionCard, SectionHeading, MiniRow, Pill, Toast, Modal, StatusBadge } from './ui';
+  StatCard,
+  SectionCard,
+  SectionHeading,
+  MiniRow,
+  Pill,
+  Toast,
+  Modal,
+  StatusBadge,
+  DataSourceBanner,
+  DataGate,
+} from './ui';
 import { useToast } from './useToast';
+import useAdminData from './useAdminData';
+import {
+  getFinancialSummary,
+  getFinancialDaily,
+  getCommissionBreakdown,
+  listTransactions,
+  getSettings,
+  getStats,
+} from '../../lib/adminApi';
+import {
+  adaptAll,
+  adaptCommissionBreakdown,
+  adaptCommissionRate,
+  adaptDailyFinancial,
+  adaptFinancialSummary,
+  adaptTransaction,
+  numOrNull,
+} from '../../lib/adminAdapters';
 import { downloadCsv } from '../../utils/csv';
 
 // لون العلامة الموحّد لكل أعمدة «توزيع الإيرادات» — لا ألوان متعدّدة، فالمحور
@@ -27,28 +47,26 @@ const ranges = [
 
 const CUSTOM_RANGE = 'custom';
 const DEFAULT_RANGE = 'month';
-const COMMISSION_RATE = adminStats.platformCommission ?? 0.12;
-const RATE_LABEL = `${Math.round(COMMISSION_RATE * 100)}%`;
+
+// نافذة جلب السلسلة اليومية: العقد يسمح بـ366 يوماً كحدّ أقصى، فطلَب سنة
+// متمرّرة تنتهي اليوم. النافذة السابقة (2000 → 2100) كانت تخطئ الحدّ بسنتين
+// وتُرجع 400 من خادم حقيقي.
+const DAILY_SPAN_DAYS = 365;
 
 const CURRENCY = 'ش.ج';
 
-// معاملات حديثة — مشتقّة من adminBookings لا من مصفوفة منفصلة.
-// لماذا: المصفوفة المنفصلة كانت تناقض adminBookings على أرقام الحجز نفسها
-// (#BK-1021 باسم سارة النجار هناك وأحمد العمري هنا، وبتاريخين مختلفين)، وكان
-// عمود «المالك» يعرض أسماء مستخدمين لا ملاك. صارت المعاملة تُبنى من الحجز
-// وتُربط بالمالك الحقيقي عبر adminSpaces، فلا تتكرّر أي بيانات ولا تناقض.
-const TX_STATUS_LABEL = { completed: 'مكتمل', confirmed: 'مؤكد', disputed: 'متنازع' };
+// ثوابت فارغة لمكان الردّ: لا بيانات، لا ذاكرة مؤقتة تحمل أرقاماً.
+const EMPTY_SERIES = [];
+const EMPTY_ROWS = [];
 
-// مالك المساحة من adminSpaces (مصدر «المالك» في صفحة المساحات)، ويُربط بالاسم
-// لأن الحجوزات تحفظ اسم المساحة لا رقمها. fallback واضح لو تعذّر الربط.
-const OWNER_BY_SPACE = new Map(adminSpaces.map((sp) => [sp.name, sp.owner]));
+// حالة المعاملة من عقد الـ API (§1.4): التسمية العربية للعرض واللون للشارة.
+const TX_STATUS_LABEL = { completed: 'مكتمل', confirmed: 'مؤكد', disputed: 'متنازع' };
+const TX_STATUS_TONE = { completed: 'green', confirmed: 'blue', disputed: 'red' };
+// قيمة بديلة واحدة لا كذبة: الحقل ناقص في ردّ الخادم، فنقول ذلك بدل اسماً.
 const UNKNOWN_OWNER = 'غير محدّد';
 
-// اختصارات النطاق المخصص — تُحسب من تغطية financialDailySeries لا من تاريخ
-// الجهاز. المرجع هو آخر يوم في السلسلة (to)، والأيام السابقة تُشتقّ منه
-// للخلف. لو اشتُقّت من «اليوم» الحقيقي لوقعت خارج بيانات سبتمبر 2026 في
-// النسخة التجريبية، فيظهر صفراً بلا سبب مفهوم للزائر.
-//
+// اختصارات النطاق المخصص — تُحسب من تاريخ اليوم الحقيقي، لا من تغطية سلسلة
+// وهمية. المرجع هو اليوم، والأيام السابقة تُشتقّ منه للخلف.
 // البناء بـ Date.UTC لا new Date(str): تحليل 'YYYY-MM-DDT00:00:00' يعطي
 // منتصف الليل **محلياً**، وtoISOString يُرجع UTC، فتنزلق النتيجة يوماً كاملاً
 // إلى الوراء في كل توقّع شرق غرينتش (UTC+3 مثلاً). التاريخ هنا بيانات لا
@@ -58,27 +76,46 @@ function daysBack(to, n) {
   return new Date(Date.UTC(y, m - 1, d) - (n - 1) * 86400000).toISOString().slice(0, 10);
 }
 
-const SPAN_TO = financialDailySpan.to;
-// «منذ بداية الشهر» يبدأ من أول يوم في السلسلة نفسها لا من حسابٍ على تقويم
-// مستقل، فيعطي شهر سبتمبر كاملاً بالضبط داخل نطاق البيانات التجريبي.
-const SPAN_FROM = financialDailySpan.from;
+// تاريخ اليوم بصيغة العقد، محسوب محلياً (بلا Date.now في جسم المكوّن كي لا
+// يُعيد React Compiler تصيير المكوّن كل ثانية).
+let TODAY_ISO = new Date().toISOString().slice(0, 10);
+
+const monthStartOf = (iso) => `${iso.slice(0, 7)}-01`;
+
 const DATE_PRESETS = [
-  { id: 'yesterday', label: 'أمس', from: daysBack(SPAN_TO, 2), to: daysBack(SPAN_TO, 2) },
-  { id: 'last7', label: 'آخر 7 أيام', from: daysBack(SPAN_TO, 7), to: SPAN_TO },
-  { id: 'mtd', label: 'منذ بداية الشهر', from: SPAN_FROM, to: SPAN_TO },
+  { id: 'yesterday', label: 'أمس', from: daysBack(TODAY_ISO, 2), to: daysBack(TODAY_ISO, 2) },
+  { id: 'last7', label: 'آخر 7 أيام', from: daysBack(TODAY_ISO, 7), to: TODAY_ISO },
+  { id: 'mtd', label: 'منذ بداية الشهر', from: monthStartOf(TODAY_ISO), to: TODAY_ISO },
 ];
 
-function buildTransactions() {
-  return [...adminBookings]
-    .sort((a, b) => (a.date === b.date ? b.id - a.id : (a.date < b.date ? 1 : -1)))
+// حدود كل نطاق جاهز — تُجمع أرقامه من السلسلة اليومية الواردة، فلا نقرأ من
+// جدول محلي ونُظهر رقماً لا مصدر له.
+const RANGE_WINDOWS = {
+  today: { from: TODAY_ISO, to: TODAY_ISO },
+  week: { from: daysBack(TODAY_ISO, 7), to: TODAY_ISO },
+  month: { from: monthStartOf(TODAY_ISO), to: TODAY_ISO },
+  year: { from: daysBack(TODAY_ISO, DAILY_SPAN_DAYS + 1), to: TODAY_ISO },
+};
+
+// المعاملات تأتي من نقطة نهاية المعاملات (§10.4) وفيها المالك محسوم من
+// المساحة، فلا نحتاج ربطاً ولا جدول مساحات محلياً. الصفوف الفارغة نتيجة
+// صحيحة (لا حجوزات) وتُعرض كحالة فارغة لا كأرقام مستعارة من شاشة أخرى.
+function buildTransactions(rows) {
+  const source = Array.isArray(rows) ? rows : [];
+  return [...source]
+    .sort((a, b) => (a.date === b.date ? (b.id ?? 0) - (a.id ?? 0) : (a.date < b.date ? 1 : -1)))
     .map((b) => ({
-      id: b.ref,
-      space: b.space,
-      owner: OWNER_BY_SPACE.get(b.space) || UNKNOWN_OWNER,
-      user: b.user,
-      amount: b.amount,
-      date: b.date,
-      status: TX_STATUS_LABEL[b.status] || b.status,
+      id: b.ref ?? b.id,
+      space: b.space ?? '—',
+      owner: b.owner ?? UNKNOWN_OWNER,
+      user: b.user ?? '—',
+      hours: b.hours ?? 0,
+      amount: b.amount ?? 0,
+      date: b.date ?? '',
+      // نُبقي المفتاح(raw) للون والعنوان العربي للعرض: لون الشارة يحتاج القيمة
+      // كما في عقد الـ API، لا الترجمة.
+      statusKey: b.status,
+      status: TX_STATUS_LABEL[b.status] || b.status || '—',
     }));
 }
 
@@ -86,13 +123,11 @@ function buildTransactions() {
 // من رقم الحجز. تُستخدم نفسها للجدول ولملف التصدير فيبقى ترتيبهما واحداً.
 // «المستخدم» (صاحب الحجز) عمود مستقل عن «المالك» (مالك المساحة): خلطهما كان
 // سبب الخطأ أصلاً، وفصلهما يمنع تكراره.
-const TX_HEADERS = ['رقم الحجز', 'المساحة', 'المالك', 'المستخدم', `المبلغ (${CURRENCY})`, `العمولة (${RATE_LABEL})`, `صافي المالك (${CURRENCY})`, 'التاريخ', 'الحالة'];
-
-// نبرة الشارة موحّدة بين الجدول والنافذة فلا يُرسم للحالة نفسها لونان.
-const TX_STATUS_TONE = { مكتمل: 'green', مؤكد: 'blue', متنازع: 'red' };
+// النسبة قد تتغيّر من الإعدادات، وثباتها هنا كان يجعل الترويسة تناقض الأرقام؛
+// لذلك تُبنى العناوين داخل المكوّن (انظر txHeaders) من نسبة الخادم.
 
 function fmt(n) {
-  return Number(n || 0).toLocaleString('en-US');
+  return Number.isFinite(Number(n)) ? Number(n).toLocaleString('en-US') : '—';
 }
 
 // محور القيم يُقرَّأ بصرياً لا حسابياً: 241,500 أربعة أرقام وعرض 40px لا يكفيها.
@@ -121,43 +156,124 @@ function fmtStamp(d) {
   return d.toLocaleString('ar-EG', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-// نطاقات التقارير: النطاق المخصص يُحسب من financialDailySeries (يوميّاً)،
-// والباقي يقرأ من financialRangeData. كلاهما يُرجع نفس الشكل: { revenue,
-// bookings, commission, payouts }.
+// نطاقات التقارير: كلها تُجمع من السلسلة اليومية (§10.2) فيرد الرقم نفسه
+// من نفس المصدر دائماً، ونطاق مخصص يشترك في نفس الدالة فلا يختلف المنهج.
 const PRESET_RANGES = new Set(['today', 'week', 'month', 'year']);
 
-function sumDaily(from, to) {
-  const rows = financialDailySeries.filter((d) => d.date >= from && d.date <= to);
-  const revenue = rows.reduce((sum, d) => sum + d.revenue, 0);
+// السلسلة اليومية محور الحقيقة: كل نطاق (جاهز أو مخصص) مجموع صفوفها داخل
+// نافذته. `rate` نسبة العمولة من الخادم؛ إن لم تصل فلا نخترع نسبة ولا
+// نُظهر أرقام عمولة مختلقة.
+function sumDaily(from, to, series, rate) {
+  const rows = (series || []).filter((d) => d.date >= from && d.date <= to);
+  const revenue = rows.reduce((sum, d) => sum + (Number(d.revenue) || 0), 0);
+  const commission = Number.isFinite(rate) ? Math.round(revenue * rate) : null;
   return {
     revenue,
-    bookings: rows.reduce((sum, d) => sum + d.bookings, 0),
-    pending: rows.reduce((sum, d) => sum + d.pending, 0),
-    // العمولة تُشتقّ من مجموع الإيراد لا من جمع عمولات الأيام، فتبقى نسبة 12%
-    // صحيحة عند أي نطاق — وعند اختيار سبتمبر كاملاً تنتج 28,980 بالضبط.
-    commission: Math.round(revenue * COMMISSION_RATE),
-    payouts: revenue - Math.round(revenue * COMMISSION_RATE),
+    bookings: rows.reduce((sum, d) => sum + (Number(d.bookings) || 0), 0),
+    pending: rows.reduce((sum, d) => sum + (Number(d.pending) || 0), 0),
+    commission,
+    payouts: commission === null ? null : revenue - commission,
   };
 }
 
-// رصيد المدفوعات المعلّقة رقم واحد لحظي (adminStats.payoutsPending) لا يتغيّر
-// مع النطاق، فنسقّطه على كل نطاق بنسبة حجوزاته إلى حجوزات الشهر. الشهر نفسه
-// يعود 8,240 بلا تقريب، و«اليوم» ينزل إلى ~669 بدل خصم 8,240 كاملة.
-function pendingForPreset(range, data) {
-  const total = adminStats.payoutsPending || 0;
-  const monthBookings = financialRangeData.month.bookings;
+// المدفوعات المعلّقة رقمٌ لحظي من الخادم لا يتغيّر مع النطاق، فنسقّطه على كل
+// نطاق بنسبة حجوزاته إلى حجوزات الشهر. إن لم يرد الرقم نُبقيه null ولا
+// نُشتق صفراً من عدمه.
+function pendingForPreset(range, data, { total, monthBookings }) {
+  if (!Number.isFinite(total)) return null;
   if (range === 'month' || !monthBookings) return total;
   return Math.round(total * (data.bookings / monthBookings));
 }
 
 export default function AdminFinancials() {
-  const [range, setRange] = useState('month');
+  const [range, setRange] = useState(DEFAULT_RANGE);
   const [custom, setCustom] = useState({ from: '', to: '' });
   const [showExport, setShowExport] = useState(false);
   const [txDetails, setTxDetails] = useState(null);
   const { toast, announce, dismiss } = useToast();
 
-  // النطاق المخصص صار محسوباً من financialDailySeries بدل السقوط الصامت إلى
+  // تاريخ اليوم يُلتقط مرّة عند فتح الشاشة: التواريخ النسبية تُشتقّ منه،
+  // وتثبيته يمنع أن يختلف النطاق بين تصيير وآخر عند منتصف الليل.
+  const [today] = useState(() => new Date().toISOString().slice(0, 10));
+
+  // العقد §10: ملخّص الشهر + السلسلة اليومية + تغطيتها + تفصيل العمولة.
+  // السلسلة تُجلب مرّة واحدة بنافذة سنة، فتكفي كل نطاقات المخصصة أن تحسب نفسها
+  // منها بدل أن تسأل الخادم عند كل ضغطة مفتاح.
+  //
+  // المحوّلات (adminAdapters) توحّد أسماء الحقول: السلسلة اليومية ترد
+  // أحياناً مصفوفةً مباشرة وأحياناً في غلاف، ونسبة العمولة تأتي أحياناً
+  // مئوية (12) وأحياناً كسراً (0.12) — فنوحّدها على الكسر قبل العرض.
+  const fetchFinancials = useCallback(async () => {
+    const [summary, daily, breakdown, tx, settings, stats] = await Promise.all([
+      getFinancialSummary({ range: DEFAULT_RANGE }),
+      getFinancialDaily({ from: daysBack(today, DAILY_SPAN_DAYS + 1), to: today }),
+      getCommissionBreakdown(),
+      listTransactions({ range: DEFAULT_RANGE }),
+      getSettings(),
+      getStats(),
+    ]);
+    const chart = adaptDailyFinancial(daily);
+    const cleanSummary = adaptFinancialSummary(summary);
+
+    return {
+      summary: summary && typeof summary === 'object' ? cleanSummary : null,
+      series: chart.series,
+      // التغطية تُقرأ كما وردت؛ غيابها يعني «غير معلنة» لا «بيانات كل شيء».
+      span: chart.coverage,
+      breakdown: adaptCommissionBreakdown(breakdown),
+      txRows: adaptAll(tx?.rows, adaptTransaction),
+      rate: cleanSummary.commission_rate
+        ?? adaptCommissionRate(settings?.commission_rate),
+      // المدفوعات المعلّقة ليست في الملخّص، بل في `stats.payoutsPending`،
+      // فنقرأها من هناك عند غيابها. ولا نصل إلى أي بديل آخر: أرقام التقرير
+      // يجب أن تأتي من الخادم أو تبقى `null`.
+      payoutsPending: numOrNull(cleanSummary.payouts_pending ?? stats?.payoutsPending),
+      monthBookings: numOrNull(cleanSummary.bookings),
+    };
+  }, [today]);
+
+  const {
+    data: fin,
+    loading,
+    error: loadError,
+    live,
+    reload,
+  } = useAdminData(fetchFinancials);
+
+  // نسبة العمولة من الخادم: الرقم قد يكون 0.10 بعد تعديله من الإعدادات، وإظهار
+  // 12% ثابتاً كان يجعل الترويسة تناقض أرقام التقرير نفسها. بلا نسبة من
+  // الخادم نعرض شرطة لا تخميناً.
+  const rate = fin?.rate ?? null;
+  const rateLabel = Number.isFinite(rate) ? `${Math.round(rate * 100)}%` : '—';
+
+  // الأشتقّات كلها تعمل قبل وصول الردّ على مدخلات فارغة، فتبقى الـ hooks في
+  // ترتيبها الثابت في كل تصيير. الأرقام التي نُخرجها من ردّ فارغ لا تُعرض
+  // أبداً: فرع التحميل/الخطأ أدناه يسبّق كل بطاقة.
+  const series = fin?.series ?? EMPTY_SERIES;
+  const span = fin?.span ?? null;
+  const breakdownFromApi = fin?.breakdown ?? EMPTY_ROWS;
+  const txRows = fin?.txRows ?? EMPTY_ROWS;
+  const pendingTotal = Number.isFinite(fin?.payoutsPending) ? fin.payoutsPending : null;
+  const monthBookings = Number.isFinite(fin?.monthBookings) ? fin.monthBookings : null;
+
+  // العناوين تتبع النسبة الفعلية، فيبقى رأس الجدول وملف التصدير متفقين مع
+  // أرقام العمولة المعروضة أمامها.
+  const txHeaders = useMemo(
+    () => [
+      'رقم الحجز',
+      'المساحة',
+      'المالك',
+      'المستخدم',
+      `المبلغ (${CURRENCY})`,
+      `عمولة المنصة (${rateLabel})`,
+      `صافي المالك (${CURRENCY})`,
+      'التاريخ',
+      'الحالة',
+    ],
+    [rateLabel]
+  );
+
+  // النطاق المخصص صار محسوباً من السلسلة اليومية بدل السقوط الصامت إلى
   // «هذا الشهر». نطاق ناقص أو معكوس لا نخترع له أرقاماً: نُبقي النطاق الجاهز
   // مع تنبيه، ونمنع التصدير حتى لا يُنزَّل ملف تحت عنوان لا يصفه.
   const dateError = Boolean(custom.from && custom.to && custom.from > custom.to);
@@ -167,21 +283,29 @@ export default function AdminFinancials() {
 
   // حساب النطاق المخصص يُعدّ مسبقاً (قد يكون null) فيُقرأ في المؤشرات كلها.
   const customData = useMemo(
-    () => (customReady ? sumDaily(custom.from, custom.to) : null),
-    [customReady, custom.from, custom.to]
+    () => (customReady ? sumDaily(custom.from, custom.to, series, rate) : null),
+    [customReady, custom.from, custom.to, series, rate]
   );
 
   const effectiveRange = PRESET_RANGES.has(range) ? range : DEFAULT_RANGE;
   const rangeKey = useCustom ? CUSTOM_RANGE : effectiveRange;
-  const data = (useCustom ? customData : financialRangeData[effectiveRange])
-    || financialRangeData[DEFAULT_RANGE];
+
+  // كل نطاق جاهز مجموع من السلسلة اليومية: نافذته من تاريخ اليوم، وقيمته من
+  // صفوف الخادم. لا جدول محلي ولا قيمة احتياطية.
+  const presetWindow = RANGE_WINDOWS[effectiveRange];
+  const data = useMemo(
+    () => (useCustom ? customData : sumDaily(presetWindow.from, presetWindow.to, series, rate)),
+    [useCustom, customData, presetWindow.from, presetWindow.to, series, rate]
+  );
+
   const exportable = range !== CUSTOM_RANGE || customReady;
 
-  // السلسلة اليومية تغطي سبتمبر 2026 فقط — يُقال ذلك صراحةً بدل أن يبدو نطاق
-  // سنة كاملة كأنه سنة كاملة من البيانات.
-  const outsideCoverage = range === CUSTOM_RANGE
-    && ((custom.from && custom.from < financialDailySpan.from)
-      || (custom.to && custom.to > financialDailySpan.to));
+  // حدود التغطية تأتي من الخادم، ويُقال ذلك صراحةً بدل أن يبدو نطاق سنة كاملة
+  // كأنه سنة كاملة من البيانات. بلا تغطية معلنة لا تدّعي الشاشة شيئاً.
+  const outsideCoverage = Boolean(
+    span && range === CUSTOM_RANGE
+      && ((custom.from && custom.from < span.from) || (custom.to && custom.to > span.to))
+  );
 
   const rangeLabel = useMemo(() => {
     if (range !== CUSTOM_RANGE) return ranges.find((r) => r.id === range)?.label || '';
@@ -190,58 +314,77 @@ export default function AdminFinancials() {
     return `نطاق مخصص (من ${from} إلى ${to})`;
   }, [range, custom.from, custom.to]);
 
+  // قيمة للعرض: الرقم من الخادم، أو '—' إن لم يرد — ولا صفر بديل.
+  const money = (value) => (Number.isFinite(value) ? `${fmt(value)} ${CURRENCY}` : '—');
+
   const cards = [
     { icon: Wallet, label: 'إجمالي الإيرادات', value: data.revenue, currency: CURRENCY, tone: 'green', commas: true },
-    { icon: Percent, label: `عمولة المنصة (${RATE_LABEL})`, value: data.commission, currency: CURRENCY, tone: 'orange', commas: true },
-    { icon: HandCoins, label: 'مستحقات الملاك', value: data.payouts, currency: CURRENCY, tone: 'violet', commas: true },
+    {
+      icon: Percent,
+      label: `عمولة المنصة (${rateLabel})`,
+      value: data.commission ?? '—',
+      currency: data.commission === null ? '' : CURRENCY,
+      tone: 'orange',
+      commas: true,
+    },
+    {
+      icon: HandCoins,
+      label: 'مستحقات الملاك',
+      value: data.payouts ?? '—',
+      currency: data.payouts === null ? '' : CURRENCY,
+      tone: 'violet',
+      commas: true,
+    },
     { icon: TrendingUp, label: 'عدد الحجوزات', value: data.bookings, tone: 'blue', commas: true },
   ];
 
   // الأعمدة كلها بلون العلامة الواحد — لا Cell ولا ألوان متعددة. breakdown يحمل
   // { label, value } فقط، واللون يأتي من <Bar fill> في مكان واحد.
   const breakdown = useMemo(() => {
-    if (rangeKey === 'month') {
-      return commissionBreakdown.map((c) => ({ label: c.label, value: c.amount }));
+    if (rangeKey === 'month' && breakdownFromApi.length) {
+      return breakdownFromApi.map((c) => ({ label: c.label, value: c.amount }));
     }
     return [
       { label: 'الإيرادات', value: data.revenue },
-      { label: 'العمولة', value: data.commission },
-      { label: 'مستحقات الملاك', value: data.payouts },
+      { label: 'العمولة', value: data.commission ?? 0 },
+      { label: 'مستحقات الملاك', value: data.payouts ?? 0 },
     ];
-  }, [data, rangeKey]);
+  }, [data, rangeKey, breakdownFromApi]);
 
 
-  // المدفوعات المعلّقة صارت تخصّ النطاق المعروض بدل أن تُخصم من كل نطاق:
-// adminStats.payoutsPending رقم لحظيّ واحد (8,240) فيُخَصم كاملاً من «اليوم»
-  // (عمولته 1,104) فيخرج الصافي صفراً ويقرأ كصفر حقيقي لا كمدفوعات معلّقة.
-  // للنطاق المخصص تُجمع من السلسلة اليومية بالضبط، وللجاهز تُوزَّع بنسبة
-  // الحجوزات إلى الشهر — فيعود رقم الشهر 8,240 كما هو بلا تقريب.
-  const pending = useCustom ? customData.pending : pendingForPreset(rangeKey, data);
+  // المدفوعات المعلّقة تخصّ النطاق المعروض لا كل النطاقات: للنطاق المخصص
+  // تُجمع من السلسلة اليومية، وللجاهز تُوزَّع بنسبة حجوزاته إلى حجوزات الشهر
+  // فيعود رقم الشهر كما ورد من الخادم. بلا رقم من الخادم يبقى null.
+  const pending = useCustom
+    ? customData.pending
+    : pendingForPreset(rangeKey, data, { total: pendingTotal, monthBookings });
 
   // صافي ربح المنصة = عمولة النطاق − مدفوعاته المعلّقة، وقد يكون سالباً فعلاً
   // (عمولة يوم أقلّ من مدفوعاته المعلّقة) فلا نقصّه عند الصفر ونُخفي الحقيقة.
-  const netProfit = data.commission - pending;
+  const netProfit = Number.isFinite(data.commission) && Number.isFinite(pending)
+    ? data.commission - pending
+    : null;
 
   // حساب العمولة وصافي المالك مرّة واحدة يتشاركها الجدول وملف التصدير.
   const transactions = useMemo(
-    () => buildTransactions().map((t) => {
-      const commission = Math.round(t.amount * COMMISSION_RATE);
-      return { ...t, commission, net: t.amount - commission };
+    () => buildTransactions(txRows).map((t) => {
+      const commission = Number.isFinite(rate) ? Math.round(t.amount * rate) : null;
+      return { ...t, commission, net: commission === null ? null : t.amount - commission };
     }),
-    []
+    [txRows, rate]
   );
 
   // نفس المؤشرات التي تعرضها البطاقات والملخّص — لكن كنصّ ثابت يُطبع ويُصدَّر.
   const kpis = useMemo(
     () => [
-      ['إجمالي الإيرادات', `${fmt(data.revenue)} ${CURRENCY}`],
-      [`عمولة المنصة (${RATE_LABEL})`, `${fmt(data.commission)} ${CURRENCY}`],
-      ['مستحقات الملاك', `${fmt(data.payouts)} ${CURRENCY}`],
-      ['صافي ربح المنصة', `${fmt(netProfit)} ${CURRENCY}`],
+      ['إجمالي الإيرادات', money(data.revenue)],
+      [`عمولة المنصة (${rateLabel})`, money(data.commission)],
+      ['مستحقات الملاك', money(data.payouts)],
+      ['صافي ربح المنصة', money(netProfit)],
       ['عدد الحجوزات', fmt(data.bookings)],
-      ['مدفوعات معلقة', `${fmt(pending)} ${CURRENCY}`],
+      ['مدفوعات معلقة', money(pending)],
     ],
-    [data, netProfit, pending]
+    [data, netProfit, pending, rateLabel]
   );
 
   const closeExport = () => setShowExport(false);
@@ -290,7 +433,7 @@ export default function AdminFinancials() {
       ['التقرير', 'التقارير المالية'],
       ['النطاق', rangeLabel],
       ['تاريخ التصدير', fmtStamp(now)],
-      ['نسبة العمولة', RATE_LABEL],
+      ['نسبة العمولة', rateLabel],
       [],
       ['المؤشر', `القيمة (${CURRENCY})`],
       ...kpis,
@@ -298,20 +441,39 @@ export default function AdminFinancials() {
       ['توزيع الإيرادات', `المبلغ (${CURRENCY})`],
       ...breakdown.map((b) => [b.label, b.value]),
       [],
-      TX_HEADERS,
+      txHeaders,
       ...transactions.map((t) => [t.id, t.space, t.owner, t.user, t.amount, t.commission, t.net, fmtDate(t.date), t.status]),
     ]);
     announce('تم تصدير التقرير كملف CSV.');
   };
 
+  // لا بطاقة ولا رسم قبل وصول ردّ واحد من الخادم: الأرقام المستخرجة من ردّ
+  // فارغ كانت ستُعرض كأصفار حقيقية. البوابة تأتي بعد كل الـ hooks كي لا
+  // يتغيّر ترتيبها، وتختار بين الانتظار والخطأ وغياب الجلسة بنفس القواعد.
+  if (!fin) {
+    return (
+      <DataGate
+        live={live}
+        loading={loading}
+        error={loadError}
+        onRetry={reload}
+        rows={4}
+        errorTitle="تعذّر جلب التقارير المالية"
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
+      <div className="fin-print-hide">
+        <DataSourceBanner live={live} loading={loading} error={loadError} onRetry={reload} />
+      </div>
       {/* ترويسة الطباعة — تظهر على الورق فقط لأن الشريط الجانبي والعنوان مخفيّان */}
       <div className="fin-print-only fin-print-head">
         <h1>التقارير المالية</h1>
         <p>
           <span>النطاق: {rangeLabel}</span>
-          <span>نسبة العمولة: {RATE_LABEL}</span>
+          <span>نسبة العمولة: {rateLabel}</span>
           <span>تاريخ الطباعة: {fmtStamp(new Date())}</span>
         </p>
       </div>
@@ -414,7 +576,7 @@ export default function AdminFinancials() {
           )}
           {outsideCoverage && (
             <p className="text-xs font-bold text-amber-600 sm:col-span-2 dark:text-amber-400">
-              {`البيانات اليومية المتاحة في النسخة التجريبية تغطي ${fmtDate(financialDailySpan.from)} — ${fmtDate(financialDailySpan.to)} فقط، وما خارجها غير محسوب.`}
+              {`البيانات اليومية في الخادم تغطي ${fmtDate(span.from)} — ${fmtDate(span.to)} فقط، وما خارجها غير محسوب.`}
             </p>
           )}
         </div>
@@ -467,13 +629,13 @@ export default function AdminFinancials() {
           <SectionHeading icon={HandCoins} title="ملخص مالي سريع" subtitle="ملخص النطاق المحدد" />
           <ul className="space-y-3">
             <MiniRow tone="green" label="إجمالي الإيرادات" value={`${fmt(data.revenue)} ${CURRENCY}`} />
-            <MiniRow tone="orange" label={`عمولة المنصة (${RATE_LABEL})`} value={`${fmt(data.commission)} ${CURRENCY}`} />
+            <MiniRow tone="orange" label={`عمولة المنصة (${rateLabel})`} value={`${fmt(data.commission)} ${CURRENCY}`} />
             <MiniRow tone="violet" label="مستحقات الملاك" value={`${fmt(data.payouts)} ${CURRENCY}`} />
-            <MiniRow tone="sky" label={`مدفوعات معلّقة (${rangeLabel})`} value={`${fmt(pending)} ${CURRENCY}`} />
+            <MiniRow tone="sky" label={`مدفوعات معلّقة (${rangeLabel})`} value={money(pending)} />
             <MiniRow
               tone={netProfit < 0 ? 'orange' : 'sky'}
               label="صافي ربح المنصة"
-              value={`${fmt(netProfit)} ${CURRENCY}`}
+              value={money(netProfit)}
             />
           </ul>
         </SectionCard>
@@ -520,7 +682,7 @@ export default function AdminFinancials() {
             <thead>
               <tr className="border-b text-xs" style={{ borderColor: 'var(--border)' }}>
                 <th className="fin-print-hide whitespace-nowrap pb-3 pe-3 text-center font-extrabold" style={{ color: 'var(--text-muted)' }}>الإجراءات</th>
-                {TX_HEADERS.map((h) => (
+                {txHeaders.map((h) => (
                   <th key={h} className={`whitespace-nowrap pb-3 pe-3 font-extrabold ${h === 'الحالة' ? 'text-center' : 'text-right'}`} style={{ color: 'var(--text-muted)' }}>{h}</th>
                 ))}
               </tr>
@@ -548,7 +710,7 @@ export default function AdminFinancials() {
                   <td className="py-3 pe-3 text-right font-medium text-emerald-600">{`${t.net} ${CURRENCY}`}</td>
                   <td className="py-3 pe-3 text-right text-xs" style={{ color: 'var(--text-muted)' }}>{fmtDate(t.date)}</td>
                   <td className="py-3 pe-3 text-center">
-                    <StatusBadge tone={TX_STATUS_TONE[t.status] || 'gray'}>{t.status}</StatusBadge>
+                    <StatusBadge tone={TX_STATUS_TONE[t.statusKey] || 'gray'}>{t.status}</StatusBadge>
                   </td>
                 </tr>
               ))}
@@ -577,7 +739,7 @@ export default function AdminFinancials() {
             <div className="fin-receipt-row"><dt>تاريخ الحجز</dt><dd>{fmtDate(txDetails.date)}</dd></div>
             <div className="fin-receipt-row"><dt>الحالة</dt><dd>{txDetails.status}</dd></div>
             <div className="fin-receipt-row"><dt>{`إجمالي المبلغ (${CURRENCY})`}</dt><dd>{fmt(txDetails.amount)}</dd></div>
-            <div className="fin-receipt-row"><dt>{`عمولة المنصة (${RATE_LABEL})`}</dt><dd>{fmt(txDetails.commission)}</dd></div>
+            <div className="fin-receipt-row"><dt>{`عمولة المنصة (${rateLabel})`}</dt><dd>{fmt(txDetails.commission)}</dd></div>
             <div className="fin-receipt-row is-total"><dt>{`صافي مستحقات المالك (${CURRENCY})`}</dt><dd>{fmt(txDetails.net)}</dd></div>
           </dl>
         </div>
@@ -610,12 +772,12 @@ export default function AdminFinancials() {
               <span className="text-[.8rem] font-bold" style={{ color: 'var(--text-muted)' }}>
                 الحالة:
               </span>
-              <StatusBadge tone={TX_STATUS_TONE[txDetails.status] || 'gray'}>{txDetails.status}</StatusBadge>
+              <StatusBadge tone={TX_STATUS_TONE[txDetails.statusKey] || 'gray'}>{txDetails.status}</StatusBadge>
             </div>
 
             <ul className="space-y-2">
               <MiniRow tone="orange" label={`إجمالي المبلغ (${CURRENCY})`} value={fmt(txDetails.amount)} />
-              <MiniRow tone="violet" label={`عمولة المنصة (${RATE_LABEL})`} value={fmt(txDetails.commission)} />
+              <MiniRow tone="violet" label={`عمولة المنصة (${rateLabel})`} value={fmt(txDetails.commission)} />
               <MiniRow tone="green" label={`صافي مستحقات المالك (${CURRENCY})`} value={fmt(txDetails.net)} />
             </ul>
 
