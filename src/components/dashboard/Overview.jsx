@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import AnimatedOrbs from '../common/AnimatedOrbs';
 import DashCountUp from './DashCountUp';
-import { CalendarCheck, Clock, Heart, Star, MapPin, BookOpen, LogIn, Timer, X } from 'lucide-react';
+import { CalendarCheck, Clock, Heart, Star, MapPin, BookOpen, LogIn, Timer, X, PlusCircle } from 'lucide-react';
+import { ownerGate } from '../../lib/ownerGate';
 
 const dashAds = [
   { id: 1, title: 'مساحة عمل فاخرة', desc: 'بيئة احترافية مع جميع المرافق', badge: 'جديد', price: '25 ر.س/ساعة' },
@@ -17,7 +18,11 @@ function initialsOf(name) {
 export default function Overview({ data }) {
   const user = data.user || {};
   const stats = data.stats || {};
+  // قفل إضافة المساحة: نفس الحكم الذي يعرض OwnerPendingBanner، فحالة واحدة
+  // تقرّر القفل والرسالة معاً فلا تتناقضان.
+  const gate = ownerGate(user);
   const [showAll, setShowAll] = useState(false);
+  const [addSpaceOpen, setAddSpaceOpen] = useState(false);
   const [rateOpen, setRateOpen] = useState(false);
   const [rating, setRating] = useState(0);
   const [rated, setRated] = useState(false);
@@ -125,6 +130,29 @@ export default function Overview({ data }) {
       </section>
 
       <section className="dash__actions">
+        {/* إضافة المساحة أول إجراء لصاحب المساحة لا للمتفرج. نُبقي
+            البطاقة ظاهرةً معطوبةً `disabled` بدل إخفائها: الإخفاء يجعل
+            المستخدم يسأل «أين الزر؟» ثم يظنّ المنصة معطّلة كلياً. وسبب
+            القفل مُفسَّر في OwnerPendingBanner أعلى اللوحة، فلا يُترك له
+            حارسٌ بلا تفسير. */}
+        {user.role === 'owner' && (
+          <button
+            type="button"
+            className="dash__action"
+            data-owner-add-space={gate.locked ? 'locked' : 'open'}
+            onClick={() => setAddSpaceOpen(true)}
+            disabled={gate.locked}
+            aria-disabled={gate.locked}
+            title={gate.locked ? gate.message : 'أضف مساحتك'}
+          >
+            <div className="a-ico"><PlusCircle /></div>
+            <div>
+              <h3>إضافة مساحة</h3>
+              <p>{gate.locked ? 'موقوفة حتى تفعيل حسابك من الإدارة' : 'اعرض مساحتك على من يبحث عن مكان'}</p>
+            </div>
+          </button>
+        )}
+
         {actions.map((a) => {
           const Icon = a.icon;
           return (
@@ -232,6 +260,40 @@ export default function Overview({ data }) {
                 </button>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* نموذج إضافة المساحة — لم يُنفَّذ بعد (نفس المرحلة التي كانت فيها رسالة
+          «قيد التطوير» في لوحة الأدمن)، فالبوابة تُظهر المسار لا واجهة
+          وهمية. بلا نموذج قابل للإرسال عمداً: زرٌ يرسل إلى /api/spaces غير
+          موجود أسوأ من رسالة صريحة. */}
+      {addSpaceOpen && (
+        <div className="modal-overlay dash-rate__overlay" onClick={() => setAddSpaceOpen(false)}>
+          <div
+            className="modal-box dash-rate"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="إضافة مساحة"
+          >
+            <button
+              type="button"
+              className="dash-rate__close"
+              onClick={() => setAddSpaceOpen(false)}
+              aria-label="إغلاق"
+            >
+              <X />
+            </button>
+            <span className="dash-rate__ico"><MapPin /></span>
+            <h3>إضافة مساحة جديدة</h3>
+            <p>
+              شاشة إضافة المساحة قيد الإنشاء. حسابك مُفعَّل، فبمجرد جاهزية
+              الشاشة ستتمكن من النشر مباشرة دون مراجعة إضافية.
+            </p>
+            <button type="button" className="btn-primary" onClick={() => setAddSpaceOpen(false)}>
+              حسناً
+            </button>
           </div>
         </div>
       )}
