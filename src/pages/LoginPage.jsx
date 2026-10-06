@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { login, googleLogin, getHomePath, ApiError } from '../lib/authStore';
-import { adminLogin } from '../lib/adminAuth';
+import { adminLogin, isLocalAdminCredentials, startLocalAdminSession } from '../lib/adminAuth';
 import useGoogleAuth from '../hooks/useGoogleAuth';
 import { useForceLight } from '../hooks/useTheme';
 
@@ -16,6 +16,8 @@ export default function LoginPage() {
   const [errors, setErrors] = useState({ identifier: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState('');
+  // يظهر فقط عند رفض الخادم لحساب المشرف: زر صريح للدخول في وضع تجريبي.
+  const [demoOption, setDemoOption] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const toggleShowPassword = () => setShowPassword((s) => !s);
@@ -119,13 +121,21 @@ export default function LoginPage() {
 
     setErrors(newErrors);
     setFormError('');
+    setDemoOption(false);
     if (!valid) return;
 
     setLoading(true);
     try {
       // حساب المشرف: بيانات دخول محددة تُحوَّل للمشرف إلى لوحة تحكمه مباشرة.
       if (identifier.toLowerCase() === 'masahati@outlook.com') {
-        await adminLogin(identifier, formData.password);
+        try {
+          await adminLogin(identifier, formData.password);
+        } catch (err) {
+          // رفض حقيقي من الخادم (الحساب غير مُبذور بعد مثلاً). لا نتراجع
+          // صامتاً — نعرض الرسالة ونسيل طريقاً صريحاً ومقصوداً.
+          if (isLocalAdminCredentials(identifier, formData.password)) setDemoOption(true);
+          throw err;
+        }
         navigate('/admin', { replace: true });
         return;
       }
@@ -431,6 +441,32 @@ export default function LoginPage() {
           font-weight: 700;
           font-size: 0.8rem;
         }
+
+        /* مخرج وضع التجربة: يظهر فقط بعد رفض الخادم لحساب المشرف */
+        .demo-box {
+          margin-top: 0.5rem;
+          padding: 0.7rem 0.8rem;
+          border-radius: 0.6rem;
+          background: rgba(249, 115, 22, 0.10);
+          border: 1px solid rgba(249, 115, 22, 0.38);
+          display: flex;
+          flex-direction: column;
+          gap: 0.55rem;
+        }
+        .demo-box p {
+          margin: 0;
+          color: #fdba74;
+          font-size: 0.76rem;
+          line-height: 1.7;
+          font-weight: 600;
+        }
+        .demo-box .btn {
+          background: rgba(249, 115, 22, 0.16);
+          border: 1px solid rgba(249, 115, 22, 0.5);
+          color: #fdba74;
+          font-weight: 800;
+        }
+        .demo-box .btn:hover { background: rgba(249, 115, 22, 0.26); }
 
         /* زر إظهار/إخفاء كلمة المرور */
         .pw-wrap { position: relative; }
@@ -808,6 +844,28 @@ export default function LoginPage() {
 
             <div className="form-error-slot" aria-live="polite">
               {formError && <p className="error form-error-toast">{formError}</p>}
+              {/* رفض الخادم لحساب المشرف: مخرج صريح لا تراجُع صامت. يظهر فقط
+                  ببيانات المشرف المحلية الصحيحة، ويقول صراحةً ما سيحصل بعد
+                  الضغط: لوحة بلا أرقام، لأن كل رقم فيها يأتي من الخادم وحده. */}
+              {demoOption && (
+                <div className="demo-box" role="group" aria-label="الدخول في وضع تجريبي">
+                  <p>
+                    حساب المشرف غير مُبذور في الخادم بعد، واللوحة لا تعرض إلا ما
+                    يردّ من الخادم. يمكنك فتحها الآن لمراجعة الشكل والحالات
+                    الفارغة، وستبقى كل الأرقام والحسابات فارغة حتى يُبذر الحساب.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    onClick={() => {
+                      startLocalAdminSession();
+                      navigate('/admin', { replace: true });
+                    }}
+                  >
+                    فتح اللوحة بلا بيانات
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* زر الدخول */}
