@@ -1,11 +1,21 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Send, Megaphone, Users, Sparkles, Save, Search, MoreVertical, Copy, RotateCcw, Trash2, Bell, Mail, Link2, Eye } from 'lucide-react';
-import { adminNotifications, audienceRecipients } from '../../data/adminMockData';
-import { SectionCard, SectionHeading, StatusBadge, EmptyState, Field, inputCls, btnPrimary, btnGhost, Modal } from './ui';
+import { SectionCard, SectionHeading, StatusBadge, EmptyState, Field, inputCls, btnPrimary, btnGhost, Modal, DataSourceBanner, DataGate } from './ui';
 import useSafeInput from '../../hooks/useSafeInput';
+import useAdminData from './useAdminData';
 import { sanitizeUrl } from '../../utils/sanitize';
+import {
+  listBroadcasts,
+  getAudienceCounts,
+  listBroadcastDrafts,
+  sendBroadcast,
+  saveBroadcastDraft,
+  discardBroadcastDraft,
+  resendBroadcast,
+  isAdminTokenLive,
+} from '../../lib/adminApi';
 
 const audiences = [
   { id: 'all', label: 'جميع المستخدمين' },
@@ -42,6 +52,14 @@ const NOTIF_TEMPLATES = {
   },
 };
 
+// عدّاد معرّفات محلي للإشعارات التي تُضاف إلى السجلّ فوراً (قبل رد الخادم).
+// متغيّر على مستوى الوحدة لا Date.now(): الأخير دالة غير نقية، وReact Compiler
+// يمنع استدعاءها في كود المكوّن. العدّاد يكفي لتفادي تكرار المفتاح.
+let localSeq = 0;
+const nextLocalId = () => {
+  localSeq += 1;
+  return `local-${localSeq}`;
+};
 const nowISO = () => new Date().toISOString().slice(0, 10);
 const nowArabic = () =>
   new Date().toLocaleString('ar-EG', {
@@ -55,6 +73,10 @@ function channelIcon(channel) {
   return channel === 'email' ? Mail : Bell;
 }
 
+// مكان فارغ للحالة الأولى: لا سجلّ ولا عدّادات حتى يردّ الخادم.
+const NO_LOG = [];
+const NO_COUNTS = { all: null, owners: null, freelancers: null };
+
 export default function BroadcastNotifications() {
   const [target, setTarget] = useState('all');
   const title = useSafeInput('', { maxLength: 120 });
@@ -62,12 +84,57 @@ export default function BroadcastNotifications() {
   const link = useSafeInput('', { maxLength: 300 });
   const [channels, setChannels] = useState({ in_app: true, email: false });
   const [template, setTemplate] = useState('');
-  const [log, setLog] = useState(adminNotifications);
+  const [drafts, setDrafts] = useState([]);
+  const [log, setLog] = useState(NO_LOG);
   const [sent, setSent] = useState(false);
   const [logMsg, setLogMsg] = useState('');
   const [error, setError] = useState('');
   const [confirm, setConfirm] = useState(false);
-  const [drafts, setDrafts] = useState([]);
+
+  // العقد §12.1 + §12.2 + §12.5: سجلّ الإرسال، عدّادات الجمهور، والمسودات —
+  // ثلاثة مصادر في طلب واحد حتى لا تُرسم الشاشة بنصف أرقام.
+  const fetchBroadcasts = useCallback(async () => {
+    const [sentLog, counts, draftsList] = await Promise.all([
+      listBroadcasts({}),
+      getAudienceCounts(),
+      listBroadcastDrafts(),
+    ]);
+    // لا استبدال بجدول محلي: ردّ فارغ يعني «لا بثّ بعد» لا «أرسلنا أربعة».
+    return {
+      log: Array.isArray(sentLog?.rows) ? sentLog.rows : [],
+      counts: counts && typeof counts === 'object' ? counts : NO_COUNTS,
+      drafts: Array.isArray(draftsList) ? draftsList : [],
+    };
+  }, []);
+
+  const {
+    data: remote,
+    loading,
+    error: loadError,
+    live,
+    reload,
+  } = useAdminData(fetchBroadcasts);
+
+  // السجلّ والمسودات يبدآن من الخادم عند وصوله. المقارنة بـ«آخر نسخة مطبَّقة»
+  // تمنع تكرار setState في كل تصيير (كان يعيد رسم الجدول بلا داعٍ) وتكتفي مرة
+  // واحدة عند كل تغيّر. النمط حالة لا مرجع: قراءة مرجع أثناء التصيير ممنوعة،
+  // والمقارنة بـstate هي النمط الذي توثّقه React لضبط الحالة عند تغيّر مُدخل.
+  const [appliedLog, setAppliedLog] = useState(null);
+  const [appliedDrafts, setAppliedDrafts] = useState(null);
+  const serverLog = remote?.log ?? null;
+  const serverDrafts = remote?.drafts ?? null;
+  if (remote && serverLog !== appliedLog) {
+    setAppliedLog(serverLog);
+    setLog(serverLog);
+  }
+  if (remote && serverDrafts !== appliedDrafts) {
+    setAppliedDrafts(serverDrafts);
+    setDrafts(serverDrafts);
+  }
+
+  // عدّادات الجمهور من الخادم فقط؛ الفارغ يعني «لم يردّ» ويُعرض «—».
+  const audienceCounts = remote?.counts ?? NO_COUNTS;
+
   const [menu, setMenu] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
@@ -147,9 +214,11 @@ export default function BroadcastNotifications() {
     if (validate()) setConfirm(true);
   };
 
+  // العقد §12.3: الإرسال الفوري. السجلّ يُحدَّث محلياً فوراً (رحلة بريد
+  // جماعي take وقتاً)، ثم يذهب للخادم؛ الفشل يزيل السجلّ المُضاف ويرفعه.
   const dispatchNow = () => {
     const entry = {
-      id: Date.now(),
+      id: nextLocalId(),
       title: title.value.trim(),
       body: body.value.trim(),
       target,
@@ -159,7 +228,7 @@ export default function BroadcastNotifications() {
       date: nowISO(),
       sentBy: 'admin',
       opened: 0,
-      total: audienceRecipients[target] || 0,
+      total: recipients ?? 0,
     };
     setLog((prev) => [entry, ...prev]);
     setConfirm(false);
@@ -169,23 +238,54 @@ export default function BroadcastNotifications() {
     setTemplate('');
     setSent(true);
     setLogMsg('');
+
+    if (!isAdminTokenLive()) {
+      setLogMsg('تم الإرسال (وضع تجريبي — لم يُرسل شيء فعلياً).');
+      return;
+    }
+    sendBroadcast({
+      title: entry.title,
+      body: entry.body,
+      target: entry.target,
+      link: entry.link,
+      channels: entry.channels,
+    })
+      .then((saved) => {
+        // نعتمد الأرقام التي أعادها الخادم (المعرّف الفعلي وحجم الجمهور
+        // وقت الإرسال) بدل المُقدَّرة محلياً.
+        setLog((prev) =>
+          prev.map((n) =>
+            n.id === entry.id
+              ? { ...n, id: saved?.id ?? n.id, total: saved?.total ?? n.total, sentAt: saved?.sentAt ?? n.sentAt }
+              : n
+          )
+        );
+        setLogMsg(saved?.message || 'تم إرسال الإشعار بنجاح.');
+      })
+      .catch((err) => {
+        setLog((prev) => prev.filter((n) => n.id !== entry.id));
+        setSent(false);
+        setLogMsg(err?.message || 'تعذّر إرسال الإشعار.');
+      });
   };
 
+  // العقد §12.6: المسودة تبقى على الخادم، لا في الذاكرة فقط — فكانت تضيع
+  // بانتقال الصفحة. حقل واحد على الأقل من العنوان أو النص مطلوب.
   const saveDraft = () => {
     if (!title.value.trim() && !body.value.trim()) return;
-    setDrafts((prev) => [
-      {
-        id: Date.now(),
-        title: title.value.trim(),
-        body: body.value.trim(),
-        target,
-        link: link.value.trim(),
-        channels: Object.keys(channels).filter((c) => channels[c]),
-      },
-      ...prev,
-    ]);
+    const draft = {
+      title: title.value.trim(),
+      body: body.value.trim(),
+      target,
+      link: link.value.trim(),
+      channels: Object.keys(channels).filter((c) => channels[c]),
+    };
+    setDrafts((prev) => [{ id: prev.length ? Math.max(...prev.map((d) => d.id)) + 1 : 1, ...draft }, ...prev]);
     setSent(false);
     setLogMsg('تم حفظ الإشعار كمسودة.');
+    if (isAdminTokenLive()) {
+      saveBroadcastDraft(draft).catch((err) => setLogMsg(err?.message || 'تعذّر حفظ المسودة على الخادم.'));
+    }
   };
 
   const loadDraft = (d) => {
@@ -197,11 +297,25 @@ export default function BroadcastNotifications() {
     setTemplate('');
     setDrafts((prev) => prev.filter((x) => x.id !== d.id));
     setLogMsg('تم تحميل المسودة في النموذج.');
+    // العقد §12.7: المسودة المحمَّلة لم تعد في القائمة، فنخبر الخادم.
+    if (isAdminTokenLive()) {
+      discardBroadcastDraft(d.id).catch((err) => setLogMsg(err?.message || 'تعذّر تحديث المسودة على الخادم.'));
+    }
   };
 
-  const discardDraft = (id) => setDrafts((prev) => prev.filter((x) => x.id !== id));
+  const discardDraft = (id) => {
+    setDrafts((prev) => prev.filter((x) => x.id !== id));
+    if (isAdminTokenLive()) {
+      discardBroadcastDraft(id).catch((err) => setLogMsg(err?.message || 'تعذّر حذف المسودة على الخادم.'));
+    }
+  };
 
-  const recipients = audienceRecipients[target] || 0;
+  // العقد §12.2: عدّاد المستقبِلين حيّ ولا يُكتب يدوياً — تغييره من لوحة أخرى
+  // كان يستلزم تحديث الكود. بلا ردّ من الخادم يبقى null (لا صفر)، والعرض
+  // يتحوّل منه إلى «—» عند كل موضع.
+  const recipients = Number.isFinite(audienceCounts[target]) ? audienceCounts[target] : null;
+  // نصّ العرض: الرقم مفصول بالفواصل، أو «—» إن لم يرد.
+  const recipientsText = recipients === null ? '—' : recipients.toLocaleString('en-US');
 
   const openRowMenu = (e, n) => {
     e.stopPropagation();
@@ -220,6 +334,9 @@ export default function BroadcastNotifications() {
     setMenu((current) => (current?.id === n.id ? null : { id: n.id, top, left }));
   };
 
+  // العقد §12.4: إعادة الإرسال طلب حقيقي إلى الخادم (إعادة بثٍ سابق إلى جمهوره
+  // الأصلي). نُدرج السطر محلياً أولاً ليكون الفحص فورياً، ثم نصحّح المعرّف
+  // وحجم الجمهور من رد الخادم، ونُرجع الحالة السابقة إن رفض الخادم.
   const resend = () => {
     if (!menu) return;
     const n = log.find((x) => x.id === menu.id);
@@ -227,9 +344,10 @@ export default function BroadcastNotifications() {
       setMenu(null);
       return;
     }
+    const localId = nextLocalId();
     setLog((prev) => [
       {
-        id: Date.now(),
+        id: localId,
         title: n.title,
         body: n.body,
         target: n.target,
@@ -239,12 +357,30 @@ export default function BroadcastNotifications() {
         date: nowISO(),
         sentBy: 'admin',
         opened: 0,
-        total: audienceRecipients[n.target] || n.total || 0,
+        total: audienceCounts[n.target] ?? n.total ?? 0,
       },
       ...prev,
     ]);
     setMenu(null);
-    setLogMsg('تم إعادة إرسال الإشعار بنجاح.');
+    setLogMsg('تمت إعادة إرسال الإشعار بنجاح.');
+
+    if (!isAdminTokenLive()) return;
+    resendBroadcast(n.id, n.channels)
+      .then((saved) => {
+        setLog((prev) =>
+          prev.map((row) =>
+            row.id === localId
+              ? { ...row, id: saved?.id ?? row.id, total: saved?.total ?? row.total }
+              : row
+          )
+        );
+        if (saved?.message) setLogMsg(saved.message);
+      })
+      .catch((err) => {
+        // الخادم رفض ⇒ نُرجع الحالة السابقة بدل ترك سطر وهمي في السجل.
+        setLog((prev) => prev.filter((row) => row.id !== localId));
+        setLogMsg(err?.message || 'تعذّرت إعادة إرسال الإشعار.');
+      });
   };
 
   const copyText = async () => {
@@ -327,7 +463,7 @@ export default function BroadcastNotifications() {
               ))}
             </select>
             <p className="mt-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
-              إجمالي المستلمين المتوقع: <b style={{ color: 'var(--accent)' }}>{recipients.toLocaleString('en-US')}</b> مستخدم
+              إجمالي المستلمين المتوقع: <b style={{ color: 'var(--accent)' }}>{recipientsText}</b> مستخدم
             </p>
           </Field>
 
@@ -468,6 +604,12 @@ export default function BroadcastNotifications() {
       {/* سجل الإشعارات المرسلة */}
       <SectionCard>
         <SectionHeading icon={Sparkles} title="سجل الإشعارات المرسلة" subtitle="آخر الرسائل التي بثتها المنصة" />
+        <DataSourceBanner live={live} loading={loading} error={loadError} onRetry={reload} />
+
+        {/* لا سجلّ قبل ردّ الخادم: «لا إشعارات» كانت جواباً كاذباً قبل أن يرد. */}
+        {!remote && (
+          <DataGate live={live} loading={loading} error={loadError} onRetry={reload} rows={3} errorTitle="تعذّر جلب سجل الإشعارات" />
+        )}
 
         {/* فلاتر السجل */}
         <div className="mb-4 space-y-3">
@@ -541,7 +683,7 @@ export default function BroadcastNotifications() {
           </div>
         )}
 
-        {filteredLog.length === 0 ? (
+        {!remote ? null : filteredLog.length === 0 ? (
           <EmptyState
             icon={Megaphone}
             title="لا توجد إشعارات مطابقة"
@@ -656,7 +798,7 @@ export default function BroadcastNotifications() {
             </li>
             <li className="dash__mini is-green">
               <span className="lbl">إجمالي المستلمين</span>
-              <span className="val">{recipients.toLocaleString('en-US')}</span>
+              <span className="val">{recipientsText}</span>
             </li>
             <li className="dash__mini is-sky col-span-2">
               <span className="lbl">قنوات الإرسال</span>
@@ -669,7 +811,7 @@ export default function BroadcastNotifications() {
             </button>
             <button type="button" className={btnPrimary} onClick={dispatchNow}>
               <Send className="h-4 w-4" />
-              تأكيد وإرسال ({recipients.toLocaleString('en-US')})
+              تأكيد وإرسال ({recipientsText})
             </button>
           </div>
         </div>
