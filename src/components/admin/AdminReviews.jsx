@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   MessageSquareQuote,
   EyeOff,
@@ -17,14 +17,12 @@ import {
   UserX,
   Download,
 } from 'lucide-react';
-import { adminReviews } from '../../data/adminMockData';
 import {
   StatCard,
   SectionCard,
   SectionHeading,
   StatusBadge,
-  EmptyState,
-  Modal,
+  EmptyState,  Modal,
   Toast,
   btnGhost,
   btnDanger,
@@ -35,6 +33,9 @@ import {
   Avatar,
 } from './ui';
 import { useToast } from './useToast';
+import useAdminData from './useAdminData';
+import { listReviews, updateReview, deleteReview, isAdminTokenLive } from '../../lib/adminApi';
+import { adaptReview, adaptAll } from '../../lib/adminAdapters';
 import { arCount, AR_FORMS, normalizeAr, formatArDate } from '../../utils/format';
 import { downloadCsv } from '../../utils/csv';
 
@@ -228,10 +229,10 @@ function ReviewsSkeleton() {
   );
 }
 
+// مكان فارغ للحالة الأولى: لا مراجعات ⇒ لا متوسط ولا توزيع.
+const NO_ROWS = [];
+
 export default function AdminReviews() {
-  const [reviews, setReviews] = useState([]);
-  const [status, setStatus] = useState('loading');
-  const [loadError, setLoadError] = useState('');
   const [filter, setFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState(DEFAULT_SORT);
@@ -239,38 +240,27 @@ export default function AdminReviews() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const { toast, announce, dismiss } = useToast();
 
-  // جلب البيانات. لا توجد طبقة API بعد، فنقرأ البيانات الوهمية داخل try/catch وبتأخير
-  // قصير؛ البنية (loading → ready/error + زر إعادة المحاولة) هي نفسها التي ستُستخدم
-  // مع request() في src/lib/adminReviews.js، فالتبديل لاحقاً لا يمسّ باقي الصفحة.
-  // تصفير الحالة يتم في retryLoad (معالج حدث) لا داخل الـ effect: تعديل الحالة
-  // بجوارReads مباشرة في جسم الـ effect يسبّب تصييرات متتالية.
-  const [attempt, setAttempt] = useState(0);
-  useEffect(() => {
-    let alive = true;
-    const timer = setTimeout(() => {
-      if (!alive) return;
-      try {
-        if (!Array.isArray(adminReviews)) throw new Error('استجابة غير متوقعة: قائمة المراجعات ليست مصفوفة.');
-        setReviews(adminReviews);
-        setStatus('ready');
-      } catch (err) {
-        setLoadError(err?.message || 'تعذّر تحميل المراجعات.');
-        setStatus('error');
-      }
-    }, 250);
-    return () => {
-      alive = false;
-      clearTimeout(timer);
-    };
-  }, [attempt]);
+  // جلب البيانات — العقد §9.1. القائمة كاملة (لا صفحة واحدة) لأن الصفحة تحسب
+  // منها المتوسّط وتوزيع النجوم، ورقم صفحة واحدة يعطي متوسطاً كاذباً.
+  //
+  // المحوّل يرقّي أسماء العقد (`customer`/`author` ← `user`، `comment` ← `text`)
+  // ويقرأ غياب `visible` على أنه ظاهر لا مخفي.
+  const fetchReviews = useCallback(async () => {
+    const { rows } = await listReviews({});
+    return adaptAll(rows, adaptReview);
+  }, []);
 
-  const retryLoad = () => {
-    setStatus('loading');
-    setLoadError('');
-    setAttempt((a) => a + 1);
-  };
+  const {
+    data: reviewsRaw,
+    setData: setReviews,
+    loading,
+    error: loadError,
+    reload,
+  } = useAdminData(fetchReviews);
 
-  const loading = status === 'loading';
+  // القائمة فارغة (لا تحمل أرقاماً) حتى يصل أول ردّ، والمتوسّط والتوزيع
+  // يُحسبان على ما وصل فعلاً. بانتظار الردّ يعرض الملف هيكل تحميل صريحاً.
+  const reviews = reviewsRaw ?? NO_ROWS;
 
   const counts = useMemo(() => {
     const next = { all: reviews.length, flagged: 0, hidden: 0 };
@@ -338,20 +328,34 @@ export default function AdminReviews() {
   const start = filtered.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
   const end = Math.min(safePage * PAGE_SIZE, filtered.length);
 
+  // العقد §9.3: الإخفاء/الإظهار. الرسالة تتبع الحالة الناتجة، والخادم يعيدها
+  // أيضاً فنثبتنا على الحالة المحلية فلا نحتاج trusting نص الخادم.
   const toggleHide = (id) => {
     // نقرأ الهدف قبل التحديث: الاستدعاء داخل setReviews استدعاء جانبي (side effect)
     // وكان يُنفَّذ مرتين في StrictMode فيُعلَن عن الإجراء مرتين.
     const target = reviews.find((r) => r.id === id);
     if (!target) return;
-    setReviews((prev) => prev.map((r) => (r.id === id ? { ...r, visible: !r.visible } : r)));
-    announce(target.visible ? 'تم إخفاء المراجعة.' : 'تم إظهار المراجعة.');
+    const visible = !target.visible;
+    setReviews((prev) => (Array.isArray(prev) ? prev.map((r) => (r.id === id ? { ...r, visible } : r)) : prev));
+    announce(visible ? 'تم إظهار المراجعة.' : 'تم إخفاء المراجعة.');
+    if (isAdminTokenLive()) {
+      updateReview(id, { visible }).catch((err) => {
+        setReviews((prev) => (Array.isArray(prev) ? prev.map((r) => (r.id === id ? { ...r, visible: target.visible } : r)) : prev));
+        announce(err?.message || 'تعذّر تنفيذ الإجراء على الخادم.');
+      });
+    }
   };
 
+  // العقد §9.4.
   const handleDelete = () => {
     if (!deleteTarget) return;
-    setReviews((prev) => prev.filter((r) => r.id !== deleteTarget.id));
+    const id = deleteTarget.id;
+    setReviews((prev) => (Array.isArray(prev) ? prev.filter((r) => r.id !== id) : prev));
     setDeleteTarget(null);
     announce('تم حذف المراجعة نهائياً.');
+    if (isAdminTokenLive()) {
+      deleteReview(id).catch((err) => announce(err?.message || 'تعذّر حذف المراجعة من الخادم.'));
+    }
   };
 
   // يصدّر النتائج المعروضة (لا كامل القاعدة) بــ BOM عربي كما في utils/csv.js.
@@ -510,7 +514,7 @@ export default function AdminReviews() {
 
       {loading ? (
         <ReviewsSkeleton />
-      ) : status === 'error' ? (
+      ) : loadError ? (
         /* حالة الخطأ: نُظهرها بدل قائمة فارغة صامتة، ومعها سبب الخطأ وزر إعادة المحاولة. */
         <div
           className="flex flex-col items-center gap-3 rounded-3xl border border-red-100 bg-red-50/60 p-10 text-center dark:border-red-500/25 dark:bg-red-500/5"
@@ -522,9 +526,9 @@ export default function AdminReviews() {
             تعذّر تحميل المراجعات
           </p>
           <p className="max-w-md text-sm" style={{ color: 'var(--text-muted)' }}>
-            {loadError || 'حدث خطأ غير متوقع أثناء جلب البيانات.'}
+            {loadError}
           </p>
-          <button type="button" className={btnPrimary} onClick={retryLoad}>
+          <button type="button" className={btnPrimary} onClick={reload}>
             <RefreshCw className="h-4 w-4" />
             إعادة المحاولة
           </button>
