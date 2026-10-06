@@ -879,6 +879,9 @@ console.log('\n===== ADMIN: قسم مستندات التحقق في نافذة �
 
   // الاعتماد يفعّل الحساب، فيخرج من الطابور ويختفي القسم (لا قرار عليه).
   const name = (profile?.querySelector('.truncate')?.textContent || '').trim();
+  // نرصد ما ينطلق من هذا النقر تحديداً: الاختبارات الأخرى تُترك سابقةً في
+  // `fixtureCalls` فلا يجوز قراءتها دون قصّة.
+  const beforeApproveCalls = fixtureCalls.length;
   await v.click(docs.querySelector('[data-owner-approve]'));
   await flush();
   await flush();
@@ -890,6 +893,16 @@ console.log('\n===== ADMIN: قسم مستندات التحقق في نافذة �
     !!afterApprove && afterApprove.textContent.includes('نشط'),
     (afterApprove?.textContent || '').includes('نشط') ? 'نشط' : (afterApprove?.textContent || '').slice(0, 80));
   void name;
+
+  // عقد A4.5 لا A4.4: الاعتماد يضع `verified` و`status` معاً. مسار الحالة
+  // وحدها لا تمسّ التوثيق، فيبقى المعتمد محسوباً «بانتظار التحقق» في شريط
+  // العدّادات — عطلٌ كان الخادم الوهمي يخفيه لأن مسار `/status` عنده يوثّق
+  // معه، فلم يظهر إلا على الخادم الحقيقي.
+  const approveCalls = fixtureCalls.slice(beforeApproveCalls);
+  const verifyCalls = approveCalls.filter((u) => /\/api\/admin\/users\/[^/]+\/verify/.test(u));
+  report('B9b الاعتماد يستدعي PATCH .../verify عقداً لا .../status وحدها',
+    verifyCalls.length > 0,
+    approveCalls.length ? approveCalls.join(' | ') : 'no network call');
 
   // إغلاق النافذة، ثم نتحقق أن الحساب المعتمد خرج من الطابور.
   const closeBtn = afterApprove?.querySelector('button[aria-label="إغلاق"]');
