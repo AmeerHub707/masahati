@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from 'react';
 import {
   Users,
   Building2,
@@ -23,8 +24,9 @@ import {
   BarChart,
   Bar,
 } from 'recharts';
-import { adminStats, revenueTrend, adminActivities, recentRegistrations } from '../../data/adminMockData';
-import { StatCard, SectionCard, SectionHeading, StatusBadge, Avatar, ViewAllButton } from './ui';
+import { StatCard, SectionCard, SectionHeading, StatusBadge, Avatar, ViewAllButton, DataSourceBanner, DataGate } from './ui';
+import useAdminData from './useAdminData';
+import { getStats, getRevenueTrend, getActivities, getRecentRegistrations } from '../../lib/adminApi';
 
 const activityMeta = {
   user: { icon: UserPlus, tone: 'green' },
@@ -35,21 +37,22 @@ const activityMeta = {
   review: { icon: Star, tone: 'violet' },
 };
 
-const roleLabel = {
-  freelancer: 'فريلانسر',
-  owner: 'صاحب مساحة',
+// أدوار المستخدم في لوحة المشرف — نفس تصنيف AdminUsers: قيمتان فقط تظهران
+// للمستخدم («فريلانسر» و«مالك مساحة»)، وكل إملاء يطابقهما يُعرض بتسمية
+// واحدة. `customer` مدمج في «فريلانسر» فلا يظهر كمصطلح مستقلّ في أي شاشة.
+const roleMeta = {
+  freelancer: { label: 'فريلانسر', tone: 'violet' },
+  customer: { label: 'فريلانسر', tone: 'violet' },
+  owner: { label: 'مالك مساحة', tone: 'orange' },
+  space_owner: { label: 'مالك مساحة', tone: 'orange' },
 };
 
-const roleTone = {
-  freelancer: 'violet',
-  owner: 'orange',
+// قيمة بديلة آمنة: بيانات الـ API قد تحتوي دوراً غير معرّف أو غائباً، فنقول
+// «—» بدل تسمية مخترعة.
+const roleOf = (role) => {
+  const meta = typeof role === 'string' ? roleMeta[role.trim().toLowerCase()] : null;
+  return meta ? { label: meta.label, tone: meta.tone } : { label: '—', tone: 'gray' };
 };
-
-// قيم بديلة آمنة — بيانات الـ API قد تحتوي دوراً غير معرّف.
-const roleOf = (role) => ({
-  label: roleLabel[role] || 'مستخدم',
-  tone: roleTone[role] || 'gray',
-});
 
 function chartTooltipStyle() {
   const dark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
@@ -64,20 +67,70 @@ function chartTooltipStyle() {
   };
 }
 
-export default function AdminOverview({ onNavigate = () => {} }) {
-  const stats = adminStats;
+// لا قيم بديلة هنا: كل حقل يأتي من الخادم كما هو. الحقول الناقصة تصبح
+// `undefined` فيُعرض مكانها '—' بدل رقم مخترَع.
+const rowsOf = (value) => (Array.isArray(value) ? value : []);
 
+// قيمة رقمية من الخادم، أو '—' إن لم تصل — لا صفر بديل.
+const num = (value) => (typeof value === 'number' && Number.isFinite(value) ? value : '—');
+
+export default function AdminOverview({ onNavigate = () => {} }) {
+  // العقد §4: أربعة مصادر للنظرة العامة. نطلبها معاً فيات ووعد واحد حتى لا
+  // ترسم الشاشة بأرقام جزئية (رسوم من مصدر وبطاقات من آخر).
+  const fetchOverview = useCallback(
+    () =>
+      Promise.all([getStats(), getRevenueTrend(12), getActivities(10), getRecentRegistrations(5)]).then(
+        ([stats, trend, activities, registrations]) => ({
+          stats: stats && typeof stats === 'object' ? stats : {},
+          trend: rowsOf(trend),
+          activities: rowsOf(activities),
+          registrations: rowsOf(registrations),
+        })
+      ),
+    []
+  );
+
+  const { data, loading, error, live, reload } = useAdminData(fetchOverview);
+
+  // نسبة التغيّر محسوبة من السلسلة نفسها (آخر شهرين)، لا نسبة مكتوبة في الكود:
+  // نمو المنصة رقم يجب أن يُشتق من الخادم وإلا صار دعوى بلا مصدر.
+  const trendChange = useMemo(() => {
+    const rows = rowsOf(data?.trend);
+    if (rows.length < 2) return null;
+    const last = Number(rows[rows.length - 1]?.revenue);
+    const prev = Number(rows[rows.length - 2]?.revenue);
+    if (!Number.isFinite(last) || !Number.isFinite(prev) || prev === 0) return null;
+    return Math.round(((last - prev) / prev) * 100);
+  }, [data]);
+
+  if (!data) {
+    return <DataGate live={live} loading={loading} error={error} onRetry={reload} rows={4} />;
+  }
+
+  const { stats, trend, activities, registrations } = data;
+
+  // البطاقات بلا نسب نمو: العقد لا يوفّر مقارنة بالفترة السابقة، فكتابة
+  // «+4.2%» كانت رقماً بلا مصدر. الاتجاه يُترك بلا وسم حتى يصل من الخادم.
   const cards = [
-    { icon: Users, label: 'إجمالي المستخدمين', value: stats.totalUsers, tone: 'orange', trend: 'up', hint: '+4.2%' },
-    { icon: Building2, label: 'مالكو المساحات', value: stats.spaceOwners, tone: 'violet', trend: 'up', hint: '+1.8%' },
-    { icon: MapPin, label: 'المساحات المسجلة', value: stats.registeredSpaces, tone: 'blue', trend: 'up', hint: '+2.5%' },
-    { icon: CalendarCheck, label: 'حجوزات الشهر', value: stats.monthlyBookings, tone: 'green', trend: 'up', hint: '+6.1%' },
-    { icon: Wallet, label: 'الإيرادات', value: stats.totalRevenue, currency: 'ش.ج', tone: 'amber', trend: 'up', hint: '+8.9%' },
-    { icon: ShieldAlert, label: 'النزاعات المفتوحة', value: stats.openDisputes, tone: 'red', trend: 'warn', hint: 'تحتاج متابعة' },
+    { icon: Users, label: 'إجمالي المستخدمين', value: num(stats.totalUsers), tone: 'orange', trend: 'none' },
+    { icon: Building2, label: 'مالكو المساحات', value: num(stats.spaceOwners), tone: 'violet', trend: 'none' },
+    { icon: MapPin, label: 'المساحات المسجلة', value: num(stats.registeredSpaces), tone: 'blue', trend: 'none' },
+    { icon: CalendarCheck, label: 'حجوزات الشهر', value: num(stats.monthlyBookings), tone: 'green', trend: 'none' },
+    { icon: Wallet, label: 'الإيرادات', value: num(stats.totalRevenue), currency: 'ش.ج', tone: 'amber', trend: 'none' },
+    {
+      icon: ShieldAlert,
+      label: 'النزاعات المفتوحة',
+      value: num(stats.openDisputes),
+      tone: 'red',
+      trend: 'warn',
+      hint: stats.openDisputes ? 'تحتاج متابعة' : '',
+    },
   ];
 
   return (
     <div className="space-y-6">
+      <DataSourceBanner live={live} loading={loading} error={error} onRetry={reload} />
+
       {/* بطاقات المؤشرات الست */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {cards.map((c) => (
@@ -92,11 +145,18 @@ export default function AdminOverview({ onNavigate = () => {} }) {
             icon={Wallet}
             title="اتجاه الإيرادات"
             subtitle="آخر 12 شهراً (ش.ج)"
-            action={<StatusBadge tone="green" icon={CheckCircle2}>نمو مستمر</StatusBadge>}
+            action={
+              // الشارة مشتقة من السلسلة الواردة: لا تُدّعي نمواً بلا قياس.
+              trendChange === null ? null : (
+                <StatusBadge tone={trendChange >= 0 ? 'green' : 'red'} icon={trendChange >= 0 ? CheckCircle2 : AlertCircle}>
+                  {trendChange >= 0 ? '↑' : '↓'} {Math.abs(trendChange)}% عن الشهر السابق
+                </StatusBadge>
+              )
+            }
           />
           <div className="h-64" dir="ltr">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={revenueTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <AreaChart data={trend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#f97316" stopOpacity={0.35} />
@@ -127,7 +187,7 @@ export default function AdminOverview({ onNavigate = () => {} }) {
           />
           <div className="h-64" dir="ltr">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={revenueTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <BarChart data={trend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="opacity-40 dark:opacity-20" />
                 <XAxis dataKey="month" tick={{ fontSize: 10, fontFamily: "'Cairo', sans-serif" }} />
                 <YAxis tick={{ fontSize: 10 }} width={40} />
@@ -149,7 +209,10 @@ export default function AdminOverview({ onNavigate = () => {} }) {
             action={<ViewAllButton onClick={() => onNavigate('bookings')} />}
           />
           <ul className="space-y-3 pb-3">
-            {adminActivities.map((a) => {
+            {activities.length === 0 && (
+              <li className="txt-muted py-6 text-center text-sm">لا توجد أنشطة مسجّلة بعد.</li>
+            )}
+            {activities.map((a) => {
               const meta = activityMeta[a.icon] || activityMeta.user;
               const Icon = meta.icon;
               return (
@@ -184,7 +247,14 @@ export default function AdminOverview({ onNavigate = () => {} }) {
                 </tr>
               </thead>
               <tbody>
-                {recentRegistrations.map((r) => {
+                {registrations.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="txt-muted py-6 text-center text-sm">
+                      لا يوجد تسجيلات حديثة.
+                    </td>
+                  </tr>
+                )}
+                {registrations.map((r) => {
                   const role = roleOf(r.role);
                   return (
                     <tr key={r.id}>
