@@ -742,7 +742,9 @@ img{max-width:100%;}
 }
 
 /* ===== شاشة التحميل ===== */
-.no-scroll{overflow:hidden;}
+/* التمرير صار داخل .dash لا في النافذة، فتشمل التجميد اللوحةَ نفسها — وإلا
+   أمكن تمرير اللوحة تحت طبقة التحميل. */
+.no-scroll,.no-scroll .dash{overflow:hidden;}
 .loading{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;overflow:hidden;background:#0b0b0f;font-family:'Cairo',sans-serif;direction:rtl;opacity:1;visibility:visible;transition:opacity .4s var(--ease),transform .4s var(--ease),visibility .4s;}
 .loading--leaving{opacity:0;transform:scale(1.05);visibility:hidden;pointer-events:none;}
 .loading__bg{position:absolute;inset:0;background:url('/loadingBG.jpg') center/cover no-repeat;filter:blur(14px) brightness(.5) saturate(.95);transform:scale(1.1);animation:loadingBgZoom 16s ease-in-out infinite alternate;}
@@ -909,48 +911,102 @@ img{max-width:100%;}
 /* ظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـ
    USER DASHBOARD
    ظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـظـ */
+/* حاوية التمرير الوحيدة: تمتدّ بكامل عرض الشاشة، ومع direction:ltr يقع شريط
+   التمرير على الحافة اليمنى الحقيقية للشاشة.
+
+   لماذا لا نُمرّر .dash__main: هي تقع يسارَ الشريط الجانبي (256px)، فحافّتها
+   اليمنى هي الحدّ الفاصل بين العمودين لا حافة الشاشة — فظهر الشريط «في
+   الوسط». رفع التمرير إلى هنا يجعل الحافة اليمنى للحاوية = حافة الشاشة. */
 .dash{
-  min-height:100vh;min-height:100dvh;
-  display:flex;flex-direction:column;background:#fff;overflow:hidden;
+  height:100vh;height:100dvh;
+  display:flex;flex-direction:column;background:#fff;
+  overflow-x:hidden;overflow-y:auto;
+  direction:ltr;
 }
-.dash__layout{display:flex;flex:1;min-height:0;position:relative;overflow:hidden;}
+/* لا يقصّ (overflow:hidden هنا يجعل هذا العنصر حاوية التمرير التي يُحلّ إليها
+   sticky، فينفصل الشريط الجانبي والترويسة عن الشاشة ويشارك في التمرير مع
+   المحتوى) ولا يقيّد ارتفاعه (flex:0 0 auto) حتى ينمو مع المحتوى فيمرّره .dash.
+   اتجاهه rtl صريح ليبقى الشريط الجانبي على اليمين داخل حاوية ltr. */
+.dash__layout{display:flex;flex:0 0 auto;position:relative;overflow:visible;direction:rtl;}
 /* ╪┤╪▒┘è╪╖ ╪ش╪د┘╪ذ┘è */
 .dash__side{
-  display:flex;flex:0 0 auto;flex-direction:column;gap:1.1rem;
+  /* ارتفاع ثابت بلا تمرير داخلي: الشريط الجانبي لا ينزلق أبداً، وكل ما فيه
+     (نظرة عامة ← الإعدادات ← الخروج) يظهر دفعةً واحدة على شاشة واحدة. */
+  display:flex;flex:0 0 auto;flex-direction:column;justify-content:space-between;
   background:#fff;
   border-inline-end:1px solid var(--border);
-  position:relative;top:0;height:auto;min-height:0;overflow:hidden;
-  padding:1.4rem .75rem 1.2rem;z-index:40;
+  position:sticky;top:0;align-self:flex-start;
+  height:100vh;height:100dvh;
+  min-height:0;overflow:hidden;
+  padding:1rem .75rem .75rem;z-index:40;
+  direction:rtl;
   transition:width .28s var(--ease);
 }
-.dash__side-header{display:flex;align-items:center;justify-content:center;margin-bottom:.2rem;}
+/* المنطقة الوسطى (الشعار + الملف + القائمة): لا تتمرّر ولا تتمدّد، فقط تحزم
+   عناصرها فوق بعضها. المسافات ضيّقة عمداً حتى يستوعب عمودٌ واحد كل التبويبات
+   والقائمة الفرعية وزر الخروج دون فائض على شاشة عادية. */
+.dash__side-body{
+  flex:0 1 auto;min-height:0;overflow:hidden;
+  display:flex;flex-direction:column;gap:.5rem;
+  direction:rtl;
+}
+/* الشريط الجانبي لا يمرّر أصلاً (overflow:hidden أعلاه)، فلا يحتاج إلغاء شريط
+   مرئي — والقواعد محفوظة احتياطاً إن أُعيد التمرير لاحقاً. */
+.dash__side,.dash__side-body{
+  scrollbar-width:none;-ms-overflow-style:none;
+}
+.dash__side::-webkit-scrollbar,
+.dash__side-body::-webkit-scrollbar{
+  display:none;width:0;height:0;
+}
+/* التذييل: ارتفاعه ثابت ولا يتمدّد ولا ينكمش — خطّ فاصل فوق زر خروج ملتصق. */
+.dash__side-foot{
+  flex:none;border-top:1px solid var(--border);
+  padding:.5rem .25rem 0;
+}
+.dash__side-header{display:flex;align-items:center;justify-content:center;margin-bottom:0;}
 .dash__side.collapsed{
   flex:0 0 auto;
-  padding:1.4rem .4rem 1.2rem;
+  padding:1rem .4rem .75rem;
 }
   .dash__side.collapsed .dash__side-header{justify-content:center;}
 .dash__side.collapsed .dash__nav a,.dash__side.collapsed .dash__nav button{
-  justify-content:center;padding:.7rem;}
-.dash__side.collapsed .dash__nav-logout{padding:.7rem;}
-.dash__nav{display:flex;flex-direction:column;gap:.25rem;flex:1;overflow-y:auto;min-height:0;scrollbar-width:none;}
-.dash__nav::-webkit-scrollbar{display:none;}
+  justify-content:center;padding:.4rem;}
+/* القائمة: صفّ مدمج بلا تمرير. */
+.dash__nav{display:flex;flex-direction:column;gap:.2rem;flex:0 1 auto;min-height:0;direction:rtl;}
+/* روابط التنقّل: py-1.5 و min-height 40px بدل 44px — أصغر بما يكفي لاثبات
+   كل التبويبات في شاشة واحدة، وأكبر من حدّ اللمس المُوصى به (40px ≥ 24px). */
 .dash__nav a,.dash__nav button{
-  display:flex;align-items:center;gap:.7rem;width:100%;text-align:start;
-  padding:.7rem .9rem;border:none;background:transparent;border-radius:.9rem;
-  font-family:'Cairo',sans-serif;font-size:.95rem;font-weight:800;color:#000;
-  cursor:pointer;transition:color .18s,background .18s;min-height:44px;text-decoration:none;
+  display:flex;align-items:center;gap:.6rem;width:100%;text-align:start;
+  padding:.4rem .7rem;border:none;background:transparent;border-radius:.7rem;
+  font-family:'Cairo',sans-serif;font-size:.88rem;font-weight:800;color:#000;
+  cursor:pointer;transition:color .18s,background .18s;min-height:40px;
+  white-space:nowrap;text-decoration:none;
 }
 .dash__nav a:hover,.dash__nav button:hover{color:#f97316;background:rgba(249,115,22,.1);}
 .dash__nav a.is-active,.dash__nav button.is-active{color:#f97316;background:rgba(249,115,22,.15);font-weight:800;}
-.dash__nav a svg,.dash__nav button svg{width:1.25rem;height:1.25rem;flex:none;}
-.dash__nav .dash__nav-logout{margin-top:auto;color:#dc2626;background:none;border-radius:.5rem;padding:.5rem .9rem;box-shadow:none;}
-.dash__nav .dash__nav-logout:hover{color:#b91c1c;background:rgba(220,38,38,.08);}
+.dash__nav a svg,.dash__nav button svg{width:1.15rem;height:1.15rem;flex:none;}
+/* زر الخروج: يقف في التذييل لا داخل .dash__nav، فله قواعده المستقلة — وnowrap
+   يبقي «تسجيل الخروج» على سطر واحد بدل أن ينكسر إلى سطرين في العرض الضيق. */
+.dash__nav-logout{
+  display:flex;align-items:center;gap:.6rem;width:100%;text-align:start;
+  padding:.4rem .7rem;border:none;background:transparent;border-radius:.5rem;
+  font-family:'Cairo',sans-serif;font-size:.88rem;font-weight:800;color:#dc2626;
+  cursor:pointer;min-height:40px;white-space:nowrap;
+  transition:color .18s,background .18s;
+}
+.dash__nav-logout svg{width:1.15rem;height:1.15rem;flex:none;}
+.dash__nav-logout span{white-space:nowrap;}
+.dash__nav-logout:hover{color:#b91c1c;background:rgba(220,38,38,.08);}
+.dash__nav-logout:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.dash__side.collapsed .dash__nav-logout{justify-content:center;padding:.4rem;}
 .dash__nav a:focus-visible,.dash__nav button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 .dash__burger:focus-visible,.dash__collapse-btn:focus-visible,.dash__notif-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 /* ┘à┘┘ ╪د┘┘à╪│╪ز╪«╪»┘à ╪»╪د╪«┘ ╪د┘╪┤╪▒┘è╪╖ ╪د┘╪ش╪د┘╪ذ┘è */
-.dash__profile{display:flex;align-items:center;gap:.7rem;padding:.6rem .5rem .9rem;border-bottom:1px solid var(--border);}
+/* بطاقة المشرف: مدمجة (حاشية مخفّضة وصورة أصغر) لتوفير ارتفاعٍ للقائمة. */
+.dash__profile{display:flex;align-items:center;gap:.6rem;padding:.35rem .4rem .5rem;border-bottom:1px solid var(--border);}
 .dash__avatar{
-  width:2.7rem;height:2.7rem;border-radius:50%;flex:none;object-fit:cover;
+  width:2.2rem;height:2.2rem;border-radius:50%;flex:none;object-fit:cover;
   background:linear-gradient(180deg,#fb923c,var(--accent) 60%,var(--accent-hover));
   color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:1.05rem;
   box-shadow:0 10px 20px -8px rgba(249,115,22,.55);
@@ -958,7 +1014,15 @@ img{max-width:100%;}
 .dash__profile h3{margin:0;font-size:.95rem;font-weight:800;color:var(--text-strong);line-height:1.2;}
 .dash__profile p{margin:0;font-size:.75rem;color:var(--text-muted);}
 /* ╪د┘╪┤╪▒┘è╪╖ ╪د┘╪▒╪خ┘è╪│┘è */
-.dash__main{flex:1;min-width:0;display:flex;flex-direction:column;overflow-y:auto;}
+/* الشريط الرئيسي: صفة التمرير انتقلت إلى .dash — لأنه وحده يمتدّ بكامل عرض
+   الشاشة، فيقع شريط التمرير على حافتها اليمنى بدل الحدّ الفاصل بين العمودين.
+   وهو هنا rtl صريح، فيبقى كل نصّ ولافتة وتخطيط فرعي عربياً كما هو. */
+.dash__main{
+  flex:1;min-width:0;min-height:0;
+  display:flex;flex-direction:column;
+  overflow:visible;
+  direction:rtl;
+}
 .dash__top{
   display:flex;align-items:center;gap:1rem;padding:1rem 1.6rem;
   position:sticky;top:0;z-index:30;background:#fff;
@@ -991,13 +1055,19 @@ img{max-width:100%;}
 
 /* ╪▓╪▒ ╪ز╪ذ╪»┘è┘ ╪د┘┘ê╪╢╪╣ ╪د┘╪»╪د┘â┘ / ╪د┘┘╪د╪ز╪ص */
 .dash__theme-btn{
+  /* الزر يقف في ترويسة اللوحة: مقاس ثابت (w-10 h-10) وحدّ مرئيّ، فيظهر كزر
+     مستقل لا كعنصر عالق بزاوية الشاشة. */
   display:flex;align-items:center;justify-content:center;
-  width:2.6rem;height:2.6rem;border:none;border-radius:.75rem;cursor:pointer;
+  width:2.5rem;height:2.5rem;border:1px solid var(--border);
+  border-radius:.75rem;cursor:pointer;
   background:var(--accent-soft);color:var(--accent);flex:none;
-  transition:all .2s var(--ease);
+  transition:background .2s var(--ease),color .2s var(--ease),
+             border-color .2s var(--ease),transform .2s var(--ease),
+             box-shadow .2s var(--ease);
 }
-.dash__theme-btn:hover{background:var(--accent);color:#fff;transform:translateY(-2px) rotate(-12deg);box-shadow:0 8px 20px -6px rgba(249,115,22,.45);}
-.dash__theme-btn svg{width:1.2rem;height:1.2rem;}
+.dash__theme-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 20px -6px rgba(249,115,22,.45);}
+.dash__theme-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.dash__theme-btn svg{width:1.2rem;height:1.2rem;transition:transform .25s var(--ease);}
 .dash__notif-badge{
   position:absolute;top:-.25rem;right:-.25rem;
   min-width:1.1rem;height:1.1rem;padding:0 .3rem;
@@ -1247,6 +1317,31 @@ html.dark .dash__switch input:checked + .track{background:var(--accent);}
   border:3px solid #fff;box-shadow:0 6px 14px -4px rgba(249,115,22,.6);
 }
 .dash__photo-edit svg{width:1rem;height:1rem;}
+/* طبقة التمرير فوق الصورة: كاميرا + «تغيير الصورة». حلقة كاملة بنفس حجم
+   الصورة (border-radius 50%) فلا تظهر كطبقة مربّعة على صورة دائرية، والتعتيم
+   متدرّج ليبقى الوجه مفهوماً خلفها. لا pointer-events: النقر يمرّ إلى الزر
+   نفسه — الطبقة زخرفة لا هدف. */
+.dash__photo-overlay{
+  position:absolute;inset:0;border-radius:50%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.2rem;
+  background:linear-gradient(180deg,rgba(17,17,22,.62),rgba(17,17,22,.82));
+  color:#fff;font-size:.8rem;font-weight:800;line-height:1.2;text-align:center;
+  opacity:0;pointer-events:none;
+  transition:opacity .22s var(--ease),transform .2s;
+}
+.dash__photo-overlay svg{width:1.35rem;height:1.35rem;}
+/* يظهر عند التمرير، وعند التركيز بلوحة المفاتيح (زر لا div: يعمل بالـ Tab)،
+   ومعه أثناء الرفع كي يرى المستخدم أن الضغط له أثر. يتحجّم معها كبقي الصورة
+   (.dash__photo تكبر 1.03 عند التمرير) وإلا بقيت حافة الحلقة ظاهرة. */
+.dash__photo-btn:hover .dash__photo-overlay,
+.dash__photo-btn:focus-visible .dash__photo-overlay,
+.dash__photo-btn[aria-busy="true"] .dash__photo-overlay{opacity:1;transform:scale(1.03);}
+.dash__photo-btn:disabled{cursor:progress;}
+@media (hover:none){
+  /* بلا مؤشّر (جوال): لا hover أصلاً، فنبقي الطبقة ظاهرة كي يبقى معنى
+     النقر مفهوماً بدل عنصر يبدو غير قابل للضغط. */
+  .dash__photo-btn .dash__photo-overlay{opacity:1;}
+}
 .dash__photo-name{margin:.8rem 0 .1rem;font-size:1.15rem;font-weight:800;color:var(--text-strong);}
 .dash__photo-role{margin:0;font-size:.85rem;color:var(--text-muted);}
 
@@ -1260,24 +1355,38 @@ html.dark .dash__switch input:checked + .track{background:var(--accent);}
 .dash__state h3{margin:0 0 .4rem;font-size:1.05rem;font-weight:800;color:var(--text-strong);}
 .dash__state p{margin:0 auto 1.2rem;max-width:26rem;font-size:.88rem;}
 .dash__state a{color:var(--accent);font-weight:700;}
+/* هياكل انتظار: تُظهر أن الطلب في الطريق دون تلوين أي رقم لم يرد بعد. */
+.dash__bar{height:.7rem;border-radius:999px;background:linear-gradient(90deg,var(--border),rgba(249,115,22,.18),var(--border));background-size:200% 100%;animation:dashBar 1.4s linear infinite;}
+.dash__bar:nth-child(2){animation-delay:.15s;}
+.dash__bar:nth-child(3){animation-delay:.3s;}
+@keyframes dashBar{from{background-position:200% 0}to{background-position:-200% 0}}
+@media (prefers-reduced-motion: reduce){.dash__bar{animation:none;}}
 
 /* ╪د┘╪╡╪ذ┘ّ╪د╪▒╪ر (drawer) ┘┘╪ش┘ê╪د┘ */
-.dash__scrim{display:none;position:fixed;inset:0;z-index:35;background:rgba(8,8,10,.45);backdrop-filter:blur(2px);}
+.dash__scrim{display:none;position:fixed;inset:0;z-index:140;background:rgba(8,8,10,.45);backdrop-filter:blur(2px);}
 
 @media (max-width:1024px){
   .dash__stats{grid-template-columns:repeat(2,1fr);}
 }
 @media (max-width:900px){
   .dash__side{position:fixed;inset-block:0;inset-inline-start:0;transform:translateX(100%);transition:transform .28s var(--ease);height:100vh;height:100dvh;overflow-y:auto;box-shadow:0 30px 60px -20px rgba(0,0,0,.5);}
+  /* الدرج على الجوال أضيق وأقصر: نعيد التمرير للمنطقة الوسطى هنا وحدها،
+     وإلا قصَّ overflow:hidden أزرار القائمة آخرَ القائمة بلا وسيلة للوصول. */
+  .dash__side-body{overflow-y:auto;}
   .dash__side.open{transform:translateX(0);}
   .dash__side.collapsed{flex:0 0 16.5rem;padding:1.4rem 1rem 1.2rem;}
   .dash__side.collapsed .brand-name{display:block;}
 .dash__side.collapsed .dash__side-header{justify-content:center;}
-  .dash__side.collapsed .dash__nav a,.dash__side.collapsed .dash__nav button{justify-content:flex-start;padding:.7rem .9rem;}
-  .dash__side.collapsed .dash__nav-logout{padding:.5rem .9rem;}
+  .dash__side.collapsed .dash__nav a,.dash__side.collapsed .dash__nav button{justify-content:flex-start;padding:.4rem .7rem;}
+  .dash__side.collapsed .dash__nav-logout{justify-content:flex-start;padding:.4rem .7rem;}
   .dash__scrim.show{display:block;}
   .dash__burger{display:flex;}
   .dash__collapse-btn{display:none;}
+}
+/* شبكة أمان للشاشات القصيرة جداً (نافذة صغيرة على حاسوب): عمود التنقّل كله
+   لا يسع ~580px، فمنع التمرير هنا يعني قوائم لا تُبلغ. نعيده فقط تحت هذا الحد. */
+@media (min-width:901px) and (max-height:620px){
+  .dash__side-body{overflow-y:auto;}
 }
 @media (max-width:600px){
   .dash__content{padding:1.2rem 1rem 2.5rem;}
@@ -1515,8 +1624,8 @@ html.dark .dash__profile{background:transparent;}
 html.dark .dash__nav a,html.dark .dash__nav button{color:#e4e4e7;}
 html.dark .dash__nav a:hover,html.dark .dash__nav button:hover{color:var(--accent);background:rgba(249,115,22,.12);}
 html.dark .dash__nav a.is-active,html.dark .dash__nav button.is-active{color:var(--accent);background:rgba(249,115,22,.2);}
-html.dark .dash__nav .dash__nav-logout{color:#fff;}
-html.dark .dash__nav .dash__nav-logout:hover{background:rgba(220,38,38,.15);}
+html.dark .dash__nav-logout{color:#fff;}
+html.dark .dash__nav-logout:hover{background:rgba(220,38,38,.15);}
 html.dark .dash__collapse-btn{background:rgba(249,115,22,.14);}
 
 /* ╪ذ╪╖╪د┘é╪د╪ز ┘┘ê╪ص╪ر ╪د┘╪ز╪ص┘â┘à */
@@ -1537,6 +1646,8 @@ html.dark .dash__form .field input{background:#131318;color:var(--text-strong);b
 html.dark .dash__form .field input:focus{background:#16161c;}
 html.dark .dash__pw-toggle svg{color:var(--text-muted);}
 html.dark .dash__photo--initials{background:linear-gradient(180deg,#fb923c,var(--accent) 60%,var(--accent-hover));}
+html.dark .dash__photo-overlay{background:rgba(17,17,22,.82);}
+html.dark .dash__photo-btn:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}
 
 /* ╪د┘╪ح╪┤╪╣╪د╪▒╪د╪ز */
 html.dark .dash__notif-panel{background:rgba(24,24,30,.94);border-color:rgba(255,255,255,.1);}
@@ -1803,9 +1914,9 @@ html.dark .dash__toolbtn{background:#1c1c22;border-color:var(--border);}
 .dash__menu button.has-sub[aria-expanded="true"] svg{color:var(--accent);}
 .dash__menu-caret{margin-inline-start:auto;color:var(--text-muted);opacity:.7;}
 .dash__menu-sep{display:block;height:1px;margin:.25rem .35rem;background:var(--border);}
-.dash__menu--inline{position:absolute;top:calc(100% + 6px);inset-inline-start:0;}
-.dash__menu--fixed{position:fixed;z-index:200;min-width:min(11rem,calc(100vw - 1rem));max-width:calc(100vw - 1rem);max-height:calc(100vh - 1rem);overflow-y:auto;will-change:transform,opacity;transform-origin:top left;}
-.dash__menu--sub{z-index:210;min-width:min(10.5rem,calc(100vw - 1rem));transform-origin:top right;}
+.dash__menu--inline{position:absolute;top:calc(100% + 6px);inset-inline-start:0;z-index:150;}
+.dash__menu--fixed{position:fixed;z-index:150;min-width:min(11rem,calc(100vw - 1rem));max-width:calc(100vw - 1rem);max-height:calc(100vh - 1rem);overflow-y:auto;will-change:transform,opacity;transform-origin:top left;}
+.dash__menu--sub{z-index:151;min-width:min(10.5rem,calc(100vw - 1rem));transform-origin:top right;}
 
 /* عناصر قائمة تغيير الحالة */
 .dash__menu button.dash__menu-status svg:first-child{color:var(--text-muted);}
@@ -1843,14 +1954,13 @@ html.dark .dash__filter-panel{background:#131318;}
 html.dark .dash__pager-btn{background:#1c1c22;border-color:var(--border);}
 html.dark .dash__pager-btn.is-active{background:linear-gradient(180deg,#fb923c,var(--accent) 60%,var(--accent-hover));color:#fff;border-color:transparent;}
 
-/* النافذة المنزلقة لملف المستخدم */
-.dash__drawer-scrim{display:block;position:fixed;inset:0;z-index:120;background:rgba(8,8,10,.45);backdrop-filter:blur(2px);}
-.dash__drawer{position:fixed;top:0;bottom:0;right:0;width:min(26rem,100%);display:flex;flex-direction:column;background:#fff;border-inline-start:1px solid var(--border);box-shadow:-24px 0 60px -30px rgba(0,0,0,.4);z-index:130;}
+/* النافذة المنبثقة المتوسطة لملف المستخدم */
+.dash__modal{background:#fff;border-radius:1rem;border:1px solid var(--border);box-shadow:0 25px 50px -12px rgba(0,0,0,.25);width:100%;max-width:550px;max-height:90vh;display:flex;flex-direction:column;pointer-events:auto;}
 .dash__drawer-head{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:1.1rem 1.4rem;border-bottom:1px solid var(--border);}
 .dash__drawer-head h3{margin:0;font-size:1.05rem;color:var(--text-strong);}
 .dash__drawer-body{padding:1.4rem;overflow-y:auto;flex:1;scrollbar-width:thin;}
 .dash__drawer-foot{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.6rem;padding:1rem 1.4rem;border-top:1px solid var(--border);}
-html.dark .dash__drawer{background:#1c1c22;border-color:var(--border);}
+html.dark .dash__modal{background:#1c1c22;border-color:var(--border);}
 
 /* ============ ADMIN — NOTIFICATIONS (accordion + inbox + broadcast) ============ */
 
@@ -1859,14 +1969,16 @@ html.dark .dash__drawer{background:#1c1c22;border-color:var(--border);}
 .dash__nav-group.is-open{gap:.2rem;}
 .dash__nav-chevron{margin-inline-start:auto;width:1rem;height:1rem;flex:none;transition:transform .2s var(--ease);}
 .dash__nav-group.is-open .dash__nav-chevron{transform:rotate(180deg);}
+/* القائمة الفرعية: مدمجة أكثر (حاشية أقل وحدّ أقصر) كي لا تطغى على ارتفاع
+   القائمة الأم عندما تكون مفتوحة. */
 .dash__nav-sub{
-  display:flex;flex-direction:column;gap:.15rem;position:relative;
-  margin-inline-start:.7rem;padding-inline-start:1.1rem;
+  display:flex;flex-direction:column;gap:.1rem;position:relative;
+  margin-inline-start:.5rem;padding-inline-start:.85rem;
   border-inline-start:2px solid rgba(0,0,0,.09);
 }
 .dash__nav-sub button{
-  padding-inline-start:.25rem;font-size:.875rem;min-height:38px;font-weight:700;
-  position:relative;border-radius:.7rem;
+  padding-inline-start:.2rem;font-size:.82rem;min-height:34px;font-weight:700;
+  position:relative;border-radius:.6rem;
 }
 .dash__nav-sub button svg{width:1rem;height:1rem;}
 .dash__nav-sub button.is-active{
