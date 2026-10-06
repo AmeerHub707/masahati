@@ -104,17 +104,58 @@ function extractErrorMessage(data, fallback) {
 
 /**
  * طلب أساسي.
+ *
+ * قاعدة التوكن: يُقرأ من التخزين **لحظة الإرسال** لا لحظة بناء الطلب. لو
+ * قُرئ عند البناء لأمكن أن يُرسل طلب بتوكن منتهٍ أو ناقص: الحساب يُكتب في
+ * التخزين بعد استدعاء الجلب مباشرة (تسجيل الدخول، استعادة جلسة)، فالقراءة
+ * المبكرة تُرسل `Authorization` قديماً أو لا ترسله أصلاً فيرجع الخادم 401
+ * على طلب لم يُخطئه المستخدم.
+ *
+ *   requireToken  — لا يُرسل شيء بلا توكن: يُرمى خطأ 401 محلياً. يمنع
+ *                   «طلب بلا مصادقة» أصلاً بدل انتظار ردّ 401 وعرضه.
+ *   tokenGetter (fn) — دالة تُقرأ لحظة الإرسال (المسار المشرف: الجلسة قد
+ *                   تُحفظ أو تُمسح بين بناء الطلب والإرسال).
+ *   scopedToken   — توكن جلسة معيّنة (المشرف) لا يُخلط بتوكن العميل أبداً.
+ *                   بدونه كان طلب المشرف بلا توكنه يُرسَل بتوكن العميل، فيردّ
+ *                   الخادم 403/401 عن جلسة أخرى لا علاقة لها بالخطأ الحقيقي.
+ *
  * @param {string} path مسار يبدأ بـ /api
- * @param {object} options { method, body (object|FormData), auth (bool), isForm (bool), timeoutMs (number) }
+ * @param {object} options {
+ *   method, body (object|FormData), auth (bool), isForm (bool), timeoutMs (number),
+ *   token (string)       — توكن صريح إن كان معروفاً مسبقاً،
+ *   tokenGetter (fn)     — يُرجع التوكن من التخزين لحظة الإرسال (الأدقّ)،
+ *   requireToken (bool)  — يُرفض الإرسال بلا توكن (افتراضياً: نعم مع auth)،
+ *   scopedToken (bool)   — لا ترجع إلى توكن العميل عند غياب `token`،
+ *   raw (bool)           — يعيد النص كما هو بدل JSON (لتصدير CSV)،
+ *   onUnauthorized (fn)  — يُستدعى عند 401 **بعد** التأكد أن توكناً أُرسل.
+ * }
  */
 export async function request(path, options = {}) {
-  const { method = 'GET', body, auth = false, isForm = false, timeoutMs = DEFAULT_TIMEOUT_MS } = options;
+  const {
+    method = 'GET',
+    body,
+    auth = false,
+    isForm = false,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    token = null,
+    tokenGetter = null,
+    requireToken = auth,
+    scopedToken = false,
+    raw = false,
+    onUnauthorized = null,
+  } = options;
+
+  // يُقرأ هنا بالضبط: بعد استدعاء الدالة، وقبل fetch مباشرة.
+  const bearer = (typeof tokenGetter === 'function' ? tokenGetter() : token)
+    || (scopedToken ? null : getToken());
+
+  if (auth && requireToken && !bearer) {
+    // لا نُرسل طلباً لنمرض منه: لا جلسة ⇒ لا طلب. نمنع 401 المزعجة في البداية.
+    throw new ApiError('انتهت الجلسة. يرجى تسجيل الدخول من جديد.', 401, null);
+  }
 
   const headers = { Accept: 'application/json' };
-  if (auth) {
-    const token = getToken();
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-  }
+  if (auth && bearer) headers['Authorization'] = `Bearer ${bearer}`;
 
   let payload;
   if (isForm) {
@@ -157,10 +198,18 @@ export async function request(path, options = {}) {
   }
 
   if (!res.ok) {
-    // 401 على مسار محمي => نلغي الجلسة المحلية.
-    if (res.status === 401 && auth) {
-      clearToken();
-      clearUser();
+    // 401 حقيقي فقط: على مسار محمي **مع توكن أُرسل فعلاً**.
+    //
+    // لماذا الشرط الثاني: طلب بلا توكن (نقطة عامة، أو `requireToken` لم يمنعها
+    // نقطة مثل تسجيل الدخول) يرجع 401 أيضاً، فمسح الجلسة عندها يُخرج مستخدماً
+    // كانت جلسته سليمة ويحوّله إلى صفحة الدخول بلا سبب. والـ 403 لا يمسّ الجلسة
+    // إطلاقاً: الحساب موجود لكن ليس مشرفاً، والجلسة صحيحة.
+    if (res.status === 401 && auth && bearer) {
+      if (onUnauthorized) onUnauthorized();
+      else {
+        clearToken();
+        clearUser();
+      }
     }
     throw new ApiError(
       extractErrorMessage(data, `تعذر إتمام الطلب (${res.status}).`),
@@ -168,6 +217,9 @@ export async function request(path, options = {}) {
       data
     );
   }
+
+  // تصدير CSV: الرد نصي (text/csv) لا JSON، فنعيده كما هو.
+  if (raw) return text;
 
   // استجابة ناجحة لكنها HTML بدل JSON (مثال: الباك إند يعيد صفحة Laravel
   // الافتراضية بدلاً من تنفيذ المسار). نكشف ذلك لنظهر رسالة واضحة بدل فشل صامت.
