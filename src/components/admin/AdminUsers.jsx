@@ -52,6 +52,7 @@ import {
   listUsers,
   getUser,
   setUserStatus,
+  verifyUser,
   updateUser,
   deleteUser,
   bulkUserStatus,
@@ -585,12 +586,19 @@ export default function AdminUsers() {
 // لم يكن موقوفاً قط.
   const handleActivate = (user) => {
     if (!user) return;
-    patchRows((prev) => prev.map((u) => (u.id === user.id ? { ...u, status: 'active' } : u)));
+    // عقد A4.5: اعتماد الحساب المعلّق يضع التوثيق والحالة معاً، فنحدّثهما
+    // محلياً كما تفعل العملية الجماعية (A4.8 verify). الحساب الموثّق مسبقاً
+    // يكتفي بتغيير الحالة: A4.5 يرجع 409 «توثيق مكرّر» عليه.
+    const needsVerify = user.verified === false;
+    const patch = needsVerify ? { status: 'active', verified: true } : { status: 'active' };
+    patchRows((prev) => prev.map((u) => (u.id === user.id ? { ...u, ...patch } : u)));
     // النافذة تحتفظ بنسخة من الحساب، فنزامنها أو عرضت الحالة القديمة بعد
     // نجاح العملية.
-    setViewUser((v) => (v && v.id === user.id ? { ...v, status: 'active' } : v));
+    setViewUser((v) => (v && v.id === user.id ? { ...v, ...patch } : v));
     announce(`تم تفعيل حساب ${user.name}.`);
-    runApi(() => setUserStatus(user.id, 'active'));
+    // عقد A4.4 (الحالة وحدها) لا تمسّ `verified`: بقي المعتمد محسوباً
+    // «بانتظار التحقق» في شريط العدّادات، فرقٌ بين المسار المنفرد والجماعي.
+    runApi(() => (needsVerify ? verifyUser(user.id) : setUserStatus(user.id, 'active')));
   };
 
   // إيقاف الحساب من قسم المستندات (زر «إيقاف»).
