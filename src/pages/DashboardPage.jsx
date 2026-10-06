@@ -14,6 +14,7 @@ import ScrollProgress from '../components/common/ScrollProgress';
 import Footer from '../components/layout/Footer';
 import WhatsAppBubble from '../components/common/WhatsAppBubble';
 import AdBanner from '../components/dashboard/AdBanner';
+import OwnerPendingBanner from '../components/dashboard/OwnerPendingBanner';
 import { AlertCircle, Trash2 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -255,6 +256,9 @@ export default function DashboardPage() {
             dismissed={dismissedAds}
           />
         )}
+        {/* حالة الحساب قبل محتوى التبويب: البند معلَّق فالنموذج مقفل،
+            ومن يُقال له ذلك قبل أن يصطدم بالزر أفضل من قفلٍ صامت. */}
+        {data?.user?.role === 'owner' && <OwnerPendingBanner user={data.user} />}
         <AnimatePresence mode="wait" initial={false}>
           {tabContent ? (
             <motion.div
