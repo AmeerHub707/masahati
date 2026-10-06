@@ -96,81 +96,93 @@ export default function DashboardLayout({
   });
 
   return (
-    <div className="dash">
-      <div className="dash__layout">
+    <div className="dash flex h-screen overflow-y-auto">
+      <div className="dash__layout flex flex-1">
         {/* الشريط الجانبي */}
-        <aside className={`dash__side${open ? ' open' : ''}${collapsed ? ' collapsed' : ''} ${collapsed ? 'w-16' : 'w-64'}`}>
-          <div className="dash__side-header">
-            {collapsed ? (
-              <div className="flex flex-col items-center gap-3">
-                <button
-                  type="button"
-                  className="dash__collapse-btn relative inline-flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100 text-orange-600 transition hover:bg-orange-500 hover:text-white"
-                  onClick={() => setCollapsed((c) => !c)}
-                  onMouseEnter={showCollapseTip}
-                  onMouseLeave={hideCollapseTip}
-                  onFocus={showCollapseTip}
-                  onBlur={hideCollapseTip}
-                  aria-label="فتح الشريط الجانبي"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-                <img src="/Mlogo.jpeg" alt="مساحاتي" className="h-10 w-10 object-contain" draggable={false} />
-              </div>
-            ) : (
-              <div className="flex w-full items-center gap-1 px-1">
-                <span className="flex items-center gap-2">
-                  <img src="/Logo.png" alt="مساحاتي" className="h-9 w-auto object-contain" />
-                </span>
-                <button
-                  type="button"
-                  className="dash__collapse-btn ms-auto inline-flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100 text-orange-600 transition hover:bg-orange-500 hover:text-white"
-                  onClick={() => setCollapsed((c) => !c)}
-                  aria-label="طيّ الشريط الجانبي"
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </button>
-              </div>
-            )}
+        <aside className="h-screen sticky top-0 flex flex-col justify-between overflow-hidden">
+          {/* المنطقة الوسطى: الشعار والملف والقائمة. لا تمرّر — كل شيء فيها
+              مضغوط ليناسب شاشة واحدة بلا تمرير داخلي. */}
+          <div className="dash__side-body min-h-0" dir="rtl">
+            <div className="dash__side-header">
+              {collapsed ? (
+                <div className="flex flex-col items-center gap-3">
+                  <button
+                    type="button"
+                    className="dash__collapse-btn relative inline-flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100 text-orange-600 transition hover:bg-orange-500 hover:text-white"
+                    onClick={() => setCollapsed((c) => !c)}
+                    onMouseEnter={showCollapseTip}
+                    onMouseLeave={hideCollapseTip}
+                    onFocus={showCollapseTip}
+                    onBlur={hideCollapseTip}
+                    aria-label="فتح الشريط الجانبي"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <img src="/Mlogo.jpeg" alt="مساحاتي" className="h-10 w-10 object-contain" draggable={false} />
+                </div>
+              ) : (
+                <div className="flex w-full items-center gap-1 px-1">
+                  <span className="flex items-center gap-2">
+                    <img src="/Logo.png" alt="مساحاتي" className="h-9 w-auto object-contain" />
+                  </span>
+                  <button
+                    type="button"
+                    className="dash__collapse-btn ms-auto inline-flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100 text-orange-600 transition hover:bg-orange-500 hover:text-white"
+                    onClick={() => setCollapsed((c) => !c)}
+                    aria-label="طيّ الشريط الجانبي"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="dash__profile" style={collapsed ? { justifyContent: 'center', padding: '.6rem .25rem' } : {}}>
+              {(photoSrc && photoSrc !== failedSrc) ? (
+                <img className="dash__avatar" src={photoSrc} alt={user?.name || ''} onError={() => setFailedSrc(photoSrc)} />
+              ) : (
+                <div className="dash__avatar">{initials}</div>
+              )}
+              {!collapsed && (
+                <div>
+                  <h3>{user?.name || 'المستخدم'}</h3>
+                  <p>{user?.role === 'owner' ? 'صاحب مساحة' : 'طالب'}</p>
+                </div>
+              )}
+            </div>
+
+            <nav className="dash__nav" aria-label="قائمة لوحة التحكم" dir="rtl">
+              {TABS.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    className={active === tab.id ? 'is-active' : ''}
+                    onClick={() => handleNavClick(tab.id)}
+                    aria-current={active === tab.id ? 'page' : undefined}
+                    title={collapsed ? tab.label : undefined}
+                  >
+                    <Icon />
+                    {!collapsed && <span>{tab.label}</span>}
+                  </button>
+                );
+              })}
+            </nav>
           </div>
 
-          <div className="dash__profile" style={collapsed ? { justifyContent: 'center', padding: '.6rem .25rem' } : {}}>
-            {(photoSrc && photoSrc !== failedSrc) ? (
-              <img className="dash__avatar" src={photoSrc} alt={user?.name || ''} onError={() => setFailedSrc(photoSrc)} />
-            ) : (
-              <div className="dash__avatar">{initials}</div>
-            )}
-            {!collapsed && (
-              <div>
-                <h3>{user?.name || 'المستخدم'}</h3>
-                <p>{user?.role === 'owner' ? 'صاحب مساحة' : 'طالب'}</p>
-              </div>
-            )}
-          </div>
-
-          <nav className="dash__nav" aria-label="قائمة لوحة التحكم">
-            {TABS.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  className={active === tab.id ? 'is-active' : ''}
-                  onClick={() => handleNavClick(tab.id)}
-                  aria-current={active === tab.id ? 'page' : undefined}
-                  title={collapsed ? tab.label : undefined}
-                >
-                  <Icon />
-                  {!collapsed && <span>{tab.label}</span>}
-                </button>
-              );
-            })}
-
-            <button type="button" className="dash__nav-logout" onClick={collapsed ? () => setCollapsed(false) : onLogout} title={collapsed ? 'سجّل الخروج' : undefined}>
+          {/* التذييل: ثابت أسفل الشريط الجانبي (shrink-0)، فلا يزاحمه تمرير
+              القائمة. nowrap يمنع انقسام «سجّل الخروج». */}
+          <div className="dash__side-foot shrink-0 border-t border-gray-100/60 dark:border-[var(--border)]" dir="rtl">
+            <button
+              type="button"
+              className="dash__nav-logout whitespace-nowrap"
+              onClick={collapsed ? () => setCollapsed(false) : onLogout}
+              title={collapsed ? 'سجّل الخروج' : undefined}
+            >
               <LogOut />
-              {!collapsed && <span>سجّل الخروج</span>}
+              {!collapsed && <span className="whitespace-nowrap">سجّل الخروج</span>}
             </button>
-          </nav>
+          </div>
         </aside>
 
         {/* تلميح فتح الشريط الجانبي (عبر بوابة لتجاوز قصّ المحتوى) */}
@@ -191,7 +203,9 @@ export default function DashboardLayout({
         {/* الستارة الخلفية للجوال */}
         <div className={`dash__scrim${open ? ' show' : ''}`} onClick={close} aria-hidden="true" />
 
-        {/* الشريط الرئيسي */}
+        {/* الشريط الرئيسي: بلا dir هنا عمداً. حاوية التمرير صارت .dash (لأنه وحده
+            يمتدّ بكامل عرض الشاشة فيقع شريطه على الحافة اليمنى)، واتجاهه rtl
+            صريح في CSS فيبقى كل ما هنا عربياً. */}
         <div className="dash__main">
           <header className="dash__top">
             <button
@@ -209,24 +223,25 @@ export default function DashboardLayout({
               <p>{today}</p>
             </div>
 
-            <ThemeToggle />
-
             <div className="dash__notif-wrap" ref={notifRef}>
-              <button
-                type="button"
-                ref={btnRef}
-                className={`dash__notif-btn${notifOpen ? ' is-open' : ''}`}
-                onClick={() => setNotifOpen((o) => !o)}
-                aria-label="الإشعارات"
-                aria-expanded={notifOpen}
-              >
-                <Bell />
-                {notifications.some((n) => !n.read) && (
-                  <span className="dash__notif-badge">
-                    {notifications.filter((n) => !n.read).length}
-                  </span>
-                )}
-              </button>
+              <div className="dash__header-right">
+                <ThemeToggle />
+                <button
+                  type="button"
+                  ref={btnRef}
+                  className={`dash__notif-btn${notifOpen ? ' is-open' : ''}`}
+                  onClick={() => setNotifOpen((o) => !o)}
+                  aria-label="الإشعارات"
+                  aria-expanded={notifOpen}
+                >
+                  <Bell />
+                  {notifications.some((n) => !n.read) && (
+                    <span className="dash__notif-badge">
+                      {notifications.filter((n) => !n.read).length}
+                    </span>
+                  )}
+                </button>
+              </div>
 
               {createPortal(
                 notifOpen && (
