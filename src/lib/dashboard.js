@@ -65,7 +65,9 @@ function pickUser(...sources) {
   const out = {};
   for (const src of sources) {
     if (!src || typeof src !== 'object') continue;
-    for (const key of ['name', 'email', 'phone', 'role', 'picture', 'photo']) {
+    // `status` و`verified` في القائمة عمداً: القفل على إضافة المساحة يُقرَّر
+    // من حالة الحساب، فبدونهما لا تستطيع الواجهة أن تعرف أن الحساب معطَّل.
+    for (const key of ['name', 'email', 'phone', 'role', 'status', 'verified', 'picture', 'photo']) {
       if (!out[key] && src[key]) out[key] = src[key];
     }
   }
@@ -145,6 +147,11 @@ export async function fetchDashboard() {
       email: u.email || '',
       phone: u.phone || '',
       role,
+      // حالة الحساب من الخادم أو من المستخدم المخزّن. تُمرَّر كما وردت بلا
+      // تطبيع: تطبيعها هنا كان سيجعل حساباً معلَّماً `pending` يبدو نشطاً
+      // عند غياب الحقل، وهو عكس ما يفترضه قفل إضافة المساحة.
+      status: u.status || localUser.status || '',
+      verified: Boolean(u.verified ?? localUser.verified ?? false),
       photo,
     },
     stats: {
