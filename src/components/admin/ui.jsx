@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, MoreVertical, X, Star, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, MoreVertical, X, Star, CheckCircle2, AlertTriangle, Info, Loader2, RefreshCw, WifiOff } from 'lucide-react';
 import DashCountUp from '../dashboard/DashCountUp';
 import { placeFixed, MENU_WIDTH, MENU_HEIGHT } from './menuPosition';
 
@@ -86,22 +86,28 @@ export function StatCard({ icon: Icon, label, value, hint, tone = 'orange', curr
           {currency && <span className="mr-1 font-normal text-sm text-slate-500 dark:text-slate-400">{currency}</span>}
         </span>
         {isWarn ? (
-          <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
-            {hint}
-          </span>
+          hint && (
+            <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
+              {hint}
+            </span>
+          )
         ) : isNone ? (
-          <span className="rounded-full bg-black/5 px-2.5 py-0.5 text-xs font-semibold text-gray-500 dark:bg-white/10 dark:text-gray-400">
-            {hint}
-          </span>
+          hint && (
+            <span className="rounded-full bg-black/5 px-2.5 py-0.5 text-xs font-semibold text-gray-500 dark:bg-white/10 dark:text-gray-400">
+              {hint}
+            </span>
+          )
         ) : (
-          <span
-            dir="ltr"
-            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-              isUp ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
-            }`}
-          >
-            {isUp ? '↑' : '↓'} {hint}
-          </span>
+          hint && (
+            <span
+              dir="ltr"
+              className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                isUp ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+              }`}
+            >
+              {isUp ? '↑' : '↓'} {hint}
+            </span>
+          )
         )}
       </div>
     </div>
@@ -144,7 +150,90 @@ export function EmptyState({ icon: Icon, title, description, actionLabel, onActi
   );
 }
 
-export function Modal({ open, onClose, title, children, wide = false }) {
+/**
+ * انتظار أول رد من الخادم.
+ *
+ * كل رقم في اللوحة يأتي من `/api/admin`، فلا يجوز عرض صفر أو قيمة تقديرية
+ * أثناء الانتظار: غياب البيانات يُعرض كحالة صريحة لا كرقم صفر.
+ */
+export function LoadingState({ label = 'جارٍ تحميل البيانات من الخادم…', rows = 3 }) {
+  return (
+    <div className="dash__state" role="status" aria-live="polite" data-api-status="loading">
+      <div className="st-svg"><Loader2 className="animate-spin" /></div>
+      <h3>{label}</h3>
+      <div className="mx-auto mt-3 w-full max-w-sm space-y-2" aria-hidden="true">
+        {Array.from({ length: rows }, (_, i) => (
+          <div key={i} className="dash__bar" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** فشل جلب البيانات: رسالة الخادم كما وردت، مع زر إعادة محاولة. */
+export function ErrorState({ message, onRetry, title = 'تعذّر جلب البيانات' }) {
+  return (
+    <div className="dash__state dash__state--error" role="alert" data-api-status="failed">
+      <div className="st-svg"><AlertTriangle /></div>
+      <h3>{title}</h3>
+      <p>{message || 'تعذّر الاتصال بالخادم.'}</p>
+      {onRetry && (
+        <button type="button" className="btn-primary" onClick={onRetry}>
+          <RefreshCw />
+          إعادة المحاولة
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * لا توجد جلسة خادم: لا طلب يُرسَل ولا رقم يصل.
+ *
+ * حالة ثالثة عدا عن التحميل والخطأ: التحميل يعني «طلب في الطريق»، وهذا
+ * يعني «لا يوجد من يُسأل». كانت الشاشة تعرض «جارٍ التحميل» إلى ما لا
+ * نهاية في هذه الحالة، وهو وعدٌ ببيانات لن تأتي.
+ */
+export function OfflineState({ title = 'لا توجد جلسة خادم', description = 'سجّل الدخول بحساب مشرف في الباك إند لتظهر بيانات المنصة الحقيقية.' }) {
+  return (
+    <div className="dash__state" role="status" data-api-status="offline-state">
+      <div className="st-svg"><WifiOff /></div>
+      <h3>{title}</h3>
+      <p>{description}</p>
+    </div>
+  );
+}
+
+/**
+ * بوابة موحّدة لكل شاشة: تختار بين الانتظار والخطأ وغياب الجلسة، فلا
+ * تكرر كل شاشة شروطاً ثلاثة يختلف أحدها عن الأخرى في التفصيل.
+ */
+export function DataGate({ live, loading, error, onRetry, rows = 4, loadingLabel, errorTitle }) {
+  return (
+    <div className="space-y-4">
+      <DataSourceBanner live={live} loading={loading} error={error} onRetry={onRetry} />
+      {!live ? (
+        <OfflineState />
+      ) : error ? (
+        <ErrorState message={error} onRetry={onRetry} title={errorTitle} />
+      ) : (
+        <LoadingState label={loadingLabel} rows={rows} />
+      )}
+    </div>
+  );
+}
+
+/**
+ * نافذة مركزية مشتركة بين شاشات اللوحة.
+ *
+ * `zIndex` اختياري، ويكتب inline فوق قيمة `.modal-overlay` في CSS وهي 100.
+ * سبب وجوده: تلك القيمة طبقة واحدة واحدة، فأي نافذة ترتفع فوقها بقيمة inline
+ * داخل الشاشة نفسها تجعل كل ما يُفتح فوقها — بلا استثناء — يبدو خلفها. وهذا
+ * ما كانت تفعله شاشة المستخدمين: نافذة الملف مرفوعة إلى 141، ونافذة التعديل
+ * تُفتح **من داخلها** على 100، فظهرت خلف حجابها ولم تُقبل عليها النقرة.
+ * فالنافذة المتداخلة تمرّر رقمها هنا فتصعد صراحةً، لا اعتماداً على ترتيب DOM.
+ */
+export function Modal({ open, onClose, title, children, wide = false, zIndex }) {
   // Escape يغلق النافذة — مهم لنماذج التعديل الطويلة: زر الإلغاء قد يكون خارج مجال الرؤية.
   useEffect(() => {
     if (!open || !onClose) return undefined;
@@ -159,6 +248,8 @@ export function Modal({ open, onClose, title, children, wide = false }) {
   return (
     <div
       className="modal-overlay"
+      // undefined لا يُكتب style إطلاقاً، فتبقى بقية الشاشات على 100 من CSS.
+      style={zIndex == null ? undefined : { zIndex }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -182,6 +273,59 @@ export function Modal({ open, onClose, title, children, wide = false }) {
         </div>
         {children}
       </div>
+    </div>
+  );
+}
+
+// شريط مصدر البيانات: يميّز صراحةً بين البيانات الحقيقية من الخادم والبيانات
+// التجريبية. إخفاء هذا الفرق يجعل أرقاماً وهمية تُقرأ كأرقام حقيقية.
+export function DataSourceBanner({ live, loading, error, onRetry }) {
+  if (live && !error) {
+    return (
+      <div
+        data-api-status="live"
+        className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300"
+      >
+        <span className="relative flex h-2 w-2">
+          {loading && (
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+          )}
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+        </span>
+        {loading ? 'جارٍ تحميل البيانات من الخادم…' : 'البيانات مباشرة من خادم المنصة'}
+      </div>
+    );
+  }
+
+  if (live && error) {
+    return (
+      <div
+        data-api-status="error"
+        role="alert"
+        className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
+      >
+        <AlertTriangle className="h-4 w-4 shrink-0" />
+        <span>تعذّر جلب البيانات: {error}</span>
+        <span className="opacity-80">لم تُعرض أي أرقام لأن مصدرها الوحيد هو الخادم.</span>
+        {onRetry && (
+          <button type="button" className="ms-auto underline" onClick={onRetry}>
+            إعادة المحاولة
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      data-api-status="offline"
+      className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 dark:border-[var(--border)] dark:bg-white/5 dark:text-slate-300"
+    >
+      <Info className="h-4 w-4 shrink-0" />
+      <span>لا توجد جلسة خادم — لا تُرسل طلبات ولا تُعرض بيانات.</span>
+      <span className="opacity-75">
+        سجّل الدخول بحساب مشرف في الباك إند لتظهر بيانات المنصة الحقيقية.
+      </span>
     </div>
   );
 }
