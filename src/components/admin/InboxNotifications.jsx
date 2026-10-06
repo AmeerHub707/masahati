@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Inbox, CheckCheck, Archive, Trash2, ArrowLeft, RotateCcw, Eye } from 'lucide-react';
-import { inboxCategoryMeta } from '../../data/adminMockData';
+import { inboxCategoryMeta } from './inboxMeta';
 import { SectionCard, SectionHeading, StatusBadge, EmptyState, Pill, Modal, btnGhost, btnDanger } from './ui';
 
 const FILTERS = [
@@ -27,12 +27,24 @@ function Checkbox({ checked, indeterminate = false, onChange, label }) {
   );
 }
 
-export default function InboxNotifications({ inbox, setInbox }) {
+export default function InboxNotifications({ inbox, setInbox, api = null }) {
   const navigate = useNavigate();
   const [filter, setFilter] = useState('all');
   const [view, setView] = useState('inbox'); // 'inbox' | 'archived'
   const [selected, setSelected] = useState(() => new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [error, setError] = useState('');
+
+  // كل إجراء: تحديث محلي فوري (الواجهة لا تنتظر)، ثم إرسال للخادم. الفشل يعيد
+  // الحالة السابقة ويشرح السبب — وإلا بقي الإشعار «مقروءاً» على الشاشة بينما
+  // الخادم لم يغيّر شيئاً، فيعود في التحديث التالي.
+  const sync = (fn, rollback) => {
+    if (!api) return;
+    Promise.resolve(fn()).catch((err) => {
+      rollback();
+      setError(err?.message || 'تعذّر تنفيذ الإجراء على الخادم.');
+    });
+  };
 
   const active = useMemo(() => inbox.filter((n) => (view === 'inbox' ? !n.archived : n.archived)), [inbox, view]);
 
@@ -40,7 +52,11 @@ export default function InboxNotifications({ inbox, setInbox }) {
     const q = filter;
     return active.filter((n) => {
       if (q === 'unread') return !n.read;
-      if (q === 'dispute' || q === 'space_request' || q === 'report') return n.category === q;
+      if (q === 'dispute' || q === 'space_request' || q === 'report') {
+        // المطابقة على المفتاح القياسي وعلى ما أرسله الخادم حرفياً: فلتر
+        // «النزاعات» يلتقط `dispute` و`disputes` على السواء.
+        return n.category === q || n.rawCategory === q;
+      }
       return true;
     });
   }, [active, filter]);
@@ -53,8 +69,10 @@ export default function InboxNotifications({ inbox, setInbox }) {
   const someChecked = !allChecked && filtered.some((n) => selected.has(n.id));
 
   const markAllRead = () => {
+    const before = inbox;
     setInbox((prev) => prev.map((n) => (n.archived ? n : { ...n, read: true })));
     setSelected(new Set());
+    sync(() => api?.markAllRead(), () => setInbox(before));
   };
 
   const toggleSelect = (id) => {
@@ -76,27 +94,65 @@ export default function InboxNotifications({ inbox, setInbox }) {
   };
 
   const toggleRead = (id) => {
-    setInbox((prev) => prev.map((n) => (n.id === id ? { ...n, read: !n.read } : n)));
+    const target = inbox.find((n) => n.id === id);
+    if (!target) return;
+    const read = !target.read;
+    setInbox((prev) => prev.map((n) => (n.id === id ? { ...n, read } : n)));
+    sync(() => api?.setRead(id, read), () => setInbox((prev) => prev.map((n) => (n.id === id ? target : n))));
   };
 
   const archiveMany = (ids, archived = true) => {
+    const before = inbox;
     setInbox((prev) => prev.map((n) => (ids.has(n.id) ? { ...n, archived } : n)));
     setSelected(new Set());
+    // مس bulk في العقد يغطي وسم الأرشفة لكل المحددات دفعة واحدة.
+    sync(() => api?.bulk([...ids], archived ? 'archive' : 'unarchive'), () => setInbox(before));
   };
 
   const deleteMany = () => {
-    setInbox((prev) => prev.filter((n) => !selected.has(n.id)));
+    const before = inbox;
+    // نلتقط المعرّفات قبل التصفير: setSelected لا يغيّر قيمة selected داخل
+    // نفس التصيير، والاعتماد عليها بعده كان سيرسل قائمة فارغة للخادم.
+    const ids = [...selected];
+    setInbox((prev) => prev.filter((n) => !ids.includes(n.id)));
     setSelected(new Set());
     setConfirmDelete(false);
+    sync(() => api?.bulk(ids, 'delete'), () => setInbox(before));
   };
 
-  const openDetail = (n) => {
-    const target = inboxCategoryMeta[n.category]?.path || '/admin';
-    navigate(target);
-  };
+// وجهة زرّ التنبيه.
+//
+// **أولوية معرّف الحساب على مسار الفئة.** إشعار «قام فلان برفع مستند
+  // توثيق» يطلب قراراً على **هذا** الحساب، ففتحه على `/admin/users` كله
+  // يجعل الأدمن يبدأ بحثاً في كل الجدول ليصل إلى ما هو مكتوب في عنوان
+// الإشعار أمامه. فنصنع المسار `/admin/users/{id}`، وهو مسار يفتح نافذة
+  // الملف مباشرة (انظر routeUserId في AdminUsers).
+//
+// الترميز ضروري: المعرّف قد يكون UUID أو slug فيه محارف معنى في المسار،
+// وإهمال `encodeURIComponent` كان سيكسر الرابط بصمت.
+//
+// ولا نخترع معرّفاً: إن لم يحمل الإشعار واحداً نرجع إلى مسار فئته.
+const openDetail = (n) => {
+  if (n.userId !== null && n.userId !== undefined && n.userId !== '') {
+    navigate(`/admin/users/${encodeURIComponent(String(n.userId))}`);
+    return;
+  }
+  const target = inboxCategoryMeta[n.category]?.path
+    || inboxCategoryMeta[n.rawCategory]?.path
+    || '/admin';
+  navigate(target);
+};
 
   return (
     <div className="space-y-5">
+      {error && (
+        <p
+          role="alert"
+          className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
+        >
+          {error}
+        </p>
+      )}
       <SectionCard>
         <SectionHeading
           icon={Inbox}
@@ -209,7 +265,12 @@ export default function InboxNotifications({ inbox, setInbox }) {
         ) : (
           <ul className="space-y-3">
             {filtered.map((n) => {
-              const meta = inboxCategoryMeta[n.category] || inboxCategoryMeta.report;
+              // السلسلة: المفتاح القياسي ← ما أرسله الخادم ← «عام». السقوط
+              // الأخير يضمن تسميةً ولوناً وزرّ وجهة حتى لفئة خارج المفردات،
+              // بدل استعار وصف فئة أخرى فينهار المعنى.
+              const meta = inboxCategoryMeta[n.category]
+                || inboxCategoryMeta[n.rawCategory]
+                || inboxCategoryMeta.general;
               const isUnread = !n.read;
               return (
                 <li
