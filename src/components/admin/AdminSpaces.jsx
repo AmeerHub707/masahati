@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Building2,
   Search,
@@ -19,28 +19,35 @@ import {
   Pencil,
   Trash2,
   Check,
+  FileText,
+  ExternalLink,
 } from 'lucide-react';
-import { adminSpaces } from '../../data/adminMockData';
 import {
   SectionCard,
   SectionHeading,
   StatusBadge,
   EmptyState,
+  DataGate,
   SmallAction,
   ActionMenu,
   Modal,
   Pill,
   Toast,
   Field,
+  DataSourceBanner,
   btnGhost,
   btnDanger,
 } from './ui';
 import { useToast } from './useToast';
+import useAdminData from './useAdminData';
+import { listSpaces, getSpace, updateSpace, setSpaceStatus, deleteSpace, isAdminTokenLive } from '../../lib/adminApi';
+import { adaptSpace, adaptAll } from '../../lib/adminAdapters';
+import { imageUrl } from '../../lib/api';
 import useSafeInput from '../../hooks/useSafeInput';
 import { arCount, AR_FORMS } from '../../utils/format';
 
 const statusMeta = {
-  pending: { label: 'قيد المراجعة', tone: 'amber' },
+  pending: { label: 'بانتظار التفعيل', tone: 'amber' },
   active: { label: 'مفعّلة', tone: 'green' },
   suspended: { label: 'موقوفة', tone: 'red' },
 };
@@ -57,10 +64,14 @@ const sortOptions = [
 // شريط التبويب العلوي — اللون الدلالي يطابق لون شارة الحالة.
 const tabs = [
   { id: 'all', label: 'كل المساحات', dot: '' },
-  { id: 'pending', label: 'قيد المراجعة', dot: 'bg-amber-500' },
+  { id: 'pending', label: 'بانتظار التفعيل', dot: 'bg-amber-500' },
   { id: 'active', label: 'مفعّلة', dot: 'bg-emerald-500' },
   { id: 'suspended', label: 'موقوفة', dot: 'bg-red-500' },
 ];
+
+// مكان فارغ للحالة الأولى: لا صفوف ⇒ لا عدّادات، أما «لم يرد بعد» فحالة
+// انتظار صريحة تُعرض قبل الجدول.
+const NO_SPACES = [];
 
 /** غلاف صورة المساحة: يعرض الصورة، وإن غابت أو فشل تحميلها نعرض بديلاً متدرّجاً. */
 function SpaceCover({ src, alt }) {
@@ -87,7 +98,6 @@ function SpaceCover({ src, alt }) {
 }
 
 export default function AdminSpaces() {
-  const [spaces, setSpaces] = useState(adminSpaces);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
   const [view, setView] = useState('grid');
@@ -96,6 +106,84 @@ export default function AdminSpaces() {
   const [preview, setPreview] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
+
+  // تفاصيل المساحة المعروضة (GET /spaces/{id}) — منفصلة عن `preview` عمداً:
+  // `preview` صفٌّ من القائمة يُحدَّث فوراً عند كل قرار (فوريّة الحالة)،
+  // و`detail` ردُّ التفصيل الذي قد لا يوافينا إلا بعد الرحلة الثانية.
+  // فصلهما يمنع أن يُبطئ ردٌّ متأخرٌ ظهور النافذة، وأن يُمحى مستندٌ ظهر
+  // لحظةً حين يُصلَّح صفٌّ في القائمة.
+  //
+  // نُخزّن `id` مع الردّ ونقارنونه في العرض، فنستطيع إغلاق النافذة دون أن
+  // نُصفّر حالةً داخل التأثير: الدليل يُهمَل بمجرد أن لم يعد له صاحب على
+  // الشاشة. وهذا أيضاً يتفادى `setState` متزامناً داخل جسم التأثير، الذي
+  // يُعيد React تصييره ثم يُعيد التصيير.
+  const [detailEntry, setDetailEntry] = useState(null);
+
+  const previewId = preview ? preview.id : null;
+  useEffect(() => {
+    const id = previewId;
+    if (!id) return undefined;
+    let alive = true;
+    // لا جلسة حيّة ⇒ لا رحلة بلا فائدة: النافذة تبقى على ما في صف القائمة.
+    if (isAdminTokenLive()) {
+      getSpace(id)
+        .then((raw) => {
+          if (alive) setDetailEntry({ id, data: raw ? adaptSpace(raw) : null });
+        })
+        .catch(() => {
+          // التفصيل زينة، لا شرط: فشلُه لا يُعطّل معاينة المساحة ولا قرارَها.
+          if (alive) setDetailEntry({ id, data: null });
+        });
+    }
+    return () => {
+      alive = false;
+    };
+  }, [previewId]);
+
+  // الدليل يُقفل على معرّفه: ردٌّ متأخّرٌ لمساحةٍ أُغلقت لا يلوّث نافذةَ غيرها.
+  const detail = detailEntry && detailEntry.id === previewId ? detailEntry.data : null;
+  // الانتظار مُشتقٌّ لا مخزَّن: يدور مع تغيّر الجلسات بلا حالةٍ ثالثة تنسى ضبطَها.
+  const detailBusy = Boolean(previewId) && isAdminTokenLive() && !detailEntry;
+
+  // العقد §6.1: القائمة من الخادم. نُبقي الفرز والتصفية محليين (منطق العرض
+  // واحد) ونطلب كل الصفحات مرة واحدة عبر listSpaces.
+  //
+  // المحوّل يرقّي الأسماء ويملأ الغائب: العقد ينبّه أن `name` يرد `null`
+  // دائماً، فنولّد `مساحة #<id>` بدل خلية فارغة لا عنوان لها ولا بحث.
+  const fetchSpaces = useCallback(async () => {
+    const { rows } = await listSpaces({ sort: 'newest' });
+    return adaptAll(rows, adaptSpace);
+  }, []);
+
+  const {
+    data: rows0,
+    setData: setSpaces,
+    loading,
+    error: loadError,
+    live,
+    reload,
+  } = useAdminData(fetchSpaces);
+
+  // القائمة فارغة (لا تحمل أرقاماً) حتى يصل أول ردّ من الخادم، فيبقى عدّاد
+  // التبويبات صفراً حقيقياً لا عدداً مخترَعاً، ويظهر الانتظار كحالة صريحة.
+  const spaces = rows0 ?? NO_SPACES;
+  const awaitingServer = rows0 === null;
+
+  // غلاف العمليات: تحديث محلي فوري + إرسال للخادم عند توفّر جلسة، مع إبلاغ
+  // المستخدم إن فشل الإرسال بدل ابتلاعه (تغيير محلي بلا أثر على الخادم).
+  const runApi = useCallback(
+    async (fn) => {
+      if (!isAdminTokenLive()) return true;
+      try {
+        await fn();
+        return true;
+      } catch (err) {
+        announce(err?.message || 'تعذّر تنفيذ الإجراء على الخادم.');
+        return false;
+      }
+    },
+    [announce]
+  );
 
   const counts = useMemo(() => {
     const next = { all: spaces.length, pending: 0, active: 0, suspended: 0 };
@@ -123,16 +211,28 @@ export default function AdminSpaces() {
     });
   }, [spaces, filter, query, sort]);
 
-  const setStatus = (id, status) =>
-    setSpaces((prev) => prev.map((s) => (s.id === id ? { ...s, status } : s)));
+  // التحديث المتفائل قد يقع قبل أول ردّ، فتكون القيمة null؛ نطبّعها لقائمة
+  // صالحة أولاً حتى لا ينكسر أي إجراء على شاشة بلا بيانات بعد.
+  const patchRows = (fn) => setSpaces((prev) => fn(Array.isArray(prev) ? prev : []));
+
+  // العقد §6.5: الحالة لها مسار خاصّ بها، فلا تُرسَل مع تعديل الحقول.
+  const setStatus = (id, status) => {
+    patchRows((prev) => prev.map((s) => (s.id === id ? { ...s, status } : s)));
+    setPreview((p) => (p && p.id === id ? { ...p, status } : p));
+    runApi(() => setSpaceStatus(id, status));
+  };
   // التعديل الجزئي: نحدّث الحقول المُرسَلة فقط ونُبقي الباقي (id, rating, bookings) كما هي.
   const patch = (id, changes) =>
-    setSpaces((prev) => prev.map((s) => (s.id === id ? { ...s, ...changes } : s)));
+    patchRows((prev) => prev.map((s) => (s.id === id ? { ...s, ...changes } : s)));
   const approve = (id) => setStatus(id, 'active');
   const reject = (id) => setStatus(id, 'suspended');
   const suspend = (id) => setStatus(id, 'suspended');
   const activate = (id) => setStatus(id, 'active');
-  const remove = (id) => setSpaces((prev) => prev.filter((s) => s.id !== id));
+
+  const remove = (id) => {
+    patchRows((prev) => prev.filter((s) => s.id !== id));
+    runApi(() => deleteSpace(id));
+  };
 
   const openEdit = (s) => {
     setPreview(null);
@@ -144,6 +244,11 @@ export default function AdminSpaces() {
     patch(id, changes);
     setEditTarget(null);
     announce('تم تحديث بيانات المساحة بنجاح.');
+    // العقد §6.4: لا تُرسَل الحالة من هنا — لها مسار مستقل، وتغييرها هنا كان
+    // سيعتمد على الخادم فقط أو يُتجاهل بصمت.
+    const fields = { ...changes };
+    delete fields.status;
+    runApi(() => updateSpace(id, fields));
   };
 
   const resetFilters = () => {
@@ -166,23 +271,23 @@ export default function AdminSpaces() {
     },
   ];
 
+  // ما يعرضه قسم المستندات: من ردّ التفصيل إن وصل، وإلا من صفّ القائمة. فنافذة
+  // المعاينة تعرض ما تعلّمتْه فوراً ثم تُغني نفسها إن تأخّر الخادم — لا قسماً
+  // فارغاً ينتظر، ولا مؤشر تحميل على صفٍّ لا مستندات فيه أصلاً.
+  const previewDocuments = detail?.documents?.length ? detail.documents : preview?.documents || [];
+
   return (
     <div className="space-y-6">
+      <DataSourceBanner live={live} loading={loading} error={loadError} onRetry={reload} />
       {/* لوحة التحكم العلوية — بطاقة مستقلة */}
       <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-[var(--border)] dark:bg-[#1c1c22]">
         <SectionHeading
           icon={Building2}
           title="إدارة المساحات"
-          subtitle={`${arCount(spaces.length, AR_FORMS.space)} مسجلة · ${counts.pending} بانتظار المراجعة`}
-          action={
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={() => announce('ميزة إضافة مساحة جديدة قيد التطوير — ستتوفر قريباً')}
-            >
-              <Plus className="h-4 w-4" />
-              إضافة مساحة جديدة
-            </button>
+          subtitle={
+            awaitingServer
+              ? 'جارٍ جلب المساحات من الخادم…'
+              : `${arCount(spaces.length, AR_FORMS.space)} مسجلة · ${counts.pending} بانتظار التفعيل`
           }
         />
 
@@ -323,7 +428,19 @@ export default function AdminSpaces() {
           </div>
         )}
 
-        {filtered.length === 0 ? (
+        {awaitingServer ? (
+          // لا صفوف بعد: ننتظر صراحةً بدل «لا توجد مساحات» وهي كذبة قبل الردّ.
+          <SectionCard>
+            <DataGate
+              live={live}
+              loading={loading}
+              error={loadError}
+              onRetry={reload}
+              rows={3}
+              errorTitle="تعذّر جلب المساحات"
+            />
+          </SectionCard>
+        ) : filtered.length === 0 ? (
           <SectionCard>
             <EmptyState
               icon={Building2}
@@ -528,6 +645,87 @@ export default function AdminSpaces() {
                 {spaceStatus(preview.status).label}
               </StatusBadge>
             </div>
+
+            {/* قسم المستندات + قرار التفعيل — للمساحة «بانتظار التفعيل» وحدها.
+                يظهر لها وحده: المساحة النشطة أُسّرت، والموقوفة قرارها سابق،
+                فالقسم لهما زينة بلا معنى. والقرار تحته لا في التذييل، لأن
+                الأدمن يقرؤ المستند ثم يقرّر: زرٌ في آخر النافذة يفصل بينه
+                وبين ما للقرار أساس. */}
+            {preview.status === 'pending' && (
+              <div className="space-y-3 rounded-2xl border border-amber-500/40 bg-amber-500/[0.06] p-4 dark:border-amber-500/30">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <span className="text-[.9rem] font-extrabold">مستندات المساحة</span>
+                  {!detailBusy && (
+                    <span className="text-[.75rem]" style={{ color: 'var(--text-muted)' }}>
+                      {arCount(previewDocuments.length, AR_FORMS.document)}
+                    </span>
+                  )}
+                </div>
+
+                {previewDocuments.length === 0 ? (
+                  <p className="text-[.8rem] leading-relaxed" style={{ color: 'var(--text-muted)' }} data-space-docs-empty>
+                    {detailBusy
+                      ? 'جارٍ جلب المستندات من الخادم…'
+                      : 'لم يصل أي مستند من الخادم لهذه المساحة — لا رابطاً افتراضياً، لأن فتح رابطٍ مخترَع لا يفيد الأدمن بل يُوهمه بتوثيقٍ لا وجود له.'}
+                  </p>
+                ) : (
+                  <ul className="space-y-2" data-space-docs={String(previewDocuments.length)}>
+                    {previewDocuments.map((doc) => (
+                      <li key={`${doc.kind}:${doc.url}`} className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="min-w-0 text-[.85rem]">
+                          <span className="font-bold">{doc.label}</span>
+                          {doc.name && (
+                            <span className="ms-2 truncate" style={{ color: 'var(--text-muted)' }}>
+                              {doc.name}
+                            </span>
+                          )}
+                        </span>
+                        <a
+                          href={imageUrl(doc.url)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn-ghost"
+                          data-space-doc
+                          data-doc-kind={doc.kind}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          فتح المستند
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => {
+                      approve(preview.id);
+                      announce('تم تفعيل المساحة.');
+                    }}
+                    data-space-activate
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    تفعيل المساحة
+                  </button>
+                  <button
+                    type="button"
+                    className={btnDanger}
+                    onClick={() => {
+                      reject(preview.id);
+                      announce('تم رفض المساحة وإيقافها.');
+                    }}
+                    data-space-suspend
+                  >
+                    <Ban className="h-4 w-4" />
+                    رفض / إيقاف
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-wrap justify-end gap-2">
               <button type="button" className={btnGhost} onClick={() => setPreview(null)}>
                 إغلاق
