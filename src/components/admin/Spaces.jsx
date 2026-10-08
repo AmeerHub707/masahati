@@ -74,7 +74,7 @@ export default function AdminSpaces() {
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((s) => (
             <Card key={s.id} className="flex flex-col overflow-hidden p-0!">
-              <div className="relative flex h-28 items-center justify-center bg-gradient-to-br from-orange-100 to-amber-50 dark:from-gray-700 dark:to-gray-800">
+              <div className="relative flex h-28 items-center justify-center rounded-t-2xl bg-gradient-to-br from-orange-100 to-amber-50 dark:from-gray-700 dark:to-gray-800">
                 <Building2 className="h-10 w-10 text-orange-400 dark:text-orange-500/60" />
                 <span className="absolute top-3 left-3">
                   <Badge tone={STATUS_TONE[s.status]}>{SPACE_STATUS_LABELS[s.status]}</Badge>
