@@ -381,7 +381,7 @@ export function adaptSpace(raw) {
     rating: num(pick(raw, ['rating', 'average_rating', 'stars'])),
     bookings: num(pick(raw, ['bookings', 'bookings_count', 'total_bookings'])),
     capacity: num(pick(raw, ['capacity', 'seats', 'max_capacity'])),
-    image: imageOf(pick(raw, ['image', 'cover', 'cover_image', 'photo', 'photos'])),
+    image: imageOf(pick(raw, ['image', 'image_url', 'cover', 'cover_image', 'photo', 'photos'])),
     documents: adaptSpaceDocuments(raw),
   };
 }
