@@ -94,7 +94,7 @@ export default function AdminSpaces() {
               <div className="flex flex-1 flex-col gap-2 p-4">
                 <h3 className="m-0 text-base font-extrabold text-zinc-900 dark:text-gray-100">{s.title}</h3>
                 <p className="m-0 text-xs font-semibold text-gray-500 dark:text-gray-400">
-                  {s.owner} · <span className="inline-flex items-center gap-0.5"><MapPin className="h-3 w-3" /> {s.location}</span>
+                  <span dir="ltr">{s.owner}</span> · <span className="inline-flex items-center gap-0.5"><MapPin className="h-3 w-3" /> <span dir="ltr">{s.location}</span></span>
                 </p>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-bold text-gray-500 dark:text-gray-400">
                   <span className="inline-flex items-center gap-1 rounded-lg bg-gray-50 px-2 py-1 dark:bg-gray-700"><Users className="h-3.5 w-3.5" /> {s.capacity} مقعد</span>
