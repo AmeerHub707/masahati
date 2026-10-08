@@ -109,7 +109,7 @@ export default function AdminSpaces() {
                     <button
                       type="button"
                       onClick={() => setStatus(s.id, 'active')}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-green-500 px-4 py-2 text-xs font-extrabold text-white transition hover:bg-green-600"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-4 py-2 text-xs font-extrabold text-white transition hover:bg-orange-600"
                     >
                       <Check className="h-4 w-4" /> الموافقة
                     </button>
