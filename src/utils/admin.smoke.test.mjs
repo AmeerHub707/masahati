@@ -1175,13 +1175,19 @@ console.log('\n===== ADMIN: التحديث التلقائي لقائمة الح�
 console.log('\n===== ADMIN: المساحات والحجوزات والمراجعات =====');
 {
   const s = await mount('/admin/spaces');
-  // تبويب الحالة: التصفية يجب أن تُبقي المطابق فقط وتطابق العدد المعروض
+  // تبويب الحالة: التصفية يجب أن تُبقي المطابق فقط وتطابق العدد المعروض.
+  // شارة الحالة في بطاقات المساحات (SpaceBadge) أصبحت فئات Tailwind فاتحة
+  // (border-emerald-200 bg-emerald-50 …) بدل فئات badge--* القديمة، فتُفحص
+  // الدلالة نفسها داخل حاوية الشارة (dash__cover-badge) — لا في أزرار
+  // «إيقاف المساحة» الحمراء الناعمة التي تحمل border-red-200 أيضاً.
   await s.click(s.find('[data-space-tab="active"]'));
   const activeCards = s.findAll('[data-space-card]').length;
+  const greenBadge = '[data-space-card] .dash__cover-badge .border-emerald-200';
+  const redBadge = '[data-space-card] .dash__cover-badge .border-red-200';
   report(
     'A18 spaces status filter keeps only active rows',
-    activeCards === 5 && s.findAll('.badge--confirmed').length === 5 && s.findAll('.badge--cancelled').length === 0,
-    `cards=${activeCards} green=${s.findAll('.badge--confirmed').length} red=${s.findAll('.badge--cancelled').length}`
+    activeCards === 5 && s.findAll(greenBadge).length === 5 && s.findAll(redBadge).length === 0,
+    `cards=${activeCards} green=${s.findAll(greenBadge).length} red=${s.findAll(redBadge).length}`
   );
   report(
     'A18b spaces filter shows the pluralized result count',

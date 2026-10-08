@@ -25,10 +25,8 @@ import {
 import {
   SectionCard,
   SectionHeading,
-  StatusBadge,
   EmptyState,
   DataGate,
-  SmallAction,
   ActionMenu,
   Modal,
   Pill,
@@ -94,6 +92,26 @@ function SpaceCover({ src, alt }) {
       decoding="async"
       onError={() => setFailedSrc(src)}
     />
+  );
+}
+
+/** شارة حالة المساحة — ألوان ناعمة متطابقة مع لوحة Tailwind:
+ *  أصفر: بانتظار التفعيل، أخضر: مفعّلة، أحمر: موقوفة، رمادي: حالة غير معروفة.
+ *  تنسيق موحّد: px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap + حدّ فاتح. */
+const badgeTones = {
+  pending: 'border-amber-200 bg-amber-50 text-amber-700',
+  active: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  suspended: 'border-red-200 bg-red-50 text-red-700',
+};
+
+function SpaceBadge({ status }) {
+  const tone = badgeTones[status] || 'border-slate-200 bg-slate-100 text-slate-600';
+  return (
+    <span
+      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium ${tone}`}
+    >
+      {spaceStatus(status).label}
+    </span>
   );
 }
 
@@ -308,7 +326,7 @@ export default function AdminSpaces() {
                 )}
                 {t.label}
                 <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-black leading-none ${
+                  className={`rounded-full px-2 py-0.5 text-xs font-semibold leading-none ${
                     active
                       ? 'bg-white/25 text-white'
                       : 'bg-black/5 text-gray-500 dark:bg-white/10 dark:text-gray-400'
@@ -459,8 +477,11 @@ export default function AdminSpaces() {
                 onClick={() => setPreview(s)}
                 className="dash__card dash__card--cover group flex cursor-pointer flex-col transition-all duration-200 hover:-translate-y-1 hover:border-orange-200 hover:shadow-lg focus-within:border-orange-200 dark:hover:border-orange-500/40"
               >
-                {/* الغلاف: الصورة + زر المعاينة + قائمة الإجراءات + شارة الحالة */}
-                <div className="dash__cover">
+                {/* الغلاف: شريط علوي مخصص للصورة h-40 — صورة بعرض كامل وغلاف كائن
+                    (w-full h-40 object-cover rounded-t-xl)، أو بديل فاتح محايد
+                    عند غياب الصورة أو فشلها، وشارة الحالة في الزاوية العلوية
+                    اليمنى (absolute top-3 right-3 z-10). */}
+                <div className="relative h-40 w-full overflow-hidden rounded-t-xl bg-slate-100 dark:bg-[#26262d]">
                   <button
                     type="button"
                     className="dash__cover-open"
@@ -483,28 +504,20 @@ export default function AdminSpaces() {
                     items={menuItems(s)}
                   />
                   <span className="dash__cover-badge">
-                    <StatusBadge tone={spaceStatus(s.status).tone}>
-                      {spaceStatus(s.status).label}
-                    </StatusBadge>
+                    <SpaceBadge status={s.status} />
                   </span>
                 </div>
 
                 <div className="flex flex-1 flex-col p-5">
-                  <h3 className="text-base font-extrabold" style={{ color: 'var(--text-strong)' }}>
-                    {s.name}
+                  <h3 className="text-base font-semibold leading-relaxed text-slate-800 dark:text-gray-100">
+                    <span className="bidi-iso">{s.name}</span>
                   </h3>
-                  <p
-                    className="mt-0.5 flex items-center gap-1.5 text-sm"
-                    style={{ color: 'var(--text-muted)' }}
-                  >
+                  <p className="mt-0.5 flex items-center gap-1.5 text-sm font-medium leading-relaxed text-slate-500 dark:text-gray-400">
                     <MapPin className="h-4 w-4" style={{ color: 'var(--accent)' }} />
-                    {s.neighborhood}
+                    <span className="bidi-iso">{s.neighborhood}</span>
                   </p>
 
-                  <div
-                    className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium"
-                    style={{ color: 'var(--text-muted)' }}
-                  >
+                  <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium text-slate-500 dark:text-gray-400">
                     <span className="inline-flex items-center gap-1">
                       <Users className="h-4 w-4" style={{ color: 'var(--accent)' }} />
                       {arCount(s.capacity, AR_FORMS.seat)}
@@ -520,8 +533,8 @@ export default function AdminSpaces() {
                     </span>
                   </div>
 
-                  <p className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-                    المالك: {s.owner} · {arCount(s.bookings, AR_FORMS.booking)}
+                  <p className="mt-2 text-xs font-medium leading-relaxed text-slate-500 dark:text-gray-400">
+                    المالك: <span className="bidi-iso">{s.owner}</span> · {arCount(s.bookings, AR_FORMS.booking)}
                   </p>
 
                   <div onClick={(e) => e.stopPropagation()}>
@@ -557,17 +570,19 @@ export default function AdminSpaces() {
                             <SpaceCover src={s.image} alt="" />
                           </span>
                           <span className="min-w-0">
-                            <span className="block truncate font-extrabold whitespace-nowrap">
-                              {s.name}
+                            <span className="block truncate whitespace-nowrap font-semibold text-slate-800 dark:text-gray-100">
+                              <span className="bidi-iso">{s.name}</span>
                             </span>
                             <span className="txt-caption mt-0.5 flex items-center gap-1 whitespace-nowrap">
                               <MapPin className="h-3.5 w-3.5" style={{ color: 'var(--accent)' }} />
-                              {s.neighborhood}
+                              <span className="bidi-iso">{s.neighborhood}</span>
                             </span>
                           </span>
                         </div>
                       </td>
-                      <td className="txt-caption whitespace-nowrap">{s.owner}</td>
+                      <td className="txt-caption whitespace-nowrap">
+                        <span className="bidi-iso">{s.owner}</span>
+                      </td>
                       <td className="txt-caption whitespace-nowrap font-bold">
                         {arCount(s.capacity, AR_FORMS.seat)}
                       </td>
@@ -581,9 +596,7 @@ export default function AdminSpaces() {
                       </td>
                       <td className="num whitespace-nowrap text-xs">{s.price} ش.ج/ساعة</td>
                       <td className="whitespace-nowrap">
-                        <StatusBadge tone={spaceStatus(s.status).tone}>
-                          {spaceStatus(s.status).label}
-                        </StatusBadge>
+                        <SpaceBadge status={s.status} />
                       </td>
                       <td>
                         <div
@@ -627,8 +640,8 @@ export default function AdminSpaces() {
               <SpaceCover src={preview.image} alt={`غلاف ${preview.name}`} />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <MiniFact label="الحي" value={preview.neighborhood} />
-              <MiniFact label="المالك" value={preview.owner} />
+              <MiniFact label="الحي" value={<span className="bidi-iso">{preview.neighborhood}</span>} />
+              <MiniFact label="المالك" value={<span className="bidi-iso">{preview.owner}</span>} />
               <MiniFact label="السعر" value={`${preview.price} ش.ج/ساعة`} />
               <MiniFact label="السعة" value={arCount(preview.capacity, AR_FORMS.seat)} />
               <MiniFact
@@ -638,12 +651,8 @@ export default function AdminSpaces() {
               <MiniFact label="الحجوزات" value={arCount(preview.bookings, AR_FORMS.booking)} />
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[.8rem] font-bold" style={{ color: 'var(--text-muted)' }}>
-                الحالة:
-              </span>
-              <StatusBadge tone={spaceStatus(preview.status).tone}>
-                {spaceStatus(preview.status).label}
-              </StatusBadge>
+              <span className="text-[.8rem] font-bold text-slate-500 dark:text-gray-400">الحالة:</span>
+              <SpaceBadge status={preview.status} />
             </div>
 
             {/* قسم المستندات + قرار التفعيل — للمساحة «بانتظار التفعيل» وحدها.
@@ -700,7 +709,7 @@ export default function AdminSpaces() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    className="btn-primary"
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:bg-emerald-700"
                     onClick={() => {
                       approve(preview.id);
                       announce('تم تفعيل المساحة.');
@@ -712,7 +721,7 @@ export default function AdminSpaces() {
                   </button>
                   <button
                     type="button"
-                    className={btnDanger}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition-all duration-200 hover:bg-red-100"
                     onClick={() => {
                       reject(preview.id);
                       announce('تم رفض المساحة وإيقافها.');
@@ -790,23 +799,25 @@ export default function AdminSpaces() {
 function MiniFact({ label, value }) {
   return (
     <div className="rounded-xl border border-black/15 bg-slate-50/60 p-3 dark:border-[var(--border)] dark:bg-white/[0.03]">
-      <span
-        className="block text-[.8rem] font-bold"
-        style={{ color: 'var(--text-muted)' }}
-      >
-        {label}
-      </span>
-      <span className="mt-0.5 block text-[.95rem] font-extrabold" style={{ color: 'var(--text-strong)' }}>
+      <span className="block text-[.8rem] font-medium text-slate-500 dark:text-gray-400">{label}</span>
+      <span className="mt-0.5 block text-[.95rem] font-semibold leading-relaxed text-slate-800 dark:text-gray-100">
         {value}
       </span>
     </div>
   );
 }
 
-// إجراءات تغيير الحالة — ألوان دلالية: أخضر للموافقة، أحمر للرفض/الإيقاف، أزرار لإعادة التفعيل.
-// يوقّف انتشار النقرة حتى لا يفتح نقرةُ الزر معاينةَ البطاقة.
+// إجراءات تغيير الحالة — ألوان دلالية موحّدة: تأكيد أخضر معبأ (الموافقة)، وتدمير
+// أحمر ناعم بمخطط (الرفض، إيقاف المساحة)، وإعادة تفعيل زرقاء. تنسيق مشترك:
+// py-2 px-4 rounded-lg text-sm font-medium transition-all (وأصغر حجماً في جدول
+// القائمة). يحمل كل زر فئته الدلالية is-green/is-red/is-sky في class لاختبارات
+// الدلالة. يوقّف انتشار النقرة حتى لا يفتح نقرةُ الزر معاينةَ البطاقة.
 function SpaceActions({ s, onApprove, onReject, onSuspend, onActivate, compact = false }) {
-  const actionCls = compact ? 'dash__btn-soft--compact' : 'flex-1';
+  const btnBase =
+    'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-200 [&_svg]:h-4 [&_svg]:w-4';
+  const actionCls = compact ? `${btnBase} px-3 py-1.5 text-xs` : `${btnBase} flex-1 px-4 py-2 text-sm`;
+  const softRed = 'border border-red-200 bg-red-50 text-red-700 hover:bg-red-100';
+  const softSky = 'border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100';
   return (
     <div
       className={`flex flex-wrap items-center gap-2 ${compact ? '' : 'mt-4 border-t pt-3'}`}
@@ -814,27 +825,43 @@ function SpaceActions({ s, onApprove, onReject, onSuspend, onActivate, compact =
     >
       {s.status === 'pending' && (
         <>
-          <SmallAction tone="green" onClick={() => onApprove(s.id)} className={actionCls}>
+          <button
+            type="button"
+            onClick={() => onApprove(s.id)}
+            className={`${actionCls} is-green bg-emerald-600 text-white shadow-sm hover:bg-emerald-700`}
+          >
             <CheckCircle2 />
             الموافقة
-          </SmallAction>
-          <SmallAction tone="red" onClick={() => onReject(s.id)} className={actionCls}>
+          </button>
+          <button
+            type="button"
+            onClick={() => onReject(s.id)}
+            className={`${actionCls} is-red ${softRed}`}
+          >
             <XCircle />
             الرفض
-          </SmallAction>
+          </button>
         </>
       )}
       {s.status === 'active' && (
-        <SmallAction tone="red" onClick={() => onSuspend(s.id)} className={actionCls}>
+        <button
+          type="button"
+          onClick={() => onSuspend(s.id)}
+          className={`${actionCls} is-red ${softRed}`}
+        >
           <Ban />
           إيقاف المساحة
-        </SmallAction>
+        </button>
       )}
       {s.status === 'suspended' && (
-        <SmallAction tone="sky" onClick={() => onActivate(s.id)} className={actionCls}>
+        <button
+          type="button"
+          onClick={() => onActivate(s.id)}
+          className={`${actionCls} is-sky ${softSky}`}
+        >
           <PlayCircle />
           إعادة التفعيل
-        </SmallAction>
+        </button>
       )}
     </div>
   );
