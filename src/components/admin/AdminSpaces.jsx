@@ -828,7 +828,7 @@ function SpaceActions({ s, onApprove, onReject, onSuspend, onActivate, compact =
           <button
             type="button"
             onClick={() => onApprove(s.id)}
-            className={`${actionCls} is-green bg-emerald-600 text-white shadow-sm hover:bg-emerald-700`}
+            className={`${actionCls} bg-orange-500 hover:bg-orange-600 text-white`}
           >
             <CheckCircle2 />
             الموافقة

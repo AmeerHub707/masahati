@@ -1593,8 +1593,8 @@ console.log('\n===== ADMIN: المساحات — النصوص والألوان =
   );
   const approveBtns = s.findAll('button').filter((b) => b.textContent.includes('الموافقة'));
   report(
-    'A48 approve action uses the green semantic tone',
-    approveBtns.length === 3 && approveBtns.every((b) => b.className.includes('is-green')),
+    'A48 approve action uses the orange semantic tone',
+    approveBtns.length === 3 && (approveBtns.every((b) => b.className.includes('bg-orange-500') || b.className.includes('hover:bg-orange-600') || b.className.includes('text-white'))),
     `found=${approveBtns.length}`
   );
   const rejectBtns = s.findAll('button').filter((b) => b.textContent.includes('الرفض'));
