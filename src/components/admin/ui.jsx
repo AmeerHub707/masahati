@@ -384,7 +384,7 @@ export function Pill({ active = false, onClick, children, className = '', ...res
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border px-4 py-2 text-sm font-extrabold transition-all duration-200 [&_svg]:h-4 [&_svg]:w-4 ${
+      className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200 [&_svg]:h-4 [&_svg]:w-4 ${
         active
           ? 'border-transparent bg-orange-500 text-white shadow-sm shadow-orange-500/20'
           : 'border-black/15 bg-white text-[var(--text-muted)] hover:border-orange-500 hover:bg-orange-50 hover:text-orange-500 dark:border-[var(--border)] dark:bg-transparent dark:text-[var(--text-muted)] dark:hover:border-orange-500 dark:hover:bg-orange-500/10 dark:hover:text-orange-400'
