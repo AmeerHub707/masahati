@@ -255,6 +255,21 @@ console.log('\n===== المساحات: اسم بديل لا null =====');
     Array.isArray(viaSpace.documents) && viaSpace.documents.length === 1
       && viaSpace.documents[0].label === 'السجل التجاري', 'السجل التجاري',
     JSON.stringify(viaSpace.documents));
+
+  // صورة المساحة: الطلب الصريح «لو توفّرت image_url اعرض صورة المساحة». الاسم
+  // لا يُفترض من اصطلاح الخادم وحده، بل يُقرأ ب ApiController العام إن غاب
+  // `image` — وإلا بقيت البطاقة على البديل المحايد ولُوِّي صورةٌ قائمة كغائبة.
+  report('4.12 image_url يُقرأ كصورة المساحة',
+    A.adaptSpace({ id: 4, image_url: '/storage/sp.jpg' }).image === '/storage/sp.jpg',
+    '/storage/sp.jpg',
+    A.adaptSpace({ id: 4, image_url: '/storage/sp.jpg' }).image);
+
+  // `image` هو اسم العقد §5.1، فيسبق الاصطلاح الثانوي عند اجتماعهما: الترجيح
+  // من اليسار يعني ألّا يُغيّر حقلٌ اصطلاحيٌّ حقيقةً مُبلَّغة.
+  report('4.13 image يسبق image_url عند اجتماعهما',
+    A.adaptSpace({ id: 4, image: '/a.jpg', image_url: '/b.jpg' }).image === '/a.jpg',
+    '/a.jpg',
+    A.adaptSpace({ id: 4, image: '/a.jpg', image_url: '/b.jpg' }).image);
 }
 
 /* ------------------------------------------------------------------ */
