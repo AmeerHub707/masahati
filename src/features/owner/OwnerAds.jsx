@@ -173,7 +173,6 @@ export default function OwnerAds() {
   };
 
   const openCreate = () => {
-    console.log('[AD_FORM] Open Create Triggered');
     setForm(DEFAULT_FORM);
     setErrors({});
     setModal({ mode: 'create' });
@@ -212,7 +211,6 @@ export default function OwnerAds() {
       e.space_id = 'اختر المساحة المرتبطة بالإعلان.';
     }
     setErrors(e);
-    console.log('[AD_FORM] Validation Errors:', e);
     return Object.keys(e).length === 0;
   };
 

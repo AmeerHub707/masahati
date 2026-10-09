@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'node_modules']),
+  globalIgnores(['dist', 'node_modules', 'masahati']),
   {
     // تغطية تلقائية لكل امتدادات عائلة JS (js/jsx/mjs/cjs) مع ESM افتراضى.
     files: ['**/*.{js,jsx,mjs,cjs}'],
