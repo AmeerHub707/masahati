@@ -17,10 +17,7 @@ import {
 export default function AdDetailsPage() {
   const { id } = useParams();
   const [space, setSpace] = useState(null);
-  const [error, setError] = useState(false);
-  // نقطة تفاصيل المساحة (GET /api/spaces/{id}) غير منفَّذة في الباك إند، فالصفحة
-  // تعرض بيانات تجريبية. كان الشريط يقول «متاحة للحجز» و«حجز فوري» بلا تنبيه.
-  const [demo, setDemo] = useState(false);
+  const [error, setError] = useState('');
   // «مُحمَّل» بدل «يحمّل»: الحالة تُشتق من معرّف طلبه، فلا داعي لضبط
   // مؤشّر تحميل داخل التأثير (تحديث حالة متزامن = تحديث زائد).
   const [loadedId, setLoadedId] = useState(null);
@@ -32,14 +29,7 @@ export default function AdDetailsPage() {
       .then((result) => {
         if (!alive) return;
         setSpace(result.space);
-        setDemo(Boolean(result.demo));
-        setError(false);
-        setLoadedId(id);
-      })
-      .catch(() => {
-        if (!alive) return;
-        setSpace(null);
-        setError(true);
+        setError(result.error ?? '');
         setLoadedId(id);
       });
     return () => { alive = false; };
@@ -58,8 +48,8 @@ export default function AdDetailsPage() {
     return (
       <div className="placeholder-page">
         <div className="wrap">
-          <h1>المساحة غير موجودة</h1>
-          <p>المساحة التي تبحث عنها غير متاحة حالياً.</p>
+          <h1>المساحة غير متاحة</h1>
+          <p>{error || 'المساحة التي تبحث عنها غير متاحة حالياً.'}</p>
           <BackButton
             className="ad-details__back"
             fallback="/spaces"
@@ -105,9 +95,6 @@ export default function AdDetailsPage() {
               </span>
               {space.instant_booking && (
                 <span className="ad-details__instant"><Zap size={14} /> حجز فوري</span>
-              )}
-              {demo && (
-                <span className="spaces__demo-badge">وضع تجريبي</span>
               )}
             </div>
 

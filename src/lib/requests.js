@@ -1,30 +1,14 @@
-﻿// وحدة طلبات خاصة (عرض تبنّي العكس — RFQ/مزاد عكسي).
-// يتصل بالباك إند الحقيقي (Laravel) عبر نفس عميل api.js،
-// ومع أي فشل (مسار غير مطبق أو انقطاع) ينتقل تلقائياً لوضع تجريبي
-// يخزّن البيانات محلياً حتى لا تكسر التجربة.
+// وحدة طلبات خاصة (عرض تبنّي العكس — RFQ/مزاد عكسي).
+// يتصل بالباك إند الحقيقي (Laravel) عبر نفس عميل api.js.
+// القراءات لا ترمي أبداً (تعود {error,...}) والإجراءات ترمي الأخطاء الحقيقية.
 
 import { request, imageUrl } from './api';
-import { createDemoFlag } from './demoFlag';
 
 // مهلة الطلب: نحاكي الافتراضية في api.js. كانت 8 ثوانٍ فأسقطت كل الطلبات على
-// مخدم Render أثناء الإقلاع البارد (30–60 ثانية)، وهو ما كان يفعّل الوضع
-// التجريبي ويحفظ الطلبات محلياً بدل إرسالها للخادم.
+// مخدم Render أثناء الإقلاع البارد (30–60 ثانية).
 const REQ_TIMEOUT_MS = 25000;
 
-const DEMO_FLAG_KEY = 'masahati_special_requests_demo_v1';
-const DEMO_DATA_KEY = 'masahati_special_requests_data_v1';
 const SEEN_KEY = 'masahati_special_requests_seen_v1';
-
-// سبب آخر فشل من الخادم، لعرضه للمستخدم بدل إخفاءه خلف «وضع تجريبي» غامض.
-let lastServerError = '';
-
-function setLastServerError(message) {
-  lastServerError = message || '';
-}
-
-export function getLastSpecialRequestsError() {
-  return lastServerError;
-}
 
 // يحوّل أي خطأ إلى نص عربي مفهوم. ApiError يحمل الرسالة التي أعادها الباك إند.
 export function describeRequestError(err) {
@@ -40,36 +24,6 @@ export function describeRequestError(err) {
     return 'المسار غير موجود على الخادم.';
   }
   return err.message || 'تعذّر إتمام العملية على الخادم.';
-}
-
-// ----- وضع تجريبي -----
-const demoFlag = createDemoFlag(DEMO_FLAG_KEY);
-
-export function isSpecialRequestsDemo() {
-  return demoFlag.isOn();
-}
-
-function setDemoFlag(on) {
-  demoFlag.set(on);
-}
-
-function readDemoStore() {
-  try {
-    const raw = localStorage.getItem(DEMO_DATA_KEY);
-    if (!raw) return null;
-    const data = JSON.parse(raw);
-    return data && Array.isArray(data.requests) ? data : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeDemoStore(payload) {
-  try {
-    localStorage.setItem(DEMO_DATA_KEY, JSON.stringify(payload));
-  } catch {
-    /* التخزين غير متاح */
-  }
 }
 
 // ----- قوائم ثابتة للعربية -----
@@ -212,159 +166,6 @@ export function unwrap(res) {
   return res || {};
 }
 
-// ------------- بذرة الوضع التجريبي -------------
-function seedDemoRequests() {
-  const now = new Date();
-  const daysAgo = (n) =>
-    new Date(now.getTime() - n * 86400000).toISOString().slice(0, 16).replace('T', ' ');
-
-  return [
-    {
-      id: 'demo-1',
-      title: 'قاعة محاضرات لدورة تدريبية أسبوعية',
-      notes:
-        'أبحث عن قاعة تتسع لـ 40 متدرباً لمدة 3 ساعات كل يوم سبت، مع بروجيكتور وإنترنت قوي لتدريب عملي على الحاسوب.',
-      space_type: 'whole',
-      capacity: 40,
-      schedule: { preset: 'weekly', count: 8 },
-      schedule_label: 'أسبوعي × 8',
-      preferred_time: '10:00 ص – 1:00 م',
-      area: 'وسط المدينة',
-      amenities: ['internet', 'electricity', 'projector', 'ac'],
-      budget: 180,
-      status: 'open',
-      offers_count: 3,
-      created_at: daysAgo(2),
-      offers: [
-        {
-          id: 'demo-o1',
-          owner_name: 'مركز النور للتدريب',
-          space_name: 'قاعة العروض الكبرى',
-          space_image: '',
-          price_per_hour: 150,
-          duration_hours: 3,
-          location: 'وسط المدينة',
-          notes: 'القاعة مجهزة بشاشة عرض 120 بوصة ومقاعد قابلة لإعادة الترتيب، ونت 100 ميجا.',
-          rating: 4.8,
-          status: 'pending',
-          created_at: daysAgo(1),
-        },
-        {
-          id: 'demo-o2',
-          owner_name: 'بهو الأعمال',
-          space_name: 'قاعة الريادة',
-          space_image: '',
-          price_per_hour: 175,
-          duration_hours: 3,
-          location: 'شارع الجامعة',
-          notes: 'ضمّنّا التكييف والماء والقهوة ضمن السعر، مع مساعد تقني خلال المحاضرة.',
-          rating: 4.5,
-          status: 'pending',
-          created_at: daysAgo(1),
-        },
-        {
-          id: 'demo-o3',
-          owner_name: 'منصة مساحات',
-          space_name: 'استوديو المبدعين',
-          space_image: '',
-          price_per_hour: 200,
-          duration_hours: 3,
-          location: 'حي السعادة',
-          notes: 'قاعة حديثة التسليم بعد الترميم، تضم 50 كرسياً مريحاً وإنترنت ألياف.',
-          rating: 4.9,
-          status: 'pending',
-          created_at: daysAgo(1),
-        },
-      ],
-    },
-    {
-      id: 'demo-2',
-      title: 'لعقد اجتماع إدارة شهري متكرر',
-      notes:
-        'نحتاج غرفة اجتماعات لـ 10 أشخاص لمدة ساعتين في منتصف كل شهر، مع عرض تقديمي وإمكانية حضور عبر الإنترنت.',
-      space_type: 'room',
-      capacity: 10,
-      schedule: { preset: 'monthly', count: 12 },
-      schedule_label: 'شهري × 12',
-      preferred_time: '4:00 م – 6:00 م',
-      area: 'المنطقة الشرقية',
-      amenities: ['internet', 'projector', 'microphone'],
-      budget: 120,
-      status: 'open',
-      offers_count: 1,
-      created_at: daysAgo(4),
-      offers: [
-        {
-          id: 'demo-o4',
-          owner_name: 'أبراج الشرق للمكاتب',
-          space_name: 'غرفة الاجتماعات الذكية',
-          space_image: '',
-          price_per_hour: 100,
-          duration_hours: 2,
-          location: 'المنطقة الشرقية',
-          notes: 'شاشة 75 بوصة + كاميرا Zoom + مايك معلق، منفعة لشهر كامل متوفرة.',
-          rating: 4.6,
-          status: 'pending',
-          created_at: daysAgo(2),
-        },
-      ],
-    },
-    {
-      id: 'demo-3',
-      title: 'قاعة إلقاء محاضرات جامعية',
-      notes:
-        'محاضرة واحدة 90 دقيقة لـ 120 طالباً بمناسبة الأسبوع الثقافي، مع تكييف وسماعات.',
-      space_type: 'whole',
-      capacity: 120,
-      schedule: { preset: 'once', count: 1 },
-      schedule_label: 'مرة واحدة',
-      preferred_time: '11:00 ص – 12:30 م',
-      area: '',
-      amenities: ['internet', 'ac', 'microphone'],
-      budget: 400,
-      status: 'accepted',
-      offers_count: 2,
-      created_at: daysAgo(6),
-      offers: [
-        {
-          id: 'demo-o5',
-          owner_name: 'قاعة الشموخ',
-          space_name: 'المدرج الرئيسي',
-          space_image: '',
-          price_per_hour: 380,
-          duration_hours: 2,
-          location: 'وسط المدينة',
-          notes: 'مدرج يصل لـ 160 مقعداً مع نظام صوت احترافي.',
-          rating: 4.7,
-          status: 'accepted',
-          created_at: daysAgo(3),
-        },
-        {
-          id: 'demo-o6',
-          owner_name: 'مبنى الإبداع',
-          space_name: 'قاعة الجمهور',
-          space_image: '',
-          price_per_hour: 350,
-          duration_hours: 2,
-          location: 'حي الأمل',
-          notes: 'مقاعد مدرّجة جيدة وتكييف مركزي.',
-          rating: 4.3,
-          status: 'pending',
-          created_at: daysAgo(3),
-        },
-      ],
-    },
-  ];
-}
-
-function demoStore() {
-  const existing = readDemoStore();
-  if (existing) return existing;
-  const payload = { requests: seedDemoRequests() };
-  writeDemoStore(payload);
-  return payload;
-}
-
 // ------------- تتبّع الزيارات (شارة العروض الجديدة) -------------
 // نحفظ اللحظة الزمنية التي فتح فيها المستخدم تفاصيل كل طلب، لنعرف
 // عدد العروض الجديدة التي أُضيفت بعد آخر زيارة ونعرضها كشارة على البطاقة.
@@ -500,68 +301,41 @@ export async function acceptRequestOffer(requestId, offerId) {
   };
 }
 
-// ------------- واجهة التطبيق (API → تجريبي) -------------
-// تُحمّل قائمة الطلبات: تجربة الحقيقي أولاً، وعند أي فشل نتحول للتجريبي
-// ونخزن العلامة حتى لا تتكرر المحاولة في كل إجراء ضمن الجلسة.
-// المعامل force يتجاوز علامة التجريبي للحظات ليعيد محاولة الخادم
-// (مفيد بعد نزول واجهة الباك إند أو عند زر "تحديث").
-// القراءة: نجرب الخادم دائماً، وعند الفشل نعرض البيانات التجريبية فقط كحل
-// أخير للعرض — مع تسجيل السبب. العلامة لم تعد تُقفل الجلسة كلها.
+// ------------- واجهة التطبيق -------------
+// القراءات لا ترمي أبداً: عند الفشل تعود {error, <قائمة فارغة>}. الإجراءات
+// ترمي الخطأ الحقيقي حتى لا يفقد المستخدم طلبه بصمت.
 export async function loadRequestsWithFallback() {
   try {
     const requests = await fetchMyRequests();
-    setDemoFlag(false);
-    setLastServerError('');
-    return { demo: false, requests };
+    return { error: null, requests };
   } catch (err) {
-    setLastServerError(describeRequestError(err));
-    if (!isSpecialRequestsDemo()) setDemoFlag(true);
-    return { demo: true, requests: demoStore().requests.map(mapRequest) };
+    return { error: describeRequestError(err), requests: [] };
   }
 }
 
 export async function loadRequestDetailWithFallback(id) {
   try {
     const detail = await fetchRequestDetail(id);
-    setDemoFlag(false);
-    setLastServerError('');
-    return { demo: false, ...detail };
+    return { error: null, ...detail };
   } catch (err) {
-    setLastServerError(describeRequestError(err));
-    if (!isSpecialRequestsDemo()) setDemoFlag(true);
-    const all = demoStore().requests;
-    const hit = all.find((r) => String(r.id) === String(id)) || all[0];
-    const mapped = mapRequestWithOffers(hit, hit.offers);
-    return { demo: true, ...mapped };
+    return { error: describeRequestError(err) };
   }
 }
 
-// الإنشاء: يرسل للخادم دائماً ولا يحفظ محلياً أبداً. الحفظ المحلي كان يجعل
-// الطلب يبدو ناجحاً ثم يختفي لأن قاعدة البيانات لا تحتويه.
 export async function createRequestWithFallback(payload) {
   try {
     const { request: created } = await createSpecialRequest(payload);
-    setDemoFlag(false);
-    setLastServerError('');
-    return { demo: false, request: created };
+    return { error: null, request: created };
   } catch (err) {
-    setLastServerError(describeRequestError(err));
-    setDemoFlag(true);
-    // نُعيد خطأً حقيقياً بدل "نجاح" وهمي، حتى لا يفقد المستخدم طلبه بصمت.
     throw err instanceof Error ? err : new Error(describeRequestError(err));
   }
 }
 
-// القبول: يرسل للخادم دائماً. لا قبول محلي — قبول وهمي ينشئ حجزاً غير موجود.
 export async function acceptOfferWithFallback(requestId, offerId) {
   try {
     const result = await acceptRequestOffer(requestId, offerId);
-    setDemoFlag(false);
-    setLastServerError('');
-    return { demo: false, ...result };
+    return { error: null, ...result };
   } catch (err) {
-    setLastServerError(describeRequestError(err));
-    setDemoFlag(true);
     throw err instanceof Error ? err : new Error(describeRequestError(err));
   }
 }
@@ -597,12 +371,8 @@ export async function closeSpecialRequest(requestId) {
 export async function closeRequestWithFallback(requestId) {
   try {
     const result = await closeSpecialRequest(requestId);
-    setDemoFlag(false);
-    setLastServerError('');
-    return { demo: false, ...result };
+    return { error: null, ...result };
   } catch (err) {
-    setLastServerError(describeRequestError(err));
-    setDemoFlag(true);
     throw err instanceof Error ? err : new Error(describeRequestError(err));
   }
 }
@@ -611,12 +381,8 @@ export async function closeRequestWithFallback(requestId) {
 export async function rejectOfferWithFallback(requestId, offerId) {
   try {
     const result = await rejectRequestOffer(requestId, offerId);
-    setDemoFlag(false);
-    setLastServerError('');
-    return { demo: false, ...result };
+    return { error: null, ...result };
   } catch (err) {
-    setLastServerError(describeRequestError(err));
-    setDemoFlag(true);
     throw err instanceof Error ? err : new Error(describeRequestError(err));
   }
 }

@@ -39,7 +39,6 @@ const server = await createServer({
 const api = await server.ssrLoadModule('/src/lib/api.js');
 const authStore = await server.ssrLoadModule('/src/lib/authStore.js');
 const dashboard = await server.ssrLoadModule('/src/lib/dashboard.js');
-const demoFlag = await server.ssrLoadModule('/src/lib/demoFlag.js');
 const requests = await server.ssrLoadModule('/src/lib/requests.js');
 const notifications = await server.ssrLoadModule('/src/lib/notifications.js');
 const passwordRules = await server.ssrLoadModule('/src/lib/passwordRules.js');
@@ -415,38 +414,23 @@ try {
 }
 report('3.26 429 without Retry-After still explains', otpErrNoHeader?.status === 429 && otpErrNoHeader.data?.retryAfterSeconds === null);
 
-// ---- 3.27 عَلَم تجريبي لا يعلق: انتهاء بعد TTL ----
-resetStorage();
-const flag = demoFlag.createDemoFlag('test_demo_flag', { ttlMs: 40 });
-report('3.27 demo flag starts off', flag.isOn() === false);
-flag.set(true);
-report('3.28 demo flag reads back', flag.isOn() === true);
-await new Promise((r) => setTimeout(r, 70));
-report('3.29 demo flag self-heals after TTL', flag.isOn() === false);
-localStorage.setItem('test_demo_flag', '1');
-report('3.30 legacy "1" value is treated as expired', flag.isOn() === false);
-flag.set(false);
-report('3.31 demo flag can be cleared', flag.isOn() === false && localStorage.getItem('test_demo_flag') === null);
-
 // ============================================================
 // القسم 4: requests.js — حالات الأمان السريعة + notifications.js
 // ============================================================
 console.log('\n===== 4) requests.js (special requests) + notifications.js =====');
 
-// وضع تجريبي: فشل الخادم -> مخزن محلي + تعيين العلامة
+// فشل الخادم -> خطأ وقائمة فارغة (لا بيانات تجريبية ولا علامة)
 resetStorage();
 api.setToken(TOKEN);
 globalThis.fetch = makeFetch({
   'GET /api/special-requests': { status: 404, body: { message: 'nf' } },
 });
 const listFallback = await requests.loadRequestsWithFallback();
-report('4.1 fallback to demo list', listFallback.demo === true && listFallback.requests.length > 0);
-report('4.2 demo list items mapped', listFallback.requests[0]?.id && listFallback.requests[0].status === 'open');
+report('4.1 read failure returns an error, no demo key', typeof listFallback.error === 'string' && listFallback.error.length > 0 && listFallback.demo === undefined);
+report('4.2 read failure returns an empty list', Array.isArray(listFallback.requests) && listFallback.requests.length === 0);
 
 // إنشاء طلب يفشل على الخادم -> يجب أن يرمي خطأً ولا يحفظ محلياً.
 // (الحفظ المحلي كان يجعل الطلب يبدو ناجحاً ثم يختفي لأنه غير موجود في قاعدة البيانات.)
-// نلتقط عدد الطلبات قبل المحاولة Failed لنتأكد أن الفشل لم يضف شيئاً محلياً.
-const demoCountBefore = (JSON.parse(dom.window.localStorage.getItem('masahati_special_requests_data_v1') || '{"requests":[]}').requests || []).length;
 let createThrew = false;
 try {
   await requests.createRequestWithFallback({
@@ -464,8 +448,7 @@ try {
   createThrew = true;
 }
 report('4.3 create throws when server fails (no silent local save)', createThrew);
-const demoCountAfter = (JSON.parse(dom.window.localStorage.getItem('masahati_special_requests_data_v1') || '{"requests":[]}').requests || []).length;
-report('4.3b failed create added nothing locally', demoCountAfter === demoCountBefore);
+report('4.3b failed create never writes a local store', dom.window.localStorage.getItem('masahati_special_requests_data_v1') === null);
 
 // إنشاء ناجح: يُرجع الطلب من الخادم بدل البيانات التجريبية
 resetStorage();
@@ -494,11 +477,11 @@ const okCreate = await requests.createRequestWithFallback({
   amenities: ['internet'],
   budget: 90,
 });
-report('4.4 create returns server request, not demo', okCreate.demo === false && okCreate.request.id === 55);
+report('4.4 create returns the server request', okCreate.error === null && okCreate.request.id === 55);
 
 // التفاصيل من الخادم: يجب أن تحمل offers
 const listAfterCreate = await requests.loadRequestsWithFallback();
-report('4.5 list reads server data', listAfterCreate.demo === false && listAfterCreate.requests[0].id === 55);
+report('4.5 list reads server data', listAfterCreate.error === null && listAfterCreate.requests[0].id === 55);
 globalThis.fetch = makeFetch({
   'GET /api/special-requests/55': {
     status: 200,
@@ -509,14 +492,14 @@ globalThis.fetch = makeFetch({
   },
 });
 const detail = await requests.loadRequestDetailWithFallback(55);
-report('4.5b detail includes offers array from server', detail.demo === false && detail.offers.length === 1 && detail.offers[0].id === 9);
+report('4.5b detail includes offers array from server', detail.error === null && detail.offers.length === 1 && detail.offers[0].id === 9);
 
 // رفض عرض: نجح على الخادم -> لا حفظ محلي
 globalThis.fetch = makeFetch({
   'POST /api/special-requests/55/offers/9/reject': { status: 200, body: { message: 'تم رفض العرض.', request: { request_id: 55, status: 'open' } } },
 });
 const rejectRes = await requests.rejectOfferWithFallback(55, 9);
-report('4.6 reject offer returns server message', rejectRes.demo === false && typeof rejectRes.message === 'string');
+report('4.6 reject offer returns server message', rejectRes.error === null && typeof rejectRes.message === 'string');
 let rejectThrew = false;
 globalThis.fetch = makeFetch({});  // كل المسارات 404
 try { await requests.rejectOfferWithFallback(55, 9); } catch { rejectThrew = true; }
@@ -527,17 +510,17 @@ globalThis.fetch = makeFetch({
   'POST /api/special-requests/55/close': { status: 200, body: { message: 'تم إغلاق الطلب.', request: { request_id: 55, status: 'closed' } } },
 });
 const closeRes = await requests.closeRequestWithFallback(55);
-report('4.7 close request status from server', closeRes.demo === false && closeRes.request.status === 'closed');
+report('4.7 close request status from server', closeRes.error === null && closeRes.request.status === 'closed');
 report('4.8 closed request not open', requests.isRequestOpen(closeRes.request) === false);
 let closeThrew = false;
 globalThis.fetch = makeFetch({});
 try { await requests.closeRequestWithFallback(55); } catch { closeThrew = true; }
 report('4.8b close throws when server fails', closeThrew);
 
-// وصف الخطأ يُحفظ ليعرضه الشريط بدل إخفاء السبب
+// وصف الخطأ يُعاد ليعرضه الشريط بدل إخفاء السبب
 globalThis.fetch = makeFetch({ 'GET /api/special-requests': { status: 500, body: { message: 'Server Error' } } });
 const failed = await requests.loadRequestsWithFallback();
-report('4.8c fallback records the real error', failed.demo === true && typeof requests.getLastSpecialRequestsError() === 'string' && requests.getLastSpecialRequestsError().length > 0);
+report('4.8c failed read surfaces the real error', typeof failed.error === 'string' && failed.error.length > 0 && Array.isArray(failed.requests) && failed.requests.length === 0);
 
 // انتهاء الصلاحية: expires_at في الماضي -> غير مفتوح
 const expiredReq = { status: 'open', expires_at: '2020-01-01 00:00:00' };
@@ -557,17 +540,29 @@ requests.markRequestSeen('demo-1', 3);
 report('4.13 after visit with 3 -> 0 new', requests.newOffersCountFor({ id: 'demo-1', offers_count: 3 }) === 0);
 report('4.14 after 5 offers -> 2 new', requests.newOffersCountFor({ id: 'demo-1', offers_count: 5 }) === 2);
 
-// notifications.js: وضع تجريبي يشتق من مخزن الطلبات
+// notifications.js: تُقرأ من الخادم، وفشلها يعيد خطأً وقائمة فارغة
+globalThis.fetch = makeFetch({
+  'GET /api/notifications': {
+    status: 200,
+    body: { data: { notifications: [{ id: 7, message: 'وصل عرض جديد على طلبك', read: false, created_at: '2026-10-10 09:00:00' }] } },
+  },
+});
 const notifRes = await notifications.loadNotificationsWithFallback();
-report('4.15 notifications fallback derived locally', notifRes.demo === true && Array.isArray(notifRes.notifications));
-report('4.16 at least one notification present', notifRes.notifications.length > 0);
-report('4.17 notifications carry text + read', typeof notifRes.notifications[0].text === 'string' && typeof notifRes.notifications[0].read === 'boolean');
+report('4.15 notifications load from the server', notifRes.error === null && Array.isArray(notifRes.notifications) && notifRes.notifications.length === 1);
+report('4.16 notification mapped with text + read', notifRes.notifications[0].text === 'وصل عرض جديد على طلبك' && notifRes.notifications[0].read === false);
 
-// علامة قراءة الكل: لا تنفجر وتُحدّث العلامة المحلية عند التجريبي
+globalThis.fetch = makeFetch({ 'GET /api/notifications': { status: 500, body: { message: 'boom' } } });
+const notifFail = await notifications.loadNotificationsWithFallback();
+report('4.17 notifications failure returns error + empty list', typeof notifFail.error === 'string' && notifFail.error.length > 0 && notifFail.notifications.length === 0);
+
+// علامة قراءة الكل: تُرجع رسالة الخادم، وترمي عند الفشل
+globalThis.fetch = makeFetch({ 'POST /api/notifications/read': { status: 200, body: { message: 'تم تحديث الإشعارات.' } } });
 const markRes = await notifications.markAllNotificationsReadWithFallback();
-report('4.18 mark-all-read works in demo', (markRes.demo === true && typeof markRes.message === 'string'));
-const notifAfterRead = notifications.deriveLocalNotifications();
-report('4.19 derived notifications become read after flag', notifAfterRead.every((n) => n.read === true));
+report('4.18 mark-all-read returns server message', markRes.error === null && typeof markRes.message === 'string');
+let markThrew = false;
+globalThis.fetch = makeFetch({});
+try { await notifications.markAllNotificationsReadWithFallback(); } catch { markThrew = true; }
+report('4.19 mark-all-read throws on server failure', markThrew);
 
 // ============================================================
 // القسم 5: owner.js — لوحة صاحب المساحة (API → وضع تجريبي)
@@ -619,7 +614,7 @@ report('5.2 mapMyOffer maps offer fields', owner.mapMyOffer({ offer_id: 88, requ
 report('5.3 mapOwnerBooking maps booking fields', owner.mapOwnerBooking({ booking_id: 5, space_name: 'قاعة B', time_from: '10:00', time_to: '13:00', price: 450 }).time === '10:00 – 13:00'
   && owner.mapOwnerBooking({ booking_id: 5, space_name: 'قاعة B' }).spaceName === 'قاعة B');
 
-// تحميل كامل للوحة: كل نقاط الطريق تعمل → demo=false + تعيين المستخدم
+// تحميل كامل للوحة: كل نقاط الطريق تعمل → error=null + تعيين المستخدم
 resetStorage();
 api.setToken(TOKEN);
 api.setUser({ name: 'مالك محلي', role: 'owner' });
@@ -631,7 +626,7 @@ globalThis.fetch = makeFetch({
   'GET /api/profile': { status: 200, body: { name: 'مالك API', email: 'm@m.com', phone: '+970', picture: '/owner.jpg' } },
 });
 const ownerDash = await owner.loadOwnerDashboardWithFallback();
-report('5.4 full dashboard loads from API', ownerDash.demo === false);
+report('5.4 full dashboard loads from API', ownerDash.error === null);
 report('5.5 dashboard user comes from profile', ownerDash.user.name === 'مالك API' && ownerDash.user.role === 'owner');
 report('5.6 dashboard spaces mapped', ownerDash.spaces.length === 1 && ownerDash.spaces[0].title === 'قاعة العروض' && ownerDash.spaces[0].id === 12);
 report('5.7 dashboard offers mapped', ownerDash.offers.length === 1 && ownerDash.offers[0].requestTitle === 'طلب قاعة' && ownerDash.offers[0].status === 'pending');
@@ -652,59 +647,129 @@ globalThis.fetch = makeFetch({
   'GET /api/profile': { status: 500, body: { message: 'x' } },
 });
 const ownerDemo = await owner.loadOwnerDashboardWithFallback();
-report('5.11 all-fail falls back to demo', ownerDemo.demo === true && Array.isArray(ownerDemo.spaces) && Array.isArray(ownerDemo.offers) && Array.isArray(ownerDemo.market));
-report('5.12 demo flag set', owner.isOwnerDemo() === true);
-report('5.13 demo seeds 3 spaces', ownerDemo.spaces.length === 3);
-report('5.14 demo includes a stopped space', ownerDemo.spaces.some((s) => s.is_active === false));
-report('5.15 demo offers include pending + accepted', ownerDemo.offers.some((o) => o.status === 'pending') && ownerDemo.offers.some((o) => o.status === 'accepted'));
-report('5.16 demo stats consistent', ownerDemo.stats.spacesCount === 3 && ownerDemo.stats.activeSpacesCount === 2 && ownerDemo.stats.pendingOffers === 1 && ownerDemo.stats.acceptedOffers === 1);
+report('5.11 all-fail returns error and empty', ownerDemo.error != null && Array.isArray(ownerDemo.spaces) && Array.isArray(ownerDemo.offers) && Array.isArray(ownerDemo.market));
+/* 5.12 removed (no demo flag) */
+/* 5.13 removed */
+/* 5.14 removed */
+/* 5.15 removed */
+/* 5.16 removed */
 
-// عروض السوق في الوضع التجريبي: تقديم عرض → يُضاف محلياً، والتكرار يمنع
+// تقديم عرض على طلب مفتوح: يذهب إلى نقطة الطريق الحقيقية ويعيد عرض الخادم كما هو
+resetStorage();
+api.setToken(TOKEN);
+api.setUser({ name: 'مالك', role: 'owner' });
+let sentProposal = null;
+globalThis.fetch = makeFetch({
+  'POST /api/special-requests/market-2/offers': { status: 201, body: { data: { message: 'تم استلام عرضك.', offer: { offer_id: 91, request_id: 41, space_name: 'قاعة اختبار', price_per_hour: 130, duration_hours: 3, status: 'pending' } } } },
+}, (r) => { if (r.method === 'POST') sentProposal = JSON.parse(r.opts.body); });
 const prop1 = await owner.submitProposalWithFallback('market-2', {
   space_id: 'os-1', price_per_hour: 130, duration_hours: 3, notes: '', currency: 'ش.ج', request_title: 'قاعة اختبار',
 });
-report('5.17 proposal in demo returns offer', prop1.demo === true && prop1.duplicate === false && prop1.offer && prop1.offer.status === 'pending');
-const propDup = await owner.submitProposalWithFallback('market-2', {
-  space_id: 'os-1', price_per_hour: 130, duration_hours: 3, notes: '', currency: 'ش.ج', request_title: 'قاعة اختبار',
+report('5.17 proposal returns the server offer', prop1.duplicate === false && prop1.offer?.status === 'pending' && prop1.offer?.id === 91);
+report('5.17b proposal posts the offer payload', sentProposal?.space_id === 'os-1' && sentProposal?.price_per_hour === 130 && sentProposal?.duration_hours === 3, sentProposal);
+
+// الخادم يرفض الطلب (عرض مكرّر): نُظهر رسالة الخادم ولا نخترع عرضاً محلياً
+globalThis.fetch = makeFetch({
+  'POST /api/special-requests/market-2/offers': { status: 422, body: { message: 'سبق أن أرسلت عرضاً على هذا الطلب.' } },
 });
-report('5.18 duplicate proposal rejected', propDup.duplicate === true && /سبق/.test(propDup.message));
-report('5.19 owner offers now include the new one', (await owner.loadOwnerOffersWithFallback()).offers.some((o) => o.requestTitle === 'قاعة اختبار'));
+let propErr = null;
+try {
+  await owner.submitProposalWithFallback('market-2', { space_id: 'os-1', price_per_hour: 130, duration_hours: 3 });
+} catch (e) {
+  propErr = e;
+}
+report('5.18 rejected proposal throws instead of faking success', propErr instanceof api.ApiError && propErr.status === 422 && /سبق/.test(propErr.message), propErr?.message);
 
-// إضافة مساحة في الوضع التجريبي — نشمل أوقات العمل ورقم التواصل المطلوبين
+resetStorage();
+api.setToken(TOKEN);
+api.setUser({ name: 'مالك', role: 'owner' });
+globalThis.fetch = makeFetch({
+  'GET /api/owner/offers': { status: 200, body: { data: [{ offer_id: 91, request_id: 41, request_title: 'قاعة اختبار', status: 'pending' }] } },
+});
+report('5.19 owner offers list comes from the API', (await owner.loadOwnerOffersWithFallback()).offers.some((o) => o.requestTitle === 'قاعة اختبار'));
+
+// إضافة مساحة: ترسل status=pending للمراجعة وتعيد مساحة الخادم كما مُطبَّعة
+resetStorage();
+api.setToken(TOKEN);
+api.setUser({ name: 'مالك', role: 'owner' });
+let sentSpace = null;
+globalThis.fetch = makeFetch({
+  'POST /api/owner/spaces': { status: 201, body: { data: { space: { space_id: 31, title: 'جناح جديد', status: 'pending', is_active: false, price_per_hour: 90, open_time: '09:00', close_time: '18:00', contact_phone: '0599123456', lat: 31.50113, lng: 34.46675, docs: [{ id: 'proof', name: 'deed.pdf', size: 2048, type: 'application/pdf' }] } } } },
+}, (r) => { if (r.method === 'POST') sentSpace = JSON.parse(r.opts.body); });
 const newSpace = await owner.createSpaceWithFallback({ title: 'جناح جديد', location: 'غزة', latitude: 31.50113, longitude: 34.46675, price_per_hour: 90, capacity: 25, open_time: '09:00', close_time: '18:00', contact_phone: '0599123456', amenities: ['internet'], docs: [{ id: 'proof', name: 'deed.pdf', size: 2048, type: 'application/pdf' }] });
-report('5.20 add space sends pending for admin review', newSpace.demo === true && newSpace.space.title === 'جناح جديد' && newSpace.space.status === 'pending' && newSpace.space.is_active === false);
-report('5.20b proof docs attached to new space', newSpace.space.docs?.[0]?.id === 'proof' && newSpace.space.docs?.[0]?.name === 'deed.pdf');
-report('5.20c new space keeps lat/lng coordinates', newSpace.space.lat === 31.50113 && newSpace.space.lng === 34.46675);
-report('5.20d new space keeps hours and contact phone', newSpace.space.open_time === '09:00' && newSpace.space.close_time === '18:00' && newSpace.space.contact_phone === '0599123456');
+report('5.20 add space marks it pending for admin review', newSpace.space.status === 'pending' && newSpace.space.is_active === false);
+report('5.20b create request asks the backend for pending review', sentSpace?.status === 'pending');
+report('5.20c proof docs attached to new space', newSpace.space.docs?.[0]?.id === 'proof' && newSpace.space.docs?.[0]?.name === 'deed.pdf');
+report('5.20d new space keeps lat/lng coordinates', newSpace.space.lat === 31.50113 && newSpace.space.lng === 34.46675);
+report('5.20e new space keeps hours and contact phone', newSpace.space.open_time === '09:00' && newSpace.space.close_time === '18:00' && newSpace.space.contact_phone === '0599123456');
+
+// قائمة المساحات تُقرأ من الخادم بعد الإضافة
+resetStorage();
+api.setToken(TOKEN);
+api.setUser({ name: 'مالك', role: 'owner' });
+globalThis.fetch = makeFetch({
+  'GET /api/owner/spaces': { status: 200, body: { data: [{ space_id: 31, title: 'جناح جديد', status: 'pending' }, { space_id: 12, title: 'قاعة العروض', status: 'active' }] } },
+});
 const spacesAfterAdd = (await owner.loadSpacesWithFallback()).spaces;
-report('5.21 new space first in list', spacesAfterAdd[0].title === 'جناح جديد' && spacesAfterAdd.length === 4);
+report('5.21 spaces list mirrors the server order', spacesAfterAdd.length === 2 && spacesAfterAdd[0].title === 'جناح جديد');
 
-// تبديل حالة مساحة → is_active تنقلب محلياً
-const toggled = await owner.toggleSpaceActiveWithFallback('os-1', false, { id: 'os-1', is_active: true });
-report('5.22 toggle space stopped', toggled.demo === true && toggled.space.is_active === false);
-const spacesAfterToggle = (await owner.loadSpacesWithFallback()).spaces;
-report('5.23 toggle persisted in store', spacesAfterToggle.find((s) => s.id === 'os-1')?.is_active === false);
+// فشل تحميل المساحات: يعيد خطأً وقائمة فارغة، لا بيانات مخزّنة
+globalThis.fetch = makeFetch({ 'GET /api/owner/spaces': { status: 500, body: { message: 'خطأ خادم' } } });
+const spacesFail = await owner.loadSpacesWithFallback();
+report('5.21b spaces failure returns error and empty list', spacesFail.error != null && Array.isArray(spacesFail.spaces) && spacesFail.spaces.length === 0);
 
-// السوق التجريبي: يعيد طلبات مخزن العميل المفتوحة إن وُجدت
+// تبديل حالة المساحة: PATCH حقيقي، والحالة المعروضة من الخادم
 resetStorage();
 api.setToken(TOKEN);
 api.setUser({ name: 'مالك', role: 'owner' });
-localStorage.setItem('masahati_special_requests_data_v1', JSON.stringify({ requests: [{ id: 'cust-1', title: 'طلب من العميل', status: 'open', offers_count: 0, created_at: '2026-09-18 10:00:00' }, { id: 'cust-2', title: 'طلب مغلق', status: 'accepted' }] }));
-const marketFromCustomer = (await owner.loadMarketWithFallback(true)).requests;
-report('5.24 market reuses customer demo requests', marketFromCustomer.some((r) => r.title === 'طلب من العميل') && !marketFromCustomer.some((r) => r.title === 'طلب مغلق'));
+let sentToggle = null;
+globalThis.fetch = makeFetch({
+  'PATCH /api/owner/spaces/12/active': { status: 200, body: { data: { message: 'تم إيقاف المساحة.', space: { space_id: 12, title: 'قاعة العروض', status: 'inactive', is_active: false } } } },
+}, (r) => { if (r.method === 'PATCH') sentToggle = JSON.parse(r.opts.body); });
+const toggled = await owner.toggleSpaceActiveWithFallback('12', false);
+report('5.22 toggle space stopped', toggled.space.is_active === false && toggled.space.status === 'inactive');
+report('5.22b toggle sends is_active=false', sentToggle?.is_active === false, sentToggle);
 
-// bookmarks: loadOwnerBookings في الوضع التجريبي → قائمة فارغة آمنة
+// السوق: الخادم هو المصدر وحده، والتصفية على الحالة تحدث في الواجهة
 resetStorage();
 api.setToken(TOKEN);
 api.setUser({ name: 'مالك', role: 'owner' });
-const bookingsDemo = await owner.loadOwnerBookingsWithFallback();
-report('5.25 bookings demo returns empty array', bookingsDemo.demo === true && Array.isArray(bookingsDemo.bookings) && bookingsDemo.bookings.length === 0);
+globalThis.fetch = makeFetch({
+  'GET /api/special-requests/open': { status: 200, body: { data: { requests: [{ request_id: 41, title: 'طلب من العميل', status: 'open' }, { request_id: 42, title: 'طلب مغلق', status: 'accepted' }] } } },
+});
+const marketFromApi = (await owner.loadMarketWithFallback()).requests;
+report('5.24 market reads requests from the server', marketFromApi.length === 2 && marketFromApi.some((r) => r.title === 'طلب من العميل') && marketFromApi.some((r) => r.title === 'طلب مغلق'));
+report('5.24b only the open request passes the UI filter', marketFromApi.filter((r) => requests.isRequestOpen(r) && !requests.isRequestExpired(r)).map((r) => r.title).join() === 'طلب من العميل');
 
-// isOwnerDemo / clearOwnerCache
+// الحجوزات: تُقرأ من الخادم، وفشلها يعيد قائمة فارغة آمنة بلا وضع تجريبي
+resetStorage();
+api.setToken(TOKEN);
+api.setUser({ name: 'مالك', role: 'owner' });
+globalThis.fetch = makeFetch({
+  'GET /api/owner/bookings': { status: 200, body: { data: [{ booking_id: 5, space_name: 'قاعة B', time_from: '10:00', time_to: '13:00', status: 'confirmed' }] } },
+});
+const bookingsApi = await owner.loadOwnerBookingsWithFallback();
+report('5.25 bookings come from the API', bookingsApi.error === null && bookingsApi.bookings.length === 1 && bookingsApi.bookings[0].spaceName === 'قاعة B');
+
+globalThis.fetch = makeFetch({ 'GET /api/owner/bookings': { status: 500, body: { message: 'خطأ خادم' } } });
+const bookingsFail = await owner.loadOwnerBookingsWithFallback();
+report('5.25b bookings failure returns empty array, not demo data', bookingsFail.error != null && Array.isArray(bookingsFail.bookings) && bookingsFail.bookings.length === 0);
+
+// clearOwnerCache
 owner.clearOwnerCache();
 report('5.26 clearOwnerCache empties cache', owner.readOwnerCache() === null);
 
-// وثائق المالك: رفع مرة واحدة ثم قفل حتى قرار الإدارة
+// وثائق المالك: الرفع يذهب للخادم، والوثيقة تُقفل محلياً حتى قرار الإدارة
+resetStorage();
+api.setToken(TOKEN);
+api.setUser({ name: 'مالك', role: 'owner' });
+let docsPosted = false;
+globalThis.fetch = makeFetch({
+  'POST /api/owner/documents': () => {
+    docsPosted = true;
+    return { status: 201, body: { data: { status: 'pending', files: { assets: { name: 'deed.pdf', size: 2048, type: 'application/pdf' } }, submitted_at: '2026-10-10 09:00:00' } } };
+  },
+});
 owner.clearOwnerDocuments();
 const docsNone = owner.readOwnerDocuments();
 report('5.27 docs start as none', docsNone.status === 'none' && owner.canAddSpace(docsNone) === false);
@@ -714,6 +779,8 @@ const docSubmit = await owner.submitOwnerDocumentsWithFallback({
   cert: { name: 'cert.png', size: 1024, type: 'image/png' },
 });
 report('5.28 docs submit -> pending', docSubmit.doc.status === 'pending' && docSubmit.locked === false && owner.isDocsLocked(docSubmit.doc) === true);
+report('5.28b docs were posted to the server', docsPosted);
+report('5.28c pending docs are cached locally', owner.readOwnerDocuments().status === 'pending' && owner.readOwnerDocuments().files.assets.name === 'deed.pdf');
 
 const docDup = await owner.submitOwnerDocumentsWithFallback({ assets: { name: 'x.pdf', size: 1, type: 'application/pdf' } });
 report('5.29 one-time lock blocks resubmit', docDup.locked === true && owner.readOwnerDocuments().files.assets.name === 'deed.pdf');
@@ -910,7 +977,7 @@ globalThis.fetch = makeFetch({
 
 const firstLoad = await spaces.loadAllSpacesWithFallback();
 report('7.1 Catalog pages through the whole result set', firstLoad.spaces.length === 3 && pagesFetched === 3, `n=${firstLoad.spaces.length} pages=${pagesFetched}`);
-report('7.2 First load is not the demo set', firstLoad.demo === false);
+report('7.2 First load comes from the server', firstLoad.error === null && firstLoad.spaces[0].id === 101);
 
 const pagesAfterFirst = pagesFetched;
 const secondLoad = await spaces.loadAllSpacesWithFallback();

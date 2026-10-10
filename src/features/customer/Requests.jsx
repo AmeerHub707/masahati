@@ -15,7 +15,6 @@ import {
   markRequestSeen,
   isRequestOpen,
   isRequestExpired,
-  getLastSpecialRequestsError,
   SPACE_TYPES,
   AMENITY_LABELS,
   SCHEDULE_LABELS,
@@ -61,7 +60,6 @@ export default function Requests({ onAcceptOffer, onOffersChange, view: viewProp
   const [view, setView] = useState(viewProp !== undefined ? viewProp : 'list'); // 'list' | 'create' | 'detail'
   const [requests, setRequests] = useState([]);
   const [detail, setDetail] = useState(null);
-  const [demo, setDemo] = useState(false);
   const [serverError, setServerError] = useState('');
   const [listLoading, setListLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -107,9 +105,8 @@ export default function Requests({ onAcceptOffer, onOffersChange, view: viewProp
     try {
       const result = await loadRequestsWithFallback();
       setRequests(result.requests);
-      setDemo(result.demo);
-      setServerError(result.demo ? getLastSpecialRequestsError() : '');
-      if (!result.demo) setBannerDismissed(false);
+      setServerError(result.error ?? '');
+      if (!result.error) setBannerDismissed(false);
     } catch (err) {
       setServerError(err?.message || 'تعذّر تحميل الطلبات.');
     } finally {
@@ -139,11 +136,15 @@ export default function Requests({ onAcceptOffer, onOffersChange, view: viewProp
     setDetail(null);
     try {
       const result = await loadRequestDetailWithFallback(id);
-      setDetail(result);
-      setDemo(result.demo);
-      setServerError(result.demo ? getLastSpecialRequestsError() : '');
-      markRequestSeen(result.id, (result.offers || []).length);
-      loadList();
+      if (result.error) {
+        showToast(result.error, 'err');
+        setCurrentView('list');
+      } else {
+        setDetail(result);
+        setServerError('');
+        markRequestSeen(result.id, (result.offers || []).length);
+        loadList();
+      }
     } catch {
       showToast('تعذّر تحميل تفاصيل الطلب.', 'err');
       setCurrentView('list');
@@ -221,7 +222,6 @@ export default function Requests({ onAcceptOffer, onOffersChange, view: viewProp
     try {
       if (onAcceptOffer) {
         const result = await onAcceptOffer(confirmOffer.requestId, offer.id, detail);
-        setDemo(result?.demo ?? demo);
         if (result?.request) {
           setDetail((prev) => (prev ? { ...prev, ...result.request } : prev));
         }
@@ -244,7 +244,6 @@ export default function Requests({ onAcceptOffer, onOffersChange, view: viewProp
     setRejectingId(offer.id);
     try {
       const result = await rejectOfferWithFallback(detail.id, offer.id);
-      setDemo(result?.demo ?? demo);
       if (result?.request) {
         setDetail((prev) => (prev ? { ...prev, ...result.request } : prev));
       }
@@ -263,7 +262,6 @@ export default function Requests({ onAcceptOffer, onOffersChange, view: viewProp
     setClosingId(detail.id);
     try {
       const result = await closeRequestWithFallback(detail.id);
-      setDemo(result?.demo ?? demo);
       if (result?.request) {
         setDetail((prev) => (prev ? { ...prev, ...result.request } : prev));
       }
@@ -356,15 +354,17 @@ export default function Requests({ onAcceptOffer, onOffersChange, view: viewProp
   };
 
   const renderBanner = () => {
-    if (!demo || bannerDismissed) return null;
+    if (!serverError || bannerDismissed) return null;
     return (
-      <div className="dash__req-banner" role="status">
-        <Sparkles />
+      <div className="dash__req-banner" role="alert">
+        <AlertTriangle />
         <p>
           <b>تعذّر تحميل بياناتك من الخادم</b>
-          {serverError ? ` — ${serverError}` : ''}. البيانات المعروضة الآن تجريبية
-          ولا تُحفظ في الخادم. أي طلب تنشره لن يُحفظ حتى ينجح الاتصال، جرّب زر التحديث.
+          {serverError ? ` — ${serverError}` : ''}. جرّب إعادة المحاولة أو زر التحديث.
         </p>
+        <button type="button" className="dash__req-banner-retry" onClick={loadList}>
+          <Repeat /> إعادة المحاولة
+        </button>
         <button type="button" onClick={() => setBannerDismissed(true)} aria-label="إغلاق" className="dash__req-banner-x">
           <X />
         </button>
@@ -844,7 +844,6 @@ export default function Requests({ onAcceptOffer, onOffersChange, view: viewProp
               <h3>لا توجد عروض بعد</h3>
               <p>
                 طلبك منشور لجميع المالكين. سنرسل لك تنبيهاً فور وصول أول عرض.
-                {demo && ' (الوضع التجريبي لا يضيف عروضاً جديدة بنفسه.)'}
               </p>
             </div>
           ) : (

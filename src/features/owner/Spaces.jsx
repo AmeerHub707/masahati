@@ -5,8 +5,7 @@ import {
   Building2, X, Loader2, MapPin, Users, Star, Wifi, Zap, Check,
   Sparkles, Repeat, Plus, BadgeCheck, Ban, CircleDollarSign, Send,
   CalendarCheck, TrendingUp, Pencil, Trash2, Search, Eye, Image, ImagePlus,
-  ArrowRight, Clock3, FileText, Paperclip, ShieldCheck, LocateFixed, Phone, Lock, Award,
-  AlertCircle, Upload,
+  ArrowRight, Clock3, FileText, Paperclip, ShieldCheck, LocateFixed, Phone,
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -17,11 +16,6 @@ import {
   toggleSpaceActiveWithFallback,
   updateSpaceWithFallback,
   deleteSpaceWithFallback,
-  isOwnerDemo,
-  canAddSpace,
-  readOwnerDocuments,
-  loadOwnerDocumentsWithFallback,
-  DOC_STATUS,
 } from '@/lib/owner';
 import { AMENITY_LABELS } from '@/lib/requests';
 import { useDialogA11y } from '@/lib/dialogA11y';
@@ -163,35 +157,6 @@ const PHONE_RE = /^[+]?[\d\s()-]{7,}$/;
 const MAX_PHOTOS = 6;
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
-// بوابة الوثائق: لا إضافة مساحة قبل اعتماد الإدارة للوثائق المرفوعة من
-// الإعدادات. كل حالة تحمل عنوانها ونصّها الذي يوجّه المالك إلى الإعدادات.
-const DOC_GATE = {
-  [DOC_STATUS.NONE]: {
-    label: 'وثائق الحساب لم تُرسل',
-    hint: 'أرفق مستندات ملكية المساحة أو عقد الإيجار في الإعدادات، وأرسلها للمراجعة — بعدها يمكنك إضافة مساحاتك.',
-    Icon: Award,
-    tone: 'is-bad',
-  },
-  [DOC_STATUS.PENDING]: {
-    label: 'وثائق الحساب قيد المراجعة',
-    hint: 'وثائقك لدى الإدارة الآن. سيُفتح إضافة المساحات فور اعتمادها.',
-    Icon: Clock3,
-    tone: 'is-pending',
-  },
-  [DOC_STATUS.REJECTED]: {
-    label: 'وثائق الحساب مرفوضة',
-    hint: 'رُفضت وثائقك — عدّل الملفات وأعد إرسالها من الإعدادات للمتابعة.',
-    Icon: AlertCircle,
-    tone: 'is-bad',
-  },
-  [DOC_STATUS.APPROVED]: {
-    label: 'وثائق الحساب معتمدة',
-    hint: 'يمكنك إضافة مساحاتك وعرضها للعملاء.',
-    Icon: ShieldCheck,
-    tone: 'is-good',
-  },
-};
-
 // يقرأ صورة من الجهاز، يصغّرها ويضغطها حتى لا تُتخم التخزين المحلي،
 // ثم يعيدها كرابط بيانات (base64) جاهز للعرض والحفظ.
 function readImageFile(file) {
@@ -244,13 +209,12 @@ const DEFAULT_FORM = {
   docs: { proof: null },
 };
 
-export default function Spaces({ data, autoOpen = false, onSpacesChange, onNavigate }) {
+export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
   const navigate = useNavigate();
   const [spaces, setSpaces] = useState(() => (data?.spaces || []));
-  const [demo, setDemo] = useState(() => isOwnerDemo());
   const [loading, setLoading] = useState(() => !Array.isArray(data?.spaces));
   const [refreshing, setRefreshing] = useState(false);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState(null); // null | { mode:'create' } | { mode:'edit', space }
@@ -265,12 +229,6 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange, onNavig
   const [toast, setToast] = useState(null);
   const docsInputRefs = useRef({});
   const mountedRef = useRef(true);
-  // بوابة الوثائق: نسخة محلية فورية ثم مزامنة من الخادم، لأن قرار الإدارة
-  // قد يصل بعد آخر زيارة للوحة.
-  const [doc, setDoc] = useState(readOwnerDocuments);
-
-  const docsApproved = canAddSpace(doc);
-  const docGate = DOC_GATE[doc?.status] || DOC_GATE[DOC_STATUS.NONE];
 
   const spaceDialogRef = useDialogA11y({ open: !!modal, onClose: () => { if (!saving) resetModal(); } });
   const deleteDialogRef = useDialogA11y({ open: !!deleteTarget, onClose: () => { if (!deleting) setDeleteTarget(null); } });
@@ -294,10 +252,10 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange, onNavig
       const result = await loadSpacesWithFallback(force);
       if (!mountedRef.current) return;
       setSpaces(result.spaces);
-      setDemo(result.demo);
       onSpacesChange?.(result.spaces);
+      setLoadError(result.error ?? '');
     } catch {
-      /* لا نكسر العرض */
+      setLoadError('تعذّر تحميل المساحات.');
     } finally {
       if (mountedRef.current) {
         setLoading(false);
@@ -313,22 +271,6 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange, onNavig
     const t = setTimeout(() => loadSpaces(), 0);
     return () => clearTimeout(t);
   }, [loadSpaces, data?.spaces]);
-
-  // مزامنة حالة الوثائق من الخادم عند كل زيارة للتبويب، لأن بوابة الإضافة
-  // تعتمد على آخر قرار صدر عن الإدارة.
-  useEffect(() => {
-    let alive = true;
-    loadOwnerDocumentsWithFallback()
-      .then((result) => {
-        if (alive && mountedRef.current) setDoc(result.doc);
-      })
-      .catch(() => {
-        /* نبقي النسخة المحلية */
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   // ----- تصفية وعدّ -----
   const counts = useMemo(() => {
@@ -397,13 +339,9 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange, onNavig
     setErrors({});
   };
 
-  // فتح نموذج الإضافة مباشرة — الوثائق تُرفق داخل النموذج وتُرسل للمراجعة.
-  // البوابة: لا نموذج قبل اعتماد الإدارة لوثائق الحساب المرفوعة من الإعدادات.
+  // فتح نموذج الإضافة مباشرة — يرفق المالك داخل النموذج مستند إثبات المساحة
+  // الذي يُرسل للإدارة مع المساحة نفسها للمراجعة.
   const openCreate = useCallback(() => {
-    if (!docsApproved) {
-      setToast({ msg: docGate.hint, type: 'err' });
-      return;
-    }
     setForm(DEFAULT_FORM);
     setErrors({});
     setModal({ mode: 'create' });
@@ -424,10 +362,9 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange, onNavig
         { enableHighAccuracy: true, timeout: 10000 }
       );
     }
-  }, [docsApproved, docGate]);
+  }, []);
 
-  // فتح النموذج تلقائياً (زر «أضف مساحتك الأولى» من الإعدادات): يُعاد
-  // المحاولة إن كانت الوثائق ما تزال تُجلب، فتنفتح البوابة فور وصول الحالة.
+  // فتح النموذج تلقائياً (زر «أضف مساحتك الأولى»).
   useEffect(() => {
     if (!autoOpen) return undefined;
     const t = setTimeout(() => openCreate(), 0);
@@ -573,14 +510,12 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange, onNavig
     try {
       if (modal?.mode === 'edit' && modal.space?.id) {
         const result = await updateSpaceWithFallback(modal.space.id, readPayload());
-        setDemo(result.demo);
         const next = spaces.map((s) => (s.id === modal.space.id ? result.space : s));
         setSpaces(next);
         onSpacesChange?.(next);
         setToast({ msg: 'تم حفظ التعديلات بنجاح.', type: 'ok' });
       } else {
         const result = await createSpaceWithFallback(readPayload());
-        setDemo(result.demo);
         const next = [result.space, ...spaces];
         setSpaces(next);
         onSpacesChange?.(next);
@@ -604,7 +539,6 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange, onNavig
     try {
       if (modal?.mode === 'edit' && modal.space?.id) {
         const result = await updateSpaceWithFallback(modal.space.id, readPayload());
-        setDemo(result.demo);
         const next = spaces.map((s) => (s.id === modal.space.id ? result.space : s));
         setSpaces(next);
         onSpacesChange?.(next);
@@ -627,7 +561,6 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange, onNavig
     try {
       const result = await toggleSpaceActiveWithFallback(space.id, next, space);
       if (!mountedRef.current) return;
-      setDemo(result.demo);
       const mapped = spaces.map((s) => (s.id === space.id ? { ...s, is_active: next } : s));
       setSpaces(mapped);
       onSpacesChange?.(mapped);
@@ -645,7 +578,6 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange, onNavig
     try {
       const result = await deleteSpaceWithFallback(deleteTarget.id);
       if (!mountedRef.current) return;
-      setDemo(result.demo);
       const remaining = spaces.filter((s) => s.id !== deleteTarget.id);
       setSpaces(remaining);
       onSpacesChange?.(remaining);
@@ -661,22 +593,6 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange, onNavig
   };
 
   // ----- عرض -----
-  const renderBanner = () => {
-    if (!demo || bannerDismissed) return null;
-    return (
-      <div className="odash__banner" role="status">
-        <Sparkles />
-        <p>
-          <b>وضع تجريبي</b> — واجهة الخادم (API) غير مفعّلة بعد، البيانات أدناه للتجربة
-          وستُحفظ محلياً. عند نزول واجهة الباك إند سيتولّى النظام تلقائياً.
-        </p>
-        <button type="button" onClick={() => setBannerDismissed(true)} aria-label="إغلاق" className="odash__banner-x">
-          <X />
-        </button>
-      </div>
-    );
-  };
-
   const renderCard = (s) => {
     const status = effStatus(s);
     const isActive = status === 'active';
@@ -1161,8 +1077,6 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange, onNavig
 
   return (
     <section className="odash__spaces msp">
-      {renderBanner()}
-
       <div className="obk__hero">
         <div className="obk__hero-main">
           <h2>{modal ? (modal.mode === 'edit' ? <Pencil /> : <Plus />) : <Building2 />} {modal ? (modal.mode === 'edit' ? 'تعديل المساحة' : 'إضافة مساحة') : 'مساحاتي'}</h2>
@@ -1173,14 +1087,6 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange, onNavig
               <span className="obk__hero-chip is-good"><BadgeCheck /> {fmtNumber(counts.active)} نشطة</span>
               {counts.pending > 0 && <span className="obk__hero-chip is-pending"><Clock3 /> {fmtNumber(counts.pending)} بالمراجعة</span>}
               <span className="obk__hero-chip is-bad"><Ban /> {fmtNumber(counts.inactive)} موقوفة</span>
-              {/* عنوان حالة وثائق الحساب: يوضّح للمالك لماذا الإضافة مغلقة أو مفتوحة */}
-              <span
-                className={`obk__hero-chip msp__docs-chip ${docGate.tone}`}
-                title={docGate.hint}
-                data-docs-status={doc?.status || DOC_STATUS.NONE}
-              >
-                <docGate.Icon /> {docGate.label}
-              </span>
             </div>
           )}
         </div>
@@ -1221,41 +1127,20 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange, onNavig
               >
                 <Repeat className={refreshing ? 'spin' : ''} />
               </button>
-              {/* الإضافة مغلقة حتى تعتمد الإدارة وثائق الحساب — والزر يوضّح السبب
-                  بدل أن يختفي، حتى يعرف المالك ما ينقصه. */}
-              {docsApproved ? (
-                <button type="button" className="odash__spaces-add" onClick={openCreate} data-tour="owner-quick-add">
-                  <Plus /> أضف مساحة
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="odash__spaces-add is-locked"
-                  data-tour="owner-quick-add"
-                  data-docs-locked="true"
-                  aria-disabled="true"
-                  aria-describedby="msp-docs-gate"
-                  title={docGate.hint}
-                  onClick={() => setToast({ msg: docGate.hint, type: 'err' })}
-                >
-                  <Lock /> أضف مساحة
-                </button>
-              )}
+              {/* الإضافة متاحة دائماً؛ ويرفق المالك مستند إثبات المساحة داخل النموذج. */}
+              <button type="button" className="odash__spaces-add" onClick={openCreate} data-tour="owner-quick-add">
+                <Plus /> أضف مساحة
+              </button>
             </>
           )}
         </div>
       </div>
 
-      {/* لوحة توضيحية واحدة تشرح حالة البوابة وتأخذ المالك إلى الإعدادات */}
-      {!modal && !docsApproved && (
-        <div className={`msp__docs-gate ${docGate.tone}`} id="msp-docs-gate" role="status">
-          <span className="msp__docs-gate-ico"><docGate.Icon /></span>
-          <div className="msp__docs-gate-body">
-            <b>{docGate.label}</b>
-            <p>{docGate.hint}</p>
-          </div>
-          <button type="button" className="btn-primary" onClick={() => onNavigate?.('settings')}>
-            <Upload /> ارفع الوثائق
+      {!modal && loadError && (
+        <div className="odash__banner is-error" role="alert">
+          <span>{loadError}</span>
+          <button type="button" className="odash__banner-btn" onClick={() => loadSpaces(true)}>
+            <Repeat /> إعادة المحاولة
           </button>
         </div>
       )}

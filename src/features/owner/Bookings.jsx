@@ -2,11 +2,10 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   CalendarCheck, CalendarDays, History, ListChecks, ChevronRight, ChevronLeft,
-  Loader2, Sparkles, X, Repeat, BadgeCheck, AlarmClock,
+  Loader2, X, Repeat, BadgeCheck, AlarmClock,
   Building2, Check,
 } from 'lucide-react';
 import {
-  isOwnerDemo,
   loadOwnerDashboardWithFallback,
   setBookingStatusWithFallback,
   belongsToSpace,
@@ -84,10 +83,9 @@ const VIEWS = [
 export default function Bookings({ data, onStatusChange }) {
   const [bookings, setBookings] = useState(() => data?.bookings || []);
   const [spaces, setSpaces] = useState(() => data?.spaces || []);
-  const [demo, setDemo] = useState(() => isOwnerDemo());
   const [loading, setLoading] = useState(() => !Array.isArray(data?.bookings));
   const [refreshing, setRefreshing] = useState(false);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [view, setView] = useState('calendar');
   const [cursor, setCursor] = useState(() => {
     const now = new Date();
@@ -119,9 +117,9 @@ export default function Bookings({ data, onStatusChange }) {
       if (!mountedRef.current) return;
       setBookings(result.bookings || []);
       setSpaces(result.spaces || []);
-      setDemo(result.demo);
+      setLoadError(result.error ?? '');
     } catch {
-      /* لا نكسر العرض */
+      setLoadError('تعذّر تحميل الحجوزات.');
     } finally {
       if (mountedRef.current) {
         setLoading(false);
@@ -330,19 +328,6 @@ export default function Bookings({ data, onStatusChange }) {
 
   return (
     <section className="odash__bookings obk">
-      {demo && !bannerDismissed && (
-        <div className="odash__banner" role="status">
-          <Sparkles />
-          <p>
-            <b>وضع تجريبي</b> — تُبنى الحجوزات أدناه من بيانات تجريبية حول تاريخ اليوم.
-            عند تفعيل واجهة الباك إند ستُحدَّث تلقائياً من سجل الحجوزات الحقيقي.
-          </p>
-          <button type="button" onClick={() => setBannerDismissed(true)} aria-label="إغلاق" className="odash__banner-x">
-            <X />
-          </button>
-        </div>
-      )}
-
       <div className="obk__hero">
         <div className="obk__hero-main">
           <h2><CalendarCheck /> الحجوزات</h2>
@@ -372,6 +357,15 @@ export default function Bookings({ data, onStatusChange }) {
           </button>
         </div>
       </div>
+
+      {loadError && !loading && bookings.length === 0 && (
+        <div className="odash__banner is-error" role="alert">
+          <span>{loadError}</span>
+          <button type="button" className="odash__banner-btn" onClick={() => load(true)}>
+            <Repeat /> إعادة المحاولة
+          </button>
+        </div>
+      )}
 
       {loading && bookings.length === 0 ? (
         <StatCardsSkeleton cols={3} />

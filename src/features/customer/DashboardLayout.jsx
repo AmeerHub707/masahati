@@ -66,6 +66,22 @@ export default function DashboardLayout({
     { id: 0, text: 'جارٍ تحميل الإشعارات…', time: '', read: false, icon: Clock },
   ]);
   const [notifLoading, setNotifLoading] = useState(true);
+  const [notifError, setNotifError] = useState('');
+
+  const loadNotifs = async () => {
+    setNotifLoading(true);
+    setNotifError('');
+    try {
+      const result = await loadNotificationsWithFallback();
+      setNotifications(result.notifications.map((n) => ({ ...n, icon: NOTIF_ICONS[n.icon] || Bell })));
+      setNotifError(result.error ?? '');
+    } catch {
+      setNotifications([]);
+      setNotifError('تعذّر تحميل الإشعارات.');
+    } finally {
+      setNotifLoading(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -74,9 +90,11 @@ export default function DashboardLayout({
         const result = await loadNotificationsWithFallback();
         if (cancelled) return;
         setNotifications(result.notifications.map((n) => ({ ...n, icon: NOTIF_ICONS[n.icon] || Bell })));
+        setNotifError(result.error ?? '');
       } catch {
         if (cancelled) return;
         setNotifications([]);
+        setNotifError('تعذّر تحميل الإشعارات.');
       } finally {
         if (!cancelled) setNotifLoading(false);
       }
@@ -91,7 +109,7 @@ export default function DashboardLayout({
     try {
       await markAllNotificationsReadWithFallback();
     } catch {
-      /* الوضع التجريبي يكتفي بالعلامة المحلية */
+      /* الفشل لا يمنع العلامة المحلية الموضعية */
     }
   };
 
@@ -386,6 +404,13 @@ export default function DashboardLayout({
                     </div>
                     {notifLoading ? (
                       <p className="dash__notif-empty">جارٍ تحميل الإشعارات…</p>
+                    ) : notifError && notifications.length === 0 ? (
+                      <div className="dash__notif-empty">
+                        <p>{notifError}</p>
+                        <button type="button" className="btn-ghost dash__notif-retry" onClick={loadNotifs}>
+                          إعادة المحاولة
+                        </button>
+                      </div>
                     ) : notifications.length === 0 ? (
                       <p className="dash__notif-empty">لا توجد إشعارات حالياً.</p>
                     ) : (

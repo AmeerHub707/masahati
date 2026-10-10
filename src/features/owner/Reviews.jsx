@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Building2, Star, MessageSquare, X,
-  Repeat, Sparkles,
+  Building2, Star, MessageSquare,
+  Repeat,
 } from 'lucide-react';
-import { isOwnerDemo, loadOwnerDashboardWithFallback } from '@/lib/owner';
+import { loadOwnerDashboardWithFallback } from '@/lib/owner';
 import SpacePicker from './SpacePicker';
 import StatCardsSkeleton from './StatCardsSkeleton';
 
@@ -53,10 +53,9 @@ function ratingScore(r) {
 export default function Reviews({ data }) {
   const [reviews, setReviews] = useState(() => data?.reviews || []);
   const [spaces, setSpaces] = useState(() => data?.spaces || []);
-  const [demo, setDemo] = useState(() => isOwnerDemo());
   const [loading, setLoading] = useState(() => !Array.isArray(data?.reviews));
   const [refreshing, setRefreshing] = useState(false);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   const [spaceId, setSpaceId] = useState(''); // '' = كل المساحات
   const [ratingFilter, setRatingFilter] = useState('all');
@@ -80,9 +79,9 @@ export default function Reviews({ data }) {
       if (!mountedRef.current) return;
       setReviews(result.reviews || []);
       setSpaces(result.spaces || []);
-      setDemo(result.demo);
+      setLoadError(result.error ?? '');
     } catch {
-      /* لا نكسر العرض */
+      setLoadError('تعذّر تحميل التقييمات.');
     } finally {
       if (mountedRef.current) {
         setLoading(false);
@@ -149,19 +148,6 @@ useEffect(() => {
 
   return (
     <section className="odash__reviews obk">
-      {demo && !bannerDismissed && (
-        <div className="odash__banner" role="status">
-          <Sparkles />
-          <p>
-            <b>وضع تجريبي</b> — تُبنى التقييمات أدناه من بيانات لوحتك الحالية.
-            عند تفعيل واجهة الباك إند ستُحدَّث تلقائياً من تقييمات العملاء الحقيقية.
-          </p>
-          <button type="button" onClick={() => setBannerDismissed(true)} aria-label="إغلاق" className="odash__banner-x">
-            <X />
-          </button>
-        </div>
-      )}
-
       <div className="obk__hero">
         <div className="obk__hero-main">
           <h2><Star /> التقييمات</h2>
@@ -193,6 +179,15 @@ useEffect(() => {
           </button>
         </div>
       </div>
+
+      {loadError && !loading && reviews.length === 0 && (
+        <div className="odash__banner is-error" role="alert">
+          <span>{loadError}</span>
+          <button type="button" className="odash__banner-btn" onClick={() => load(true)}>
+            <Repeat /> إعادة المحاولة
+          </button>
+        </div>
+      )}
 
       {loading && reviews.length === 0 ? (
         <StatCardsSkeleton cols={3} />

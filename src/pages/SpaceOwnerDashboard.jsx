@@ -19,14 +19,13 @@ import Spaces from '@/features/owner/Spaces';
 import Bookings from '@/features/owner/Bookings';
 import Financials from '@/features/owner/Financials';
 import Settings from '@/components/dashboard/Settings';
-import OwnerDocumentation from '@/features/owner/OwnerDocumentation';
 import ScrollProgress from '@/components/ui/ScrollProgress';
 import LogoutOverlay from '@/components/ui/LogoutOverlay';
 import Footer from '@/components/layout/Footer';
 import OwnerAssistant from '@/features/owner/OwnerAssistant';
 import DashboardTour from '@/components/dashboard/DashboardTour';
 import { hasCompletedDashboardTour, markDashboardTourCompleted } from '@/lib/dashboardTour';
-import { AlertCircle, Trash2 } from 'lucide-react';
+import { AlertCircle, Trash2, Repeat } from 'lucide-react';
 import { useDialogA11y } from '@/lib/dialogA11y';
 
 const OWNER_TOUR_ID = 'owner-tour';
@@ -74,6 +73,7 @@ export default function SpaceOwnerDashboard() {
   const [active, setActive] = useState('overview');
   const [data, setData] = useState(null);
   const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
+  const [loadError, setLoadError] = useState('');
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [loaderDone, setLoaderDone] = useState(false);
@@ -135,8 +135,10 @@ export default function SpaceOwnerDashboard() {
         if (!isMounted) return;
         setData(result);
         setStatus('ready');
+        setLoadError(result.error ?? '');
       } catch {
         if (isMounted) {
+          setLoadError('تعذّر تحميل بيانات اللوحة.');
           setStatus((prev) => (prev === 'loading' ? 'error' : prev));
         }
       }
@@ -176,8 +178,12 @@ export default function SpaceOwnerDashboard() {
       if (!mountedRef.current) return;
       setData(result);
       setStatus('ready');
+      setLoadError(result.error ?? '');
     } catch {
-      if (mountedRef.current) setStatus('error');
+      if (mountedRef.current) {
+        setStatus('error');
+        setLoadError('تعذّر تحميل بيانات اللوحة.');
+      }
     }
   }, []);
 
@@ -339,20 +345,15 @@ export default function SpaceOwnerDashboard() {
       ) : active === 'financials' ? (
         <Financials data={data} />
       ) : active === 'my-spaces' ? (
-        <Spaces data={data} onSpacesChange={handleSpacesChange} onNavigate={setActive} />
-      ) : active === 'spaces' ? (
-        <Spaces data={data} autoOpen onSpacesChange={handleSpacesChange} onNavigate={setActive} />
+        <Spaces data={data} onSpacesChange={handleSpacesChange} />
       ) : (
-        <>
-          <Settings
-            user={data?.user}
-            onLogout={handleLogout}
-            onDeleteAccount={handleDeleteAccount}
-            onSaveProfile={handleSaveProfile}
-            onUploadPicture={handleUploadPicture}
-          />
-          <OwnerDocumentation onNavigate={setActive} />
-        </>
+        <Settings
+          user={data?.user}
+          onLogout={handleLogout}
+          onDeleteAccount={handleDeleteAccount}
+          onSaveProfile={handleSaveProfile}
+          onUploadPicture={handleUploadPicture}
+        />
       ));
   }
 
@@ -361,15 +362,23 @@ export default function SpaceOwnerDashboard() {
       <DashboardLoading done={status !== 'loading'} onHidden={handleLoaderHidden} />
       <LogoutOverlay open={loggingOut} />
       <ScrollProgress />
-      <OwnerLayout
-        active={active}
-        onNavigate={setActive}
-        onLogout={handleLogout}
-        user={data?.user}
-        tourStep={tourOpen ? tourStep : 0}
-        onStartTour={startTour}
-      >
-        <AnimatePresence mode="wait" initial={false}>
+<OwnerLayout
+          active={active}
+          onNavigate={setActive}
+          onLogout={handleLogout}
+          user={data?.user}
+          tourStep={tourOpen ? tourStep : 0}
+          onStartTour={startTour}
+        >
+          {loadError && status === 'ready' && (
+            <div className="odash__banner is-error" role="alert">
+              <span>{loadError}</span>
+              <button type="button" className="odash__banner-btn" onClick={handleRetry}>
+                <Repeat /> إعادة المحاولة
+              </button>
+            </div>
+          )}
+          <AnimatePresence mode="wait" initial={false}>
           {tabContent ? (
             <motion.div
               key={active}

@@ -137,6 +137,8 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
+      // دخول المشرف له صفحة مستقلة (/admin/login) ومصادقة خادم منفصلة
+      // (/api/admin/login)، فلا يوجد هنا أي بريد إلكتروني مُثبّت في الكود.
       const data = await login(identifier, formData.password);
       if (data.user?.status === 'pending') {
         navigate('/pending-approval', { replace: true });

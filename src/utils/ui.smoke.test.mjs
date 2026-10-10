@@ -79,6 +79,9 @@ const routes = {
   'GET /api/owner/spaces': { status: 200, body: { data: [{ space_id: 12, title: 'قاعة العروض الكبرى', description: 'قاعة واسعة', location: 'وسط المدينة', price_per_hour: 150, capacity: 120, open_time: '08:00', close_time: '18:00', contact_phone: '0599123456', amenities: ['internet', 'ac'], internet: true, is_active: true, rating: 4.8 }] } },
   'GET /api/owner/offers': { status: 200, body: { data: [{ offer_id: 88, request_id: 41, request_title: 'قاعة محاضرات لدورة تدريبية', status: 'pending', price_per_hour: 150, duration_hours: 3, created_at: '2026-09-18 11:00:00' }] } },
   'GET /api/special-requests/open': { status: 200, body: { data: { requests: [{ request_id: 41, title: 'قاعة محاضرات لدورة تدريبية أسبوعية', description: 'أبحث عن قاعة', capacity: 40, budget: 180, space_type: 'whole', schedule_label: 'أسبوعي × 8', preferred_time: '10:00 ص – 1:00 م', area: 'وسط المدينة', amenities: ['internet', 'projector'], status: 'open', offers_count: 2, created_at: '2026-09-18 10:00:00' }] } } },
+  'GET /api/special-requests': { status: 200, body: { data: { requests: [
+    { request_id: 41, title: 'قاعة محاضرات لدورة تدريبية أسبوعية', description: 'أبحث عن قاعة محاضرات مناسبة لدورة تدريبية', capacity: 40, budget: 180, space_type: 'whole', schedule_preset: 'weekly', schedule_count: 8, preferred_time: '10:00 ص – 1:00 م', area: 'وسط المدينة', amenities: ['internet', 'projector'], status: 'open', offers_count: 2, created_at: '2026-09-18 10:00:00' }
+  ] } } },
   'GET /api/owner/bookings': { status: 200, body: [] },
   'POST /api/owner/spaces': { status: 201, body: { message: 'تمت إضافة المساحة.', space: { space_id: 24, title: 'جناح جديد', location: 'غزة', price_per_hour: 90, capacity: 25, open_time: '09:00', close_time: '18:00', contact_phone: '0599123456', amenities: ['internet'], is_active: true } } },
   // بوابة الوثائق: تبدأ «لم تُرسل»، ثم نحاكي قرار الإدارة بالاعتماد.
@@ -345,8 +348,6 @@ report('CL5 Customer overlay is cleared after logout', custOverlayGone, 'overlay
 console.log('\n===== UI: Owner dashboard (space owner) =====');
 
 const SpaceOwnerDashboard = (await server.ssrLoadModule('/src/pages/SpaceOwnerDashboard.jsx')).default;
-// نحتاج كاتب حالة الوثائق لتغييرها بين مرحلتي اختبار البوابة.
-const ownerLib = await server.ssrLoadModule('/src/lib/owner.js');
 
 // الدور الآن مالك — حتى تمر بوابة الحماية في SpaceOwnerDashboard
 api.setUser({ name: 'كرم', role: 'space_owner' });
@@ -497,35 +498,15 @@ report('O9 Navigate to spaces tab', await clickOwnerByText('مساحاتي'), 'n
 report('O10 Spaces list renders', await waitForOwnerText('أضف مساحة') && await waitForOwnerText('قاعة العروض الكبرى'), 'spaces content absent');
 
 // ============================================================
-// بوابة الوثائق: الإضافة مغلقة حتى تعتمد الإدارة وثائق الحساب
+// لا بوابة وثائق للحساب: الإضافة متاحة دائماً، ويُرفق المالك مستند
+// إثبات المساحة داخل النموذج نفسه (لا في الإعدادات).
 // ============================================================
-// الحالة الأولى: لم تُرسل الوثائق بعد. نتحقق من وجود اللوحة والعنوان
-// الواضح، وأن النقر لا يفتح نموذج الإضافة رغم ظهور الزر.
-const lockedBtn = () => ownerEl.querySelector('.odash__spaces-add[data-docs-locked="true"]');
-report('OG1 Add button is locked before documents are approved', !!lockedBtn(), 'add button is not locked');
-report('OG2 Locked state carries a readable label', (await waitForOwnerText('وثائق الحساب لم تُرسل')), 'documents status label missing');
-report('OG3 Gate notice explains the requirement', !!ownerEl.querySelector('#msp-docs-gate') && (await waitForOwnerText('ارفع الوثائق')), 'gate notice missing');
-lockedBtn()?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
-await flush();
-await flush();
-report('OG4 Locked add button does not open the form', (await waitForOwnerText('أضف مساحة جديدة')) === false, 'form opened while documents unapproved');
+const addBtn = () => ownerEl.querySelector('.odash__spaces-add');
+report('OG1 Add button is available without an account-documents gate', !!addBtn() && !ownerEl.querySelector('.odash__spaces-add[data-docs-locked="true"]'), 'add button missing or still gated');
+report('OG2 No account-documents gate notice is shown', !ownerEl.querySelector('#msp-docs-gate'), 'gate notice still present');
+report('OG3 Account documents are not part of the spaces screen', (await waitForOwnerText('وثائق الحساب')) === false, 'account documents text still rendered');
 
-// الحالة الثانية: الإدارة اعتمدت الوثائق. نكتب الحالة محلياً أيضاً حتى
-// يعمل الاختبار في وضع العرض التجريبي الذي لا يستدعي الشبكة.
-routes['GET /api/owner/documents'] = { status: 200, body: { data: { status: 'approved', files: { assets: { name: 'deed.pdf', size: 2048, type: 'application/pdf' } }, reviewed_at: '2026-09-20 10:00:00' } } };
-ownerLib.writeOwnerDocuments({ status: ownerLib.DOC_STATUS.APPROVED, files: { assets: { name: 'deed.pdf', size: 2048, type: 'application/pdf' } } });
-// إعادة تركيب تبويب المساحات ليعيد جلب الحالة (نبتعد ثم نعود).
-const navFin = await clickOwnerByText('المالية');
-const finShown = await waitForOwnerText('الفواتير');
-const navSpaces = await clickOwnerByText('مساحاتي');
-// ننتظر عنوان الحالة المعتمدة: التبديل يركّب التبويب من جديد فيعيد جلب الوثائق.
-const approvedShown = await waitForOwnerText('وثائق الحساب معتمدة');
-await flush();
-report('OG5 Add button unlocks once documents are approved', navFin && finShown && navSpaces && approvedShown && !!ownerEl.querySelector('.odash__spaces-add') && !lockedBtn(), 'add button still locked after approval');
-report('OG6 Approved state is labelled', approvedShown, 'approved label missing');
-report('OG7 Gate notice is gone when approved', !ownerEl.querySelector('#msp-docs-gate'), 'gate notice still visible after approval');
-
-// إضافة مساحة جدبدة من النموذج
+// إضافة مساحة جديدة من النموذج
 report('O11 Add-space button present', !!ownerEl.querySelector('.odash__spaces-add'), 'no button');
 
 ownerEl.querySelector('.odash__spaces-add')?.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));

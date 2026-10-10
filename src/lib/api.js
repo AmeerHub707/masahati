@@ -171,15 +171,49 @@ function extractErrorMessage(data, fallback) {
 
 /**
  * طلب أساسي.
+ *
+ * قاعدة التوكن: يُقرأ من التخزين **لحظة الإرسال** لا لحظة بناء الطلب. لو
+ * قُرئ عند البناء لأمكن أن يُرسل طلب بتوكن منتهٍ أو ناقص.
+ *
+ *   requireToken  — لا يُرسل شيء بلا توكن: يُرمى خطأ 401 محلياً (يُطلب صراحةً).
+ *   tokenGetter (fn) — دالة تُقرأ لحظة الإرسال (المسار المشرف).
+ *   scopedToken   — توكن جلسة معيّنة (المشرف) لا يُخلط بتوكن العميل.
+ *   raw (bool)    — يعيد النص كما هو بدل JSON (لتصدير CSV).
+ *   onUnauthorized (fn) — يُستدعى عند 401 **بعد** التأكد أن توكناً أُرسل.
+ *
  * @param {string} path مسار يبدأ بـ /api
- * @param {object} options { method, body (object|FormData), auth (bool), isForm (bool), timeoutMs (number) }
+ * @param {object} options {
+ *   method, body (object|FormData), auth (bool), isForm (bool), timeoutMs (number),
+ *   token (string), tokenGetter (fn), requireToken (bool), scopedToken (bool),
+ *   raw (bool), onUnauthorized (fn)
+ * }
  */
 export async function request(path, options = {}) {
-  const { method = 'GET', body, auth = false, isForm = false, timeoutMs = DEFAULT_TIMEOUT_MS } = options;
+  const {
+    method = 'GET',
+    body,
+    auth = false,
+    isForm = false,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    token = null,
+    tokenGetter = null,
+    requireToken = false,
+    scopedToken = false,
+    raw = false,
+    onUnauthorized = null,
+  } = options;
+
+  // يُقرأ هنا بالضبط: بعد استدعاء الدالة، وقبل fetch مباشرة.
+  const bearer = (typeof tokenGetter === 'function' ? tokenGetter() : token)
+    || (scopedToken ? null : getToken());
+
+  if (auth && requireToken && !bearer) {
+    // لا نُرسل طلباً لنمرض منه: لا جلسة ⇒ لا طلب. نمنع 401 المزعجة في البداية.
+    throw new ApiError('انتهت الجلسة. يرجى تسجيل الدخول من جديد.', 401, null);
+  }
 
   const headers = { Accept: 'application/json' };
-  const sentToken = auth ? getToken() : null;
-  if (sentToken) headers['Authorization'] = `Bearer ${sentToken}`;
+  if (auth && bearer) headers['Authorization'] = `Bearer ${bearer}`;
 
   let payload;
   if (isForm) {
@@ -240,11 +274,15 @@ export async function request(path, options = {}) {
   }
 
   if (!res.ok) {
-    // 401 على طلب يحمل توكناً => نلغي الجلسة المحلية (زائر بلا توكن لا يُحال).
-    if (res.status === 401 && sentToken) {
-      clearToken();
-      clearUser();
-      expireSession();
+    // 401 حقيقي فقط: على مسار محمي **مع توكن أُرسل فعلاً**. طلب بلا توكن
+    // (نقطة عامة) يرجع 401 أيضاً، فمسح الجلسة عندها يُخرج مستخدماً سليم الجلسة.
+    if (res.status === 401 && auth && bearer) {
+      if (onUnauthorized) onUnauthorized();
+      else {
+        clearToken();
+        clearUser();
+        expireSession();
+      }
     }
 
     // 429 ليس عطل خادم: الخادم يطلب الانتظار. الرسالة العامة كانت تُعرض للمستخدم
@@ -270,6 +308,9 @@ export async function request(path, options = {}) {
       data
     );
   }
+
+  // تصدير CSV: الرد نصي (text/csv) لا JSON، فنعيده كما هو.
+  if (raw) return text;
 
   // استجابة ناجحة لكنها HTML بدل JSON (مثال: الباك إند يعيد صفحة Laravel
   // الافتراضية بدلاً من تنفيذ المسار). نكشف ذلك لنظهر رسالة واضحة بدل فشل صامت.

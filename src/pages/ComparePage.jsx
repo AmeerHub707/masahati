@@ -124,7 +124,7 @@ export default function ComparePage() {
   const [allSpaces, setAllSpaces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
-  const [demo, setDemo] = useState(false);
+  const [error, setError] = useState('');
   const [announce, setAnnounce] = useState('');
   const [tableOpen, setTableOpen] = useState(false);
   const toggleTable = useCallback(() => setTableOpen((v) => !v), []);
@@ -136,11 +136,7 @@ export default function ComparePage() {
       .then((res) => {
         if (!alive) return;
         setAllSpaces(res.spaces || []);
-        setDemo(res.demo);
-        setLoading(false);
-      })
-      .catch(() => {
-        if (!alive) return;
+        setError(res.error ?? '');
         setLoading(false);
       });
     return () => { alive = false; };
@@ -295,7 +291,7 @@ const writeIds = useCallback(
             <h1 className="cmp-title">قارن بين المساحات واختر الأنسب</h1>
             <p className="cmp-sub">
               اختر من {fmtNumber(MIN_PICK)} إلى {fmtNumber(MAX_PICK)} مساحات، ورتّبها بالترتيب الذي يناسبك
-              {demo && <em className="cmp-badge-demo">وضع تجريبي</em>}
+              {error && <em className="cmp-badge-demo">{error}</em>}
             </p>
           </div>
         </div>

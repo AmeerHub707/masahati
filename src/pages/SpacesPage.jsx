@@ -1316,8 +1316,7 @@ export default function SpacesPage() {
   const [hasMore, setHasMore] = useState(false);
   const [total, setTotal] = useState(0);
   const [selectedSpace, setSelectedSpace] = useState(null);
-  const [demo, setDemo] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState('');
   const [locating, setLocating] = useState(false);
   const [nearby, setNearby] = useState(null);
   const loaderRef = useRef(null);
@@ -1347,7 +1346,7 @@ export default function SpacesPage() {
   const loadSpaces = useCallback(async (pageNum = 1, append = false) => {
     if (append) setLoadingMore(true);
     else setLoading(true);
-    setError(false);
+    setError('');
     try {
       const result = await loadSpacesWithFallback(appliedFilters, pageNum);
       if (append) {
@@ -1357,10 +1356,8 @@ export default function SpacesPage() {
       }
       setHasMore(result.has_more);
       setTotal(result.total);
-      setDemo(result.demo);
+      setError(result.error ?? '');
       setPage(pageNum);
-    } catch {
-      setError(true);
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -1472,9 +1469,6 @@ export default function SpacesPage() {
               ) : (
                 <span>{fmtNumber(total)} مساحة متاحة</span>
               )}
-              {demo && (
-                <span className="spaces__demo-badge">وضع تجريبي</span>
-              )}
             </div>
 
             <div className="spaces__view-toggle">
@@ -1521,7 +1515,7 @@ export default function SpacesPage() {
 
           {error ? (
             <div className="spaces__error">
-              <p>تعذّر تحميل المساحات. تحقق من اتصالك وحاول مجدداً.</p>
+              <p>{error}</p>
               <button type="button" className="btn-ghost" onClick={() => loadSpaces(1)}>
                 إعادة المحاولة
               </button>

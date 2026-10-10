@@ -98,7 +98,7 @@ function timeAgo(iso) {
 export default function OwnerAds() {
   const [ads, setAds] = useState(() => []);
   const [spaces, setSpaces] = useState(() => []);
-  const [demo, setDemo] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [modal, setModal] = useState(null); // null | { mode:'create' } | { mode:'edit', ad }
@@ -135,9 +135,12 @@ export default function OwnerAds() {
       const result = await loadAdsWithFallback(force);
       if (!mountedRef.current) return;
       setAds(result.ads);
-      setDemo(result.demo);
+      setLoadError(result.error ?? '');
     } catch {
-      if (mountedRef.current) setAds([]);
+      if (mountedRef.current) {
+        setAds([]);
+        setLoadError('تعذّر تحميل إعلاناتك.');
+      }
     } finally {
       if (mountedRef.current) {
         setLoading(false);
@@ -331,16 +334,12 @@ export default function OwnerAds() {
   const draftAds = useMemo(() => ads.filter((a) => a.status === 'draft'), [ads]);
 
   const renderBanner = () => {
-    if (!demo) return null;
+    if (!loadError || loading || modal) return null;
     return (
-      <div className="odash__banner" role="status">
-        <Clock />
-        <p>
-          <b>وضع تجريبي</b> — واجهة الباك إند (API) غير مفعّلة بعد، الإعلانات أدناه للتجربة
-          وتُحفظ محلياً. عند إتاحة الواجهة سيتولّى النظام التزامين تلقائياً.
-        </p>
-        <button type="button" onClick={() => setToast(null)} aria-label="إغلاق" className="odash__banner-x">
-          <X />
+      <div className="odash__banner is-error" role="alert">
+        <span>{loadError}</span>
+        <button type="button" className="odash__banner-btn" onClick={() => loadAds(true)}>
+          <Repeat /> إعادة المحاولة
         </button>
       </div>
     );

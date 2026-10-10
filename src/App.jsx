@@ -1,3 +1,4 @@
+import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from '@/pages/LandingPage';
 import { AppReadyContext } from '@/context/AppReadyContext';
@@ -13,6 +14,20 @@ import SpaceOwnerDashboard from '@/pages/SpaceOwnerDashboard';
 import AdDetailsPage from '@/pages/AdDetailsPage';
 import ComparePage from '@/pages/ComparePage';
 import { isLoggedIn, getUser, getHomePath, normalizeRole } from '@/lib/authStore';
+
+// لوحة المشرف ثقيلة (recharts/جداول كبيرة) فتُحمّل كسولاً كي لا تُدفع لكل زائر.
+const AdminDashboardPage = lazy(() => import('@/pages/AdminDashboardPage'));
+const AdminLoginPage = lazy(() => import('@/pages/AdminLoginPage'));
+
+// بديل انتظار حزمة المسار: هيكل ثابت بلا قفزة في الارتفاع.
+function RouteFallback() {
+  return (
+    <div className="route-loading" role="status" aria-live="polite">
+      <span className="route-loading-bar" />
+      <span className="route-loading-bar is-short" />
+    </div>
+  );
+}
 
 // حماية المسار: الزائر غير المسجّل يُحوَّل للصفحة الرئيسية
 function RequireAuth({ children }) {
@@ -43,6 +58,7 @@ function RequireRole({ role, children }) {
 export default function App() {
   return (
     <AppReadyContext.Provider value={true}>
+      <Suspense fallback={<RouteFallback />}>
       <Routes>
       {/* الصفحة الرئيسية - صفحة الهبوط (الترحيب) */}
       <Route path="/" element={<LandingPage />} />
@@ -65,9 +81,17 @@ export default function App() {
       <Route path="/dashboard/customer" element={<RequireAuth><RequireRole role="customer"><CustomerDashboard /></RequireRole></RequireAuth>} />
       <Route path="/dashboard/space-owner" element={<RequireAuth><RequireRole role="space_owner"><SpaceOwnerDashboard /></RequireRole></RequireAuth>} />
       
+      {/* لوحة تحكم المشرف — مسار شامل واحد حتى لا يُعاد تركيب الصفحة بين التبويبات.
+          مسار صريح قبل الشامل: يمرّر :id إلى useParams، فالرابط المباشر
+          /admin/users/:id يعمل بالطريقتين (المسار + قراءة pathname). */}
+      <Route path="/admin/login" element={<AdminLoginPage />} />
+      <Route path="/admin/users/:id" element={<AdminDashboardPage />} />
+      <Route path="/admin/*" element={<AdminDashboardPage />} />
+      
       {/* مسار احتياطي للصفحات غير الموجودة 404 */}
       <Route path="*" element={<LandingPage />} />
       </Routes>
+      </Suspense>
     </AppReadyContext.Provider>
   );
 }

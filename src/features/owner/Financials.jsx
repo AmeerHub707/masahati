@@ -2,10 +2,10 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   Wallet, Receipt, CircleDollarSign, CalendarCheck, Clock, Building2,
-  X, Repeat, Sparkles, Printer,
+  Repeat, Printer,
   FileDown, MapPin, Gauge, BadgeCheck, ListChecks, TrendingUp, CalendarDays, BarChart3,
 } from 'lucide-react';
-import { isOwnerDemo, loadOwnerDashboardWithFallback, belongsToSpace } from '@/lib/owner';
+import { loadOwnerDashboardWithFallback, belongsToSpace } from '@/lib/owner';
 import ChartBars from './ChartBars';
 import SpacePicker from './SpacePicker';
 import StatCardsSkeleton from './StatCardsSkeleton';
@@ -111,10 +111,9 @@ export default function Financials({ data }) {
   const [bookings, setBookings] = useState(() => data?.bookings || []);
   const [spaces, setSpaces] = useState(() => data?.spaces || []);
   const [offers, setOffers] = useState(() => data?.offers || []);
-  const [demo, setDemo] = useState(() => isOwnerDemo());
   const [loading, setLoading] = useState(() => !Array.isArray(data?.bookings));
   const [refreshing, setRefreshing] = useState(false);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [view, setView] = useState('invoices');
   const [reportMetric, setReportMetric] = useState('revenue');
   const [spaceId, setSpaceId] = useState(''); // '' = كل المساحات
@@ -145,9 +144,9 @@ export default function Financials({ data }) {
       setBookings(result.bookings || []);
       setSpaces(result.spaces || []);
       setOffers(result.offers || []);
-      setDemo(result.demo);
+      setLoadError(result.error ?? '');
     } catch {
-      /* لا نكسر العرض */
+      setLoadError('تعذّر تحميل البيانات المالية.');
     } finally {
       if (mountedRef.current) {
         setLoading(false);
@@ -303,19 +302,6 @@ export default function Financials({ data }) {
 
   return (
     <section className="fin">
-      {demo && !bannerDismissed && (
-        <div className="odash__banner" role="status">
-          <Sparkles />
-          <p>
-            <b>وضع تجريبي</b> — تُشتق الفواتير والتقارير من بيانات لوحتك الحالية.
-            عند تفعيل واجهة الباك إند ستُحدَّث تلقائياً من السجل الحقيقي.
-          </p>
-          <button type="button" onClick={() => setBannerDismissed(true)} aria-label="إغلاق" className="odash__banner-x">
-            <X />
-          </button>
-        </div>
-      )}
-
       <div className="obk__hero">
         <div className="obk__hero-main">
           <h2><Wallet /> المالية</h2>
@@ -346,6 +332,15 @@ export default function Financials({ data }) {
           </button>
         </div>
       </div>
+
+      {loadError && !loading && bookings.length === 0 && (
+        <div className="odash__banner is-error" role="alert">
+          <span>{loadError}</span>
+          <button type="button" className="odash__banner-btn" onClick={() => load(true)}>
+            <Repeat /> إعادة المحاولة
+          </button>
+        </div>
+      )}
 
       {loading && bookings.length === 0 ? (
         <StatCardsSkeleton cols={4} />

@@ -22,7 +22,7 @@ import {
   markDashboardTourCompleted,
 } from '@/lib/dashboardTour';
 import AdBanner from '@/features/customer/AdBanner';
-import { AlertCircle, Trash2 } from 'lucide-react';
+import { AlertCircle, Trash2, Repeat } from 'lucide-react';
 
 const CUSTOMER_TOUR_ID = 'customer-tour';
 
@@ -69,6 +69,7 @@ export default function CustomerDashboard() {
   const [active, setActive] = useState('overview');
   const [data, setData] = useState(null);
   const [status, setStatus] = useState('loading'); // 'loading' | 'ready' | 'error'
+  const [loadError, setLoadError] = useState('');
   const [cancellingId, setCancellingId] = useState(null);
   const [cancelNotice, setCancelNotice] = useState('');
   const [togglingId, setTogglingId] = useState(null);
@@ -114,8 +115,10 @@ export default function CustomerDashboard() {
       const result = await fetchDashboard();
       setData(result);
       setStatus('ready');
+      setLoadError(result?.error ?? '');
     } catch {
       setStatus('error');
+      setLoadError('تعذّر تحميل بيانات لوحة التحكم.');
     }
   }, []);
 
@@ -140,9 +143,11 @@ export default function CustomerDashboard() {
         if (!isMounted) return;
         setData(result);
         setStatus('ready');
+        setLoadError(result?.error ?? '');
       } catch {
         // فشل الجلب: نبقي البيانات المخزنة إن وُجدت، وإلا نعرض الخطأ.
         if (isMounted) {
+          setLoadError('تعذّر تحميل بيانات لوحة التحكم.');
           setStatus((prev) => (prev === 'loading' ? 'error' : prev));
         }
       }
@@ -306,7 +311,6 @@ export default function CustomerDashboard() {
       }));
     }
     return {
-      demo: result?.demo,
       message: result?.message,
       request: result?.request,
       booking: result?.booking,
@@ -409,6 +413,14 @@ export default function CustomerDashboard() {
         tourStep={tourStep}
         onStartTour={startTour}
       >
+        {loadError && status === 'ready' && (
+          <div className="odash__banner is-error" role="alert">
+            <span>{loadError}</span>
+            <button type="button" className="odash__banner-btn" onClick={() => load()}>
+              <Repeat /> إعادة المحاولة
+            </button>
+          </div>
+        )}
         {data?.user?.role === 'customer' && (
           <AdBanner
             ads={data?.ads || []}

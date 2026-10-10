@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Store, Megaphone, Building2, X, Loader2, Clock, CalendarClock, Users, MapPin,
-  CircleDollarSign, Wifi, Zap, Video, Snowflake, Mic, Send, Check, Sparkles, Repeat, ChevronDown, Plus,
+  CircleDollarSign, Wifi, Zap, Video, Snowflake, Mic, Send, Check, Repeat, ChevronDown, Plus,
 } from 'lucide-react';
-import { loadMarketWithFallback, submitProposalWithFallback, isOwnerDemo } from '@/lib/owner';
+import { loadMarketWithFallback, submitProposalWithFallback } from '@/lib/owner';
 import { isRequestOpen, isRequestExpired, AMENITY_LABELS } from '@/lib/requests';
 import { useDialogA11y } from '@/lib/dialogA11y';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -35,10 +35,9 @@ function timeAgo(iso) {
 
 export default function Market({ data, onProposalSubmitted, onNavigate }) {
   const [market, setMarket] = useState(() => (data?.market || []));
-  const [demo, setDemo] = useState(() => isOwnerDemo());
   const [loading, setLoading] = useState(() => !Array.isArray(data?.market));
   const [refreshing, setRefreshing] = useState(false);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [modal, setModal] = useState(null); // الطلب الذي نقدّم عرضاً عليه
   const [form, setForm] = useState({ space_id: '', price_per_hour: '', duration_hours: '', notes: '' });
   const [errors, setErrors] = useState({});
@@ -91,9 +90,9 @@ export default function Market({ data, onProposalSubmitted, onNavigate }) {
       const result = await loadMarketWithFallback(force);
       if (!mountedRef.current) return;
       setMarket(result.requests);
-      setDemo(result.demo);
+      setLoadError(result.error ?? '');
     } catch {
-      /* لا نكسر العرض */
+      setLoadError('تعذّر تحميل السوق.');
     } finally {
       if (mountedRef.current) {
         setLoading(false);
@@ -185,7 +184,6 @@ export default function Market({ data, onProposalSubmitted, onNavigate }) {
         request_title: modal.title,
       });
       if (!mountedRef.current) return;
-      setDemo(result.demo);
       setSubmitted((prev) => new Set(prev).add(String(modal.id)));
       if (result.offer && onProposalSubmitted) onProposalSubmitted(result.offer);
       setToast({ msg: result.message, type: result.duplicate ? 'warn' : 'ok' });
@@ -270,28 +268,10 @@ export default function Market({ data, onProposalSubmitted, onNavigate }) {
     );
   };
 
-  const renderBanner = () => {
-    if (!demo || bannerDismissed) return null;
-    return (
-      <div className="odash__banner" role="status">
-        <Sparkles />
-        <p>
-          <b>وضع تجريبي</b> — واجهة الخادم (API) غير مفعّلة بعد، البيانات أدناه للتجربة
-          وستُحفظ محلياً. عند نزول واجهة الباك إند سيتولّى النظام تلقائياً.
-        </p>
-        <button type="button" onClick={() => setBannerDismissed(true)} aria-label="إغلاق" className="odash__banner-x">
-          <X />
-        </button>
-      </div>
-    );
-  };
-
   const openReqs = market.filter((r) => isRequestOpen(r) && !isRequestExpired(r));
 
   return (
     <section className="odash__market">
-      {renderBanner()}
-
       <div className="obk__hero">
         <div className="obk__hero-main">
           <h2><Store /> السوق المفتوح</h2>
@@ -317,6 +297,15 @@ export default function Market({ data, onProposalSubmitted, onNavigate }) {
           </button>
         </div>
       </div>
+
+      {loadError && !loading && (
+        <div className="odash__banner is-error" role="alert">
+          <span>{loadError}</span>
+          <button type="button" className="odash__banner-btn" onClick={() => loadMarket(true)}>
+            <Repeat /> إعادة المحاولة
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="odash__state">

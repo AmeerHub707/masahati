@@ -135,6 +135,12 @@ export async function fetchDashboard() {
   const s = stats || {};
   const localUser = getUser() || {};
 
+  // هل فشل التحميل؟ نقرّب مساراً واحداً لخطأ غير معطّل: إذا سقطت مصادر
+  // البيانات الرئيسية (الإحصاءات والحجوزات والمفضّلة والملف) نعرض ملاحظة
+  // فوق اللوحة مع زر إعادة محاولة — من دون منع عرض بقية البيانات.
+  const failedPrimary = [stats, upcomingApi, historyApi, favoritesApi, profileApi].filter((v) => v == null).length;
+  const error = failedPrimary >= 3 ? 'تعذّر تحميل بيانات لوحة التحكم من الخادم.' : (adsRes?.error || null);
+
   // المستخدم: /api/profile (name, phone, email, picture) هو المصدر الأساسي،
   // مع المستخدم المخزّن محلياً من لحظة تسجيل الدخول كملاذ أخير (يحمل role).
   const u = pickUser(unwrapUser(profileApi), localUser);
@@ -165,6 +171,7 @@ export async function fetchDashboard() {
     bookings: mapBookings(listOf(historyApi, 'bookings')),
     favorites: mapFavorites(listOf(favoritesApi, 'favorites')),
     ads: (adsRes?.ads || []).filter((a) => a.title),
+    error,
   };
 
   // حفظ نسخة للعرض الفوري عند الرجوع للوحة (تُحدَّث في الخلفية لاحقاً).

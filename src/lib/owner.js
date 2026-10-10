@@ -1,55 +1,16 @@
 // وحدة لوحة صاحب المساحة — السوق المفتوح، العروض المقدمة، إدارة المساحات.
-// تتصل بالباك إند الحقيقي (Laravel) عبر عميل api.js، ومع أي فشل تنتقل
-// لوضع تجريبي محلي (نفس نمط الطلبات الخاصة) حتى لا تكسر التجربة.
+// تتصل بالباك إند الحقيقي (Laravel) عبر عميل api.js؛ لا يوجد وضع تجريبي.
 
 import { request, imageUrl } from './api';
 import { getUser } from './authStore';
 import { mapRequest, mapOffer, listOf, isRequestOpen } from './requests';
-import { createDemoFlag } from './demoFlag';
 
 const REQ_TIMEOUT_MS = 8000;
-
-const DEMO_FLAG_KEY = 'masahati_owner_demo_v1';
-const DEMO_DATA_KEY = 'masahati_owner_data_v1';
-const CUSTOMER_REQ_DATA_KEY = 'masahati_special_requests_data_v1';
-const CACHE_KEY = 'masahati_owner_cache';
-
-// ----- وضع تجريبي -----
-const demoFlag = createDemoFlag(DEMO_FLAG_KEY);
-
-export function isOwnerDemo() {
-  return demoFlag.isOn();
-}
-
-function setDemoFlag(on) {
-  demoFlag.set(on);
-}
-
-function readDemoStore() {
-  try {
-    const raw = localStorage.getItem(DEMO_DATA_KEY);
-    if (!raw) return null;
-    const data = JSON.parse(raw);
-    return data && typeof data === 'object' ? data : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeDemoStore(payload) {
-  try {
-    localStorage.setItem(DEMO_DATA_KEY, JSON.stringify(payload));
-    return true;
-  } catch {
-    /* التخزين غير متاح أو ممتلئ (صور كبيرة) */
-    return false;
-  }
-}
 
 // ----- كاش لوحة المالك (عرض فوري عند العودة) -----
 export function readOwnerCache() {
   try {
-    const raw = localStorage.getItem(CACHE_KEY);
+    const raw = localStorage.getItem('masahati_owner_cache');
     if (!raw) return null;
     const data = JSON.parse(raw);
     return data && typeof data === 'object' ? data : null;
@@ -60,7 +21,7 @@ export function readOwnerCache() {
 
 export function writeOwnerCache(payload) {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
+    localStorage.setItem('masahati_owner_cache', JSON.stringify(payload));
   } catch {
     /* التخزين غير متاح */
   }
@@ -68,7 +29,7 @@ export function writeOwnerCache(payload) {
 
 export function clearOwnerCache() {
   try {
-    localStorage.removeItem(CACHE_KEY);
+    localStorage.removeItem('masahati_owner_cache');
   } catch {
     /* التخزين غير متاح */
   }
@@ -92,8 +53,7 @@ function spaceStatus(s) {
   return typeof s.is_active === 'boolean' ? (s.is_active ? 'active' : 'inactive') : 'active';
 }
 
-// يعيد وثائق إثبات المساحة بشكل موحّد (قائمة عناصر) مهما وردت كمصفوفة أو ككائن
-// مفاتيحه أسماء الأدراج (proof/extra/…).
+// يعيد وثائق إثبات المساحة بشكل موحّد
 function normalizeSpaceDocs(docs) {
   const items = Array.isArray(docs)
     ? docs
@@ -110,14 +70,11 @@ function normalizeSpaceDocs(docs) {
     }));
 }
 
-// يقرّب إحداثيات (خط عرض/طول) إلى 5 خانات عشرية، أو يعيد null عند غيابها.
 function coordOf(v) {
   const n = Number(v);
   return Number.isFinite(n) ? Math.round(n * 100000) / 100000 : null;
 }
 
-// يوحّد صيغة الوقت إلى HH:MM بنظام 24 ساعة، أو يعيد '' عند غيابه أو فساده.
-// يقبل HH:MM و HH:MM:SS و H:MM ص/م، لأن الواجهات ترسل الوقت بأشكال مختلفة.
 function normTime(v) {
   const s = String(v ?? '').trim();
   if (!s) return '';
@@ -132,7 +89,6 @@ function normTime(v) {
   return `${String(h).padStart(2, '0')}:${min}`;
 }
 
-// يوحّد رقم تواصل المساحة إلى نص مطبَّع، أو '' عند غيابه.
 function normPhone(v) {
   return String(v ?? '').trim();
 }
@@ -164,8 +120,6 @@ export function mapSpace(s) {
     is_active: status === 'active',
     docs: normalizeSpaceDocs(s.docs),
     rating: Math.round(Number(s.rating ?? 0) * 10) / 10,
-    // حقول التصفّح العام (BACKEND_SPACES_BROWSE_CONTRACT.md). إضافة بلا أثر على
-    // لوحة المالك: المساحات القديمة الناقصة تأخذ قيمة افتراضية فارغة.
     category: typeof s.category === 'string' ? s.category : '',
     area: String(s.area ?? s.neighborhood ?? s.district ?? ''),
     review_count: Number(s.review_count ?? s.reviews_count ?? s.ratings_count ?? 0),
@@ -186,7 +140,7 @@ export function mapMyOffer(o) {
     id: o.offer_id ?? o.id,
     requestId: o.request_id ?? null,
     requestTitle: o.request_title ?? o.title ?? '',
-    status: o.status || 'pending', // pending | accepted | rejected | closed
+    status: o.status || 'pending',
     price_per_hour: Number(o.price_per_hour ?? o.price ?? 0),
     currency: o.currency ?? 'ش.ج',
     duration_hours: Number(o.duration_hours ?? o.hours ?? 0),
@@ -194,7 +148,6 @@ export function mapMyOffer(o) {
   };
 }
 
-// يشتق عدد الساعات من وقت البداية/النهاية عند غياب حقل الساعات الصريح.
 function hoursFromTimes(from, to) {
   const parse = (t) => {
     const m = String(t || '').match(/(\d{1,2}):(\d{2})/);
@@ -227,290 +180,10 @@ export function mapOwnerBooking(b) {
   };
 }
 
-// يطابق الحجز مع المساحة: بالمعرّف أولاً ثم تجربة اسم المساحة، لأن بعض واجهات
-// الباك إند ترسل space_id فقط أو space_name فقط (تُستخدم في كل تبويبات اللوحة).
 export function belongsToSpace(b, sp) {
   if (!sp) return true;
   if (b.spaceId != null && sp.id != null && String(b.spaceId) === String(sp.id)) return true;
   return Boolean(b.spaceName) && b.spaceName === sp.title;
-}
-
-// ----- بذور الوضع التجريبي -----
-
-// إحصاءات تجريبية لكل مساحة تُشتق من بذور الحجوزات نفسها، حتى تلتزم الأرقام
-// مع بطاقات النظرة العامة (الأرباح، الحجوزات، الإشغال).
-function buildSpaceDemoStats(title, capacity) {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
-  const ym = `${year}-${String(month).padStart(2, '0')}`;
-  const daysInMonth = new Date(year, month, 0).getDate();
-  const isConfirmed = (b) => b.status === 'confirmed' || b.status === 'accepted' || b.status === 'completed';
-  const scoped = seedOwnerBookings().filter((b) => b.space_name === title);
-  const confirmed = scoped.filter(isConfirmed);
-  const monthBookings = confirmed.filter((b) => String(b.date).slice(0, 7) === ym);
-  const hours = monthBookings.reduce((s, b) => s + Number(b.hours || 0), 0);
-  const revenue = monthBookings.reduce((s, b) => s + Number(b.price || 0), 0);
-  const capacityHours = Number(capacity || 0) * 8 * daysInMonth;
-  const occupancy = capacityHours > 0 ? Math.min(100, Math.round((hours / capacityHours) * 100)) : 0;
-  return {
-    bookings: monthBookings.length,
-    revenue,
-    occupancy,
-    totalBookings: confirmed.length,
-  };
-}
-
-function seedOwnerSpaces() {
-  return [
-    {
-      id: 'os-1',
-      title: 'قاعة العروض الكبرى',
-      description: 'قاعة واسعة تتسع لـ 120 شخصاً بإضاءة طبيعية ومسرح صغير.',
-      location: 'وسط المدينة',
-      lat: 31.5011,
-      lng: 34.4667,
-      image: '',
-      price_per_hour: 150,
-      capacity: 120,
-      open_time: '08:00',
-      close_time: '18:00',
-      contact_phone: '0599123456',
-      amenities: ['internet', 'electricity', 'projector', 'ac', 'microphone'],
-      internet: true,
-      power: true,
-      is_active: true,
-      rating: 4.8,
-      stats: buildSpaceDemoStats('قاعة العروض الكبرى', 120),
-    },
-    {
-      id: 'os-2',
-      title: 'غرفة الاجتماعات الذكية',
-      description: 'غرفة اجتماعات بـ 10 مقاعد مع شاشة عرض وكاميرا Zoom.',
-      location: 'المنطقة الشرقية',
-      lat: 31.5022,
-      lng: 34.4688,
-      image: '',
-      price_per_hour: 100,
-      capacity: 10,
-      open_time: '09:00',
-      close_time: '17:00',
-      contact_phone: '0599765432',
-      amenities: ['internet', 'projector', 'ac'],
-      internet: true,
-      power: true,
-      is_active: true,
-      rating: 4.6,
-      stats: buildSpaceDemoStats('غرفة الاجتماعات الذكية', 10),
-    },
-    {
-      id: 'os-3',
-      title: 'استوديو المبدعين',
-      description: 'استوديو إنتاج ملوّن حديث لتصوير المحتوى والعروض.',
-      location: 'حي السعادة',
-      lat: 31.5088,
-      lng: 34.4772,
-      image: '',
-      price_per_hour: 200,
-      capacity: 15,
-      open_time: '10:00',
-      close_time: '22:00',
-      contact_phone: '0599554433',
-      amenities: ['internet', 'electricity', 'ac'],
-      internet: true,
-      power: true,
-      is_active: false,
-      rating: 4.9,
-      stats: buildSpaceDemoStats('استوديو المبدعين', 15),
-    },
-  ];
-}
-
-function seedOwnerOffers() {
-  const daysAgo = (n) =>
-    new Date(Date.now() - n * 86400000).toISOString().slice(0, 16).replace('T', ' ');
-  return [
-    {
-      id: 'oo-1',
-      request_id: 'market-1',
-      request_title: 'قاعة محاضرات لدورة تدريبية أسبوعية',
-      status: 'pending',
-      price_per_hour: 150,
-      currency: 'ش.ج',
-      duration_hours: 3,
-      created_at: daysAgo(1),
-    },
-    {
-      id: 'oo-2',
-      request_id: 'market-0',
-      request_title: 'مساحة عمل يومية لـ 6 أشهر',
-      status: 'accepted',
-      price_per_hour: 45,
-      currency: 'ش.ج',
-      duration_hours: 8,
-      created_at: daysAgo(6),
-    },
-  ];
-}
-
-// حجوزات تجريبية تُنشأ حول تاريخ اليوم: شهر حالي بإيراد أعلى، وشهر سابق أقل،
-// حتى تظهر بطاقات النظرة العامة (الأرباح، الحجوزات، الإشغال) بأرقام واقعية.
-function seedOwnerBookings() {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = now.getMonth() + 1;
-  const prevY = m === 1 ? y - 1 : y;
-  const prevM = m === 1 ? 12 : m - 1;
-  const dateStr = (yy, mm, dd) => `${yy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
-  const daysIn = (yy, mm) => new Date(yy, mm, 0).getDate();
-  const clampDay = (yy, mm, dd) => dateStr(yy, mm, Math.max(1, Math.min(dd, daysIn(yy, mm))));
-  const spaces = [
-    { name: 'قاعة العروض الكبرى', rate: 150 },
-    { name: 'غرفة الاجتماعات الذكية', rate: 100 },
-    { name: 'استوديو المبدعين', rate: 200 },
-  ];
-  const customers = ['أحمد خالد', 'سارة مراد', 'ليان قاسم', 'محمود عوض', 'نور الحاج'];
-
-  const list = [];
-  let id = 5000;
-
-  const push = (date, hours, status, i) => {
-    const space = spaces[i % spaces.length];
-    list.push({
-      booking_id: id++,
-      space_name: space.name,
-      image: '',
-      date,
-      time_from: '09:00:00',
-      time_to: `${9 + hours}:00:00`,
-      hours,
-      price: space.rate * hours,
-      customer_name: customers[i % customers.length],
-      status,
-    });
-  };
-
-  // اليوم والبارحة دائماً بالدالة حتى تظهر بطاقة الإشغال بأرقام حية.
-  const today = now.getDate();
-  const yesterday = today - 1;
-
-  let i = 0;
-  for (const [dayOffset, hours, status, cnt] of [
-    [today, 4, 'confirmed', 2],
-    [yesterday, 3, 'confirmed', 1],
-  ]) {
-    for (let k = 0; k < cnt; k++) push(clampDay(y, m, dayOffset), hours, status, i++);
-  }
-
-  for (let d = 2; d <= 8; d++) push(clampDay(y, m, Math.min(today + d, daysIn(y, m))), 2 + (d % 3), 'confirmed', i++);
-  for (let c = 0; c < 9; c++) push(clampDay(prevY, prevM, 3 + c * 2), 3 + (c % 3), c % 6 === 0 ? 'pending' : 'confirmed', i++);
-  for (let p = 0; p < 4; p++) push(clampDay(y, m, Math.max(1, today - 4 - p)), 2, 'pending', i++);
-
-  return list;
-}
-
-// سوق تجريبي: يحاول أولاً قراءة طلبات مخزن العميل المفتوحة (إن وُجد)،
-// حتى يرى المالك الطلبات التي أنشأها العميل فعلاً في نفس الجلسة التجريبية.
-function seedMarketRequests() {
-  try {
-    const raw = localStorage.getItem(CUSTOMER_REQ_DATA_KEY);
-    if (raw) {
-      const data = JSON.parse(raw);
-      const open = (Array.isArray(data?.requests) ? data.requests : [])
-        .filter((r) => r.status === 'open')
-        .slice(0, 6);
-      if (open.length) return open;
-    }
-  } catch {
-    /* تجاهل */
-  }
-
-  const now = new Date();
-  const daysAgo = (n) =>
-    new Date(now.getTime() - n * 86400000).toISOString().slice(0, 16).replace('T', ' ');
-  return [
-    {
-      id: 'market-1',
-      title: 'قاعة محاضرات لدورة تدريبية أسبوعية',
-      notes:
-        'أبحث عن قاعة تتسع لـ 40 متدرباً لمدة 3 ساعات كل يوم سبت، مع بروجيكتور وإنترنت قوي لتدريب عملي على الحاسوب.',
-      space_type: 'whole',
-      capacity: 40,
-      schedule: { preset: 'weekly', count: 8 },
-      schedule_label: 'أسبوعي × 8',
-      preferred_time: '10:00 ص – 1:00 م',
-      area: 'وسط المدينة',
-      amenities: ['internet', 'electricity', 'projector', 'ac'],
-      budget: 180,
-      status: 'open',
-      offers_count: 3,
-      created_at: daysAgo(1),
-    },
-    {
-      id: 'market-2',
-      title: 'لعقد اجتماع إدارة شهري متكرر',
-      notes:
-        'نحتاج غرفة اجتماعات لـ 10 أشخاص لمدة ساعتين في منتصف كل شهر، مع عرض تقديمي وإمكانية حضور عبر الإنترنت.',
-      space_type: 'room',
-      capacity: 10,
-      schedule: { preset: 'monthly', count: 12 },
-      schedule_label: 'شهري × 12',
-      preferred_time: '4:00 م – 6:00 م',
-      area: 'المنطقة الشرقية',
-      amenities: ['internet', 'projector', 'microphone'],
-      budget: 120,
-      status: 'open',
-      offers_count: 1,
-      created_at: daysAgo(2),
-    },
-    {
-      id: 'market-3',
-      title: 'مساحة عمل مشتركة لفرق صغيرة',
-      notes:
-        'نرغب بمساحة عمل لـ 6 أشخاص من الأحد للخميس طوال اليوم، مع إنترنت سريع وتكييف.',
-      space_type: 'room',
-      capacity: 6,
-      schedule: { preset: 'weekly', count: 20 },
-      schedule_label: 'أسبوعي × 20',
-      preferred_time: '8:00 ص – 8:00 م',
-      area: '',
-      amenities: ['internet', 'ac'],
-      budget: 60,
-      status: 'open',
-      offers_count: 0,
-      created_at: daysAgo(3),
-    },
-  ];
-}
-
-function demoStore() {
-  const existing = readDemoStore();
-  if (existing) return existing;
-  const payload = { spaces: seedOwnerSpaces(), offers: seedOwnerOffers(), bookingOverrides: {} };
-  writeDemoStore(payload);
-  return payload;
-}
-
-// يطبّق حالات الحجز المحفوظة محلياً (تأكيد/رفض) على بذور الحجوزات التجريبية،
-// حتى تبقى قرارات المالك ثابتة داخل نفس اليوم بدل إعادة توليدها من جديد.
-function applyBookingOverrides(list) {
-  const store = readDemoStore();
-  if (!store) return list;
-  const overrides = store.bookingOverrides;
-  if (!overrides || typeof overrides !== 'object') return list;
-  return list.map((b) => (overrides[String(b.id)] ? { ...b, status: overrides[String(b.id)] } : b));
-}
-
-// ----- إحصائيات -----
-function buildStats(store, market) {
-  const openMarket = market.filter((r) => isRequestOpen(r)).length;
-  return {
-    spacesCount: store.spaces.length,
-    activeSpacesCount: store.spaces.filter((s) => s.is_active !== false).length,
-    openMarket,
-    pendingOffers: store.offers.filter((o) => o.status === 'pending').length,
-    acceptedOffers: store.offers.filter((o) => o.status === 'accepted').length,
-  };
 }
 
 // ----- API حقيقي -----
@@ -602,7 +275,7 @@ export async function toggleOwnerSpaceActive(spaceId, isActive) {
     timeoutMs: REQ_TIMEOUT_MS,
     body: { is_active: isActive },
   });
-  const body = res && typeof res === 'object' && res.data && typeof res === 'object' && !Array.isArray(res.data)
+  const body = res && typeof res === 'object' && res.data && typeof res.data === 'object' && !Array.isArray(res.data)
     ? res.data
     : res || {};
   return { message: body.message || 'تم تحديث حالة المساحة.', space: mapSpace(body.space ?? body) };
@@ -645,7 +318,7 @@ export async function deleteOwnerSpace(spaceId) {
     auth: true,
     timeoutMs: REQ_TIMEOUT_MS,
   });
-  const body = res && typeof res === 'object' && res.data && typeof res === 'object' && !Array.isArray(res.data)
+  const body = res && typeof res === 'object' && res.data && typeof res.data === 'object' && !Array.isArray(res.data)
     ? res.data
     : res || {};
   return { message: body.message || 'تم حذف المساحة.' };
@@ -660,7 +333,6 @@ export async function fetchOwnerBookings() {
   return listOf(res, 'bookings').map(mapOwnerBooking);
 }
 
-// ----- التقييمات (Reviews) -----
 export function mapOwnerReview(r) {
   return {
     id: r.review_id ?? r.id,
@@ -687,104 +359,6 @@ export async function fetchOwnerReviews(spaceId) {
   return listOf(res, 'reviews').map(mapOwnerReview);
 }
 
-function seedOwnerReviews() {
-  const now = new Date();
-  const daysAgo = (n) =>
-    new Date(now.getTime() - n * 86400000).toISOString().slice(0, 16).replace('T', ' ');
-  return [
-    {
-      review_id: 'rev-1',
-      space_id: 'os-1',
-      space_name: 'قاعة العروض الكبرى',
-      space_image: '',
-      customer_name: 'سارة مراد',
-      customer_avatar: '',
-      rating: 5,
-      title: 'قاعة مميزة بكل المقاييس',
-      comment:
-        'استخدمنا القاعة لورشة عمل ثلاثة أيام، كانت الإضاءة الطبيعية والإنترنت السريع مميزان. فريق المنسقين تعاون رائع.',
-      date: daysAgo(2),
-      created_at: daysAgo(2),
-    },
-    {
-      review_id: 'rev-2',
-      space_id: 'os-1',
-      space_name: 'قاعة العروض الكبرى',
-      space_image: '',
-      customer_name: 'أحمد خالد',
-      customer_avatar: '',
-      rating: 4,
-      title: '',
-      comment:
-        'قاعة واسعة ومريحة، نقص القليل من التكييف في الصيف لكن الباقي ممتاز. سنعود بلا شك.',
-      date: daysAgo(5),
-      created_at: daysAgo(5),
-    },
-    {
-      review_id: 'rev-3',
-      space_id: 'os-2',
-      space_name: 'غرفة الاجتماعات الذكية',
-      space_image: '',
-      customer_name: 'محمود عوض',
-      customer_avatar: '',
-      rating: 5,
-      title: 'مثالية للاجتماعات',
-      comment:
-        'الشاشة الكبيرة والكاميرا Zoom عملت بدون أي مشاكل، والموظف الذي رافقنا كان متعاوناً جداً. ننصح بهذه الغرفة.',
-      date: daysAgo(4),
-      created_at: daysAgo(4),
-    },
-    {
-      review_id: 'rev-4',
-      space_id: 'os-3',
-      space_name: 'استوديو المبدعين',
-      space_image: '',
-      customer_name: 'نور الحاج',
-      customer_avatar: '',
-      rating: 3,
-      title: '',
-      comment:
-        'الاستوديو أنيق لكن الأسعار مرتفعة شوية مقارنة بالمنافسين. مملكن تكون خيار جيد للمنتجات النوعية.',
-      date: daysAgo(8),
-      created_at: daysAgo(8),
-    },
-    {
-      review_id: 'rev-5',
-      space_id: 'os-2',
-      space_name: 'غرفة الاجتماعات الذكية',
-      space_image: '',
-      customer_name: 'ليان قاسم',
-      customer_avatar: '',
-      rating: 5,
-      title: 'تجربة مميزة',
-      comment: 'كل شيء كان تمام، من التوصيل للبرمجيات. شكراً لكم.',
-      date: daysAgo(12),
-      created_at: daysAgo(12),
-    },
-  ];
-}
-
-// ----- واجهة التطبيق (API -> تجريبي) -----
-export async function loadReviewsWithFallback(spaceId, force = false) {
-  if (isOwnerDemo() && !force) {
-    const all = seedOwnerReviews().map(mapOwnerReview);
-    return { demo: true, reviews: spaceId ? all.filter((r) => String(r.spaceId) === String(spaceId)) : all };
-  }
-  try {
-    const reviews = await fetchOwnerReviews(spaceId);
-    setDemoFlag(false);
-    return { demo: false, reviews };
-  } catch {
-    setDemoFlag(true);
-    const all = seedOwnerReviews().map(mapOwnerReview);
-    return { demo: true, reviews: spaceId ? all.filter((r) => String(r.spaceId) === String(spaceId)) : all };
-  }
-}
-
-// يؤكّد أو يرفض حجزاً على مساحة المالك.
-// الواجهة منفَّذة في الباك إند (PATCH /api/owner/bookings/{id}/status، مؤكَّدة
-// 2026-10-05: تُرجع 401 بلا توكن و Allow: PATCH). كان فوق هذا السطر تعليق يقول
-// «غير مفعّلة بعد في الباك إند»، وهو سبب مباشر في استبعادها من المتابعة.
 export async function updateOwnerBookingStatus(bookingId, status) {
   const res = await request(`/api/owner/bookings/${bookingId}/status`, {
     method: 'PATCH',
@@ -792,7 +366,7 @@ export async function updateOwnerBookingStatus(bookingId, status) {
     timeoutMs: REQ_TIMEOUT_MS,
     body: { status },
   });
-  const body = res && typeof res === 'object' && res.data && typeof res === 'object' && !Array.isArray(res.data)
+  const body = res && typeof res === 'object' && res.data && typeof res.data === 'object' && !Array.isArray(res.data)
     ? res.data
     : res || {};
   return {
@@ -801,279 +375,88 @@ export async function updateOwnerBookingStatus(bookingId, status) {
   };
 }
 
-// ----- واجهات التطبيق (API → تجريبي) -----
-export async function loadMarketWithFallback(force = false) {
-  if (isOwnerDemo() && !force) {
-    return { demo: true, requests: seedMarketRequests().map(mapRequest) };
-  }
+// ----- واجهات التطبيق (loaders: لا ترمي، تعيد {error,...})
+export async function loadMarketWithFallback() {
   try {
     const requests = await fetchMarketRequests();
-    setDemoFlag(false);
-    return { demo: false, requests };
-  } catch {
-    setDemoFlag(true);
-    return { demo: true, requests: seedMarketRequests().map(mapRequest) };
+    return { error: null, requests };
+  } catch (err) {
+    const message = err?.message || 'تعذّر تحميل السوق المفتوح';
+    return { error: message, requests: [] };
   }
 }
 
 export async function submitProposalWithFallback(requestId, payload) {
-  const mapSubmitted = (store) => {
-    const reqId = String(requestId);
-    const existing = store.offers.find((o) => String(o.request_id) === reqId && o.status === 'pending');
-    if (existing) return { message: 'سبق أن قدّمت عرضاً لهذا الطلب.', offer: existing, duplicate: true };
-
-    const offer = {
-      id: `oo-${Date.now()}`,
-      request_id: requestId,
-      request_title: payload.request_title || '',
-      status: 'pending',
-      price_per_hour: Number(payload.price_per_hour || 0),
-      currency: payload.currency || 'ش.ج',
-      duration_hours: Number(payload.duration_hours || 0),
-      created_at: new Date().toISOString().slice(0, 16).replace('T', ' '),
-    };
-    store.offers.unshift(offer);
-    writeDemoStore(store);
-    return { message: 'تم إرسال عرضك، وسيصل صاحب الطلب للاختيار.', offer, duplicate: false };
-  };
-
-  if (isOwnerDemo()) {
-    return { demo: true, ...mapSubmitted(demoStore()) };
-  }
-  try {
-    const result = await submitOwnerProposal(requestId, payload);
-    setDemoFlag(false);
-    return { demo: false, message: result.message, offer: result.offer, duplicate: false };
-  } catch {
-    setDemoFlag(true);
-    return { demo: true, ...mapSubmitted(demoStore()) };
-  }
+  const result = await submitOwnerProposal(requestId, payload);
+  return { message: result.message, offer: result.offer, duplicate: false };
 }
 
-export async function loadOwnerOffersWithFallback(force = false) {
-  if (isOwnerDemo() && !force) {
-    return { demo: true, offers: demoStore().offers.map(mapMyOffer) };
-  }
+export async function loadOwnerOffersWithFallback() {
   try {
     const offers = await fetchOwnerOffers();
-    setDemoFlag(false);
-    return { demo: false, offers };
-  } catch {
-    setDemoFlag(true);
-    return { demo: true, offers: demoStore().offers.map(mapMyOffer) };
+    return { error: null, offers };
+  } catch (err) {
+    const message = err?.message || 'تعذّر تحميل العروض';
+    return { error: message, offers: [] };
   }
 }
 
-export async function loadSpacesWithFallback(force = false) {
-  if (isOwnerDemo() && !force) {
-    return { demo: true, spaces: demoStore().spaces.map(mapSpace) };
-  }
+export async function loadSpacesWithFallback() {
   try {
     const spaces = await fetchOwnerSpaces();
-    setDemoFlag(false);
-    return { demo: false, spaces };
-  } catch {
-    setDemoFlag(true);
-    return { demo: true, spaces: demoStore().spaces.map(mapSpace) };
+    return { error: null, spaces };
+  } catch (err) {
+    const message = err?.message || 'تعذّر تحميل مساحات المالك';
+    return { error: message, spaces: [] };
   }
 }
 
 export async function createSpaceWithFallback(payload) {
-  invalidateDashboardMemo();
-  const applyLocal = () => {
-    const store = demoStore();
-    const space = {
-      id: `os-${Date.now()}`,
-      title: payload.title || 'مساحة جديدة',
-      description: payload.description || '',
-      location: payload.location || '',
-      lat: coordOf(payload.lat ?? payload.latitude ?? payload.lat_f ?? payload.latitude_f),
-      lng: coordOf(payload.lng ?? payload.longitude ?? payload.lng_f ?? payload.longitude_f ?? payload.lon ?? payload.long),
-      image: payload.image || '',
-      gallery: Array.isArray(payload.gallery) ? payload.gallery : (payload.image ? [payload.image] : []),
-      price_per_hour: Number(payload.price_per_hour || 0),
-      capacity: Number(payload.capacity || 0),
-      open_time: normTime(payload.open_time),
-      close_time: normTime(payload.close_time),
-      contact_phone: normPhone(payload.contact_phone),
-      amenities: payload.amenities || [],
-      internet: payload.internet || false,
-      power: payload.power || false,
-      is_active: false,
-      status: 'pending',
-      docs: normalizeSpaceDocs(payload.docs),
-      rating: 0,
-    };
-    store.spaces.unshift(space);
-    const saved = writeDemoStore(store);
-    return { space: mapSpace(space), saved };
-  };
-
-  if (isOwnerDemo()) {
-    const { space, saved } = applyLocal();
-    return {
-      demo: true,
-      message: saved ? 'أُرسلت المساحة ووثائقها للإدارة للمراجعة (وضع تجريبي).' : 'التخزين المحلي ممتلئ — المساحة لن تُحفظ بعد إعادة التحميل. قلّل عدد صور المساحة أو حجمها.',
-      space,
-    };
-  }
-  try {
-    const result = await createOwnerSpace(payload);
-    setDemoFlag(false);
-    return { demo: false, ...result };
-  } catch {
-    setDemoFlag(true);
-    const { space, saved } = applyLocal();
-    return {
-      demo: true,
-      message: saved ? 'تعذّر الوصول للخادم — أُرسلت المساحة ووثائقها محلياً للمراجعة.' : 'تعذّر الوصول للخادم والتخزين المحلي ممتلئ — قلّل صور المساحة وأعد المحاولة.',
-      space,
-    };
-  }
+  const result = await createOwnerSpace(payload);
+  return { message: result.message, space: result.space };
 }
 
-export async function toggleSpaceActiveWithFallback(spaceId, isActive, space) {
-  invalidateDashboardMemo();
-  const applyLocal = () => {
-    const store = demoStore();
-    const hit = store.spaces.find((s) => String(s.id) === String(spaceId));
-    if (hit) hit.is_active = isActive;
-    writeDemoStore(store);
-    return mapSpace(space ? { ...space, is_active: isActive } : { id: spaceId, is_active: isActive });
-  };
-
-  if (isOwnerDemo()) {
-    return { demo: true, message: 'تم تحديث حالة المساحة.', space: applyLocal() };
-  }
-  try {
-    const result = await toggleOwnerSpaceActive(spaceId, isActive);
-    setDemoFlag(false);
-    return { demo: false, ...result };
-  } catch {
-    setDemoFlag(true);
-    return { demo: true, message: 'تم تحديث حالة المساحة (وضع تجريبي).', space: applyLocal() };
-  }
+export async function toggleSpaceActiveWithFallback(spaceId, isActive) {
+  const result = await toggleOwnerSpaceActive(spaceId, isActive);
+  return { message: result.message, space: result.space };
 }
 
 export async function updateSpaceWithFallback(spaceId, payload) {
-  invalidateDashboardMemo();
-  const applyLocal = () => {
-    const store = demoStore();
-    const idx = store.spaces.findIndex((s) => String(s.id) === String(spaceId));
-    if (idx === -1) throw new Error('المساحة غير موجودة');
-    const prev = store.spaces[idx];
-    const merged = { ...prev };
-    if (typeof payload.title === 'string' && payload.title.trim() !== '') merged.title = payload.title.trim();
-    if (typeof payload.description === 'string') merged.description = payload.description;
-    if (typeof payload.location === 'string' && payload.location.trim() !== '') merged.location = payload.location.trim();
-    if (payload.price_per_hour !== undefined && payload.price_per_hour !== '') merged.price_per_hour = Number(payload.price_per_hour);
-    if (payload.capacity !== undefined && payload.capacity !== '') merged.capacity = Number(payload.capacity);
-    if (payload.open_time !== undefined) merged.open_time = normTime(payload.open_time);
-    if (payload.close_time !== undefined) merged.close_time = normTime(payload.close_time);
-    if (payload.contact_phone !== undefined) merged.contact_phone = normPhone(payload.contact_phone);
-    if (Array.isArray(payload.amenities)) merged.amenities = payload.amenities;
-    if (payload.internet !== undefined) merged.internet = payload.internet;
-    if (payload.power !== undefined) merged.power = payload.power;
-    if (payload.image !== undefined) merged.image = payload.image;
-    if (Array.isArray(payload.gallery)) merged.gallery = payload.gallery;
-    if (payload.lat !== undefined || payload.latitude !== undefined) merged.lat = coordOf(payload.lat ?? payload.latitude ?? payload.lat_f ?? payload.latitude_f);
-    if (payload.lng !== undefined || payload.longitude !== undefined || payload.lon !== undefined) merged.lng = coordOf(payload.lng ?? payload.longitude ?? payload.lng_f ?? payload.longitude_f ?? payload.lon ?? payload.long);
-    if (payload.docs !== undefined) merged.docs = Array.isArray(payload.docs) ? payload.docs : [];
-    store.spaces[idx] = merged;
-    const saved = writeDemoStore(store);
-    return { space: mapSpace(merged), saved };
-  };
-
-  if (isOwnerDemo()) {
-    const { space, saved } = applyLocal();
-    return {
-      demo: true,
-      message: saved ? 'تم تحديث المساحة.' : 'التخزين المحلي ممتلئ — التعديل سيختفي بعد إعادة التحميل. قلّل صور المساحة.',
-      space,
-    };
-  }
-  try {
-    const result = await updateOwnerSpace(spaceId, payload);
-    setDemoFlag(false);
-    return { demo: false, ...result };
-  } catch {
-    setDemoFlag(true);
-    const { space, saved } = applyLocal();
-    return {
-      demo: true,
-      message: saved ? 'تعذّر الوصول للخادم — حُدّثت المساحة محلياً.' : 'تعذّر الوصول للخادم والتخزين المحلي ممتلئ — قلّل صور المساحة.',
-      space,
-    };
-  }
+  const result = await updateOwnerSpace(spaceId, payload);
+  return { message: result.message, space: result.space };
 }
 
 export async function deleteSpaceWithFallback(spaceId) {
-  invalidateDashboardMemo();
-  const applyLocal = () => {
-    const store = demoStore();
-    const before = store.spaces.length;
-    store.spaces = store.spaces.filter((s) => String(s.id) !== String(spaceId));
-    writeDemoStore(store);
-    return store.spaces.length !== before;
-  };
-
-  if (isOwnerDemo()) {
-    return { demo: true, message: 'تم حذف المساحة.', deleted: applyLocal() };
-  }
-  try {
-    const result = await deleteOwnerSpace(spaceId);
-    setDemoFlag(false);
-    return { demo: false, message: result.message, deleted: true };
-  } catch {
-    setDemoFlag(true);
-    applyLocal();
-    return { demo: true, message: 'تعذّر الوصول للخادم — حُذفت المساحة محلياً.', deleted: true };
-  }
+  const result = await deleteOwnerSpace(spaceId);
+  return { message: result.message, deleted: true };
 }
 
-export async function loadOwnerBookingsWithFallback(force = false) {
-  if (isOwnerDemo() && !force) {
-    return { demo: true, bookings: [] };
-  }
+export async function loadOwnerBookingsWithFallback() {
   try {
     const bookings = await fetchOwnerBookings();
-    setDemoFlag(false);
-    return { demo: false, bookings };
-  } catch {
-    setDemoFlag(true);
-    return { demo: true, bookings: [] };
+    return { error: null, bookings };
+  } catch (err) {
+    const message = err?.message || 'تعذّر تحميل الحجوزات';
+    return { error: message, bookings: [] };
   }
 }
 
 export async function setBookingStatusWithFallback(bookingId, status) {
-  invalidateDashboardMemo();
-  if (isOwnerDemo()) {
-    const store = demoStore();
-    store.bookingOverrides = store.bookingOverrides || {};
-    store.bookingOverrides[String(bookingId)] = status;
-    writeDemoStore(store);
-    const seed = seedOwnerBookings().find((b) => String(b.booking_id) === String(bookingId));
-    return {
-      demo: true,
-      message: status === 'confirmed' ? 'تم تأكيد الحجز (وضع تجريبي).' : 'تم رفض طلب الحجز (وضع تجريبي).',
-      booking: seed ? mapOwnerBooking({ ...seed, status }) : null,
-    };
-  }
+  const result = await updateOwnerBookingStatus(bookingId, status);
+  return { message: result.message };
+}
+
+export async function loadReviewsWithFallback(spaceId) {
   try {
-    const result = await updateOwnerBookingStatus(bookingId, status);
-    setDemoFlag(false);
-    return { demo: false, message: result.message };
-  } catch {
-    setDemoFlag(true);
-    const store = demoStore();
-    store.bookingOverrides = store.bookingOverrides || {};
-    store.bookingOverrides[String(bookingId)] = status;
-    writeDemoStore(store);
-    return { demo: true, message: 'تعذّر الوصول للخادم — حُدِّث الحجز محلياً للتجربة.' };
+    const reviews = await fetchOwnerReviews(spaceId);
+    return { error: null, reviews };
+  } catch (err) {
+    const message = err?.message || 'تعذّر تحميل التقييمات';
+    return { error: message, reviews: [] };
   }
 }
 
-// ----- وثائق المالك: تُرفع مرة واحدة ثم تُراجعها الإدارة -----
+// ----- وثائق المالك -----
 const DOCS_KEY = 'masahati_owner_documents_v1';
 const LEGACY_DOCS_KEY = 'masahati.owner-docs';
 const LEGACY_SENT_KEY = 'masahati.owner-docs-sent';
@@ -1085,17 +468,14 @@ export const DOC_STATUS = {
   REJECTED: 'rejected',
 };
 
-// إضافة مساحة مشروطة باعتماد الإدارة للوثائق.
 export function canAddSpace(doc) {
   return doc?.status === DOC_STATUS.APPROVED;
 }
 
-// بعد الإرسال تُقفل الوثائق (رفع مرة واحدة) حتى قرار الإدارة؛ الرفض يعيد الفتح.
 export function isDocsLocked(doc) {
   return doc?.status === DOC_STATUS.PENDING || doc?.status === DOC_STATUS.APPROVED;
 }
 
-// يقرأ {name,size,type} فقط — البايتات لا تُخزَّن في المتصفح.
 function normalizeDocFiles(files) {
   const out = {};
   if (files && typeof files === 'object') {
@@ -1127,7 +507,6 @@ function normalizeDoc(raw) {
   };
 }
 
-// هجرة المفاتيح القديمة (نظام الرفع السابق: ملف + علم «أُرسل»).
 function readLegacyDocs() {
   try {
     const rawFiles = localStorage.getItem(LEGACY_DOCS_KEY);
@@ -1199,27 +578,14 @@ export async function submitOwnerDocuments(entries) {
   return normalizeDoc(res);
 }
 
-function docMetaFrom(entries) {
-  const out = {};
-  for (const [id, entry] of Object.entries(entries || {})) {
-    if (entry && entry.name) {
-      out[id] = { name: entry.name, size: Number(entry.size || 0), type: entry.type || 'file' };
-    }
-  }
-  return out;
-}
-
-// ملاحظة: واجهة الوثائق قد لا تزال لدى الباك إند، لذا لا نغيّر عَلَمة العرض
-// التجريبي عند فشلها (خلافاً لبقية الوحدات) حتى لا ينقلب لوحة حيّة كاملة لوضع
-// تجريبي بسبب مسار واحد غير جاهز — المصدر البديل هو التخزين المحلي.
-export async function loadOwnerDocumentsWithFallback(force = false) {
-  if (isOwnerDemo() && !force) return { demo: true, doc: readOwnerDocuments() };
+export async function loadOwnerDocumentsWithFallback() {
   try {
     const doc = await fetchOwnerDocuments();
     writeOwnerDocuments(doc);
-    return { demo: false, doc };
-  } catch {
-    return { demo: true, doc: readOwnerDocuments() };
+    return { error: null, doc };
+  } catch (err) {
+    const message = err?.message || 'تعذّر تحميل وثائق المالك';
+    return { error: message, doc: readOwnerDocuments() };
   }
 }
 
@@ -1227,7 +593,6 @@ export async function submitOwnerDocumentsWithFallback(entries) {
   const local = readOwnerDocuments();
   if (isDocsLocked(local)) {
     return {
-      demo: isOwnerDemo(),
       locked: true,
       doc: local,
       message: local.status === DOC_STATUS.APPROVED
@@ -1235,119 +600,81 @@ export async function submitOwnerDocumentsWithFallback(entries) {
         : 'وثائقك قيد المراجعة حالياً؛ لا يمكن تعديلها حتى قرار الإدارة.',
     };
   }
-
-  const optimistic = normalizeDoc({
-    status: DOC_STATUS.PENDING,
-    files: docMetaFrom(entries),
-    submittedAt: new Date().toISOString().slice(0, 19).replace('T', ' '),
-  });
-
-  if (isOwnerDemo()) {
-    writeOwnerDocuments(optimistic);
-    return {
-      demo: true,
-      locked: false,
-      doc: optimistic,
-      message: 'تم إرسال وثائقك للمراجعة (وضع تجريبي).',
-    };
-  }
-  try {
-    const doc = await submitOwnerDocuments(entries);
-    writeOwnerDocuments(doc);
-    return { demo: false, locked: false, doc, message: 'تم إرسال وثائقك للمراجعة.' };
-  } catch {
-    writeOwnerDocuments(optimistic);
-    return {
-      demo: true,
-      locked: false,
-      doc: optimistic,
-      message: 'تعذّر الوصول للخادم — أُرسلت وثائقك محلياً وسيتم مزامنتها عند توفر الواجهة.',
-    };
-  }
+  const doc = await submitOwnerDocuments(entries);
+  writeOwnerDocuments(doc);
+  return { locked: false, doc, message: 'تم إرسال وثائقك للمراجعة.' };
 }
 
 // ----- تحميل لوحة المالك كاملة (بالتوازي) مع الكاش -----
-// تجنّب التكرار عند فتح الصفحة: أي طلبين متوازيين (اللوحة + تبويب) يشاركان نفس الوعد.
 let dashboardInFlight = null;
 
-function invalidateDashboardMemo() {
-  dashboardInFlight = null;
-}
-
 async function loadOwnerDashboardImpl() {
-  const runDemo = () => {
-    const store = demoStore();
-    const market = seedMarketRequests().map(mapRequest);
+  const settled = await Promise.allSettled([
+    fetchOwnerSpaces(),
+    fetchOwnerOffers(),
+    fetchMarketRequests(),
+    fetchOwnerBookings(),
+    request('/api/profile', { method: 'GET', auth: true, timeoutMs: REQ_TIMEOUT_MS }),
+    fetchOwnerReviews(),
+  ]);
+
+  if (!settled.some((r) => r.status === 'fulfilled')) {
     return {
-      demo: true,
+      error: 'تعذّر تحميل بيانات لوحة المالك',
       user: getUser() || { name: '' },
-      stats: buildStats(store, market),
-      spaces: store.spaces.map(mapSpace),
-      offers: store.offers.map(mapMyOffer),
-      market,
-      bookings: applyBookingOverrides(seedOwnerBookings().map(mapOwnerBooking)),
-      reviews: seedOwnerReviews().map(mapOwnerReview),
+      stats: { spacesCount: 0, activeSpacesCount: 0, openMarket: 0, pendingOffers: 0, acceptedOffers: 0 },
+      spaces: [],
+      offers: [],
+      market: [],
+      bookings: [],
+      reviews: [],
     };
+  }
+
+  const pick = (i, fallback) =>
+    settled[i] && settled[i].status === 'fulfilled' ? settled[i].value : fallback;
+  const spacesApi = pick(0, []);
+  const offersApi = pick(1, []);
+  const marketApi = pick(2, []);
+  const bookingsApi = pick(3, []);
+  const profileApi = pick(4, null);
+  const reviewsApi = pick(5, []);
+
+  const localUser = getUser() || {};
+  const p = profileApi && typeof profileApi === 'object' ? profileApi : {};
+  const name = p.name || localUser.name || '';
+  const email = p.email || localUser.email || '';
+  const phone = p.phone || localUser.phone || '';
+  const photo = imageUrl(p.picture || p.photo || localUser.photo || localUser.picture) || '';
+
+  const spaces = spacesApi;
+  const offers = offersApi;
+  const market = marketApi.filter((r) => isRequestOpen(r));
+
+  const store = {
+    spaces: spaces.map((s) => ({ ...s, id: s.id })),
+    offers: offers.map((o) => ({ ...o, request_id: o.requestId, request_title: o.requestTitle, status: o.status })),
   };
 
-  if (isOwnerDemo()) return runDemo();
+  const openMarket = market.filter((r) => isRequestOpen(r)).length;
+  const stats = {
+    spacesCount: store.spaces.length,
+    activeSpacesCount: store.spaces.filter((s) => s.is_active !== false).length,
+    openMarket,
+    pendingOffers: store.offers.filter((o) => o.status === 'pending').length,
+    acceptedOffers: store.offers.filter((o) => o.status === 'accepted').length,
+  };
 
-  try {
-    // نعالج كل واجهة على حدة: فشل نقطة واحدة لا يُسقط بقية البيانات
-    // (كالتقييمات أو الحجوزات). فقط إذا فشلت جميع النقاط ننتقل للوضع التجريبي كاملاً.
-    const settled = await Promise.allSettled([
-      fetchOwnerSpaces(),
-      fetchOwnerOffers(),
-      fetchMarketRequests(),
-      fetchOwnerBookings(),
-      request('/api/profile', { method: 'GET', auth: true, timeoutMs: REQ_TIMEOUT_MS }),
-      fetchOwnerReviews(),
-    ]);
-
-    if (!settled.some((r) => r.status === 'fulfilled')) {
-      setDemoFlag(true);
-      return runDemo();
-    }
-
-    const pick = (i, fallback) =>
-      settled[i] && settled[i].status === 'fulfilled' ? settled[i].value : fallback;
-    const spacesApi = pick(0, []);
-    const offersApi = pick(1, []);
-    const marketApi = pick(2, []);
-    const bookingsApi = pick(3, []);
-    const profileApi = pick(4, null);
-    const reviewsApi = pick(5, []);
-
-    const localUser = getUser() || {};
-    const p = profileApi && typeof profileApi === 'object' ? profileApi : {};
-    const name = p.name || localUser.name || '';
-    const email = p.email || localUser.email || '';
-    const phone = p.phone || localUser.phone || '';
-    const photo = imageUrl(p.picture || p.photo || localUser.photo || localUser.picture) || '';
-
-    const spaces = spacesApi;
-    const offers = offersApi;
-    const market = marketApi.filter((r) => isRequestOpen(r));
-    const store = {
-      spaces: spaces.map((s) => ({ ...s, id: s.id })),
-      offers: offers.map((o) => ({ ...o, request_id: o.requestId, request_title: o.requestTitle, status: o.status })),
-    };
-
-    setDemoFlag(false);
-    return {
-      demo: false,
-      user: { name, email, phone, photo, role: 'owner' },
-      stats: buildStats(store, market),
-      spaces,
-      offers,
-      market,
-      bookings: bookingsApi,
-      reviews: reviewsApi,
-    };
-  } catch {
-    setDemoFlag(true);
-    return runDemo();
-  }
+  return {
+    error: null,
+    user: { name, email, phone, photo, role: 'owner' },
+    stats,
+    spaces,
+    offers,
+    market,
+    bookings: bookingsApi,
+    reviews: reviewsApi,
+  };
 }
 
 export async function loadOwnerDashboardWithFallback(force = false) {
