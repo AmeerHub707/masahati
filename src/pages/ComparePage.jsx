@@ -291,7 +291,7 @@ const writeIds = useCallback(
             <h1 className="cmp-title">قارن بين المساحات واختر الأنسب</h1>
             <p className="cmp-sub">
               اختر من {fmtNumber(MIN_PICK)} إلى {fmtNumber(MAX_PICK)} مساحات، ورتّبها بالترتيب الذي يناسبك
-              {error && <em className="cmp-badge-demo">{error}</em>}
+              {error && <em className="cmp-badge-error">{error}</em>}
             </p>
           </div>
         </div>
