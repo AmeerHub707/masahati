@@ -99,13 +99,13 @@ function SpaceCover({ src, alt }) {
  *  أصفر: بانتظار التفعيل، أخضر: مفعّلة، أحمر: موقوفة، رمادي: حالة غير معروفة.
  *  تنسيق موحّد: px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap + حدّ فاتح. */
 const badgeTones = {
-  pending: 'border-amber-200 bg-amber-50 text-amber-700',
-  active: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-  suspended: 'border-red-200 bg-red-50 text-red-700',
+  pending: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300',
+  active: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300',
+  suspended: 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300',
 };
 
 function SpaceBadge({ status }) {
-  const tone = badgeTones[status] || 'border-slate-200 bg-slate-100 text-slate-600';
+  const tone = badgeTones[status] || 'border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-600/40 dark:bg-slate-500/10 dark:text-slate-300';
   return (
     <span
       className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium ${tone}`}

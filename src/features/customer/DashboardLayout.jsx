@@ -313,7 +313,7 @@ export default function DashboardLayout({
               {!collapsed && <span className="dash__nav-label">تصفح المساحات</span>}
             </Link>
 
-            <button type="button" onClick={() => { onStartTour(); close(); }} title={collapsed ? 'جولة تعريفية' : undefined}>
+            <button type="button" data-tour="customer-tour-replay" onClick={() => { onStartTour(); close(); }} title={collapsed ? 'جولة تعريفية' : undefined}>
               <HelpCircle />
               {!collapsed && <span className="dash__nav-label">جولة تعريفية</span>}
             </button>

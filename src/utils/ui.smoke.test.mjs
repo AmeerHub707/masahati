@@ -284,7 +284,7 @@ report('R14 Requests label renders with its full text', reqTabBtn?.textContent?.
 // كل التبويبات عناصر مباشرة في الشريط: لا صف خاص ولا قائمة فرعية ولا زر طيّ.
 const navGroup = appEl.querySelector('.dash__nav-group, .dash__nav-parentwrap, .dash__nav-sub, .dash__nav-toggle');
 report('R4 Requests is a plain tab, not an accordion', !navGroup, 'accordion markup still present');
-report('R5 Sidebar renders 6 top-level nav buttons', navButtons().length === 6, `count=${navButtons().length}`);
+report('R5 Sidebar renders 7 top-level nav buttons', navButtons().length === 7, `count=${navButtons().length}`);
 
 await clickByText('الطلبات الخاصة');
 await flush(); await flush();
