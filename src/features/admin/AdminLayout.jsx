@@ -88,151 +88,142 @@ export default function AdminLayout({ active, notifSub = null, unreadCount = 0, 
 
   const initials = (profile?.name || 'م').trim().slice(0, 2) || 'م';
 
-  // حاوية التمرير: تمتدّ بكامل عرض الشاشة (direction:ltr في CSS) فيقع شريط
-  // التمرير على الحافة اليمنى الحقيقية، لا على الحدّ الفاصل مع الشريط الجانبي.
+  // التمرير على مستوى الصفحة (مثل لوحة المستخدم) حتى يتحرّك الشريط الجانبي مع
+  // المحتوى بدل تثبيته — لا حاجة لحاوية تمرير داخلية بعد الآن.
   return (
-    <div className="dash flex h-screen overflow-y-auto">
-      <div className="dash__layout flex flex-1">
-        {/* الشريط الجانبي — على اليمين في RTL */}
+    <div className="dash">
+      <div className="dash__layout">
+        {/* الشريط الجانبي — على اليمين في RTL، بنفس بنية شريط لوحة المستخدم */}
         <aside
-          className={`dash__side h-screen sticky top-0 flex flex-col justify-between overflow-hidden border-l bg-white dark:bg-gray-800 dark:border-gray-700${open ? ' open' : ''}${collapsed ? ' collapsed' : ''} ${collapsed ? 'w-16' : 'w-64'}`}
+          className={`dash__side${open ? ' open' : ''}${collapsed ? ' collapsed' : ''} ${collapsed ? 'w-16' : 'w-64'}`}
         >
-          {/* المنطقة الوسطى: الشعار والملف والقائمة. لا تمرّر — كل شيء فيها
-              مضغوط ليناسب شاشة واحدة بلا تمرير داخلي. */}
-          <div className="dash__side-body min-h-0" dir="rtl">
-            <div className="dash__side-header">
-              {collapsed ? (
-                <div className="flex flex-col items-center gap-3">
-                  <button
-                    type="button"
-                    className="dash__collapse-btn relative inline-flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100 text-orange-600 transition hover:bg-orange-500 hover:text-white"
-                    onClick={() => setCollapsed((c) => !c)}
-                    onMouseEnter={showCollapseTip}
-                    onMouseLeave={hideCollapseTip}
-                    onFocus={showCollapseTip}
-                    onBlur={hideCollapseTip}
-                    aria-label="فتح الشريط الجانبي"
-                  >
-                    <ChevronLeft className="h-5 w-5" />
-                  </button>
-                  <img src="/Mlogo.jpeg" alt="مساحاتي" className="h-10 w-10 object-contain" draggable={false} />
-                </div>
-              ) : (
-                <div className="flex w-full items-center gap-1 px-1">
-                  <span className="flex items-center gap-2">
-                    <img src="/Logo.png" alt="مساحاتي" className="h-9 w-auto object-contain" />
-                  </span>
-                  <button
-                    type="button"
-                    className="dash__collapse-btn ms-auto inline-flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100 text-orange-600 transition hover:bg-orange-500 hover:text-white"
-                    onClick={() => setCollapsed((c) => !c)}
-                    aria-label="طيّ الشريط الجانبي"
-                  >
-                    <ChevronRight className="h-5 w-5" />
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="dash__profile" style={collapsed ? { justifyContent: 'center', padding: '.6rem .25rem' } : {}}>
-              {showPhoto ? (
-                <img
-                  className="dash__avatar"
-                  src={photoSrc}
-                  alt={profile?.name || 'صورة المشرف'}
-                  onError={() => setBrokenAvatar(photoSrc)}
-                />
-              ) : (
-                // بلا صورة (أو رابط ميّت) نعود إلى الحروف الأولى: صورة رمزية
-                // ناقصة أفضل من أيقونة مكسورة.
-                <div className="dash__avatar">{initials}</div>
-              )}
-              {!collapsed && (
-                <div>
-                  <h3>{profile?.name || 'مدير المنصة'}</h3>
-                  <p>مدير المنصة</p>
-                </div>
-              )}
-            </div>
-
-            <nav className="dash__nav" aria-label="قائمة لوحة المشرف" dir="rtl">
-              {ADMIN_TABS.map((tab) => {
-                const Icon = tab.icon;
-                if (tab.group) {
-                  const subActive = active === 'notifications' && notifSub;
-                  return (
-                    <div key={tab.id} className={`dash__nav-group${notifOpen ? ' is-open' : ''}`}>
-                      <button
-                        type="button"
-                        className={`dash__nav-group-btn${active === tab.id ? ' is-active' : ''}`}
-                        onClick={toggleGroup}
-                        aria-expanded={notifOpen}
-                        aria-current={active === tab.id ? 'page' : undefined}
-                        title={collapsed ? tab.label : undefined}
-                      >
-                        <Icon />
-                        {!collapsed && <span>{tab.label}</span>}
-                        {!collapsed && <ChevronDown className="dash__nav-chevron" />}
-                      </button>
-                      {!collapsed && notifOpen && (
-                        <div className="dash__nav-sub" role="group" aria-label={tab.label}>
-                          {ADMIN_NOTIF_TABS.map((sub) => {
-                            const SubIcon = sub.icon;
-                            const isSubActive = subActive === sub.id;
-                            return (
-                              <button
-                                key={sub.id}
-                                type="button"
-                                className={isSubActive ? 'is-active' : ''}
-                                onClick={() => goNotif(sub.path)}
-                                aria-current={isSubActive ? 'page' : undefined}
-                              >
-                                <SubIcon />
-                                <span>{sub.label}</span>
-                                {sub.id === 'inbox' && unreadCount > 0 && (
-                                  <span className="dash__nav-badge" title={`${unreadCount} غير مقروء`}>
-                                    {unreadCount}
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                }
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    className={active === tab.id ? 'is-active' : ''}
-                    onClick={() => navigateTo(tab.id)}
-                    aria-current={active === tab.id ? 'page' : undefined}
-                    title={collapsed ? tab.label : undefined}
-                  >
-                    <Icon />
-                    {!collapsed && <span>{tab.label}</span>}
-                  </button>
-                );
-              })}
-
-            </nav>
+          <div className="dash__side-header">
+            {collapsed ? (
+              <div className="flex flex-col items-center gap-3">
+                <button
+                  type="button"
+                  className="dash__collapse-btn relative inline-flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100 text-orange-600 transition hover:bg-orange-500 hover:text-white"
+                  onClick={() => setCollapsed((c) => !c)}
+                  onMouseEnter={showCollapseTip}
+                  onMouseLeave={hideCollapseTip}
+                  onFocus={showCollapseTip}
+                  onBlur={hideCollapseTip}
+                  aria-label="فتح الشريط الجانبي"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <img src="/Mlogo.jpeg" alt="مساحاتي" className="h-10 w-10 object-contain" draggable={false} />
+              </div>
+            ) : (
+              <div className="flex w-full items-center gap-1 px-1">
+                <span className="flex items-center gap-2">
+                  <img src="/Logo.png" alt="مساحاتي" className="h-9 w-auto object-contain" />
+                </span>
+                <button
+                  type="button"
+                  className="dash__collapse-btn ms-auto inline-flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100 text-orange-600 transition hover:bg-orange-500 hover:text-white"
+                  onClick={() => setCollapsed((c) => !c)}
+                  aria-label="طيّ الشريط الجانبي"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* التذييل: ثابت أسفل الشريط الجانبي (shrink-0)، فلا يزاحمه تمرير
-              القائمة ولا فتح القوائم الفرعية. nowrap يمنع انقسام «تسجيل الخروج». */}
-          <div className="dash__side-foot shrink-0 border-t border-gray-100/60 dark:border-[var(--border)]" dir="rtl">
+          <div className="dash__profile" style={collapsed ? { justifyContent: 'center', padding: '.6rem .25rem' } : {}}>
+            {showPhoto ? (
+              <img
+                className="dash__avatar"
+                src={photoSrc}
+                alt={profile?.name || 'صورة المشرف'}
+                onError={() => setBrokenAvatar(photoSrc)}
+              />
+            ) : (
+              // بلا صورة (أو رابط ميّت) نعود إلى الحروف الأولى: صورة رمزية
+              // ناقصة أفضل من أيقونة مكسورة.
+              <div className="dash__avatar">{initials}</div>
+            )}
+            {!collapsed && (
+              <div>
+                <h3>{profile?.name || 'مدير المنصة'}</h3>
+                <p>مدير المنصة</p>
+              </div>
+            )}
+          </div>
+
+          <nav className="dash__nav" aria-label="قائمة لوحة المشرف">
+            {ADMIN_TABS.map((tab) => {
+              const Icon = tab.icon;
+              if (tab.group) {
+                const subActive = active === 'notifications' && notifSub;
+                return (
+                  <div key={tab.id} className={`dash__nav-group${notifOpen ? ' is-open' : ''}`}>
+                    <button
+                      type="button"
+                      className={`dash__nav-group-btn${active === tab.id ? ' is-active' : ''}`}
+                      onClick={toggleGroup}
+                      aria-expanded={notifOpen}
+                      aria-current={active === tab.id ? 'page' : undefined}
+                      title={collapsed ? tab.label : undefined}
+                    >
+                      <Icon />
+                      {!collapsed && <span>{tab.label}</span>}
+                      {!collapsed && <ChevronDown className="dash__nav-chevron" />}
+                    </button>
+                    {!collapsed && notifOpen && (
+                      <div className="dash__nav-sub" role="group" aria-label={tab.label}>
+                        {ADMIN_NOTIF_TABS.map((sub) => {
+                          const SubIcon = sub.icon;
+                          const isSubActive = subActive === sub.id;
+                          return (
+                            <button
+                              key={sub.id}
+                              type="button"
+                              className={isSubActive ? 'is-active' : ''}
+                              onClick={() => goNotif(sub.path)}
+                              aria-current={isSubActive ? 'page' : undefined}
+                            >
+                              <SubIcon />
+                              <span>{sub.label}</span>
+                              {sub.id === 'inbox' && unreadCount > 0 && (
+                                <span className="dash__nav-badge" title={`${unreadCount} غير مقروء`}>
+                                  {unreadCount}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  className={active === tab.id ? 'is-active' : ''}
+                  onClick={() => navigateTo(tab.id)}
+                  aria-current={active === tab.id ? 'page' : undefined}
+                  title={collapsed ? tab.label : undefined}
+                >
+                  <Icon />
+                  {!collapsed && <span>{tab.label}</span>}
+                </button>
+              );
+            })}
+
             <button
               type="button"
-              className="dash__nav-logout whitespace-nowrap"
+              className="dash__nav-logout"
               onClick={collapsed ? () => setCollapsed(false) : onLogout}
               title={collapsed ? 'تسجيل الخروج' : undefined}
             >
               <LogOut />
-              {!collapsed && <span className="whitespace-nowrap">تسجيل الخروج</span>}
+              {!collapsed && <span>تسجيل الخروج</span>}
             </button>
-          </div>
+          </nav>
         </aside>
 
         {/* تلميح فتح الشريط الجانبي (عبر بوابة لتجاوز قصّ المحتوى) */}

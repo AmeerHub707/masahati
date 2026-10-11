@@ -605,6 +605,35 @@ export async function submitOwnerDocumentsWithFallback(entries) {
   return { locked: false, doc, message: 'تم إرسال وثائقك للمراجعة.' };
 }
 
+// ----- مستندات المساحة (تُرفع بعد إنشائها) -----
+// إضافة المساحة تُرسل البيانات بوصف المستند (الاسم، الحجم، النوع) في
+// `docs[]`، لكن الملف نفسه لا يصل المخدم بذلك الوصف وحده: لعرضه على
+// المشرف قبل القرار (تفعيل/رفض) يُرفع الملف الحقيقي عبر multipart هنا.
+// الحقل يطابق معرّف الدرج في نموذج المساحة (proof).
+export async function uploadSpaceDocument(spaceId, slotId, file) {
+  const fd = new FormData();
+  fd.append(slotId, file, file.name);
+  const res = await request(`/api/owner/spaces/${spaceId}/documents`, {
+    method: 'POST',
+    auth: true,
+    isForm: true,
+    timeoutMs: REQ_TIMEOUT_MS + 60000, // الرفع أبطأ من قراءة JSON — مهلة أوسع
+    body: fd,
+  });
+  const body = res && typeof res === 'object' && res.data && typeof res.data === 'object' && !Array.isArray(res.data)
+    ? res.data
+    : res || {};
+  return {
+    message: body.message || 'تم رفع المستند.',
+    documents: Array.isArray(body.documents) ? body.documents : [],
+  };
+}
+
+export async function uploadSpaceDocumentWithFallback(spaceId, slotId, file) {
+  const result = await uploadSpaceDocument(spaceId, slotId, file);
+  return { error: null, message: result.message, documents: result.documents };
+}
+
 // ----- تحميل لوحة المالك كاملة (بالتوازي) مع الكاش -----
 let dashboardInFlight = null;
 

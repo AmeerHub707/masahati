@@ -48,6 +48,7 @@ const statusMeta = {
   pending: { label: 'بانتظار التفعيل', tone: 'amber' },
   active: { label: 'مفعّلة', tone: 'green' },
   suspended: { label: 'موقوفة', tone: 'red' },
+  rejected: { label: 'مرفوضة', tone: 'red' },
 };
 
 // قيمة بديلة آمنة — بيانات الـ API قد تحتوي حالة غير معرّفة.
@@ -65,6 +66,7 @@ const tabs = [
   { id: 'pending', label: 'بانتظار التفعيل', dot: 'bg-amber-500' },
   { id: 'active', label: 'مفعّلة', dot: 'bg-emerald-500' },
   { id: 'suspended', label: 'موقوفة', dot: 'bg-red-500' },
+  { id: 'rejected', label: 'مرفوضة', dot: 'bg-red-500' },
 ];
 
 // مكان فارغ للحالة الأولى: لا صفوف ⇒ لا عدّادات، أما «لم يرد بعد» فحالة
@@ -102,6 +104,7 @@ const badgeTones = {
   pending: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300',
   active: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300',
   suspended: 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300',
+  rejected: 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300',
 };
 
 function SpaceBadge({ status }) {
@@ -204,7 +207,7 @@ export default function AdminSpaces() {
   );
 
   const counts = useMemo(() => {
-    const next = { all: spaces.length, pending: 0, active: 0, suspended: 0 };
+    const next = { all: spaces.length, pending: 0, active: 0, suspended: 0, rejected: 0 };
     spaces.forEach((s) => {
       if (next[s.status] !== undefined) next[s.status] += 1;
     });
@@ -243,7 +246,9 @@ export default function AdminSpaces() {
   const patch = (id, changes) =>
     patchRows((prev) => prev.map((s) => (s.id === id ? { ...s, ...changes } : s)));
   const approve = (id) => setStatus(id, 'active');
-  const reject = (id) => setStatus(id, 'suspended');
+  // الرفض حالة مستقلّة عن الإيقاف: مرفوضة = لم تُفعَّل أصلاً، موقوفة = كانت
+  // مفعّلة ثم أوقِفت. المالك يرى «مرفوضة» ويتيح ذلك إعادة الإرسال.
+  const reject = (id) => setStatus(id, 'rejected');
   const suspend = (id) => setStatus(id, 'suspended');
   const activate = (id) => setStatus(id, 'active');
 
@@ -724,12 +729,12 @@ export default function AdminSpaces() {
                     className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition-all duration-200 hover:bg-red-100"
                     onClick={() => {
                       reject(preview.id);
-                      announce('تم رفض المساحة وإيقافها.');
+                      announce('تم رفض المساحة.');
                     }}
                     data-space-suspend
                   >
-                    <Ban className="h-4 w-4" />
-                    رفض / إيقاف
+                    <XCircle className="h-4 w-4" />
+                    رفض المساحة
                   </button>
                 </div>
               </div>
@@ -861,6 +866,16 @@ function SpaceActions({ s, onApprove, onReject, onSuspend, onActivate, compact =
         >
           <PlayCircle />
           إعادة التفعيل
+        </button>
+      )}
+      {s.status === 'rejected' && (
+        <button
+          type="button"
+          onClick={() => onActivate(s.id)}
+          className={`${actionCls} is-sky ${softSky}`}
+        >
+          <PlayCircle />
+          إعادة الاعتماد
         </button>
       )}
     </div>

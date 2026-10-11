@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Building2, X, Loader2, MapPin, Users, Star, Wifi, Zap, Check,
-  Sparkles, Repeat, Plus, BadgeCheck, Ban, CircleDollarSign, Send,
+  Sparkles, Repeat, Plus, BadgeCheck, Ban, XCircle, CircleDollarSign, Send,
   CalendarCheck, TrendingUp, Pencil, Trash2, Search, Eye, Image, ImagePlus,
   ArrowRight, Clock3, FileText, Paperclip, ShieldCheck, LocateFixed, Phone,
 } from 'lucide-react';
@@ -16,6 +16,7 @@ import {
   toggleSpaceActiveWithFallback,
   updateSpaceWithFallback,
   deleteSpaceWithFallback,
+  uploadSpaceDocumentWithFallback,
 } from '@/lib/owner';
 import { AMENITY_LABELS } from '@/lib/requests';
 import { useDialogA11y } from '@/lib/dialogA11y';
@@ -35,6 +36,7 @@ const FILTERS = [
   { id: 'active', label: 'نشطة' },
   { id: 'pending', label: 'قيد المراجعة' },
   { id: 'inactive', label: 'موقوفة' },
+  { id: 'rejected', label: 'مرفوضة' },
 ];
 
 // أدراج وثائق إثبات المساحة التي تُرسل مع المساحة للإدارة للمراجعة.
@@ -276,11 +278,13 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
   const counts = useMemo(() => {
     const pending = spaces.filter((s) => effStatus(s) === 'pending').length;
     const active = spaces.filter((s) => effStatus(s) === 'active').length;
+    const rejected = spaces.filter((s) => effStatus(s) === 'rejected').length;
     return {
       all: spaces.length,
       active,
       pending,
-      inactive: Math.max(0, spaces.length - active - pending),
+      rejected,
+      inactive: Math.max(0, spaces.length - active - pending - rejected),
     };
   }, [spaces]);
 
@@ -436,7 +440,7 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
     }
     setForm((prev) => ({
       ...prev,
-      docs: { ...prev.docs, [slotId]: { name: file.name, size: file.size, type: file.type || 'file' } },
+      docs: { ...prev.docs, [slotId]: { file, name: file.name, size: file.size, type: file.type || 'file' } },
     }));
     setErrors((prev) => (prev.docs ? { ...prev, docs: undefined } : prev));
   };
@@ -508,18 +512,32 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
 
     setSaving(true);
     try {
+      // يُقرأ الملف قبل أي await حتى لا يفقد عند تصفير النموذج في resetModal.
+      const proofFile = form.docs?.proof?.file || null;
+      let savedId = null;
       if (modal?.mode === 'edit' && modal.space?.id) {
         const result = await updateSpaceWithFallback(modal.space.id, readPayload());
+        savedId = modal.space.id;
         const next = spaces.map((s) => (s.id === modal.space.id ? result.space : s));
         setSpaces(next);
         onSpacesChange?.(next);
         setToast({ msg: 'تم حفظ التعديلات بنجاح.', type: 'ok' });
       } else {
         const result = await createSpaceWithFallback(readPayload());
+        savedId = result.space?.id;
         const next = [result.space, ...spaces];
         setSpaces(next);
         onSpacesChange?.(next);
         setToast({ msg: 'تمت إضافة المساحة — أُرسلت للإدارة للمراجعة.', type: 'ok' });
+      }
+      // يُرفع الملف الحقيقي (multipart) بعد إنشاء/تحديث المساحة: الوصف وحده
+      // لا يصل إلى المخدم، فلا يستطيع المشرف فتح المستند قبل القرار.
+      if (savedId && proofFile) {
+        try {
+          await uploadSpaceDocumentWithFallback(savedId, 'proof', proofFile);
+        } catch {
+          setToast({ msg: 'تم الحفظ، لكن تعذّر رفع المستند للإدارة — عدّل المساحة وأعد رفع المستند.', type: 'err' });
+        }
       }
       resetModal();
     } catch {
@@ -597,6 +615,7 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
     const status = effStatus(s);
     const isActive = status === 'active';
     const isPending = status === 'pending';
+    const isRejected = status === 'rejected';
     const st = s.stats;
     const extraAmenities = (s.amenities || []).filter(
       (a) => a !== 'internet' && a !== 'electricity'
@@ -610,9 +629,9 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
           ) : (
             <div className="msp__card-media-fallback"><Building2 /></div>
           )}
-          <span className={`msp__card-status is-${isPending ? 'pending' : (isActive ? 'on' : 'off')}`}>
-            {isPending ? <Clock3 /> : (isActive ? <BadgeCheck /> : <Ban />)}
-            {isPending ? 'قيد المراجعة' : (isActive ? 'نشطة' : 'موقوفة')}
+          <span className={`msp__card-status is-${isPending ? 'pending' : (isActive ? 'on' : (isRejected ? 'rejected' : 'off'))}`}>
+            {isPending ? <Clock3 /> : (isActive ? <BadgeCheck /> : (isRejected ? <XCircle /> : <Ban />))}
+            {isPending ? 'قيد المراجعة' : (isActive ? 'نشطة' : (isRejected ? 'مرفوضة' : 'موقوفة'))}
           </span>
           {s.rating > 0 && (
             <span className="msp__card-rating"><Star /> {s.rating}</span>
@@ -628,6 +647,11 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
           {isPending && (
             <p className="msp__card-pending-note">
               <Clock3 /> بانتظار اعتماد الإدارة — لن تظهر في التصفح حتى ذلك الحين.
+            </p>
+          )}
+          {isRejected && (
+            <p className="msp__card-pending-note">
+              <XCircle /> رفضت الإدارة المساحة — راجع بياناتك ومستندك ثم أعد إرسالها للاعتماد.
             </p>
           )}
           <div className="msp__card-meta">

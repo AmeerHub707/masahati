@@ -794,6 +794,26 @@ report('5.31 rejected unlocks resubmit', owner.isDocsLocked(owner.readOwnerDocum
 owner.clearOwnerDocuments();
 report('5.32 clearOwnerDocuments empties', owner.readOwnerDocuments().status === 'none' && owner.readOwnerDocuments().files.assets === undefined);
 
+// رفع مستند المساحة: الملف الحقيقي يُرسل عبر multipart إلى مسار مستندات
+// المساحة (لا الوصف فقط)، ويعيد رابطاً يفتحه المشرف قبل القرار.
+resetStorage();
+api.setToken(TOKEN);
+api.setUser({ name: 'مالك', role: 'owner' });
+let docCap = null;
+globalThis.fetch = makeFetch({
+  'POST /api/owner/spaces/31/documents': () => ({
+    status: 201,
+    body: { data: { message: 'تم رفع المستند.', documents: [{ kind: 'proof', name: 'deed.pdf', url: '/storage/space_documents/31/proof.pdf' }] } },
+  }),
+}, (r) => { if (r.method === 'POST' && r.opts?.body instanceof FormData) docCap = r; });
+// Blob/FormData هنا مشتركان من undici (بيئة node)، لا من jsdom — فهما
+// النوعان اللذان يستخدمهما api.js نفسه عند new FormData() في المتصفح.
+const docFile = new Blob(['%PDF-1.4 test'], { type: 'application/pdf' });
+const docUpload = await owner.uploadSpaceDocumentWithFallback('31', 'proof', docFile);
+report('5.33 space doc posts to the space documents endpoint', docCap?.path === '/api/owner/spaces/31/documents' && docUpload.error === null);
+report('5.33b uploaded doc returns a url the admin can open', docUpload.documents?.[0]?.url === '/storage/space_documents/31/proof.pdf');
+report('5.33c proof file goes as multipart FormData', docCap?.opts?.body instanceof FormData);
+
 // ============================================================
 // القسم 6: passwordRules + انتهاء صلاحية الجلسة
 // ============================================================
