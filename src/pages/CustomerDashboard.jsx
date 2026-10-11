@@ -20,6 +20,7 @@ import DashboardTour from '@/components/dashboard/DashboardTour';
 import {
   hasCompletedDashboardTour,
   markDashboardTourCompleted,
+  resolveTourUserId,
 } from '@/lib/dashboardTour';
 import AdBanner from '@/features/customer/AdBanner';
 import { AlertCircle, Trash2, Repeat } from 'lucide-react';
@@ -243,8 +244,7 @@ export default function CustomerDashboard() {
   }, []);
 
   // ----- جولة تعريفية للوحة العميل -----
-  const tourUserId =
-    data?.user?.id ?? data?.user?.user_id ?? getUser()?.id ?? getUser()?.user_id ?? null;
+  const tourUserId = resolveTourUserId(data?.user, getUser());
 
   // مرآة للتبويب النشط + التبويب الذي كانت عليه اللوحة قبل بدء الجولة،
   // حتى يعود إليه المستخدم عند إنهائها أو تخطيها.

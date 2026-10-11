@@ -24,7 +24,7 @@ import LogoutOverlay from '@/components/ui/LogoutOverlay';
 import Footer from '@/components/layout/Footer';
 import OwnerAssistant from '@/features/owner/OwnerAssistant';
 import DashboardTour from '@/components/dashboard/DashboardTour';
-import { hasCompletedDashboardTour, markDashboardTourCompleted } from '@/lib/dashboardTour';
+import { hasCompletedDashboardTour, markDashboardTourCompleted, resolveTourUserId } from '@/lib/dashboardTour';
 import { AlertCircle, Trash2, Repeat } from 'lucide-react';
 import { useDialogA11y } from '@/lib/dialogA11y';
 
@@ -264,8 +264,7 @@ export default function SpaceOwnerDashboard() {
   }, []);
 
   // ----- جولة تعريفية للوحة المالك -----
-  const tourOwnerId =
-    data?.user?.id ?? data?.user?.user_id ?? getUser()?.id ?? getUser()?.user_id ?? null;
+  const tourOwnerId = resolveTourUserId(data?.user, getUser());
 
   // مرآة للتبويب النشط + التبويب الذي كانت عليه اللوحة قبل بدء الجولة،
   // حتى يعود إليه المستخدم عند إنهائها أو تخطيها.

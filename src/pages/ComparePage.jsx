@@ -267,7 +267,7 @@ const writeIds = useCallback(
             <ThemeToggle />
 
             <BackButton
-              to={getHomePath(getCurrentRole())}
+              fallback={getHomePath(getCurrentRole())}
               ariaLabel={isVisitor() ? 'العودة إلى الصفحة الرئيسية' : 'العودة إلى لوحة التحكم'}
             />
           </div>

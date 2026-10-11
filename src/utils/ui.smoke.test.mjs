@@ -129,8 +129,8 @@ async function waitForLoaderGone(timeout = 6000) {
 const appEl = dom.window.document.createElement('div');
 dom.window.document.body.appendChild(appEl);
 
-// لا توجد هوية رقمية في الاختبار، لذلك مفتاح جولة العميل ينتهي بـ «guest».
-const CUSTOMER_TOUR_KEY = 'masahati.customer-tour.v1.completed:guest';
+// لا معرّف رقمي في الاختبار، فالهوية المستقرة المتاحة هي البريد من /api/profile.
+const CUSTOMER_TOUR_KEY = 'masahati.customer-tour.v1.completed:k@k.com';
 dom.window.localStorage.removeItem(CUSTOMER_TOUR_KEY);
 
 const doc = dom.window.document;
@@ -352,8 +352,8 @@ const SpaceOwnerDashboard = (await server.ssrLoadModule('/src/pages/SpaceOwnerDa
 // الدور الآن مالك — حتى تمر بوابة الحماية في SpaceOwnerDashboard
 api.setUser({ name: 'كرم', role: 'space_owner' });
 
-// لا توجد هوية رقمية في الاختبار، لذلك مفتاح الجولة ينتهي بـ «guest».
-const TOUR_KEY = 'masahati.owner-tour.v1.completed:guest';
+// لا معرّف رقمي في الاختبار، فالهوية المستقرة المتاحة هي البريد من /api/profile.
+const TOUR_KEY = 'masahati.owner-tour.v1.completed:k@k.com';
 dom.window.localStorage.removeItem(TOUR_KEY);
 
 const ownerEl = dom.window.document.createElement('div');

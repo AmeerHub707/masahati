@@ -1214,7 +1214,7 @@ function SpacesHead({ spaces, total, loading }) {
       <div className="wrap wrap--wide sh__inner">
         <div className="sh__copy">
           <BackButton
-            to={getHomePath(getCurrentRole())}
+            fallback={getHomePath(getCurrentRole())}
             ariaLabel={isVisitor() ? 'العودة إلى الصفحة الرئيسية' : 'العودة إلى لوحة التحكم'}
           />
           <span className="sh__live">
