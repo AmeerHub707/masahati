@@ -746,7 +746,7 @@ img{max-width:100%;}
   .nav__inner{height:3.6rem;padding-top:env(safe-area-inset-top);gap:.5rem;}
   .nav .brand{display:none;}               /* ط¥ط®ظپط§ط، ط§ظ„ط´ط¹ط§ط± ط¹ظ„ظ‰ ط§ظ„ط¬ظˆط§ظ„ ط­طھظ‰ ظ„ط§ ظٹطھط¹ط§ط±ط¶ ظ…ط¹ ط²ط± ط§ظ„ظ‚ط§ط¦ظ…ط© */
   /* ظ…ط¬ظ…ظˆط¹ط© ط§ظ„ط£ط²ط±ط§ط± طھط°ظ‡ط¨ ظ„ظ„ظٹظ…ظٹظ† (RTL) ظ„طھظƒظˆظ† ظ…ظ†ظپطµظ„ط© ط¹ظ† ط²ط± ط§ظ„ظ‚ط§ط¦ظ…ط© */
-  .nav__cta{display:flex;align-items:center;gap:.4rem;flex-shrink:0;margin-left:auto;}
+  .nav__cta{display:none;}                 /* الجوال: لا أزرار في الشريط — تظهر داخل قائمة الهامبرغر فقط */
   .nav__cta .cta-btn--ghost,.nav__cta .cta-btn--primary{padding:.5rem .8rem;font-size:.8rem;min-height:42px;}
   .nav__burger{width:44px;height:44px;flex-shrink:0;}
   /* ط¹ظ„ظ‰ ط§ظ„ط¬ظˆط§ظ„: ط²ط± ط§ظ„ظ‚ط§ط¦ظ…ط© ظ…ظ†ظپطµظ„ ظˆط­ط¯ظ‡ ظپظٹ ط§ظ„ط²ط§ظˆظٹط© ط§ظ„ط¹ظ„ظˆظٹط© ط§ظ„ظٹط³ط±ظ‰ */
@@ -779,11 +779,9 @@ img{max-width:100%;}
   .bg-orange-500{bottom:calc(1.2rem + env(safe-area-inset-bottom)) !important;}
 }
 @media (max-width:480px){
-  /* ط¥ط®ظپط§ط، ط§ظ„ط´ط¹ط§ط± ط¹ظ„ظ‰ ط§ظ„ط¬ظˆط§ظ„ط§طھ ط§ظ„ط¶ظٹظ‚ط© (<478px) ظˆط¥ط¸ظ‡ط§ط± ط§ظ„ط£ط²ط±ط§ط± ظپظ‚ط· */
+  /* الجوالات الضيقة (<478px): إخفاء الشعار — يبقى زر القائمة (الهامبرغر) فقط */
   .nav .brand{display:none;}
   .nav__inner{justify-content:space-between;gap:.6rem;}
-  .nav__cta{gap:.5rem;}
-  .nav__cta .cta-btn--ghost,.nav__cta .cta-btn--primary{font-size:.85rem;padding:.6rem .9rem;min-height:46px;}
 }
 @media (max-width:380px){
   .stats{grid-template-columns:1fr 1fr;}
