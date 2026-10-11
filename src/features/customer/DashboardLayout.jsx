@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, Fragment } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { Home, CalendarCheck, Heart, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Megaphone, ChevronLeft, ChevronRight, Lock, Sparkles, HelpCircle, Scale } from 'lucide-react';
-import MagneticButton from '@/components/ui/MagneticButton';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import { getCachedPictureUrl } from '@/lib/profilePicture';
 import { loadNotificationsWithFallback, markAllNotificationsReadWithFallback } from '@/lib/notifications';
@@ -211,12 +210,6 @@ export default function DashboardLayout({
     navigateTo(id);
   };
 
-  const today = new Date().toLocaleDateString('ar-EG', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-
   return (
     <div className="dash">
       <div className="dash__layout">
@@ -315,6 +308,16 @@ export default function DashboardLayout({
               );
             })}
 
+            <Link to="/spaces" className="dash__nav-link" onClick={close} title={collapsed ? 'تصفح المساحات' : undefined}>
+              <MapPin />
+              {!collapsed && <span className="dash__nav-label">تصفح المساحات</span>}
+            </Link>
+
+            <button type="button" onClick={() => { onStartTour(); close(); }} title={collapsed ? 'جولة تعريفية' : undefined}>
+              <HelpCircle />
+              {!collapsed && <span className="dash__nav-label">جولة تعريفية</span>}
+            </button>
+
             <button type="button" className="dash__nav-logout" onClick={collapsed ? () => setCollapsed(false) : onLogout} title={collapsed ? 'سجّل الخروج' : undefined}>
               <LogOut />
               {!collapsed && <span>سجّل الخروج</span>}
@@ -353,21 +356,7 @@ export default function DashboardLayout({
               {open ? <X /> : <Menu />}
             </button>
 
-            <div className="dash__title">
-              <h1>{displayTabs.find((t) => t.id === active)?.label || 'لوحة التحكم'}</h1>
-              <p>{today}</p>
-            </div>
-
-            <button
-              type="button"
-              className="dash__tour-btn"
-              onClick={onStartTour}
-              aria-label="عرض جولة تعريفية للوحة التحكم"
-              title="جولة تعريفية"
-              data-tour="customer-tour-replay"
-            >
-              <HelpCircle />
-            </button>
+            <span className="dash__top-spacer" aria-hidden="true" />
 
             <ThemeToggle />
 
@@ -441,13 +430,6 @@ export default function DashboardLayout({
                 document.body
               )}
             </div>
-
-            <MagneticButton>
-              <Link className="dash__logout-top" to="/spaces">
-                <MapPin />
-                <span>تصفح المساحات</span>
-              </Link>
-            </MagneticButton>
           </header>
 
           <main className="dash__content">

@@ -1192,6 +1192,7 @@ img{max-width:100%;}
   border-radius:.75rem;align-items:center;justify-content:center;cursor:pointer;flex:none;}
 .dash__burger svg{width:1.3rem;height:1.3rem;}
 .dash__title{flex:1;min-width:0;}
+.dash__top-spacer{flex:1;min-width:0;}
 .dash__title h1{margin:0;font-size:1.25rem;font-weight:800;letter-spacing:-.02em;}
 .dash__title p{margin:.1rem 0 0;font-size:.8rem;color:var(--text-muted);}
 .dash__content{flex:1;padding:1.8rem 1.6rem 3rem;min-width:0;}
