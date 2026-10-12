@@ -28,7 +28,9 @@ export default function LoginPage() {
 
   // --- Google Auth ---
   const googleBtnRef = useRef(null);
-  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  const googleClientId =
+    import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+    '891951276795-5m59843s6s5d7k7qar2afc4k9hukgrba.apps.googleusercontent.com';
 
   // عند فتح اختيار الدور (بريد Google غير مسجّل بعد)
   const [roleModalOpen, setRoleModalOpen] = useState(false);

@@ -26,7 +26,7 @@
 import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 
 const BASE_URL = (
-  process.env.MASAHATI_API_BASE || 'https://back-end-kwba.onrender.com'
+  process.env.MASAHATI_API_BASE || 'https://masahati-backend.apps.taqat.academy'
 ).replace(/\/$/, '');
 
 const WARMUP_TIMEOUT_MS = 90_000;

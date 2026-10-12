@@ -44,7 +44,9 @@ export default function SignupPage() {
 
   // --- Google Auth ---
   const googleBtnRef = useRef(null);
-  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  const googleClientId =
+    import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+    '891951276795-5m59843s6s5d7k7qar2afc4k9hukgrba.apps.googleusercontent.com';
 
   const handleGoogleSuccess = async (credential) => {
     try {

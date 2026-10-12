@@ -1,11 +1,11 @@
-// عميل API مركزي للتواصل مع باك إند Laravel على Render.
+// عميل API مركزي للتواصل مع باك إند Laravel على Taqat.
 // المصادقة عبر Bearer token (Sanctum opaque token، ليس JWT).
 // ملاحظة: Laravel Sanctum + Bearer token لا يتطلب إرسال Origin في الطلب؛
 // ولذلك لا نضع أي ترويسة Origin هنا (متروكة للمتصفح تلقائياً).
 
 const BASE_URL = (
   import.meta.env.VITE_API_URL ||
-  'https://back-end-kwba.onrender.com'
+  'https://masahati-backend.apps.taqat.academy'
 ).replace(/\/$/, '');
 
 // يحوّل مسار صورة نسبي (/storage/...) إلى رابط كامل على نفس مخدم الباك إند،
@@ -22,7 +22,7 @@ export function imageUrl(path) {
 const TOKEN_KEY = '***';
 const USER_KEY = '***:user';
 
-// مدة المهلة الافتراضية لكل طلب (مدة كافية لـ Render في cold start).
+// مدة المهلة الافتراضية لكل طلب (مدة كافية للباك إند في cold start).
 const DEFAULT_TIMEOUT_MS = 25000;
 
 export function getToken() {

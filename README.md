@@ -31,7 +31,7 @@ npm run dev
 
 | المتغير | الوصف |
 |---|---|
-| `VITE_API_URL` | عنوان واجهة الباك إند (Laravel + Sanctum). الافتراضي: `https://back-end-kwba.onrender.com` |
+| `VITE_API_URL` | عنوان واجهة الباك إند (Laravel + Sanctum). الافتراضي: `https://masahati-backend.apps.taqat.academy` |
 | `VITE_GOOGLE_CLIENT_ID` | معرّف عميل Google OAuth لتسجيل الدخول بجوجل |
 
 ## التقنيات
@@ -67,7 +67,7 @@ src/
 
 ## البيانات (لا وضع تجريبي)
 
-الواجهة تتصل حصراً بالباك إند الحقيقي (Laravel على Render) عبر `src/lib/api.js`.
+الواجهة تتصل حصراً بالباك إند الحقيقي (Laravel على Taqat) عبر `src/lib/api.js`.
 لا توجد بيانات مُختلقة ولا «وضع تجريبي»: أي فشل في القراءة يُرجَع كخطأ
 `{ error, ... }` مع قيم فارغة تعرضها الشاشات، وأي إجراء كتابة يرمي الخطأ الحقيقي
 بدل ادّعاء النجاح. غيّر عنوان الباك إند عبر `VITE_API_URL`.
@@ -78,7 +78,7 @@ src/
 
 1. استورد مستودع GitHub في Vercel (framework: Vite، بناء: `npm run build`، مخرجات `dist`).
 2. أضف متغيرات البيئة في مشروع Vercel:
-   - `VITE_API_URL=https://back-end-kwba.onrender.com`
+   - `VITE_API_URL=https://masahati-backend.apps.taqat.academy`
    - `VITE_GOOGLE_CLIENT_ID=<معرّف عميل Google OAuth>`
 3. أضف نطاق النشر في قائمة CORS للباك إند (`config/cors.php` → `allowed_origins`)
    وفي «Authorized JavaScript origins» لمشروع Google OAuth نفسه.
