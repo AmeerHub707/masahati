@@ -3976,6 +3976,9 @@ html.dark .msp__doc-add:hover{background:#271d12;}
 .msp__pick.has-error .msp__map-container{border-color:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.12);}
 .msp__pick-label{display:flex;align-items:center;gap:.3rem;font-size:.78rem;font-weight:800;margin:0 0 .45rem;}
 .msp__pick-label b{color:#dc2626;}
+/* نجمة الحقول المطلوبة داخل نموذج إضافة/تعديل المساحة: أحمر بدل البرتقالي
+   المستخدم في بقية نماذج لوحة التحكم، حتى تتطابق مع نجمة الخريطة والوثائق. */
+.msp__form .odash__field label b{color:#dc2626;}
 .msp__pick-error{min-height:1.1em;font-size:.7rem;color:#dc2626;font-weight:700;margin:.45rem 0 0;}
 html.dark .msp__map-container{border-color:rgba(255,255,255,.14);}
 html.dark .msp__map-container .leaflet-tile{filter:brightness(.6) invert(1) contrast(1.15) hue-rotate(180deg) saturate(.65);}

@@ -5,7 +5,7 @@
 // (تبلغ عنه الواجهة عبر error)، بينما إجراءات الكتابة ترمي الخطأ الحقيقي.
 
 import { request } from './api';
-import { mapSpace } from './owner';
+import { mapSpace, toApiAmenities } from './owner';
 
 const SPACES_TIMEOUT_MS = 10000;
 const CATALOG_CACHE_KEY = 'masahati_spaces_catalog_v1';
@@ -25,7 +25,7 @@ export async function fetchSpaces(page = 1, filters = {}) {
   if (filters.category) params.set('category', filters.category);
   if (filters.min_price) params.set('min_price', String(filters.min_price));
   if (filters.max_price) params.set('max_price', String(filters.max_price));
-  if (filters.amenities?.length) params.set('amenities', filters.amenities.join(','));
+  if (filters.amenities?.length) params.set('amenities', toApiAmenities(filters.amenities).join(','));
   if (filters.area) params.set('area', filters.area);
   if (filters.min_rating) params.set('min_rating', String(filters.min_rating));
   if (filters.sort) params.set('sort', filters.sort);

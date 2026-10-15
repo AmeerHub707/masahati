@@ -6,6 +6,8 @@ import { getUser } from './authStore';
 import { mapRequest, mapOffer, listOf, isRequestOpen } from './requests';
 
 const REQ_TIMEOUT_MS = 8000;
+// الرفع (multipart) أبطأ من قراءة JSON — مهلة أوسع للملفات.
+const UPLOAD_TIMEOUT_MS = REQ_TIMEOUT_MS + 60000;
 
 // ----- كاش لوحة المالك (عرض فوري عند العودة) -----
 export function readOwnerCache() {
@@ -36,14 +38,36 @@ export function clearOwnerCache() {
 }
 
 // ----- مطبّعات (normalizers) -----
+// أسماء المرافق تختلف بين الواجهة والباك إند: الواجهة تستخدم electricity،
+// بينما كتالوج الباك إند (والمرشّح العام GET /api/spaces?amenities=wifi,ac)
+// يستخدم power. نحوّل في الطرفين حتى يجد العميل ما كتبه المالك.
+const AMENITY_TO_API = { electricity: 'power' };
+const AMENITY_FROM_API = { power: 'electricity', wifi: 'internet' };
+
+// مفاتيح الواجهة → مفاتيح الباك إند، بلا تكرار.
+export function toApiAmenities(list) {
+  const out = [];
+  for (const a of Array.isArray(list) ? list : []) {
+    const key = AMENITY_TO_API[a] || a;
+    if (key && !out.includes(key)) out.push(key);
+  }
+  return out;
+}
+
 function normalizeAmenities(b) {
   const raw = Array.isArray(b.amenities) ? b.amenities : [];
-  return raw
+  const keys = raw
     .map((a) => {
       if (typeof a === 'string') return a;
       return a.key ?? a.name ?? '';
     })
     .filter(Boolean);
+  const out = [];
+  for (const k of keys) {
+    const key = AMENITY_FROM_API[k] || k;
+    if (!out.includes(key)) out.push(key);
+  }
+  return out;
 }
 
 // حالة المساحة الموحّدة: active | inactive | pending (بانتظار مراجعة الإدارة) | rejected.
@@ -93,10 +117,17 @@ function normPhone(v) {
   return String(v ?? '').trim();
 }
 
+// الباك إند الحالي يحفظ نتيجة boolean من Cloudinary مكان مسار الصورة، فتعود
+// الصورة كـ "1" بدل رابط. نعتبرها "لا صورة" حتّى لا تُعرض صورة مكسورة.
+function safeImageUrl(v) {
+  if (v === true || v === false || v === 1 || v === 0 || v === '1' || v === '0') return '';
+  return imageUrl(v) || '';
+}
+
 export function mapSpace(s) {
-  const img = imageUrl(s.image) || '';
+  const img = safeImageUrl(s.image);
   const gallery = Array.isArray(s.gallery)
-    ? s.gallery.map((g) => imageUrl(g)).filter(Boolean)
+    ? s.gallery.map((g) => safeImageUrl(g)).filter(Boolean)
     : (img ? [img] : []);
   const status = spaceStatus(s);
   return {
@@ -236,31 +267,44 @@ export async function fetchOwnerSpaces() {
   return listOf(res, 'spaces').map(mapSpace);
 }
 
+// مرافق الطلب = الشرائح المختارة + مفاتيح الإنترنت/الكهرباء، موحّدة بأسماء
+// الباك إند وبلا تكرار. الباك إند يشترط مصفوفة مرافق غير فارغة.
+function unionApiAmenities(payload) {
+  const list = [
+    ...(Array.isArray(payload.amenities) ? payload.amenities : []),
+    ...(payload.internet ? ['internet'] : []),
+    ...(payload.power ? ['electricity'] : []),
+  ];
+  return toApiAmenities(list);
+}
+
+// إنشاء المساحة multipart (لا JSON): الباك إند يشترط ملف إثبات `docs` ضمن
+// الطلب نفسه، ويرفض أي طلب JSON. كل الحقول تُرسل كنصوص، والمرافق كمصفوفة JSON.
 export async function createOwnerSpace(payload) {
+  const proof = payload.proofFile || null;
+  const fd = new FormData();
+  fd.append('title', String(payload.title ?? ''));
+  fd.append('description', String(payload.description ?? ''));
+  fd.append('location', String(payload.location ?? ''));
+  fd.append('lat', String(coordOf(payload.lat) ?? ''));
+  fd.append('lng', String(coordOf(payload.lng) ?? ''));
+  fd.append('price_per_hour', String(payload.price_per_hour ?? ''));
+  fd.append('capacity', String(payload.capacity ?? ''));
+  fd.append('open_time', normTime(payload.open_time));
+  fd.append('close_time', normTime(payload.close_time));
+  fd.append('contact_phone', normPhone(payload.contact_phone));
+  fd.append('amenities', JSON.stringify(unionApiAmenities(payload)));
+  fd.append('internet', payload.internet ? 'true' : 'false');
+  fd.append('power', payload.power ? 'true' : 'false');
+  if (payload.image) fd.append('image', payload.image);
+  if (proof) fd.append('docs', proof, proof.name || 'proof');
+
   const res = await request('/api/owner/spaces', {
     method: 'POST',
     auth: true,
-    timeoutMs: REQ_TIMEOUT_MS,
-    body: {
-      title: payload.title,
-      description: payload.description,
-      location: payload.location,
-      lat: coordOf(payload.lat),
-      lng: coordOf(payload.lng),
-      price_per_hour: payload.price_per_hour,
-      capacity: payload.capacity,
-      open_time: normTime(payload.open_time),
-      close_time: normTime(payload.close_time),
-      contact_phone: normPhone(payload.contact_phone),
-      amenities: payload.amenities,
-      internet: payload.internet,
-      power: payload.power,
-      image: payload.image,
-      docs: Array.isArray(payload.docs)
-        ? payload.docs.map((d) => ({ id: d.id, name: d.name, size: Number(d.size || 0), type: d.type || 'file' }))
-        : [],
-      status: 'pending',
-    },
+    isForm: true,
+    timeoutMs: UPLOAD_TIMEOUT_MS,
+    body: fd,
   });
   const body = res && typeof res === 'object' && res.data && typeof res.data === 'object' && !Array.isArray(res.data)
     ? res.data
@@ -281,6 +325,9 @@ export async function toggleOwnerSpaceActive(spaceId, isActive) {
   return { message: body.message || 'تم تحديث حالة المساحة.', space: mapSpace(body.space ?? body) };
 }
 
+// تعديل المساحة: JSON كافٍ (لا ملف). حسب عقد الباك إند، حقول
+// open_time/close_time/contact_phone/status/is_active لا تُقبل هنا (تُتجاهل)،
+// والمرافق مزامنة كاملة: القائمة المرسلة تستبدل المجموعة.
 export async function updateOwnerSpace(spaceId, payload) {
   const res = await request(`/api/owner/spaces/${spaceId}`, {
     method: 'PUT',
@@ -294,16 +341,10 @@ export async function updateOwnerSpace(spaceId, payload) {
       lng: coordOf(payload.lng),
       price_per_hour: payload.price_per_hour,
       capacity: payload.capacity,
-      open_time: normTime(payload.open_time),
-      close_time: normTime(payload.close_time),
-      contact_phone: normPhone(payload.contact_phone),
-      amenities: payload.amenities,
+      amenities: unionApiAmenities(payload),
       internet: payload.internet,
       power: payload.power,
       image: payload.image,
-      docs: Array.isArray(payload.docs)
-        ? payload.docs.map((d) => ({ id: d.id, name: d.name, size: Number(d.size || 0), type: d.type || 'file' }))
-        : undefined,
     },
   });
   const body = res && typeof res === 'object' && res.data && typeof res.data === 'object' && !Array.isArray(res.data)

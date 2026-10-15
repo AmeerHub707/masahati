@@ -58,6 +58,36 @@ function effStatus(s) {
   return s.status || (s.is_active === false ? 'inactive' : 'active');
 }
 
+// يحوّل خريطة أخطاء الباك إند (422 errors) إلى أخطاء حقول في النموذج،
+// برسائل عربية موجزة بدل نصوص Laravel الإنجليزية.
+const FIELD_ERROR_LABELS = {
+  title: 'اسم المساحة',
+  description: 'الوصف',
+  location: 'الموقع',
+  lat: 'الموقع',
+  lng: 'الموقع',
+  price_per_hour: 'سعر الساعة',
+  capacity: 'السعة',
+  amenities: 'المرافق',
+  internet: 'الإنترنت',
+  power: 'الكهرباء',
+  docs: 'مستند الإثبات',
+  open_time: 'ساعة الفتح',
+  close_time: 'ساعة الإغلاق',
+  contact_phone: 'رقم التواصل',
+};
+
+function mapBackendErrors(errors) {
+  const out = {};
+  for (const field of Object.keys(errors || {})) {
+    const key = field === 'lat' || field === 'lng' ? 'location' : field;
+    if (out[key]) continue;
+    const label = FIELD_ERROR_LABELS[field] || 'هذا الحقل';
+    out[key] = `تحقّق من ${label}.`;
+  }
+  return out;
+}
+
 // يحوّل قيمة الإحداثيات إلى رقم مقتطع أو null.
 function coordOf(v) {
   const n = Number(v);
@@ -313,6 +343,7 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
   const validateForm = useCallback(() => {
     const e = {};
     if (!form.title.trim()) e.title = 'اكتب اسماً للمساحة.';
+    if (!form.location.trim()) e.area = 'اكتب منطقة المساحة أو حيّها.';
     if (!form.price_per_hour || Number(form.price_per_hour) <= 0) e.price_per_hour = 'حدّد سعر الساعة.';
     if (!form.capacity || Number(form.capacity) <= 0) e.capacity = 'حدّد السعة.';
     // أوقات العمل ورقم التواصل مطلوبة عند الإضافة والتعديل معاً: المساحات
@@ -330,7 +361,10 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
       if (!(latOk && lngOk)) {
         e.location = 'حدّد موقع المساحة على الخريطة بإدخال خط العرض وخط الطول.';
       }
-      const hasProof = DOC_SLOTS.filter((s) => s.required).every(({ id }) => form.docs?.[id]?.name);
+      // الباك إند يشترط مصفوفة مرافق غير فارغة — يكفي مرفق واحد أو مفتاح إنترنت/كهرباء.
+      const hasAmenity = (form.amenities || []).length > 0 || form.internet || form.power;
+      if (!hasAmenity) e.amenities = 'اختر مرفقاً واحداً على الأقل (إنترنت، كهرباء…).';
+      const hasProof = DOC_SLOTS.filter((s) => s.required).every(({ id }) => form.docs?.[id]?.file);
       if (!hasProof) e.docs = 'أرفق مستنداً يثبت ملكية المساحة أو عقد إيجارها — يُرسل للإدارة مع المساحة.';
     }
     setErrors(e);
@@ -403,6 +437,9 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
     setModal({ mode: 'edit', space });
   };
 
+  // حمولة موحّدة للإنشاء/التعديل. `proofFile` هو ملف الإثبات الحقيقي:
+  // يُرسل مع طلب الإنشاء نفسه (multipart)، وعند التعديل يُرفع عبر نقطة
+  // استبدال المستند. لا نرسل `status` (يقرّره الباك إند) ولا `gallery`.
   const readPayload = useCallback(() => ({
     title: form.title.trim(),
     description: form.description.trim(),
@@ -418,16 +455,7 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
     internet: form.internet,
     power: form.power,
     image: (form.photos || [])[0] || '',
-    gallery: form.photos || [],
-    docs: DOC_SLOTS
-      .filter(({ id }) => form.docs?.[id]?.name)
-      .map(({ id }) => ({
-        id,
-        name: form.docs[id].name,
-        size: Number(form.docs[id].size || 0),
-        type: form.docs[id].type || 'file',
-      })),
-    status: 'pending',
+    proofFile: form.docs?.proof?.file || null,
   }), [form]);
 
   const handleDocUpload = (slotId, e) => {
@@ -512,36 +540,38 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
 
     setSaving(true);
     try {
-      // يُقرأ الملف قبل أي await حتى لا يفقد عند تصفير النموذج في resetModal.
-      const proofFile = form.docs?.proof?.file || null;
-      let savedId = null;
+      // يُقرأ قبل أي await حتى لا يفقد عند تصفير النموذج في resetModal.
+      const payload = readPayload();
+      const proofFile = payload.proofFile;
       if (modal?.mode === 'edit' && modal.space?.id) {
-        const result = await updateSpaceWithFallback(modal.space.id, readPayload());
-        savedId = modal.space.id;
+        const result = await updateSpaceWithFallback(modal.space.id, payload);
         const next = spaces.map((s) => (s.id === modal.space.id ? result.space : s));
         setSpaces(next);
         onSpacesChange?.(next);
+        // استبدال مستند الإثبات نقطة منفصلة (multipart) في الباك إند.
+        if (proofFile) {
+          try {
+            await uploadSpaceDocumentWithFallback(modal.space.id, 'proof', proofFile);
+          } catch {
+            setToast({ msg: 'تم الحفظ، لكن تعذّر رفع المستند للإدارة — أعد رفع المستند.', type: 'err' });
+          }
+        }
         setToast({ msg: 'تم حفظ التعديلات بنجاح.', type: 'ok' });
       } else {
-        const result = await createSpaceWithFallback(readPayload());
-        savedId = result.space?.id;
+        // الإنشاء يُرسل الملف ضمن الطلب نفسه (multipart) — لا رفع منفصل بعده.
+        const result = await createSpaceWithFallback(payload);
         const next = [result.space, ...spaces];
         setSpaces(next);
         onSpacesChange?.(next);
         setToast({ msg: 'تمت إضافة المساحة — أُرسلت للإدارة للمراجعة.', type: 'ok' });
       }
-      // يُرفع الملف الحقيقي (multipart) بعد إنشاء/تحديث المساحة: الوصف وحده
-      // لا يصل إلى المخدم، فلا يستطيع المشرف فتح المستند قبل القرار.
-      if (savedId && proofFile) {
-        try {
-          await uploadSpaceDocumentWithFallback(savedId, 'proof', proofFile);
-        } catch {
-          setToast({ msg: 'تم الحفظ، لكن تعذّر رفع المستند للإدارة — عدّل المساحة وأعد رفع المستند.', type: 'err' });
-        }
-      }
       resetModal();
-    } catch {
-      setToast({ msg: 'تعذّر حفظ المساحة. حاول مجدداً.', type: 'err' });
+    } catch (err) {
+      // نُظهر سبب الخادم الحقيقي (403/422/429) بدل رسالة عامة.
+      if (err?.status === 422 && err?.data?.errors) {
+        setErrors(mapBackendErrors(err.data.errors));
+      }
+      setToast({ msg: err?.message || 'تعذّر حفظ المساحة. حاول مجدداً.', type: 'err' });
     } finally {
       if (mountedRef.current) setSaving(false);
     }
@@ -805,8 +835,8 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
             <section className="msp__form-sec">
               <h4><MapPin /> موقع المساحة</h4>
 
-              <div className="odash__field">
-                <label htmlFor="msp-location">المنطقة / الحي <small>(اختياري — للعرض والبحث)</small></label>
+              <div className={`odash__field${errors.area ? ' has-error' : ''}`}>
+                <label htmlFor="msp-location">المنطقة / الحي <b>*</b></label>
                 <div className="odash__input-wrap">
                   <MapPin className="odash__input-ico" />
                   <input
@@ -817,7 +847,7 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
                     placeholder="مثال: وسط المدينة"
                   />
                 </div>
-                <p />
+                <p>{errors.area || ''}</p>
               </div>
 
               <div className={`msp__pick${errors.location ? ' has-error' : ''}`}>
@@ -1037,8 +1067,8 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
 
             <section className="msp__form-sec">
               <h4><Sparkles /> المرافق</h4>
-              <div className="odash__field">
-                <label>المرافق المتوفرة <small>(اختياري)</small></label>
+              <div className={`odash__field${errors.amenities ? ' has-error' : ''}`}>
+                <label>المرافق المتوفرة <small>(مرفق واحد على الأقل)</small> <b>*</b></label>
                 <div className="odash__form-chips">
                   {AMENITY_KEYS.map((key) => {
                     const on = form.amenities.includes(key);
@@ -1056,7 +1086,7 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
                     );
                   })}
                 </div>
-                <p />
+                <p>{errors.amenities || ''}</p>
               </div>
 
               <div className="odash__form-switches">

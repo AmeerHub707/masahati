@@ -393,10 +393,13 @@ async function setOwnerInputValue(sel, value) {
 }
 
 // يحاكي اختيار مستند من جهاز الاتصال داخل النموذج (حقل ملف مخفي).
+// نستخدم File من نطاق Node نفسه الذي يعمل فيه api/owner (عبر Vite SSR)، لأن
+// FormData (undici) يقبل Blob من نطاقه فقط؛ ملف jsdom يُعامل كسلسلة نصية.
 async function setOwnerFile(sel, name) {
   const input = ownerEl.querySelector(sel);
   if (!input) return false;
-  const file = new dom.window.File([name], name, { type: 'application/pdf' });
+  const FileCtor = typeof File !== 'undefined' ? File : dom.window.File;
+  const file = new FileCtor([name], name, { type: 'application/pdf' });
   Object.defineProperty(input, 'files', { value: [file], configurable: true });
   input.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
   await flush();
@@ -524,6 +527,11 @@ await setOwnerInputValue('input[placeholder^="مثال: وسط المدينة"]'
   const proofAttached = await setOwnerFile('input[aria-label="صك ملكية أو عقد إيجار"]', 'deed.pdf');
 report('O13b Proof-of-space doc attached', proofAttached && !!ownerEl.querySelector('.msp__doc-chip'), 'doc not attached');
 
+// الباك إند يشترط مصفوفة مرافق غير فارغة: نختار مرفقاً واحداً حتى يمرّ الإرسال.
+const amenitySelected = clickIn(ownerEl, '.odash__form-chips button');
+await flush();
+report('O13b2 At least one amenity selected (backend requires it)', amenitySelected && !!ownerEl.querySelector('.odash__form-chips button.is-on'), 'no amenity selected');
+
 // أوقات العمل ورقم التواصل حقول مطلوبة: نتحقق من رفض الإرسال قبل تعبئتها،
 // ثم القبول بعدها — حتى لا يمر مسار «الحقول المطلوبة» دون تغطية.
 report('O13d Hours/phone fields are present and required', !!ownerEl.querySelector('#msp-open') && !!ownerEl.querySelector('#msp-close') && !!ownerEl.querySelector('#msp-phone'), 'new fields missing');
@@ -545,9 +553,12 @@ const clickedSubmit = await clickOwnerByText('إرسال للمراجعة');
 report('O14 Submit new space for admin review', clickedSubmit && (await waitForOwnerText('تمت إضافة المساحة') || await waitForOwnerText('جناح جديد')), 'toast/card absent');
 report('O14a Card shows the saved hours and contact phone', (await waitForOwnerText('09:00 – 18:00')) && (await waitForOwnerText('0599123456')), 'hours/phone missing from card');
 // التحقق على مستوى الطلب: الباك-إند لا يستقبل حقولاً ناقصة.
-report('O14b Create request carries hours and contact phone', (() => {
+report('O14b Create request carries hours and contact phone (multipart)', (() => {
   const b = globalThis.__spaceCreateBody;
   if (!b) return false;
+  if (b && typeof b.get === 'function') {
+    return b.get('open_time') === '09:00' && b.get('close_time') === '18:00' && b.get('contact_phone') === '0599123456';
+  }
   const parsed = typeof b === 'string' ? JSON.parse(b) : b;
   return parsed.open_time === '09:00' && parsed.close_time === '18:00' && parsed.contact_phone === '0599123456';
 })(), 'request body missing hours/phone');

@@ -688,17 +688,22 @@ globalThis.fetch = makeFetch({
 });
 report('5.19 owner offers list comes from the API', (await owner.loadOwnerOffersWithFallback()).offers.some((o) => o.requestTitle === 'قاعة اختبار'));
 
-// إضافة مساحة: ترسل status=pending للمراجعة وتعيد مساحة الخادم كما مُطبَّعة
+// إضافة مساحة: الطلب multipart (لا JSON) ويحمل ملف الإثبات الإلزامي `docs`،
+// ويعيد مساحة الخادم كما مُطبَّعة (status=pending من الخادم).
 resetStorage();
 api.setToken(TOKEN);
 api.setUser({ name: 'مالك', role: 'owner' });
-let sentSpace = null;
+let sentSpaceForm = null;
 globalThis.fetch = makeFetch({
   'POST /api/owner/spaces': { status: 201, body: { data: { space: { space_id: 31, title: 'جناح جديد', status: 'pending', is_active: false, price_per_hour: 90, open_time: '09:00', close_time: '18:00', contact_phone: '0599123456', lat: 31.50113, lng: 34.46675, docs: [{ id: 'proof', name: 'deed.pdf', size: 2048, type: 'application/pdf' }] } } } },
-}, (r) => { if (r.method === 'POST') sentSpace = JSON.parse(r.opts.body); });
-const newSpace = await owner.createSpaceWithFallback({ title: 'جناح جديد', location: 'غزة', latitude: 31.50113, longitude: 34.46675, price_per_hour: 90, capacity: 25, open_time: '09:00', close_time: '18:00', contact_phone: '0599123456', amenities: ['internet'], docs: [{ id: 'proof', name: 'deed.pdf', size: 2048, type: 'application/pdf' }] });
+}, (r) => { if (r.method === 'POST' && r.opts?.body instanceof FormData) sentSpaceForm = r.opts.body; });
+const deedFile = new File([new Blob(['%PDF-1.4 test'])], 'deed.pdf', { type: 'application/pdf' });
+const newSpace = await owner.createSpaceWithFallback({ title: 'جناح جديد', location: 'غزة', lat: 31.50113, lng: 34.46675, price_per_hour: 90, capacity: 25, open_time: '09:00', close_time: '18:00', contact_phone: '0599123456', amenities: ['internet', 'electricity'], internet: true, power: true, proofFile: deedFile });
 report('5.20 add space marks it pending for admin review', newSpace.space.status === 'pending' && newSpace.space.is_active === false);
-report('5.20b create request asks the backend for pending review', sentSpace?.status === 'pending');
+report('5.20b create is multipart and carries the required proof file', sentSpaceForm instanceof FormData && sentSpaceForm.get('docs') instanceof Blob && sentSpaceForm.get('docs').name === 'deed.pdf');
+report('5.20b2 amenities are a non-empty JSON array (backend requires it)', (() => { try { const a = JSON.parse(sentSpaceForm.get('amenities')); return Array.isArray(a) && a.length > 0; } catch { return false; } })());
+report('5.20b3 electricity is sent as the backend power amenity', (() => { const a = JSON.parse(sentSpaceForm.get('amenities')); return a.includes('power') && !a.includes('electricity'); })());
+report('5.20b4 create no longer sends a client-chosen status', sentSpaceForm.get('status') === null);
 report('5.20c proof docs attached to new space', newSpace.space.docs?.[0]?.id === 'proof' && newSpace.space.docs?.[0]?.name === 'deed.pdf');
 report('5.20d new space keeps lat/lng coordinates', newSpace.space.lat === 31.50113 && newSpace.space.lng === 34.46675);
 report('5.20e new space keeps hours and contact phone', newSpace.space.open_time === '09:00' && newSpace.space.close_time === '18:00' && newSpace.space.contact_phone === '0599123456');
