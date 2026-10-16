@@ -1,21 +1,25 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import BackButton from '@/components/ui/BackButton';
+import LanguageToggle from '@/components/ui/LanguageToggle';
 import { request, ApiError } from '@/lib/authStore';
 import { useForceLight } from '@/hooks/useTheme';
+import { useTranslation } from '@/hooks/useT';
 
-// ترجمة رسائل الخطأ الإنجليزية القادمة من Laravel إلى العربية.
-function translate(msg) {
-  if (!msg) return 'حدث خطأ غير متوقع. حاول مرة أخرى.';
+// ترجمة رسائل الخطأ الإنجليزية القادمة من Laravel إلى اللغة النشطة.
+// تستقبل `t` صراحةً لأنها دالّة على مستوى الوحدة (خارج المكوّن).
+function translate(msg, t) {
+  if (!msg) return t('auth:forgot.errUnexpected');
   const m = String(msg).toLowerCase();
-  if (m.includes('selected email is invalid')) return 'هذا البريد غير مسجّل لدينا أو غير صحيح.';
-  if (m.includes('email') && m.includes('required')) return 'البريد الإلكتروني مطلوب.';
-  if (m.includes('throttled') || m.includes('too many')) return 'طلبات كثيرة جداً. انتظر قليلاً وحاول مجدداً.';
+  if (m.includes('selected email is invalid')) return t('auth:forgot.errEmailUnregistered');
+  if (m.includes('email') && m.includes('required')) return t('auth:forgot.errEmailRequired');
+  if (m.includes('throttled') || m.includes('too many')) return t('auth:forgot.errThrottled');
   return msg;
 }
 
 export default function ForgotPasswordPage() {
   useForceLight();
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
   const [formError, setFormError] = useState('');
@@ -38,7 +42,7 @@ export default function ForgotPasswordPage() {
 
     const value = email.trim();
     if (!isValidEmail(value)) {
-      setEmailError('الرجاء إدخال بريد إلكتروني صحيح.');
+      setEmailError(t('auth:forgot.errEmailFormat'));
       return;
     }
 
@@ -53,11 +57,11 @@ export default function ForgotPasswordPage() {
       setStatus('sent');
     } catch (err) {
       if (err instanceof ApiError && err.status === 422 && err.data?.errors?.email) {
-        setEmailError(translate(err.data.errors.email[0]));
+        setEmailError(translate(err.data.errors.email[0], t));
       } else if (err instanceof ApiError) {
-        setFormError(translate(err.message));
+        setFormError(translate(err.message, t));
       } else {
-        setFormError('تعذر الاتصال بالخادم. تحقق من اتصالك وحاول مجدداً.');
+        setFormError(t('auth:forgot.errNetwork'));
       }
       setStatus('idle');
     } finally {
@@ -94,7 +98,6 @@ export default function ForgotPasswordPage() {
           isolation: isolate;
           overflow: hidden;
           font-family: 'Cairo', sans-serif;
-          direction: rtl;
         }
         .auth-wrapper::before {
           content: "";
@@ -443,17 +446,16 @@ export default function ForgotPasswordPage() {
         {/* الجانب الترحيبي */}
         <aside className="auth-welcome">
           <div className="auth-welcome__copy">
-            <h1>استرجاع كلمة المرور</h1>
+            <h1>{t('auth:forgot.welcomeTitle')}</h1>
             <p>
-              أدخل بريدك الإلكتروني وسنرسل لك رابطاً آمناً لإعادة تعيين كلمة المرور.
-              افتح الرابط من رسالتك لإنشاء كلمة مرور جديدة.
+              {t('auth:forgot.welcomeLead')}
             </p>
             <span className="auth-welcome__badge">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="4" y="11" width="16" height="9" rx="2" />
                 <path d="M8 11V7a4 4 0 0 1 8 0v4" />
               </svg>
-              اتصال مشفّر
+              {t('auth:forgot.badge')}
             </span>
           </div>
         </aside>
@@ -465,7 +467,10 @@ export default function ForgotPasswordPage() {
               <img src="/Logo.png" alt="Masahati" className="brand-logo" />
             </div>
 
-            <BackButton className="back-home" fallback="/" ariaLabel="رجوع للرئيسية" />
+            <div className="flex items-center gap-2">
+              <LanguageToggle />
+              <BackButton className="back-home" fallback="/" ariaLabel={t('auth:common.backHome')} />
+            </div>
           </div>
 
           <div className="relative flex-1">
@@ -479,25 +484,25 @@ export default function ForgotPasswordPage() {
                       <path d="M22 2 15 22 11 13 2 9 22 2z" />
                     </svg>
                   </div>
-                  <h2>تم إرسال الرابط</h2>
+                  <h2>{t('auth:forgot.successTitle')}</h2>
                   <p>
-                    أرسلنا رابط إعادة تعيين كلمة المرور إلى{' '}
-                    <b dir="ltr">{maskEmail(email)}</b>. تحقق من بريدك (ورسائل غير المرغوبة) وافتح الرابط.
+                    {t('auth:forgot.sentBefore')}{' '}
+                    <b dir="ltr">{maskEmail(email)}</b>{t('auth:forgot.sentAfter')}
                   </p>
                   <Link to="/login" className="btn" style={{ display: 'block', textDecoration: 'none', marginTop: '0.4rem' }}>
-                    الذهاب إلى تسجيل الدخول
+                    {t('auth:forgot.goToLogin')}
                   </Link>
                 </div>
               </div>
             ) : (
               <form onSubmit={handleSubmit} noValidate className="animate-fadeIn">
-                <h2>نسيت كلمة المرور؟</h2>
+                <h2>{t('auth:forgot.title')}</h2>
                 <p className="form-sub">
-                  أدخل بريدك الإلكتروني لاستلام رابط آمن لإعادة تعيين كلمة المرور.
+                  {t('auth:forgot.sub')}
                 </p>
 
                 <div className={`field ${emailError ? 'has-error' : ''}`}>
-                  <label htmlFor="email">البريد الإلكتروني</label>
+                  <label htmlFor="email">{t('auth:common.email')}</label>
                   <input
                     type="email"
                     id="email"
@@ -522,13 +527,13 @@ export default function ForgotPasswordPage() {
                       <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     </span>
                   ) : (
-                    'إرسال رابط إعادة التعيين'
+                    t('auth:forgot.submit')
                   )}
                 </button>
 
                 <p className="switch">
-                  تذكّرت كلمتك؟{' '}
-                  <Link to="/login">العودة لتسجيل الدخول</Link>
+                  {t('auth:forgot.remembered')}{' '}
+                  <Link to="/login">{t('auth:forgot.backToLogin')}</Link>
                 </p>
               </form>
             )}

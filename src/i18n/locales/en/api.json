@@ -1,0 +1,14 @@
+{
+  "network": "Could not reach the server. Check your connection and try again.",
+  "generic": "The request could not be completed ({{code}}).",
+  "adminSessionExpired": "The admin session has ended. Please log in again.",
+  "forbidden": "This account is not an admin account.",
+  "notFound": "The requested item was not found.",
+  "conflict": "This action cannot be completed because of a conflict with the current state.",
+  "validation": "The submitted data is invalid.",
+  "server": "A server error occurred.",
+  "unavailable": "The service is temporarily unavailable. Try again shortly.",
+  "rateLimited": "Too many attempts. Wait a moment and try again.",
+  "rateLimitedIn": "Too many attempts. Try again in {{seconds}} seconds.",
+  "noSession": "The admin session has ended. Please log in again."
+}

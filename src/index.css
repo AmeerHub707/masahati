@@ -120,11 +120,16 @@ h3{font-size:var(--step-1);line-height:1.25;}
 p{font-size:var(--step-0);}
 h1,h2,h3,h4,h5,h6,h7{color:var(--accent);}
 
-html[dir="ltr"] body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,"Noto Sans",sans-serif;}
+html[dir="ltr"] body,html[dir="ltr"] body *{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,"Noto Sans",sans-serif;}
 a{color:inherit;}
 
 .dir-ltr{direction:ltr;}
 .dir-rtl{direction:rtl;}
+/* سهم «التقدّم للأمام» داخل البطاقات ينقلب مع اتجاه المستند */
+html[dir="ltr"] .top-spaces__arrow svg,
+html[dir="ltr"] .top-spaces__all svg{transform:rotate(180deg);}
+/* أيقونة زرّ الرجوع (ChevronRight) تشير إلى «الخلف»؛ تنقلب في الإنجليزية */
+html[dir="ltr"] .back-circle svg{transform:rotate(180deg);}
 
 .wrap{max-width:72rem;margin:0 auto;padding:0 var(--gutter);}
 /* ظ†ط³ط®ط© ط£ط¹ط±ط¶ ظ„ظ„طµظپط­ط§طھ ط§ظ„طھظٹ طھط­طھظˆظٹ ط´ط±ظٹط· طھطµظپظٹط© + ط´ط¨ظƒط© (ظ…ط«ظ„ طھطµظپط­ ط§ظ„ظ…ط³ط§ط­ط§طھ) */
@@ -1229,6 +1234,9 @@ img{max-width:100%;}
 /* ط¥ط²ط§ظ„ط© ط§ظ„ط¥ط·ط§ط±/ط§ظ„ط­ط§ظپط© ط­ظˆظ„ ط²ط± ط§ظ„ظˆط¶ط¹ ط§ظ„ط¯ط§ظƒظ†-ط§ظ„ظپط§طھط­ ظپظٹ ط§ظ„ظˆط¶ط¹ظٹظ† */
 .dash__theme-btn:focus{outline:none;}
 .dash__theme-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+/* زرّ اللغة: أيقونة + رمز اللغة، فيأخذ عرضاً أوسع من زرّ الثيم المربّع. */
+.lang-toggle{width:auto;min-width:2.6rem;padding:0 .6rem;gap:.375rem;}
+.lang-toggle__code{font-size:.72rem;font-weight:800;line-height:1;letter-spacing:.02em;}
 html.dark .dash__notif-badge{border-color:var(--surface-2);}
 .dash__notif-badge{
   position:absolute;top:-.25rem;right:-.25rem;

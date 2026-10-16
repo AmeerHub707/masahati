@@ -1,21 +1,17 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from '@/hooks/useT';
 import { Bot, X, Send, MapPin, Ruler, Sparkles, Trash2 } from 'lucide-react';
 import { askAssistant } from '@/lib/assistant';
 
-const QUICK_QUESTIONS = [
-  'كيف أحجز مقعداً؟',
-  'كم سعر الساعة في المساحات؟',
-  'ما الفرق بين العميل وصاحب المساحة؟',
-  'ما المساحات المتوفرة الآن؟',
-];
-
-const WELCOME = 'مرحباً 👋 أنا مساعد مساحاتي. اسألني عن المساحات، الأسعار، الحجز، أو أي شيء يخص المنصة.';
+// مفاتيح الأسئلة السريعة — النص يُحلّ عند التصيير عبر `assistant.quick.<key>`.
+const QUICK_KEYS = ['q1', 'q2', 'q3', 'q4'];
 const STORAGE_KEY = 'masahati_assistant_messages';
 
 const generateId = () => `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
 export default function AssistantWidget() {
+  const { t } = useTranslation('landing');
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -26,7 +22,7 @@ export default function AssistantWidget() {
         console.error('Failed to parse assistant messages', e);
       }
     }
-    return [{ id: generateId(), role: 'assistant', text: WELCOME, spaces: [] }];
+    return [{ id: generateId(), role: 'assistant', text: t('assistant.welcome'), spaces: [] }];
   });
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -96,7 +92,7 @@ export default function AssistantWidget() {
         {
           id: generateId(),
           role: 'assistant',
-          text: reply || 'لم أستطع صياغة رد الآن، جرّب سؤالاً آخر.',
+          text: reply || t('assistant.replyFallback'),
           spaces,
         },
       ]);
@@ -112,7 +108,7 @@ export default function AssistantWidget() {
           role: 'assistant',
           text:
             err?.message ||
-            'تعذر الاتصال بالمساعد حالياً. حاول مرة أخرى بعد قليل.',
+            t('assistant.errorFallback'),
           spaces: [],
           error: true,
         },
@@ -122,14 +118,14 @@ export default function AssistantWidget() {
     } finally {
       setLoading(false);
     }
-  }, [loading]);
+  }, [loading, t]);
 
   const clearChat = () => {
     setConfirmOpen(true);
   };
 
   const confirmClear = () => {
-    const resetMessages = [{ id: generateId(), role: 'assistant', text: WELCOME, spaces: [] }];
+    const resetMessages = [{ id: generateId(), role: 'assistant', text: t('assistant.welcome'), spaces: [] }];
     setMessages(resetMessages);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(resetMessages));
     setLoading(false);
@@ -149,14 +145,14 @@ export default function AssistantWidget() {
         type="button"
         className="assistant-bubble"
         onClick={() => setOpen((v) => !v)}
-        aria-label="مساعد مساحاتي"
+        aria-label={t('assistant.bubbleLabel')}
         aria-expanded={open}
         aria-haspopup="dialog"
-        data-tip={open ? 'إغلاق المحادثة' : 'اسأل مساعد مساحاتي'}
+        data-tip={open ? t('assistant.tipClose') : t('assistant.tipAsk')}
       >
         <Bot className="assistant-bubble__icon" aria-hidden="true" />
         {unreadOnly > 0 && (
-          <span className="assistant-badge" aria-label={`${unreadOnly} رسائل جديدة`}>
+          <span className="assistant-badge" aria-label={t('assistant.unread', { count: unreadOnly })}>
             {unreadOnly > 99 ? '99+' : unreadOnly}
           </span>
         )}
@@ -166,7 +162,7 @@ export default function AssistantWidget() {
         <div
           className="assistant-panel"
           role="dialog"
-          aria-label="مساعد مساحاتي"
+          aria-label={t('assistant.headerTitle')}
           aria-modal="false"
         >
           <header className="assistant-header">
@@ -174,8 +170,8 @@ export default function AssistantWidget() {
               <Bot />
             </div>
             <div className="assistant-header__meta">
-              <strong>مساعد مساحاتي</strong>
-              <span><i className="assistant-header__dot" aria-hidden="true"></i>متصل الآن</span>
+              <strong>{t('assistant.headerTitle')}</strong>
+              <span><i className="assistant-header__dot" aria-hidden="true"></i>{t('assistant.online')}</span>
             </div>
             <div className="assistant-header__actions">
               {messages.length > 0 && (
@@ -183,8 +179,8 @@ export default function AssistantWidget() {
                   type="button"
                   className="assistant-header__action assistant-header__action--clear"
                   onClick={clearChat}
-                  aria-label="مسح المحادثة"
-                  title="مسح المحادثة"
+                  aria-label={t('assistant.clearChat')}
+                  title={t('assistant.clearChat')}
                 >
                   <Trash2 aria-hidden="true" size={18} />
                 </button>
@@ -193,7 +189,7 @@ export default function AssistantWidget() {
                 type="button"
                 className="assistant-header__close"
                 onClick={() => setOpen(false)}
-                aria-label="إغلاق المحادثة"
+                aria-label={t('assistant.tipClose')}
               >
                 <X aria-hidden="true" />
               </button>
@@ -210,7 +206,7 @@ export default function AssistantWidget() {
             ))}
 
             {loading && (
-              <div className="assistant-typing" role="status" aria-label="المساعد يكتب">
+              <div className="assistant-typing" role="status" aria-label={t('assistant.typing')}>
                 <span></span><span></span><span></span>
               </div>
             )}
@@ -218,15 +214,15 @@ export default function AssistantWidget() {
 
           {!loading && messages.length <= 1 && (
             <div className="assistant-chips">
-              {QUICK_QUESTIONS.map((q) => (
+              {QUICK_KEYS.map((k) => (
                 <button
                   type="button"
-                  key={q}
+                  key={k}
                   className="assistant-chip"
-                  onClick={() => send(q)}
+                  onClick={() => send(t(`assistant.quick.${k}`))}
                 >
                   <Sparkles aria-hidden="true" />
-                  {q}
+                  {t(`assistant.quick.${k}`)}
                 </button>
               ))}
             </div>
@@ -238,14 +234,14 @@ export default function AssistantWidget() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="اكتب سؤالك…"
-              aria-label="رسالتك للمساعد"
+              placeholder={t('assistant.placeholder')}
+              aria-label={t('assistant.inputLabel')}
               disabled={loading}
             />
             <button
               type="submit"
               className="assistant-send"
-              aria-label="إرسال"
+              aria-label={t('assistant.send')}
               disabled={loading || !input.trim()}
             >
               <Send aria-hidden="true" />
@@ -259,15 +255,15 @@ export default function AssistantWidget() {
           <div
             className="assistant-confirm"
             role="alertdialog"
-            aria-label="تأكيد مسح المحادثة"
+            aria-label={t('assistant.confirmLabel')}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="assistant-confirm__header">
               <Trash2 aria-hidden="true" size={20} />
-              <strong>مسح المحادثة</strong>
+              <strong>{t('assistant.clearChat')}</strong>
             </div>
             <p className="assistant-confirm__body">
-              هل تريد مسح المحادثة بالكامل؟ لن تتمكن من التراجع.
+              {t('assistant.confirmBody')}
             </p>
             <div className="assistant-confirm__actions">
               <button
@@ -275,14 +271,14 @@ export default function AssistantWidget() {
                 className="assistant-confirm__btn assistant-confirm__btn--cancel"
                 onClick={() => setConfirmOpen(false)}
               >
-                إلغاء
+                {t('common:cancel')}
               </button>
               <button
                 type="button"
                 className="assistant-confirm__btn assistant-confirm__btn--confirm"
                 onClick={confirmClear}
               >
-                نعم، مسح
+                {t('assistant.confirmYes')}
               </button>
             </div>
           </div>
@@ -293,6 +289,7 @@ export default function AssistantWidget() {
 }
 
 function Message({ msg }) {
+  const { t } = useTranslation('landing');
   const isUser = msg.role === 'user';
   const cls = isUser
     ? 'assistant-msg--user'
@@ -333,7 +330,7 @@ function Message({ msg }) {
               </Link>
             ))}
             <Link to="/spaces" className="assistant-more">
-              تصفح كل المساحات
+              {t('assistant.browseAll')}
             </Link>
           </div>
         )}

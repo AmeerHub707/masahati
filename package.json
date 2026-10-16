@@ -12,17 +12,19 @@
     "start": "node taqat-static-server.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test":    "node --experimental-vm-modules src/utils/sanitize.test.mjs && node --experimental-vm-modules src/utils/sanitize.full.test.mjs && node --experimental-vm-modules src/utils/integration.test.mjs && node --experimental-vm-modules src/utils/spaceFilters.test.mjs && node --experimental-vm-modules src/utils/compare.test.mjs && node --experimental-vm-modules src/utils/ui.smoke.test.mjs"
+    "test": "node --experimental-vm-modules src/utils/sanitize.test.mjs && node --experimental-vm-modules src/utils/sanitize.full.test.mjs && node --experimental-vm-modules src/utils/integration.test.mjs && node --experimental-vm-modules src/utils/spaceFilters.test.mjs && node --experimental-vm-modules src/utils/compare.test.mjs && node --experimental-vm-modules src/utils/i18n.test.mjs && node --experimental-vm-modules src/utils/ui.smoke.test.mjs"
   },
   "dependencies": {
     "countup.js": "^2.10.1",
     "dompurify": "^3.4.14",
     "framer-motion": "^13.2.0",
+    "i18next": "^26.4.7",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.34.0",
     "pptxgenjs": "^4.0.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-i18next": "^17.0.19",
     "react-leaflet": "^5.0.0",
     "react-pull-to-refresh": "^2.0.1",
     "react-router-dom": "^7.18.2",

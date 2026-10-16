@@ -2,10 +2,13 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import BackButton from '@/components/ui/BackButton';
+import LanguageToggle from '@/components/ui/LanguageToggle';
+import { useTranslation } from '@/hooks/useT';
 import { login, getHomePath, ApiError, request, getUser, setUser } from '@/lib/authStore';
 import WhatsAppBubble from '@/components/ui/WhatsAppBubble';
 
 export default function VerifyOtpPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const state = location.state || {};
@@ -67,7 +70,7 @@ export default function VerifyOtpPage() {
     e.preventDefault();
     const code = otp.join('');
     if (code.length < 6) {
-      setOtpError('الرجاء إدخال الأرقام الستة كاملة.');
+      setOtpError(t('auth:otp.errIncomplete'));
       return;
     }
 
@@ -94,9 +97,9 @@ export default function VerifyOtpPage() {
       }
     } catch (err) {
       if (err instanceof ApiError && (err.status === 422 || err.status === 401 || err.status === 400)) {
-        setOtpError('الرمز غير صحيح. حاول مرة أخرى.');
+        setOtpError(t('auth:otp.errInvalid'));
       } else {
-        setOtpError(err.message || 'تعذر التحقق. حاول مرة أخرى.');
+        setOtpError(err.message || t('auth:otp.errVerify'));
       }
     } finally {
       setLoading(false);
@@ -115,7 +118,7 @@ export default function VerifyOtpPage() {
       setOtp(['', '', '', '', '', '']);
       setTimerLeft(30);
     } catch (err) {
-      setOtpError(err.message || 'تعذر إعادة إرسال الرمز.');
+      setOtpError(err.message || t('auth:otp.errResend'));
     } finally {
       setLoading(false);
     }
@@ -151,7 +154,6 @@ export default function VerifyOtpPage() {
           isolation: isolate;
           overflow: hidden;
           font-family: 'Cairo', sans-serif;
-          direction: rtl;
         }
         .auth-wrapper::before {
           content: "";
@@ -364,20 +366,20 @@ export default function VerifyOtpPage() {
 
         <aside className="auth-welcome">
           <div className="auth-welcome__copy">
-            <h1>خطوة أخيرة</h1>
-            <p>أدخل رمز التحقق المرسل إلى بريدك لإتمام إنشاء حسابك.</p>
+            <h1>{t('auth:otp.welcomeTitle')}</h1>
+            <p>{t('auth:otp.welcomeLead')}</p>
             <ul className="auth-welcome__list">
               <li>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-                رمز مكوّن من 6 أرقام
+                {t('auth:otp.bullet1')}
               </li>
               <li>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-                صالح لمدة محدودة
+                {t('auth:otp.bullet2')}
               </li>
               <li>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-                دعم فوري عبر الواتساب على مدار الساعة
+                {t('auth:otp.bullet3')}
               </li>
             </ul>
           </div>
@@ -388,7 +390,10 @@ export default function VerifyOtpPage() {
             <div className="brand">
               <img src="/Logo.png" alt="Masahati" className="brand-logo" />
             </div>
-            <BackButton className="back-home" fallback="/" ariaLabel="رجوع للرئيسية" />
+            <div className="flex items-center gap-2">
+              <LanguageToggle />
+              <BackButton className="back-home" fallback="/" ariaLabel={t('auth:common.backHome')} />
+            </div>
           </div>
 
           {verified ? (
@@ -396,23 +401,23 @@ export default function VerifyOtpPage() {
               <div className="state-badge ok">
                 <Check size={36} />
               </div>
-              <h2>تم الأمر</h2>
+              <h2>{t('auth:otp.doneTitle')}</h2>
               <p>
-                تم التحقق من بريدك وحسابك كـ (طالب) في مساحاتي جاهز للاستخدام.
+                {t('auth:otp.doneLead')}
               </p>
               <Link to="/login" className="btn" style={{ display: 'block', textDecoration: 'none' }}>
-                الذهاب لتسجيل الدخول
+                {t('auth:otp.goToLogin')}
               </Link>
             </div>
           ) : (
             <form onSubmit={handleOtpSubmit} className="form-panel" noValidate>
-              <h2>تحقق من <span style={{ color: 'var(--accent)' }}>بريدك</span></h2>
+              <h2>{t('auth:otp.titleBefore')} <span style={{ color: 'var(--accent)' }}>{t('auth:otp.titleHighlight')}</span></h2>
               <p className="form-sub">
-                أرسلنا رمزًا مكوّنًا من 6 أرقام عبر <b>البريد الإلكتروني</b> إلى <b dir="ltr">{email}</b>. أدخله أدناه لإتمام التسجيل.
+                {t('auth:otp.subBefore')} <b>{t('auth:otp.subEmailChannel')}</b> {t('auth:otp.subMiddle')} <b dir="ltr">{email}</b>{t('auth:otp.subAfter')}
               </p>
 
               <div className="dev-note" style={{ marginBottom: '1rem' }}>
-                تم إرسال رمز التحقق المكوّن من 6 أرقام إلى <b dir="ltr">{email}</b>. تحقق من بريدك (أو مجلد الرسائل غير المرغوبة) وأدخله أدناه.
+                {t('auth:otp.devNoteBefore')} <b dir="ltr">{email}</b>{t('auth:otp.devNoteAfter')}
               </div>
 
               <div className="otp-row">
@@ -439,18 +444,18 @@ export default function VerifyOtpPage() {
                   <span className="flex items-center justify-center">
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   </span>
-                ) : 'تحقق من البريد'}
+                ) : t('auth:otp.submit')}
               </button>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', marginTop: '1rem', color: 'rgba(255,255,255,0.8)' }}>
-                <span>لم تستلمه؟</span>
+                <span>{t('auth:otp.noCode')}</span>
                 <button
                   type="button"
                   onClick={handleResendOtp}
                   disabled={timerLeft > 0 || loading}
                   style={{ background: 'none', border: 'none', color: timerLeft > 0 ? 'gray' : 'var(--accent)', fontWeight: 'bold', cursor: timerLeft > 0 || loading ? 'default' : 'pointer' }}
                 >
-                  {timerLeft > 0 ? `إعادة الإرسال خلال ${timerLeft}s` : 'إعادة الإرسال'}
+                  {timerLeft > 0 ? t('auth:otp.resendIn', { s: timerLeft }) : t('auth:otp.resend')}
                 </button>
               </div>
 
@@ -459,7 +464,7 @@ export default function VerifyOtpPage() {
                   to="/signup"
                   style={{ background: 'none', border: 'none', color: 'var(--accent)', textDecoration: 'none', cursor: 'pointer', fontSize: '0.85rem' }}
                 >
-                  ← تغيير البريد
+                  {t('auth:otp.changeEmail')}
                 </Link>
               </p>
             </form>

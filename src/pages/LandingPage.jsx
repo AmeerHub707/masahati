@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import ReactPullToRefresh from 'react-pull-to-refresh';
+import { useTranslation } from '@/hooks/useT';
 import Navbar from '@/components/layout/Navbar';
 import Hero from '@/features/landing/Hero';
 import TopSpaces from '@/features/landing/TopSpaces';
@@ -15,6 +16,7 @@ import ScrollProgress from '@/components/ui/ScrollProgress';
 import SectionDivider from '@/components/ui/SectionDivider';
 
 export default function LandingPage() {
+  const { t, i18n } = useTranslation('landing');
   const [showTop, setShowTop] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   // مفتاح لإعادة تحميل الأقسام كما لو كانت طازجة (إعادة تشغيل أنيميشن الظهور)
@@ -44,14 +46,15 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen font-['Cairo'] text-zinc-900 dir-rtl landing">
+    // الاتجاه يتبع المستند واللغة: لا نثبّت rtl كي تنقلب الصفحة كاملة عند التبديل.
+    <div className="min-h-screen text-zinc-900 landing">
       <ScrollProgress />
       <Navbar />
 
       <ReactPullToRefresh
         disabled
         onRefresh={handleRefresh}
-        direction="rtl"
+        direction={i18n.dir()}
         resistance={2.5}
         pullDownThreshold={70}
         maxPullDownDistance={120}
@@ -59,7 +62,7 @@ export default function LandingPage() {
         spinner={
           <div className="ptr-spinner" role="status" aria-live="polite">
             <span className="ptr-spinner__circle" />
-            <span className="sr-only">جارٍ التحديث…</span>
+            <span className="sr-only">{t('refreshing')}</span>
           </div>
         }
       >
@@ -96,8 +99,8 @@ export default function LandingPage() {
       <button
         type="button"
         onClick={scrollTop}
-        aria-label="العودة إلى الأعلى"
-        className={`fixed bottom-5 right-5 z-50 w-12 h-12 rounded-full bg-orange-500 text-white flex items-center justify-center shadow-[0_14px_30px_-8px_rgba(249,115,22,0.6)] hover:-translate-y-1 hover:scale-105 transition-all duration-200 ${showTop ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+        aria-label={t('backToTop')}
+        className={`fixed bottom-5 end-5 z-50 w-12 h-12 rounded-full bg-orange-500 text-white flex items-center justify-center shadow-[0_14px_30px_-8px_rgba(249,115,22,0.6)] hover:-translate-y-1 hover:scale-105 transition-all duration-200 ${showTop ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
       >
         <svg viewBox="0 0 24 24" className="w-6 h-6 fill-none stroke-current stroke-[2.2] stroke-linecap-round stroke-linejoin-round">
           <path d="M12 19V5M5 12l7-7 7 7" />

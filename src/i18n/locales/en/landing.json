@@ -1,0 +1,149 @@
+{
+  "hero": {
+    "titleBefore": "Find",
+    "titleHighlight": "your space — power, Wi-Fi, and a seat, in one click.",
+    "lead": "Masahati brings every co-working space and study hall together in one place. Compare prices, internet speed, and power availability, then book your seat directly — no calls, no messages.",
+    "startNow": "Get started",
+    "stats": {
+      "verified": "Verified spaces",
+      "power": "Power filter",
+      "book": "To book a seat",
+      "rating": "Member rating"
+    }
+  },
+  "features": {
+    "kicker": "Why Masahati",
+    "title": "Compare what actually matters",
+    "lead": "Stop guessing. Every space shows real numbers so you can pick the right seat before you leave home.",
+    "items": {
+      "pricing": {
+        "title": "Transparent pricing",
+        "desc": "Hourly and daily prices side by side — no hidden fees and no surprises at the door."
+      },
+      "speed": {
+        "title": "Real internet speed",
+        "desc": "Filter by upload and download so your calls and file uploads hold up where it matters."
+      },
+      "power": {
+        "title": "Power status",
+        "desc": "See which spaces have 24/7 or backup power — and book with confidence during outages."
+      }
+    }
+  },
+  "how": {
+    "kicker": "How it works",
+    "title": "From browsing to a seat in three steps",
+    "lead": "No calls and no messages. Just open, compare, and book.",
+    "items": {
+      "explore": {
+        "title": "Explore",
+        "desc": "Filter Gaza's spaces by price, speed, and power — and see exactly what you get."
+      },
+      "book": {
+        "title": "Book",
+        "desc": "Pick a seat and confirm in seconds. Your seat is reserved and the owner is notified instantly."
+      },
+      "arrive": {
+        "title": "Show up",
+        "desc": "Walk in, plug in, and work. Rate the space so the next member knows what to expect."
+      }
+    }
+  },
+  "roles": {
+    "kicker": "For everyone",
+    "title": "For everyone — student or space owner",
+    "lead": "Whether you're looking for a quiet seat or want to list your space, Masahati is built for both sides.",
+    "items": {
+      "student": {
+        "tag": "Student",
+        "title": "Book & compare",
+        "i1": "Browse spaces by price and speed",
+        "i2": "Book a seat in under five minutes",
+        "i3": "Save favorites and study in focus"
+      },
+      "owner": {
+        "tag": "Space owner",
+        "title": "List your space",
+        "i1": "Publish your space with photos and prices",
+        "i2": "Manage bookings and availability",
+        "i3": "Needs admin approval before publishing"
+      },
+      "trusted": {
+        "tag": "Trusted",
+        "title": "Verified & safe",
+        "i1": "Every space is reviewed before publishing",
+        "i2": "Email-verified members only",
+        "i3": "Ratings keep the quality transparent"
+      }
+    }
+  },
+  "about": {
+    "kicker": "About us",
+    "title": "Masahati was built for Gaza",
+    "lead": "A young Palestinian team that believes co-working is a right for everyone — so it built a platform that brings spaces and people together with trust.",
+    "items": {
+      "mission": {
+        "title": "Our mission",
+        "desc": "To make finding a decent workspace easy and trustworthy, whatever the circumstances."
+      },
+      "community": {
+        "title": "Our community",
+        "desc": "Students, freelancers, and space owners working together to keep work going in Gaza."
+      },
+      "values": {
+        "title": "Our values",
+        "desc": "Transparency, reliability, and access for all — in every space we list."
+      }
+    }
+  },
+  "cta": {
+    "title": "Ready to find your space?",
+    "lead": "Join the students and space owners in Gaza on the platform built for trustworthy, bookable work.",
+    "createAccount": "Create your account",
+    "contactTitle": "Contact us",
+    "contactLead": "Have a question or need a space? We're here to help.",
+    "contacts": {
+      "email": "Email",
+      "call": "Call us",
+      "location": "Location"
+    },
+    "locationValue": "Gaza, Palestine"
+  },
+  "top": {
+    "eyebrow": "Top rated",
+    "title": "Top 3 spaces this month",
+    "lead": "Spaces with the highest user ratings — guaranteed quality and a great experience.",
+    "viewAll": "View all",
+    "empty": "No spaces are available right now.",
+    "perHour": "₪/hr"
+  },
+  "assistant": {
+    "bubbleLabel": "Masahati assistant",
+    "tipClose": "Close chat",
+    "tipAsk": "Ask the Masahati assistant",
+    "headerTitle": "Masahati assistant",
+    "online": "Online now",
+    "welcome": "Hi 👋 I'm the Masahati assistant. Ask me about spaces, prices, booking, or anything about the platform.",
+    "replyFallback": "I couldn't compose a reply right now. Try another question.",
+    "errorFallback": "Couldn't reach the assistant right now. Please try again shortly.",
+    "clearChat": "Clear chat",
+    "typing": "Assistant is typing",
+    "placeholder": "Type your question…",
+    "inputLabel": "Your message to the assistant",
+    "send": "Send",
+    "confirmLabel": "Confirm clearing the chat",
+    "confirmBody": "Clear the whole chat? This cannot be undone.",
+    "confirmYes": "Yes, clear",
+    "browseAll": "Browse all spaces",
+    "unread_one": "1 new message",
+    "unread_other": "{{count}} new messages",
+    "quick": {
+      "q1": "How do I book a seat?",
+      "q2": "What's the hourly price for spaces?",
+      "q3": "What's the difference between a customer and a space owner?",
+      "q4": "Which spaces are available now?"
+    }
+  },
+  "backToTop": "Back to top",
+  "refreshing": "Refreshing…"
+}

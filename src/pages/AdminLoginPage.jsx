@@ -1,14 +1,20 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import BackButton from '@/components/ui/BackButton';
+import LanguageToggle from '@/components/ui/LanguageToggle';
 import { adminLogin } from '@/lib/adminAuth';
 import { useForceLight } from '@/hooks/useTheme';
+import { useTranslation } from '@/hooks/useT';
 
 // صفحة دخول المشرف: منفصلة عن دخول العملاء لأن مصادقة المشرف عقدٌ مختلف
 // (/api/admin/login بتوكن مشرف منفصل). لا يوجد أي بريد أو كلمة مرور مُثبّتة
 // في الكود — البيانات تُرسل للخادم مباشرة، وأي فشل يُعرض بنصّه.
+//
+// الاتجاه يأتي من <html dir> (يضبطه i18n)، فلا `dir="rtl"` مثبّت هنا حتى ينقلب
+// التخطيط تلقائياً عند التبديل إلى الإنجليزية. الخطّ أيضاً من الورقة العامة.
 export default function AdminLoginPage() {
   useForceLight();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
@@ -24,7 +30,7 @@ export default function AdminLoginPage() {
     e.preventDefault();
     const email = formData.email.trim();
     if (!email || !formData.password) {
-      setError('الرجاء إدخال البريد الإلكتروني وكلمة المرور.');
+      setError(t('auth:admin.errRequired'));
       return;
     }
     setLoading(true);
@@ -33,7 +39,7 @@ export default function AdminLoginPage() {
       await adminLogin(email, formData.password);
       navigate('/admin', { replace: true });
     } catch (err) {
-      setError(err?.message || 'تعذّر تسجيل الدخول. حاول مرة أخرى.');
+      setError(err?.message || t('auth:admin.errGeneric'));
     } finally {
       setLoading(false);
     }
@@ -41,23 +47,25 @@ export default function AdminLoginPage() {
 
   return (
     <div
-      dir="rtl"
-      className="min-h-screen flex items-center justify-center px-4 font-['Cairo']"
+      className="min-h-screen flex items-center justify-center px-4"
       style={{ background: 'linear-gradient(160deg, #18181b, #0b0b0d)' }}
     >
       <div className="w-full max-w-md rounded-3xl border border-orange-500/20 bg-zinc-900/90 p-7 shadow-2xl">
         <div className="flex items-center justify-between mb-6">
-          <img src="/Logo.png" alt="مساحاتي" className="h-9 w-auto object-contain" />
-          <BackButton fallback="/" ariaLabel="رجوع للرئيسية" />
+          <img src="/Logo.png" alt={t('auth:admin.brandAlt')} className="h-9 w-auto object-contain" />
+          <div className="flex items-center gap-2">
+            <LanguageToggle />
+            <BackButton fallback="/" ariaLabel={t('auth:common.backHome')} />
+          </div>
         </div>
 
-        <h1 className="text-2xl font-extrabold text-white mb-1">دخول المشرف</h1>
-        <p className="text-sm text-zinc-400 mb-5">هذه الصفحة مخصّصة لإدارة المنصة.</p>
+        <h1 className="text-2xl font-extrabold text-white mb-1">{t('auth:admin.title')}</h1>
+        <p className="text-sm text-zinc-400 mb-5">{t('auth:admin.sub')}</p>
 
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-semibold text-zinc-200 mb-1.5">
-              البريد الإلكتروني
+              {t('auth:common.email')}
             </label>
             <input
               id="email"
@@ -73,7 +81,7 @@ export default function AdminLoginPage() {
 
           <div>
             <label htmlFor="password" className="block text-sm font-semibold text-zinc-200 mb-1.5">
-              كلمة المرور
+              {t('auth:common.password')}
             </label>
             <input
               id="password"
@@ -97,12 +105,13 @@ export default function AdminLoginPage() {
             disabled={loading}
             className="w-full rounded-xl bg-orange-500 px-4 py-3 font-bold text-white transition hover:bg-orange-600 disabled:opacity-60"
           >
-            {loading ? 'جارٍ الدخول…' : 'تسجيل الدخول'}
+            {loading ? t('auth:admin.loading') : t('auth:admin.submit')}
           </button>
         </form>
 
         <p className="mt-5 text-center text-sm text-zinc-400">
-          لست مشرفاً؟ <Link to="/login" className="font-bold text-orange-400 underline">دخول الحسابات</Link>
+          {t('auth:admin.notAdmin')}{' '}
+          <Link to="/login" className="font-bold text-orange-400 underline">{t('auth:admin.accountsLogin')}</Link>
         </p>
       </div>
     </div>

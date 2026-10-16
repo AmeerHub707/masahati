@@ -2,14 +2,16 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { CountUp } from 'countup.js';
 import { useEffect, useRef } from 'react';
+import { useTranslation } from '@/hooks/useT';
 import AnimatedOrbs from '@/components/ui/AnimatedOrbs';
 import MagneticButton from '@/components/ui/MagneticButton';
 
+// القيم والرموز بيانات تبقى ثابتة، والنص مفتاح ترجمة يُحلّ عند التصيير.
 const stats = [
-  { value: 120, suffix: '+', label: 'مساحة موثّقة', icon: 'building' },
-  { value: 24, suffix: '/7', label: 'فلتر الكهرباء', icon: 'bolt' },
-  { value: 5, suffix: ' min', label: 'لحجز مقعد', icon: 'clock' },
-  { value: 4.8, suffix: '★', decimals: 1, label: 'تقييم الأعضاء', icon: 'star' },
+  { value: 120, suffix: '+', labelKey: 'hero.stats.verified', icon: 'building' },
+  { value: 24, suffix: '/7', labelKey: 'hero.stats.power', icon: 'bolt' },
+  { value: 5, suffix: ' min', labelKey: 'hero.stats.book', icon: 'clock' },
+  { value: 4.8, suffix: '★', decimals: 1, labelKey: 'hero.stats.rating', icon: 'star' },
 ];
 
 function StatIcon({ name }) {
@@ -140,6 +142,7 @@ const item = {
 };
 
 export default function Hero() {
+  const { t } = useTranslation('landing');
   return (
     <>
       <header className="hero">
@@ -160,11 +163,11 @@ export default function Hero() {
 
         <div className="wrap hero__inner">
           <div className="hero__copy">
-            <h1>اعثر على <span className="hl">مساحتك — بكهرباء ونت ومقعد، بنقرة واحدة.</span></h1>
-            <p className="lead">تجمع مساحاتي كل مساحات العمل المشتركة وقاعات الدراسة في مكان واحد. قارن الأسعار وسرعة الإنترنت وتوفّر الكهرباء، ثم احجز مقعدك مباشرةً — دون اتصال ولا رسالة.</p>
+            <h1>{t('hero.titleBefore')} <span className="hl">{t('hero.titleHighlight')}</span></h1>
+            <p className="lead">{t('hero.lead')}</p>
             <div className="hero__cta">
               <MagneticButton>
-                <Link className="btn-primary" to="/signup">ابدأ الآن</Link>
+                <Link className="btn-primary" to="/signup">{t('hero.startNow')}</Link>
               </MagneticButton>
             </div>
           </div>
@@ -181,7 +184,7 @@ export default function Hero() {
           viewport={{ once: false, amount: 0.3 }}
         >
           {stats.map((stat) => (
-            <StatCard key={stat.label} stat={stat} />
+            <StatCard key={stat.labelKey} stat={{ ...stat, label: t(stat.labelKey) }} />
           ))}
         </motion.div>
       </div>

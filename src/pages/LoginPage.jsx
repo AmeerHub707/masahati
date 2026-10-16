@@ -4,9 +4,12 @@ import BackButton from '@/components/ui/BackButton';
 import { login, googleLogin, getHomePath, ApiError, consumeSessionExpired } from '@/lib/authStore';
 import useGoogleAuth from '@/hooks/useGoogleAuth';
 import { useForceLight } from '@/hooks/useTheme';
+import LanguageToggle from '@/components/ui/LanguageToggle';
+import { useTranslation } from '@/hooks/useT';
 
 export default function LoginPage() {
   useForceLight();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     identifier: '',
@@ -18,7 +21,7 @@ export default function LoginPage() {
   const [searchParams] = useSearchParams();
   const [formError, setFormError] = useState(() => {
     if (consumeSessionExpired() || searchParams.get('expired') === 'true') {
-      return 'انتهت صلاحية جلستك، يرجى تسجيل الدخول مرة أخرى.';
+      return t('auth:login.sessionExpired');
     }
     return '';
   });
@@ -61,7 +64,7 @@ export default function LoginPage() {
       }
       // إظهار رسالة الفشل بدل الفشل الصامت (مثال: الباك إند لم يُطبق المسار بعد).
       console.error('Google login failed:', err);
-      setFormError(err?.message || 'تعذر تسجيل الدخول عبر Google. حاول مرة أخرى.');
+      setFormError(err?.message || t('auth:login.errGoogleLogin'));
     }
   };
 
@@ -78,14 +81,14 @@ export default function LoginPage() {
       navigate(getHomePath(created.user?.role));
     } catch (err) {
       console.error('Google signup failed:', err);
-      setFormError(err?.message || 'تعذر إنشاء الحساب عبر Google. حاول مرة أخرى.');
+      setFormError(err?.message || t('auth:login.errGoogleSignup'));
     } finally {
       setRoleModalLoading(false);
     }
   };
 
   const handleGoogleError = (err) => {
-    setFormError(err?.message || 'تعذر تسجيل الدخول عبر Google. حاول مرة أخرى.');
+    setFormError(err?.message || t('auth:login.errGoogleLogin'));
   };
 
   const { isReady: googleReady, renderButton: renderGoogleButton } = useGoogleAuth({
@@ -121,15 +124,15 @@ export default function LoginPage() {
     const emailOk = identifier.includes('@') && identifier.includes('.') && !identifier.includes(' ');
 
     if (!identifier) {
-      newErrors.identifier = 'الرجاء إدخال البريد الإلكتروني';
+      newErrors.identifier = t('auth:login.errIdentifierRequired');
       valid = false;
     } else if (!emailOk) {
-      newErrors.identifier = 'أدخل بريداً إلكترونياً صحيحاً';
+      newErrors.identifier = t('auth:login.errIdentifierInvalid');
       valid = false;
     }
 
     if (!formData.password) {
-      newErrors.password = 'الرجاء إدخال كلمة المرور';
+      newErrors.password = t('auth:login.errPasswordRequired');
       valid = false;
     }
 
@@ -149,9 +152,9 @@ export default function LoginPage() {
       navigate(getHomePath(data.user?.role));
     } catch (err) {
       if (err instanceof ApiError && (err.status === 401 || err.status === 422)) {
-        setFormError('البريد الإلكتروني أو كلمة المرور غير صحيحة.');
+        setFormError(t('auth:login.errCredentials'));
       } else {
-        setFormError(err.message || 'تعذر تسجيل الدخول. حاول مرة أخرى.');
+        setFormError(err.message || t('auth:login.errGeneric'));
       }
     } finally {
       setLoading(false);
@@ -192,7 +195,6 @@ export default function LoginPage() {
           isolation: isolate;
           overflow: hidden;
           font-family: 'Cairo', sans-serif;
-          direction: rtl;
         }
         .auth-wrapper::before {
           content: "";
@@ -436,7 +438,7 @@ export default function LoginPage() {
         .pw-wrap { position: relative; }
         .pw-toggle {
           position: absolute;
-          left: 8px; top: 50%;
+          inset-inline-end: 8px; top: 50%;
           transform: translateY(-50%);
           display: inline-flex;
           align-items: center;
@@ -566,7 +568,6 @@ export default function LoginPage() {
           background: rgba(0,0,0,0.62);
           backdrop-filter: blur(4px);
           font-family: 'Cairo', sans-serif;
-          direction: rtl;
         }
         .role-modal {
           position: relative;
@@ -590,7 +591,7 @@ export default function LoginPage() {
         }
         .role-modal__close {
           position: absolute;
-          top: 0.8rem; left: 0.8rem;
+          top: 0.8rem; inset-inline-end: 0.8rem;
           width: 2.1rem; height: 2.1rem;
           display: flex; align-items: center; justify-content: center;
           border-radius: 999px;
@@ -646,20 +647,20 @@ export default function LoginPage() {
         {/* الجانب الترحيبي */}
         <aside className="auth-welcome">
           <div className="auth-welcome__copy">
-            <h1>مرحباً بعودتك</h1>
-            <p>سجّل الدخول إلى حسابك في مساحاتي، واستكشف أفضل المساحات المتاحة لك في مكان واحد.</p>
+            <h1>{t('auth:login.welcomeTitle')}</h1>
+            <p>{t('auth:login.welcomeLead')}</p>
             <ul className="auth-welcome__list">
               <li>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-                إدارة حجوزاتك ومساحاتك بسهولة
+                {t('auth:login.welcomeBullet1')}
               </li>
               <li>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-                تتبّع مدفوعاتك وتقاريرك لحظياً
+                {t('auth:login.welcomeBullet2')}
               </li>
               <li>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-                دعم فوري عبر الواتساب على مدار الساعة
+                {t('auth:login.welcomeBullet3')}
               </li>
             </ul>
           </div>
@@ -672,16 +673,19 @@ export default function LoginPage() {
               <img src="/Logo.png" alt="Masahati" className="brand-logo" />
             </div>
 
-            <BackButton className="back-home" fallback="/" ariaLabel="رجوع للرئيسية" />
+            <div className="flex items-center gap-2">
+              <LanguageToggle />
+              <BackButton className="back-home" fallback="/" ariaLabel={t('auth:common.backHome')} />
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} noValidate>
-            <h2>سجّل الدخول</h2>
-            <p className="form-sub">أدخل بياناتك للوصول إلى حسابك.</p>
+            <h2>{t('auth:login.title')}</h2>
+            <p className="form-sub">{t('auth:login.sub')}</p>
 
             {/* المعرّف: بريد إلكتروني أو رقم هاتف */}
             <div className={`field ${errors.identifier ? 'has-error' : ''}`}>
-              <label htmlFor="login-identifier">البريد الإلكتروني</label>
+              <label htmlFor="login-identifier">{t('auth:common.email')}</label>
               <input
                 type="text"
                 id="login-identifier"
@@ -696,7 +700,7 @@ export default function LoginPage() {
 
             {/* كلمة المرور */}
             <div className={`field ${errors.password ? 'has-error' : ''}`}>
-              <label htmlFor="login-password">كلمة المرور</label>
+              <label htmlFor="login-password">{t('auth:common.password')}</label>
               <div className="pw-wrap">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -710,7 +714,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={toggleShowPassword}
-                  aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                  aria-label={showPassword ? t('auth:common.togglePasswordHide') : t('auth:common.togglePasswordShow')}
                   className="pw-toggle"
                 >
                   {showPassword ? (
@@ -742,7 +746,7 @@ export default function LoginPage() {
                 <span className="box">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l4 4 10-10" /></svg>
                 </span>
-                <span>تذكرني</span>
+                <span>{t('auth:login.remember')}</span>
               </label>
 
               <Link to="/forgot" className="forgot">
@@ -750,7 +754,7 @@ export default function LoginPage() {
                   <rect x="5" y="11" width="14" height="9" rx="2" />
                   <path d="M8 11V8a4 4 0 0 1 8 0v3" />
                 </svg>
-                <span>هل نسيت كلمة المرور؟</span>
+                <span>{t('auth:login.forgot')}</span>
               </Link>
             </div>
 
@@ -764,17 +768,17 @@ export default function LoginPage() {
                 <span className="flex items-center justify-center">
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 </span>
-              ) : 'تسجيل الدخول'}
+              ) : t('auth:login.submit')}
             </button>
 
             {/* تسجيل الدخول عبر Google */}
-            <div className="google-divider">أو</div>
-            <div ref={googleBtnRef} className="google-btn-wrap" aria-label="المتابعة عبر Google" />
+            <div className="google-divider">{t('auth:common.or')}</div>
+            <div ref={googleBtnRef} className="google-btn-wrap" aria-label={t('auth:common.googleContinue')} />
 
             {/* التحويل إلى إنشاء حساب */}
             <p className="switch">
-              ليس لديك حساب؟{' '}
-              <Link to="/signup">إنشاء حساب</Link>
+              {t('auth:login.noAccount')}{' '}
+              <Link to="/signup">{t('auth:login.createAccount')}</Link>
             </p>
           </form>
         </section>
@@ -784,8 +788,8 @@ export default function LoginPage() {
           href="https://wa.me/972567653009"
           target="_blank"
           rel="noopener noreferrer"
-          aria-label="تواصل عبر واتساب"
-          className="fixed bottom-5 left-5 z-50 w-14 h-14 rounded-full bg-orange-500 flex items-center justify-center shadow-[0_14px_30px_-8px_rgba(249,115,22,0.6)] hover:-translate-y-1 hover:scale-105 hover:shadow-[0_18px_36px_-8px_rgba(249,115,22,0.75)] transition-all duration-200"
+          aria-label={t('auth:login.whatsappAria')}
+          className="fixed bottom-5 end-5 z-50 w-14 h-14 rounded-full bg-orange-500 flex items-center justify-center shadow-[0_14px_30px_-8px_rgba(249,115,22,0.6)] hover:-translate-y-1 hover:scale-105 hover:shadow-[0_18px_36px_-8px_rgba(249,115,22,0.75)] transition-all duration-200"
         >
           <svg viewBox="0 0 24 24" className="w-7 h-7 fill-white">
             <path d="M.057 24l1.687-6.163a11.867 11.867 0 0 1-1.587-5.946C.16 5.335 5.495 0 12.05 0a11.817 11.817 0 0 1 8.413 3.488 11.824 11.824 0 0 1 3.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 0 1-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 0 0 1.474 5.222l-.999 3.648 3.977-1.043zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.247-.695.247-1.29.173-1.414z" />
@@ -795,13 +799,13 @@ export default function LoginPage() {
 
       {/* نافذة اختيار الدور: تظهر عندما يكون بريد Google غير مسجّل بعد */}
       {roleModalOpen && (
-        <div className="role-modal-overlay" role="dialog" aria-modal="true" aria-label="اختر نوع الحساب">
+        <div className="role-modal-overlay" role="dialog" aria-modal="true" aria-label={t('auth:login.roleModalAria')}>
           <div className="role-modal" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
               className="role-modal__close"
               onClick={() => setRoleModalOpen(false)}
-              aria-label="إغلاق"
+              aria-label={t('auth:common.close')}
             >
               <svg viewBox="0 0 24 24" className="w-5 h-5 fill-none stroke-current stroke-[2.2] stroke-linecap-round">
                 <path d="M6 6l12 12M18 6L6 18" />
@@ -812,8 +816,8 @@ export default function LoginPage() {
               <img src="/Logo.png" alt="Masahati" className="brand-logo" />
             </div>
 
-            <h3>مرحباً بك في مساحاتي</h3>
-            <p className="role-modal__sub">لم نجد بريدك مسجلاً بعد. اختر نوع الحساب لإنشائه:</p>
+            <h3>{t('auth:login.roleModalTitle')}</h3>
+            <p className="role-modal__sub">{t('auth:login.roleModalSub')}</p>
 
             {/* مقسم اختيار الدور — نفس الهوية البصرية لصفحة إنشاء الحساب */}
             <div className="filterbar filterbar--auth role-modal__segment">
@@ -827,7 +831,7 @@ export default function LoginPage() {
                   <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
                   <path d="M6 12v5c3 3 9 3 12 0v-5" />
                 </svg>
-                عميل
+                {t('auth:common.customer')}
               </button>
               <button
                 type="button"
@@ -837,16 +841,16 @@ export default function LoginPage() {
                   <path d="M3 21h18M5 21V7l7-4 7 4v14" />
                   <path d="M9 21v-4h6v4" />
                 </svg>
-                صاحب مساحة
+                {t('auth:common.owner')}
               </button>
             </div>
 
             <p className="role-modal__hint">
-              يمكنك تغيير أو إكمال بيانات حسابك من لوحة التحكم لاحقاً.
+              {t('auth:login.roleModalHint')}
             </p>
 
             {roleModalLoading && (
-              <p className="role-modal__loading">جارٍ إنشاء الحساب…</p>
+              <p className="role-modal__loading">{t('auth:login.roleModalLoading')}</p>
             )}
           </div>
         </div>

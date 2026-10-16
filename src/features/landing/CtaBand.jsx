@@ -1,27 +1,29 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from '@/hooks/useT';
 import MagneticButton from '@/components/ui/MagneticButton';
 import { Mail, Phone, MapPin } from 'lucide-react';
 
+// البريد والهاتف بيانات تُعرض دائماً LTR (dir='ltr')، والموقع نص مترجم.
 const CONTACTS = [
   {
     icon: Mail,
-    label: 'البريد الإلكتروني',
+    labelKey: 'cta.contacts.email',
     value: 'masahati@outlook.com',
     href: 'mailto:masahati@outlook.com',
     dir: 'ltr',
   },
   {
     icon: Phone,
-    label: 'اتصل بنا',
+    labelKey: 'cta.contacts.call',
     value: '0567653009',
     href: 'tel:0567653009',
     dir: 'ltr',
   },
   {
     icon: MapPin,
-    label: 'الموقع',
-    value: 'غزة، فلسطين',
+    labelKey: 'cta.contacts.location',
+    valueKey: 'cta.locationValue',
     href: null,
     dir: null,
   },
@@ -30,6 +32,7 @@ const CONTACTS = [
 export default function CtaBand() {
   const ref = useRef(null);
   const [inView, setInView] = useState(false);
+  const { t } = useTranslation('landing');
 
   useEffect(() => {
     const el = ref.current;
@@ -52,26 +55,26 @@ export default function CtaBand() {
         <div className={`cta-card${inView ? ' is-in' : ''}`}>
           {/* الجزء: الدعوة للإجراء */}
           <div className="cta-card__main">
-            <h2>جاهز لتجد مساحتك؟</h2>
-            <p>انضم إلى الطلاب وأصحاب المساحات في غزة على المنصة المبنية للعمل الموثوق القابل للحجز.</p>
+            <h2>{t('cta.title')}</h2>
+            <p>{t('cta.lead')}</p>
 
             <div className="cta-actions">
               <MagneticButton>
                 <Link className="cta-btn cta-btn--primary" to="/signup">
-                  <span>أنشئ حسابك</span>
+                  <span>{t('cta.createAccount')}</span>
                   <svg className="cta-btn__arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M14 6l-6 6 6 6" />
                   </svg>
                 </Link>
               </MagneticButton>
-              <Link className="cta-btn cta-btn--ghost" to="/login">تسجيل الدخول</Link>
+              <Link className="cta-btn cta-btn--ghost" to="/login">{t('nav:login')}</Link>
             </div>
           </div>
 
           {/* الجزء: وسائل التواصل */}
           <div className="cta-card__contact">
-            <h3>تواصل معنا</h3>
-            <p>لديك سؤال أو تريد مساحة؟ نحن هنا لمساعدتك.</p>
+            <h3>{t('cta.contactTitle')}</h3>
+            <p>{t('cta.contactLead')}</p>
             <ul className="cta-contact__list">
               {CONTACTS.map((c) => {
                 const Icon = c.icon;
@@ -81,13 +84,13 @@ export default function CtaBand() {
                       <Icon size={18} />
                     </span>
                     <span className="cta-contact__text">
-                      <span className="cta-contact__label">{c.label}</span>
-                      <span className="cta-contact__value" dir={c.dir ?? undefined}>{c.value}</span>
+                      <span className="cta-contact__label">{t(c.labelKey)}</span>
+                      <span className="cta-contact__value" dir={c.dir ?? undefined}>{c.valueKey ? t(c.valueKey) : c.value}</span>
                     </span>
                   </>
                 );
                 return (
-                  <li key={c.label}>
+                  <li key={c.labelKey}>
                     {c.href ? (
                       <a href={c.href} className="cta-contact__row">{inner}</a>
                     ) : (

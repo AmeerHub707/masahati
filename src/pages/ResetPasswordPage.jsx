@@ -1,36 +1,38 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import BackButton from '@/components/ui/BackButton';
+import LanguageToggle from '@/components/ui/LanguageToggle';
 import { request, ApiError } from '@/lib/authStore';
+import { useTranslation } from '@/hooks/useT';
 import {
-  checkPassword,
+  getPasswordChecks,
   getPasswordStrength,
-  strengthLabels,
-  PASSWORD_LENGTH_MESSAGE,
-  PASSWORD_FORMAT_MESSAGE,
+  PASSWORD_RULES,
+  PASSWORD_MIN_LENGTH,
 } from '@/lib/passwordRules';
 
-// ترجمة رسائل الخطأ الإنجليزية القادمة من Laravel إلى العربية.
-function translateError(msg, status) {
+// ترجمة رسائل الخطأ الإنجليزية القادمة من Laravel إلى اللغة النشطة.
+function translateError(msg, status, t) {
   if (status === 405) {
-    return 'رابط إعادة التعيين مفتوح بطريقة غير صحيحة. انسخ الرابط وافتحه في المتصفح، أو اطلب رابطاً جديداً.';
+    return t('auth:reset.errBadMethod');
   }
-  if (!msg) return 'حدث خطأ غير متوقع. حاول مرة أخرى.';
+  if (!msg) return t('auth:reset.errUnexpected');
   const m = String(msg).toLowerCase();
-  if (m.includes('token')) return 'رابط إعادة التعيين غير صالح أو منتهٍ. اطلب رابطاً جديداً.';
+  if (m.includes('token')) return t('auth:reset.errToken');
   if (m.includes('password') && (m.includes('format') || m.includes('uppercase') || m.includes('symbol') || m.includes('numeric')))
-    return PASSWORD_FORMAT_MESSAGE;
+    return t('auth:pwMsgFormat');
   if (m.includes('password') && (m.includes('reset') || m.includes('short') || m.includes('min') || m.includes('at least') || m.includes('characters')))
-    return PASSWORD_LENGTH_MESSAGE;
+    return t('auth:pwMsgLength', { n: PASSWORD_MIN_LENGTH });
   if (m.includes('mismatch') || m.includes('confirmation'))
-    return 'كلمتا المرور غير متطابقتين.';
-  if (m.includes('selected email is invalid')) return 'هذا البريد غير صحيح. اطلب رابطاً جديداً.';
+    return t('auth:reset.errMismatch');
+  if (m.includes('selected email is invalid')) return t('auth:reset.errEmailInvalid');
   return msg;
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function ResetPasswordPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const params = useParams();
@@ -62,6 +64,16 @@ export default function ResetPasswordPage() {
 
   const passwordScore = getPasswordStrength(password);
 
+  // رسالة كلمة المرور من مفاتيح الترجمة لا من نصّ ثابت (كما في صفحة التسجيل).
+  const passwordMessage = (value) => {
+    const checks = getPasswordChecks(value);
+    const failed = PASSWORD_RULES.filter((r) => !checks[r.id]).map((r) =>
+      t(`auth:pwRules.${r.id}`, { n: PASSWORD_MIN_LENGTH })
+    );
+    if (!failed.length) return '';
+    return t('auth:pwInvalid', { rules: failed.join(t('auth:pwInvalidSeparator')) });
+  };
+
   const validate = () => {
     let valid = true;
     setPasswordError('');
@@ -70,16 +82,16 @@ export default function ResetPasswordPage() {
     setFormError('');
 
     if (emailEditable && !EMAIL_REGEX.test(email)) {
-      setEmailError('الرجاء إدخال بريدك الإلكتروني.');
+      setEmailError(t('auth:reset.errEmailRequired'));
       valid = false;
     }
-    const passwordIssue = checkPassword(password);
+    const passwordIssue = passwordMessage(password);
     if (passwordIssue) {
       setPasswordError(passwordIssue);
       valid = false;
     }
     if (password !== confirmPassword) {
-      setConfirmPasswordError('كلمتا المرور غير متطابقتين.');
+      setConfirmPasswordError(t('auth:reset.errMismatch'));
       valid = false;
     }
     return valid;
@@ -107,18 +119,18 @@ export default function ResetPasswordPage() {
     } catch (err) {
       if (err instanceof ApiError && err.data?.errors) {
         const e = err.data.errors;
-        if (e.password) setPasswordError(translateError(Array.isArray(e.password) ? e.password[0] : e.password, err.status));
-        if (e.token) setFormError(translateError(Array.isArray(e.token) ? e.token[0] : e.token, err.status));
-        if (e.email) setFormError(translateError(Array.isArray(e.email) ? e.email[0] : e.email, err.status));
+        if (e.password) setPasswordError(translateError(Array.isArray(e.password) ? e.password[0] : e.password, err.status, t));
+        if (e.token) setFormError(translateError(Array.isArray(e.token) ? e.token[0] : e.token, err.status, t));
+        if (e.email) setFormError(translateError(Array.isArray(e.email) ? e.email[0] : e.email, err.status, t));
         if (!e.password && !e.token && !e.email) {
-          setFormError(translateError(err.message, err.status));
+          setFormError(translateError(err.message, err.status, t));
         }
       } else if (err instanceof ApiError) {
-        setFormError(translateError(err.message, err.status));
+        setFormError(translateError(err.message, err.status, t));
       } else {
-        setFormError('تعذر الاتصال بالخادم. تحقق من اتصالك وحاول مجدداً.');
+        setFormError(t('auth:reset.errNetwork'));
       }
-      setSubmitError(translateError(err.message, err.status));
+      setSubmitError(translateError(err.message, err.status, t));
       setStatus('error');
     } finally {
       setIsResetting(false);
@@ -154,7 +166,6 @@ export default function ResetPasswordPage() {
           isolation: isolate;
           overflow: hidden;
           font-family: 'Cairo', sans-serif;
-          direction: rtl;
         }
         .auth-wrapper::before {
           content: "";
@@ -348,7 +359,7 @@ export default function ResetPasswordPage() {
         .pw-wrap { position: relative; }
         .pw-toggle {
           position: absolute;
-          left: 8px; top: 50%;
+          inset-inline-end: 8px; top: 50%;
           transform: translateY(-50%);
           display: inline-flex;
           align-items: center;
@@ -507,16 +518,16 @@ export default function ResetPasswordPage() {
 
         <aside className="auth-welcome">
           <div className="auth-welcome__copy">
-            <h1>كلمة مرور جديدة</h1>
+            <h1>{t('auth:reset.welcomeTitle')}</h1>
             <p>
-              أنشئ كلمة مرور قوية لحسابك في مساحاتي. تأكد من تطابق الحقلين قبل الحفظ.
+              {t('auth:reset.welcomeLead')}
             </p>
             <span className="auth-welcome__badge">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="4" y="11" width="16" height="9" rx="2" />
                 <path d="M8 11V7a4 4 0 0 1 8 0v4" />
               </svg>
-              اتصال مشفّر
+              {t('auth:reset.badge')}
             </span>
           </div>
         </aside>
@@ -527,7 +538,10 @@ export default function ResetPasswordPage() {
               <img src="/Logo.png" alt="Masahati" className="brand-logo" />
             </div>
 
-            <BackButton className="back-home" fallback="/" ariaLabel="رجوع للرئيسية" />
+            <div className="flex items-center gap-2">
+              <LanguageToggle />
+              <BackButton className="back-home" fallback="/" ariaLabel={t('auth:common.backHome')} />
+            </div>
           </div>
 
           <div className="relative flex-1">
@@ -540,8 +554,8 @@ export default function ResetPasswordPage() {
                       <path d="M20 6 9 17l-5-5" />
                     </svg>
                   </div>
-                  <h2>تم تغيير كلمة المرور</h2>
-                  <p>سيتم توجيهك إلى تسجيل الدخول الآن…</p>
+                  <h2>{t('auth:reset.doneTitle')}</h2>
+                  <p>{t('auth:reset.doneLead')}</p>
                 </div>
               </div>
             ) : status === 'error' ? (
@@ -555,14 +569,14 @@ export default function ResetPasswordPage() {
                       <path d="M12 16h.01" />
                     </svg>
                   </div>
-                  <h2>تعذّر تغيير كلمة المرور</h2>
-                  <p>{submitError || 'حدث خطأ غير متوقع. حاول مرة أخرى.'}</p>
+                  <h2>{t('auth:reset.errorTitle')}</h2>
+                  <p>{submitError || t('auth:reset.errorUnexpected')}</p>
                   <div className="success-screen__actions">
                     <button type="button" className="btn" onClick={() => { setSubmitError(''); setStatus('idle'); }}>
-                      المحاولة مجدداً
+                      {t('auth:reset.retry')}
                     </button>
                     <Link to="/login" className="btn btn--ghost" style={{ display: 'block', textDecoration: 'none' }}>
-                      تسجيل الدخول
+                      {t('auth:reset.login')}
                     </Link>
                   </div>
                 </div>
@@ -578,27 +592,27 @@ export default function ResetPasswordPage() {
                       <path d="M12 16h.01" />
                     </svg>
                   </div>
-                  <h2>الرابط غير صالح</h2>
-                  <p>رابط إعادة التعيين غير صالح أو منتهٍ. اطلب رابطاً جديداً من صفحة نسيت كلمة المرور.</p>
+                  <h2>{t('auth:reset.invalidTitle')}</h2>
+                  <p>{t('auth:reset.invalidLead')}</p>
                   <Link to="/forgot" className="btn" style={{ display: 'block', textDecoration: 'none', marginTop: '0.4rem' }}>
-                    طلب رابط جديد
+                    {t('auth:reset.requestNew')}
                   </Link>
                 </div>
               </div>
             ) : (
               <form onSubmit={handleSubmit} noValidate className="animate-fadeIn">
-                <h2>تعيين كلمة مرور جديدة</h2>
+                <h2>{t('auth:reset.title')}</h2>
                 <p className="form-sub">
                   {email ? (
-                    <>أدخل كلمة المرور الجديدة لحساب <b dir="ltr">{email}</b>.</>
+                    <>{t('auth:reset.subWithEmail')} <b dir="ltr">{email}</b>{t('auth:reset.subWithEmailAfter')}</>
                   ) : (
-                    <>أدخل بريدك وكلمة المرور الجديدة لحسابك.</>
+                    <>{t('auth:reset.subPlain')}</>
                   )}
                 </p>
 
                 {emailEditable && (
                   <div className={`field ${emailError ? 'has-error' : ''}`}>
-                    <label htmlFor="email">البريد الإلكتروني</label>
+                    <label htmlFor="email">{t('auth:common.email')}</label>
                     <input
                       type="email"
                       id="email"
@@ -613,17 +627,17 @@ export default function ResetPasswordPage() {
                 )}
 
                 <div className={`field ${passwordError ? 'has-error' : ''}`}>
-                  <label htmlFor="password">كلمة المرور الجديدة</label>
+                  <label htmlFor="password">{t('auth:reset.newPassword')}</label>
                   <div className="pw-wrap">
                     <input
                       type={showPassword ? 'text' : 'password'}
                       id="password"
                       value={password}
                       onChange={(e) => { setPassword(e.target.value); if (passwordError) setPasswordError(''); if (formError) setFormError(''); }}
-                      placeholder="٨ أحرف على الأقل"
+                      placeholder={t('auth:reset.newPasswordPlaceholder')}
                       autoComplete="new-password"
                     />
-                    <button type="button" className="pw-toggle" onClick={() => setShowPassword((s) => !s)} aria-label="إظهار/إخفاء">
+                    <button type="button" className="pw-toggle" onClick={() => setShowPassword((s) => !s)} aria-label={t('auth:reset.toggleAria')}>
                       {showPassword ? '🙈' : '👁'}
                     </button>
                   </div>
@@ -633,23 +647,23 @@ export default function ResetPasswordPage() {
                         <span key={i} className={passwordScore > i ? `on-${passwordScore}` : ''} />
                       ))}
                     </div>
-                    <div className="strength-label">قوة كلمة المرور: <b>{strengthLabels[passwordScore]}</b></div>
+                    <div className="strength-label">{t('auth:reset.strengthLabel')} <b>{t(`auth:pwStrength.${passwordScore}`)}</b></div>
                   </div>
                   {passwordError && <p className="error">{passwordError}</p>}
                 </div>
 
                 <div className={`field ${confirmPasswordError ? 'has-error' : ''}`}>
-                  <label htmlFor="confirmPassword">تأكيد كلمة المرور</label>
+                  <label htmlFor="confirmPassword">{t('auth:reset.confirmPassword')}</label>
                   <div className="pw-wrap">
                     <input
                       type={showConfirmPassword ? 'text' : 'password'}
                       id="confirmPassword"
                       value={confirmPassword}
                       onChange={(e) => { setConfirmPassword(e.target.value); if (confirmPasswordError) setConfirmPasswordError(''); if (formError) setFormError(''); }}
-                      placeholder="أعد إدخال كلمة المرور"
+                      placeholder={t('auth:reset.confirmPlaceholder')}
                       autoComplete="new-password"
                     />
-                    <button type="button" className="pw-toggle" onClick={() => setShowConfirmPassword((s) => !s)} aria-label="إظهار/إخفاء">
+                    <button type="button" className="pw-toggle" onClick={() => setShowConfirmPassword((s) => !s)} aria-label={t('auth:reset.toggleAria')}>
                       {showConfirmPassword ? '🙈' : '👁'}
                     </button>
                   </div>
@@ -664,13 +678,13 @@ export default function ResetPasswordPage() {
                       <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     </span>
                   ) : (
-                    'تعيين كلمة المرور'
+                    t('auth:reset.submit')
                   )}
                 </button>
 
                 <p className="switch">
-                  تذكّرت كلمتك؟{' '}
-                  <Link to="/login">العودة لتسجيل الدخول</Link>
+                  {t('auth:reset.remembered')}{' '}
+                  <Link to="/login">{t('auth:reset.backToLogin')}</Link>
                 </p>
               </form>
             )}

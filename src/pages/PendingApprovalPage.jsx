@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, Hourglass, LogOut } from 'lucide-react';
 import BackButton from '@/components/ui/BackButton';
+import LanguageToggle from '@/components/ui/LanguageToggle';
 import { getUser } from '@/lib/authStore';
 import { useForceLight } from '@/hooks/useTheme';
+import { useTranslation } from '@/hooks/useT';
 
 export default function PendingApprovalPage() {
   useForceLight();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [user] = useState(() => {
     try {
@@ -17,8 +20,8 @@ export default function PendingApprovalPage() {
   });
 
   useEffect(() => {
-    document.title = 'بانتظار الموافقة — مساحتي';
-  }, []);
+    document.title = t('auth:pending.documentTitle');
+  }, [t]);
 
   const displayName = (user.full_name || user.name || '').trim();
 
@@ -82,27 +85,27 @@ export default function PendingApprovalPage() {
         }
         .pa-btn:hover { filter: brightness(1.08); }
         .pa-note { margin: 1rem 0 0; font-size: 0.76rem; color: rgba(255, 255, 255, 0.55); line-height: 1.7; }
-        /* الشكل يأتي من .back-circle؛ يبقى للزر هنا الفسحة تحت البطاقة فقط */
-        .pa-back { margin: 0 0 1.4rem; }
       `}</style>
 
       <main className="pa-card">
-        <BackButton className="pa-back" fallback="/" ariaLabel="رجوع" />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.4rem' }}>
+          <BackButton fallback="/" ariaLabel={t('auth:pending.backAria')} />
+          <LanguageToggle />
+        </div>
 
         <div className="pa-icon" aria-hidden="true">
           <Hourglass size={30} strokeWidth={2} />
         </div>
 
-        <h1 className="pa-title">حسابك في انتظار المراجعة</h1>
-        {displayName ? <p className="pa-text">شكراً لتسجيلك يا {displayName}.</p> : null}
+        <h1 className="pa-title">{t('auth:pending.title')}</h1>
+        {displayName ? <p className="pa-text">{t('auth:pending.thanks', { name: displayName })}</p> : null}
         <p className="pa-text">
-          حسابك كصاحب مساحة بانتظار موافقة الإدارة قبل تفعيله. بعد الموافقة ستتمكّن من
-          الوصول إلى لوحة تحكم مساحاتك.
+          {t('auth:pending.lead')}
         </p>
 
         <div className="pa-eta">
           <Clock size={15} strokeWidth={2.2} />
-          الوقت المتوقع للموافقة: 24–48 ساعة
+          {t('auth:pending.eta')}
         </div>
 
         <div>
@@ -112,12 +115,12 @@ export default function PendingApprovalPage() {
             onClick={() => navigate('/login', { replace: true })}
           >
             <LogOut size={17} strokeWidth={2.2} />
-            العودة لتسجيل الدخول
+            {t('auth:pending.backToLogin')}
           </button>
         </div>
 
         <p className="pa-note">
-          إن كان حسابك مفعّلاً بالفعل، فقد سجّل الدخول بالطريقة العادية.
+          {t('auth:pending.note')}
         </p>
       </main>
     </div>

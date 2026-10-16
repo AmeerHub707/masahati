@@ -1,0 +1,19 @@
+{
+  "appName": "Masahati",
+  "retry": "Retry",
+  "close": "Close",
+  "cancel": "Cancel",
+  "save": "Save",
+  "delete": "Delete",
+  "edit": "Edit",
+  "loading": "Loading",
+  "search": "Search",
+  "noResults": "No results",
+  "error": "Error",
+  "success": "Success",
+  "confirm": "Confirm",
+  "back": "Back",
+  "next": "Next",
+  "previous": "Previous",
+  "seeMore": "See more"
+}

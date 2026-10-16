@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useTranslation } from '@/hooks/useT';
 import { Star, MapPin, Users, ArrowLeft, Loader2, Building2 } from 'lucide-react';
 import { loadSpacesWithFallback } from '@/lib/spaces';
 
@@ -21,9 +22,7 @@ const item = {
   },
 };
 
-const numFmt = new Intl.NumberFormat('ar-EG');
-
-function TopSpaceCard({ space, rank }) {
+function TopSpaceCard({ space, rank, numFmt, perHour }) {
   return (
     <motion.div variants={item}>
       <Link to={`/ads/${space.id}`} className="top-spaces__card">
@@ -57,7 +56,7 @@ function TopSpaceCard({ space, rank }) {
               </span>
             )}
             <span className="top-spaces__price">
-              {numFmt.format(space.price_per_hour)} ش.ج/ساعة
+              {numFmt.format(space.price_per_hour)} {perHour}
             </span>
           </div>
         </div>
@@ -70,9 +69,16 @@ function TopSpaceCard({ space, rank }) {
 }
 
 export default function TopSpaces() {
+  const { t, i18n } = useTranslation('landing');
   const [spaces, setSpaces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // الأرقام تُنسَّق بلغة الواجهة الحالية: ١٢٣ بالعربية و123 بالإنجليزية.
+  const numFmt = useMemo(
+    () => new Intl.NumberFormat(String(i18n.language).startsWith('ar') ? 'ar-EG' : 'en-US'),
+    [i18n.language],
+  );
 
   useEffect(() => {
     let alive = true;
@@ -95,12 +101,12 @@ export default function TopSpaces() {
       <div className="wrap">
         <div className="top-spaces__head">
           <div>
-            <span className="top-spaces__eyebrow">الأعلى تقييماً</span>
-            <h2>أفضل 3 مساحات هذا الشهر</h2>
-            <p>مساحات حصلت على أعلى تقييمات من المستخدمين — جودة مضمونة وتجربة مثالية.</p>
+            <span className="top-spaces__eyebrow">{t('top.eyebrow')}</span>
+            <h2>{t('top.title')}</h2>
+            <p>{t('top.lead')}</p>
           </div>
           <Link to="/spaces" className="top-spaces__all">
-            عرض الكل
+            {t('top.viewAll')}
             <ArrowLeft size={16} />
           </Link>
         </div>
@@ -111,7 +117,7 @@ export default function TopSpaces() {
           </div>
         ) : spaces.length === 0 ? (
           <div className="top-spaces__empty">
-            <p>{error || 'لا توجد مساحات متاحة حالياً.'}</p>
+            <p>{error || t('top.empty')}</p>
           </div>
         ) : (
           <motion.div
@@ -122,7 +128,13 @@ export default function TopSpaces() {
             viewport={{ once: true, amount: 0.2 }}
           >
             {spaces.map((space, i) => (
-              <TopSpaceCard key={space.id} space={space} rank={i + 1} />
+              <TopSpaceCard
+                key={space.id}
+                space={space}
+                rank={i + 1}
+                numFmt={numFmt}
+                perHour={t('top.perHour')}
+              />
             ))}
           </motion.div>
         )}

@@ -1,15 +1,18 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from '@/hooks/useT';
 
+// مفاتيح ترجمة لا نصوص. الروابط السريعة تعيد استخدام مساحة الاسم `nav`
+// لتبقى صياغتها موحّدة تماماً مع الشريط العلوي.
 const QUICK_LINKS = [
-  { label: 'تصفح المساحات', to: '/spaces' },
-  { label: 'تسجيل الدخول', to: '/login' },
-  { label: 'إنشاء حساب', to: '/signup' },
+  { key: 'nav:browseSpaces', to: '/spaces' },
+  { key: 'nav:login', to: '/login' },
+  { key: 'nav:signup', to: '/signup' },
 ];
 
 const SOCIALS = [
-  { label: 'إنستغرام', href: 'https://www.instagram.com/masahati_gaza', icon: 'instagram' },
-  { label: 'ثريدز', href: 'https://www.threads.net/@masahati_gaza', icon: 'threads' },
-  { label: 'لينكد إن', href: 'https://www.linkedin.com/in/masahati-%F0%9F%93%8D-gaza-31961b39b', icon: 'linkedin' },
+  { key: 'footer:social.instagram', href: 'https://www.instagram.com/masahati_gaza', icon: 'instagram' },
+  { key: 'footer:social.threads', href: 'https://www.threads.net/@masahati_gaza', icon: 'threads' },
+  { key: 'footer:social.linkedin', href: 'https://www.linkedin.com/in/masahati-%F0%9F%93%8D-gaza-31961b39b', icon: 'linkedin' },
 ];
 
 const SOCIAL_VIEWBOX = { width: 16, height: 16, viewBox: '0 0 24 24', 'aria-hidden': 'true' };
@@ -39,6 +42,8 @@ function SocialGlyph({ name }) {
 }
 
 export default function Footer() {
+  const { t } = useTranslation();
+  const year = new Date().getFullYear();
   return (
     <footer className="footer">
       <div className="wrap">
@@ -46,16 +51,16 @@ export default function Footer() {
           {/* الشعار + وصف مختصر */}
           <div className="footer__brand">
             <Link className="brand" to="/">
-              <img src="/Logo.png" alt="مساحاتي" className="brand-logo" style={{ height: '1.7rem' }} />
+              <img src="/Logo.png" alt={t('footer:brandAlt')} className="brand-logo" style={{ height: '1.7rem' }} />
             </Link>
-            <span className="footer__tagline">مساحات عمل مشتركة في غزة</span>
+            <span className="footer__tagline">{t('footer:tagline')}</span>
           </div>
 
           {/* روابط سريعة على سطر واحد */}
           <ul className="footer__links">
             {QUICK_LINKS.map((l) => (
-              <li key={l.label}>
-                <Link to={l.to}>{l.label}</Link>
+              <li key={l.key}>
+                <Link to={l.to}>{t(l.key)}</Link>
               </li>
             ))}
           </ul>
@@ -64,15 +69,15 @@ export default function Footer() {
           <div className="footer__right">
             <ul className="footer__social">
               {SOCIALS.map((s) => (
-                <li key={s.label}>
-                  <a href={s.href} target="_blank" rel="noopener noreferrer" className="footer__social-link" title={s.label} aria-label={s.label}>
+                <li key={s.key}>
+                  <a href={s.href} target="_blank" rel="noopener noreferrer" className="footer__social-link" title={t(s.key)} aria-label={t(s.key)}>
                     <SocialGlyph name={s.icon} />
                   </a>
                 </li>
               ))}
             </ul>
             <div className="footer__meta">
-              <span>© ٢٠٢٦ مساحاتي</span>
+              <span>{t('footer:copyright', { year })}</span>
             </div>
           </div>
         </div>

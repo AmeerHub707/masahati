@@ -1,27 +1,26 @@
 import TiltCard from '@/components/ui/TiltCard';
+import { useTranslation } from '@/hooks/useT';
 
-const steps = [
-  { title: 'استكشف', desc: 'صفِ مساحات غزة حسب السعر والسرعة والكهرباء — وشاهد بالضبط ما ستحصل عليه.' },
-  { title: 'احجز', desc: 'اختر مقعداً وأكّد خلال ثوانٍ. يُحجز مقعدك ويتلقّى المالك إشعاراً فوراً.' },
-  { title: 'احضر', desc: 'ادخل، وصِّل جهازك، واعمل. قيّم المساحة ليأخذ العضو التالي فكرة عمّا يتوقّعه.' },
-];
+// مفاتيح الخطوات فقط؛ النص يُحلّ عند التصيير عبر `how.items.<key>`.
+const steps = ['explore', 'book', 'arrive'];
 
 export default function HowItWorks() {
+  const { t } = useTranslation('landing');
   return (
     <section className="section" id="how">
       <div className="section__head">
-        <span className="kicker">كيف يعمل</span>
-        <h2>من التصفّح إلى المقعد في ثلاث خطوات</h2>
-        <p>بلا اتصالات وبلا رسائل. فقط افتح وقارن واحجز.</p>
+        <span className="kicker">{t('how.kicker')}</span>
+        <h2>{t('how.title')}</h2>
+        <p>{t('how.lead')}</p>
       </div>
 
       <div className="wrap steps">
         {steps.map((s) => (
-          <TiltCard key={s.title}>
+          <TiltCard key={s}>
             <div className="step glow-border glow-box">
               <div className="num"></div>
-              <h3>{s.title}</h3>
-              <p>{s.desc}</p>
+              <h3>{t(`how.items.${s}.title`)}</h3>
+              <p>{t(`how.items.${s}.desc`)}</p>
             </div>
           </TiltCard>
         ))}

@@ -1,18 +1,22 @@
 import { useState, useEffect, useCallback, useContext } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, useAnimation } from 'framer-motion';
+import { useTranslation } from '@/hooks/useT';
 import NavTab from './NavTab';
 import MagneticButton from '@/components/ui/MagneticButton';
 import ThemeToggle from '@/components/ui/ThemeToggle';
+import LanguageToggle from '@/components/ui/LanguageToggle';
 import { AppReadyContext } from '@/context/AppReadyContext';
 
+// مفاتيح الترجمة لا نصوصاً: النص يُحلّ عند التصيير عبر `t('nav:…')`، فلا
+// تُثبَّت لغة على مستوى الوحدة وتبقى الصفحة قابلة للتبديل فوراً.
 const LINKS = [
-  { label: 'تصفح المساحات', to: '/spaces' },
-  { label: 'قارن المساحات', to: '/compare' },
-  { label: 'لماذا مساحاتي', href: '#features' },
-  { label: 'كيف يعمل', href: '#how' },
-  { label: 'لكلٍ كما يناسبه', href: '#roles' },
-  { label: 'من نحن', href: '#about' },
+  { key: 'browseSpaces', to: '/spaces' },
+  { key: 'compare', to: '/compare' },
+  { key: 'why', href: '#features' },
+  { key: 'how', href: '#how' },
+  { key: 'roles', href: '#roles' },
+  { key: 'about', href: '#about' },
 ];
 
 const EASE_OUT = [0.22, 1, 0.36, 1];
@@ -21,6 +25,7 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const appReady = useContext(AppReadyContext);
+  const { t } = useTranslation('nav');
   const reduced =
     typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -129,16 +134,17 @@ export default function Navbar() {
         {/* روابط النص — في وسط الشريط تمامًا (العمود 1fr والتوسيط justify-self) */}
         <div className="nav__links">
           {LINKS.map((l) => (
-            <NavTab key={l.label} label={l.label} to={l.to} href={l.href} />
+            <NavTab key={l.key} label={t(l.key)} to={l.to} href={l.href} />
           ))}
         </div>
 
         {/* الأزرار — الطرف المقابل، ويفصلها عن الروابط خط شعري متعمّد */}
         <div className="nav__cta">
           <ThemeToggle />
-          <Link className="cta-btn cta-btn--ghost" to="/login">تسجيل الدخول</Link>
+          <LanguageToggle />
+          <Link className="cta-btn cta-btn--ghost" to="/login">{t('login')}</Link>
           <MagneticButton>
-            <Link className="cta-btn cta-btn--primary" to="/signup">إضافة حساب</Link>
+            <Link className="cta-btn cta-btn--primary" to="/signup">{t('signup')}</Link>
           </MagneticButton>
         </div>
 
@@ -146,7 +152,7 @@ export default function Navbar() {
         <button
           type="button"
           className="nav__burger"
-          aria-label="القائمة"
+          aria-label={t('menu')}
           aria-expanded={menuOpen}
           aria-controls="nav-mobile-panel"
           onClick={() => setMenuOpen((o) => !o)}
@@ -164,15 +170,16 @@ export default function Navbar() {
           transition={{ duration: .22, ease: EASE_OUT }}
         >
           <div className="nav__mobile-toggle">
+            <LanguageToggle />
             <ThemeToggle />
           </div>
           {LINKS.map((l) => (
-            <NavTab key={l.label} label={l.label} to={l.to} href={l.href} onClick={closeMenu} />
+            <NavTab key={l.key} label={t(l.key)} to={l.to} href={l.href} onClick={closeMenu} />
           ))}
           <div className="nav__mobile-cta">
-            <Link className="cta-btn cta-btn--ghost" to="/login" onClick={closeMenu}>تسجيل الدخول</Link>
+            <Link className="cta-btn cta-btn--ghost" to="/login" onClick={closeMenu}>{t('login')}</Link>
             <MagneticButton>
-              <Link className="cta-btn cta-btn--primary" to="/signup" onClick={closeMenu}>إضافة حساب</Link>
+              <Link className="cta-btn cta-btn--primary" to="/signup" onClick={closeMenu}>{t('signup')}</Link>
             </MagneticButton>
           </div>
         </motion.div>

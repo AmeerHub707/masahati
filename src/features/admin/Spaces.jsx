@@ -169,10 +169,13 @@ export default function AdminSpaces() {
   // العقد §6.1: القائمة من الخادم. نُبقي الفرز والتصفية محليين (منطق العرض
   // واحد) ونطلب كل الصفحات مرة واحدة عبر listSpaces.
   //
+  // لا نُرسل `sort` للخادم: الترتيب يقع محلياً بالكامل (انظر `sorted` أدناه) —
+  // فإرسال `sort=newest` إضافةٌ زائدة لا يقرأها هذا النقطة.
+  //
   // المحوّل يرقّي الأسماء ويملأ الغائب: العقد ينبّه أن `name` يرد `null`
   // دائماً، فنولّد `مساحة #<id>` بدل خلية فارغة لا عنوان لها ولا بحث.
   const fetchSpaces = useCallback(async () => {
-    const { rows } = await listSpaces({ sort: 'newest' });
+    const { rows } = await listSpaces({});
     return adaptAll(rows, adaptSpace);
   }, []);
 

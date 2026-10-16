@@ -17,10 +17,17 @@ import {
 import useGoogleAuth from '@/hooks/useGoogleAuth';
 import WhatsAppBubble from '@/components/ui/WhatsAppBubble';
 import { useForceLight } from '@/hooks/useTheme';
-import { checkPassword, getPasswordChecks, PASSWORD_RULES } from '@/lib/passwordRules';
+import LanguageToggle from '@/components/ui/LanguageToggle';
+import { useTranslation } from '@/hooks/useT';
+import {
+  getPasswordChecks,
+  PASSWORD_RULES,
+  PASSWORD_MIN_LENGTH,
+} from '@/lib/passwordRules';
 
 export default function SignupPage() {
   useForceLight();
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   // --- States ---
@@ -41,6 +48,17 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState('');
   const passwordChecks = getPasswordChecks(formData.password);
+
+  // رسالة كلمة المرور من مفاتيح الترجمة لا من نصّ ثابت: نفس القواعد تُسمّى
+  // بالعربية أو الإنجليزية حسب اللغة النشطة، والمتغيّرات (n، rules) تُبنى هنا.
+  const passwordMessage = (value) => {
+    const checks = getPasswordChecks(value);
+    const failed = PASSWORD_RULES.filter((r) => !checks[r.id]).map((r) =>
+      t(`auth:pwRules.${r.id}`, { n: PASSWORD_MIN_LENGTH })
+    );
+    if (!failed.length) return '';
+    return t('auth:pwInvalid', { rules: failed.join(t('auth:pwInvalidSeparator')) });
+  };
 
   // --- Google Auth ---
   const googleBtnRef = useRef(null);
@@ -72,18 +90,18 @@ export default function SignupPage() {
           navigate(getHomePath(created.user?.role));
         } catch (createErr) {
           console.error('Google signup (create) failed:', createErr);
-          setFormError(createErr?.message || 'تعذر إنشاء الحساب عبر Google. حاول مرة أخرى.');
+          setFormError(createErr?.message || t('auth:signup.errGoogleSignup'));
         }
         return;
       }
       // إظهار رسالة الفشل بدل الفشل الصامت (مثال: الباك إند لم يُطبق المسار بعد).
       console.error('Google signup failed:', err);
-      setFormError(err?.message || 'تعذر إنشاء الحساب عبر Google. حاول مرة أخرى.');
+      setFormError(err?.message || t('auth:signup.errGoogleSignup'));
     }
   };
 
   const handleGoogleError = (err) => {
-    setFormError(err?.message || 'تعذر تسجيل الدخول عبر Google. حاول مرة أخرى.');
+    setFormError(err?.message || t('auth:signup.errGoogleLogin'));
   };
 
   const { isReady: googleReady, renderButton: renderGoogleButton } = useGoogleAuth({
@@ -123,12 +141,12 @@ export default function SignupPage() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const phoneRegex = /^[+]?[\d\s()-]{7,}$/;
 
-    if (!formData.name.trim()) newErrors.name = 'الرجاء إدخال الاسم الكامل.';
-    if (!emailRegex.test(formData.email.trim())) newErrors.email = 'البريد الإلكتروني غير صحيح.';
-    if (!phoneRegex.test(formData.phone.trim())) newErrors.phone = 'رقم الهاتف غير صحيح.';
-    const passwordIssue = checkPassword(formData.password);
+    if (!formData.name.trim()) newErrors.name = t('auth:signup.errName');
+    if (!emailRegex.test(formData.email.trim())) newErrors.email = t('auth:signup.errEmail');
+    if (!phoneRegex.test(formData.phone.trim())) newErrors.phone = t('auth:signup.errPhone');
+    const passwordIssue = passwordMessage(formData.password);
     if (passwordIssue) newErrors.password = passwordIssue;
-    if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'كلمات المرور غير متطابقة.';
+    if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = t('auth:signup.errConfirm');
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -164,9 +182,9 @@ export default function SignupPage() {
         } catch (ownerErr) {
           if (ownerErr instanceof ApiError && ownerErr.status === 422 && ownerErr.data?.errors) {
             setErrors(ownerErr.data.errors);
-            setFormError('فشل رفع وثيقة الملكية. تحقق من الملف وحاول مجدداً.');
+            setFormError(t('auth:signup.errProofUpload'));
           } else {
-            setFormError(ownerErr.message || 'تعذر إكمال تسجيل المالك. حاول مرة أخرى.');
+            setFormError(ownerErr.message || t('auth:signup.errOwnerRegister'));
           }
           throw ownerErr; // نُعيد الرمي ليُلتقط في الـ catch الخارجي
         }
@@ -177,7 +195,7 @@ export default function SignupPage() {
 
       // الباك إند أرسل الرمز بالفعل أثناء التسجيل، فقط نحتاج registration_token.
       if (!regToken) {
-        setFormError('تعذر بدء التحقق: لم يُرجع الخادم رمز التسجيل.');
+        setFormError(t('auth:signup.errNoToken'));
         return;
       }
 
@@ -193,9 +211,9 @@ export default function SignupPage() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 422 && err.data?.errors) {
         setErrors(err.data.errors);
-        setFormError('يرجى تصحيح الحقول المعلّمة أدناه.');
+        setFormError(t('auth:signup.errFixFields'));
       } else {
-        setFormError(err.message || 'تعذر إنشاء الحساب. حاول مرة أخرى.');
+        setFormError(err.message || t('auth:signup.errGeneric'));
       }
     } finally {
       setLoading(false);
@@ -233,7 +251,6 @@ export default function SignupPage() {
           isolation: isolate;
           overflow: hidden;
           font-family: 'Cairo', sans-serif;
-          direction: rtl;
         }
         .auth-wrapper::before {
           content: "";
@@ -564,20 +581,20 @@ export default function SignupPage() {
         {/* الجانب الترحيبي */}
         <aside className="auth-welcome">
           <div className="auth-welcome__copy">
-            <h1>أنشئ حسابك</h1>
-            <p>انضم إلى مساحاتي وابدأ بإدارة أو حجز أفضل المساحات المتاحة لك في مكان واحد.</p>
+            <h1>{t('auth:signup.welcomeTitle')}</h1>
+            <p>{t('auth:signup.welcomeLead')}</p>
             <ul className="auth-welcome__list">
               <li>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-                تسجيل سريع بخطوات بسيطة
+                {t('auth:signup.welcomeBullet1')}
               </li>
               <li>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-                خيار لصاحب المساحة مع توثيق الوثائق
+                {t('auth:signup.welcomeBullet2')}
               </li>
               <li>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-                دعم فوري عبر الواتساب على مدار الساعة
+                {t('auth:signup.welcomeBullet3')}
               </li>
             </ul>
           </div>
@@ -589,14 +606,17 @@ export default function SignupPage() {
               <img src="/Logo.png" alt="Masahati" className="brand-logo" />
             </div>
 
-            <BackButton className="back-home" fallback="/" ariaLabel="رجوع للرئيسية" />
+            <div className="flex items-center gap-2">
+              <LanguageToggle />
+              <BackButton className="back-home" fallback="/" ariaLabel={t('auth:common.backHome')} />
+            </div>
           </div>
 
           {/* REGISTER FORM */}
           <form onSubmit={handleRegisterSubmit} className="form-panel" noValidate>
-              <h2>أنشئ <span style={{ color: 'var(--accent)' }}>حسابك</span></h2>
+              <h2>{t('auth:signup.titleBefore')} <span style={{ color: 'var(--accent)' }}>{t('auth:signup.titleHighlight')}</span></h2>
               <p className="form-sub">
-                سجّل في مساحاتي — سنتحقق من بريدك الإلكتروني.
+                {t('auth:signup.sub')}
               </p>
 
               {/* Segmented Role Selector */}
@@ -608,7 +628,7 @@ export default function SignupPage() {
                   onClick={() => setRole('customer')}
                 >
                   <GraduationCap size={18} />
-                  عميل
+                  {t('auth:common.customer')}
                 </button>
                 <button
                   type="button"
@@ -616,21 +636,21 @@ export default function SignupPage() {
                   onClick={() => setRole('space_owner')}
                 >
                   <Building2 size={18} />
-                  صاحب مساحة
+                  {t('auth:common.owner')}
                 </button>
               </div>
 
               {/* تسجيل الدخول عبر Google — الأبرز قبل الحقول، يُرسل الدور المحدد */}
-              <div ref={googleBtnRef} className="google-btn-wrap google-btn-hero" aria-label="المتابعة عبر Google" />
-              <div className="google-divider">أو أنشئ حساباً يدوياً</div>
+              <div ref={googleBtnRef} className="google-btn-wrap google-btn-hero" aria-label={t('auth:common.googleContinue')} />
+              <div className="google-divider">{t('auth:signup.orManually')}</div>
 
               {/* Name Field */}
               <div className={`field ${errors.name ? 'has-error' : ''}`}>
-                <label>الاسم الكامل</label>
+                <label>{t('auth:signup.fullName')}</label>
                 <input
                   type="text"
                   name="name"
-                  placeholder="اسمك"
+                  placeholder={t('auth:signup.namePlaceholder')}
                   value={formData.name}
                   onChange={handleInputChange}
                 />
@@ -639,7 +659,7 @@ export default function SignupPage() {
 
               {/* Email Field */}
               <div className={`field ${errors.email ? 'has-error' : ''}`}>
-                <label>البريد الإلكتروني</label>
+                <label>{t('auth:common.email')}</label>
                 <input
                   type="email"
                   name="email"
@@ -653,7 +673,7 @@ export default function SignupPage() {
 
               {/* Phone Field */}
               <div className={`field ${errors.phone ? 'has-error' : ''}`}>
-                <label>رقم الهاتف</label>
+                <label>{t('auth:signup.phone')}</label>
                 <input
                   type="tel"
                   name="phone"
@@ -668,7 +688,7 @@ export default function SignupPage() {
               {/* Dynamic Field: Document Ownership (Optional for Space Owner) */}
               {role === 'space_owner' && (
                 <div className={`field ${errors.ownershipDocument ? 'has-error' : ''}`}>
-                  <label>إثبات ملكية/إدارة مساحة (اختياري)</label>
+                  <label>{t('auth:signup.proofLabel')}</label>
                   <label
                     htmlFor="doc-upload"
                     className={`file-upload-box ${formData.ownershipDocument ? 'has-file' : ''}`}
@@ -681,7 +701,7 @@ export default function SignupPage() {
                     ) : (
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: 'rgba(255,255,255,0.75)', fontSize: '0.85rem' }}>
                         <Upload size={18} />
-                        <span>ارفاق وثيقة تثبت امتلاكك لمساحة (سند ملكية / عقد إيجار / ترخيص) — اختياري</span>
+                        <span>{t('auth:signup.proofHint')}</span>
                       </div>
                     )}
                   </label>
@@ -698,11 +718,11 @@ export default function SignupPage() {
 
               {/* Password Field */}
               <div className={`field ${errors.password ? 'has-error' : ''}`}>
-                <label>كلمة المرور</label>
+                <label>{t('auth:signup.password')}</label>
                 <input
                   type="password"
                   name="password"
-                  placeholder="8 أحرف على الأقل مع حرف كبير وصغير ورقم ورمز خاص"
+                  placeholder={t('auth:signup.passwordPlaceholder')}
                   value={formData.password}
                   onChange={handleInputChange}
                 />
@@ -710,7 +730,7 @@ export default function SignupPage() {
                   {PASSWORD_RULES.map((rule) => (
                     <li key={rule.id} className={passwordChecks[rule.id] ? 'is-ok' : 'is-missing'}>
                       <span aria-hidden="true">{passwordChecks[rule.id] ? '✓' : '○'}</span>
-                      {rule.label}
+                      {t(`auth:pwRules.${rule.id}`, { n: PASSWORD_MIN_LENGTH })}
                     </li>
                   ))}
                 </ul>
@@ -719,11 +739,11 @@ export default function SignupPage() {
 
               {/* Confirm Password Field */}
               <div className={`field ${errors.confirmPassword ? 'has-error' : ''}`}>
-                <label>تأكيد كلمة المرور</label>
+                <label>{t('auth:signup.confirmPassword')}</label>
                 <input
                   type="password"
                   name="confirmPassword"
-                  placeholder="أعد إدخال كلمة المرور"
+                  placeholder={t('auth:signup.confirmPlaceholder')}
                   value={formData.confirmPassword}
                   onChange={handleInputChange}
                 />
@@ -739,11 +759,11 @@ export default function SignupPage() {
                   <span className="flex items-center justify-center">
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   </span>
-                ) : 'إنشاء حساب'}
+                ) : t('auth:signup.submit')}
               </button>
 
               <p style={{ textAlign: 'center', fontSize: '0.85rem', marginTop: '1rem', color: 'rgba(255,255,255,0.72)' }}>
-                هل لديك حساب؟ <Link to="/login" style={{ color: 'var(--accent)', fontWeight: 'bold', textDecoration: 'none' }}>تسجيل الدخول</Link>
+                {t('auth:signup.haveAccount')} <Link to="/login" style={{ color: 'var(--accent)', fontWeight: 'bold', textDecoration: 'none' }}>{t('auth:signup.login')}</Link>
               </p>
             </form>
         </section>
