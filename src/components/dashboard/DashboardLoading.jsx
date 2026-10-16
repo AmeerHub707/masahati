@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from '@/hooks/useT';
 
 const TOTAL_MS = 2000;
 const EXIT_MS = 420;
 
 export default function DashboardLoading({ done, onHidden }) {
+  const { t } = useTranslation();
   const [progress, setProgress] = useState(0);
   const [leaving, setLeaving] = useState(false);
   const [hidden, setHidden] = useState(false);
@@ -56,13 +58,13 @@ export default function DashboardLoading({ done, onHidden }) {
       <div className="loading__content">
         <div className="loading__logo-card">
           <div className="loading__logo">
-            <img src="/Mlogo.jpeg" alt="مساحاتي" />
+            <img src="/Mlogo.jpeg" alt={t('common:appName')} />
             <span className="loading__scan" aria-hidden="true" />
           </div>
         </div>
 
-        <p className="loading__brand">مساحاتي</p>
-        <p className="loading__sub">جارٍ تجهيز لوحة التحكم…</p>
+        <p className="loading__brand">{t('common:appName')}</p>
+        <p className="loading__sub">{t('dashboard:loadingPreparing')}</p>
 
         <div
           className="loading__track"
@@ -70,7 +72,7 @@ export default function DashboardLoading({ done, onHidden }) {
           aria-valuemin="0"
           aria-valuemax="100"
           aria-valuenow={progress}
-          aria-label="جارٍ التحميل"
+          aria-label={t('common:loading')}
         >
           <div className="loading__bar" style={{ width: `${progress}%` }} />
         </div>

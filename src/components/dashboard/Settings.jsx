@@ -3,21 +3,25 @@ import { LogOut, User, Pencil, HelpCircle, KeyRound, Eye, EyeOff, CheckCircle2, 
 import { changePassword, ApiError, getUser, setUser } from '@/lib/authStore';
 import { getCachedPictureUrl } from '@/lib/profilePicture';
 import useSafeInput from '@/hooks/useSafeInput';
-import { checkPassword, PASSWORD_LENGTH_MESSAGE, PASSWORD_FORMAT_MESSAGE } from '@/lib/passwordRules';
+import { getPasswordChecks, PASSWORD_RULES, PASSWORD_MIN_LENGTH } from '@/lib/passwordRules';
+import { useTranslation } from '@/hooks/useT';
 
-function initialsOf(name) {
-  return (name || 'م').trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('') || 'م';
+function initialsOf(name, fallback) {
+  const source = name || fallback || '';
+  return source.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('') || (fallback || '');
 }
 
-function translatePasswordError(msg) {
-  if (!msg) return 'حدث خطأ غير متوقع. حاول مرة أخرى.';
+// مطابقة رسالة الخادم ثنائية اللغة: قد تصل بالعربية أو بالإنجليزية، فنُخرج
+// النصّ من مفاتيح الترجمة حسب اللغة النشطة لا من نصّ ثابت.
+function translatePasswordError(msg, t) {
+  if (!msg) return t('dashboard:err.unexpected');
   const m = String(msg).toLowerCase();
-  if (m.includes('current') || m.includes('كلمة المرور الحالية')) return 'كلمة المرور الحالية غير صحيحة.';
+  if (m.includes('current') || m.includes('كلمة المرور الحالية')) return t('dashboard:err.currentPasswordWrong');
   if (m.includes('password') && (m.includes('format') || m.includes('uppercase') || m.includes('symbol') || m.includes('numeric')))
-    return PASSWORD_FORMAT_MESSAGE;
+    return t('auth:pwMsgFormat');
   if (m.includes('password') && (m.includes('short') || m.includes('min') || m.includes('at least') || m.includes('characters')))
-    return PASSWORD_LENGTH_MESSAGE;
-  if (m.includes('mismatch') || m.includes('confirmation')) return 'كلمتا المرور غير متطابقتين.';
+    return t('auth:pwMsgLength', { n: PASSWORD_MIN_LENGTH });
+  if (m.includes('mismatch') || m.includes('confirmation')) return t('dashboard:err.passwordMismatch');
   return msg;
 }
 
@@ -26,6 +30,19 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
   const name = useSafeInput(user?.name || '', { maxLength: 60 });
   const email = useSafeInput(user?.email || '', { maxLength: 120 });
   const phone = useSafeInput(user?.phone || '', { maxLength: 20 });
+
+  const { t } = useTranslation();
+
+  // رسالة كلمة المرور تُبنى من مفاتيح الترجمة (نفس نمط صفحة التسجيل): القواعد
+  // تُسمّى بالعربية أو الإنجليزية حسب اللغة النشطة بدل نصّ ثابت.
+  const passwordMessage = (value) => {
+    const checks = getPasswordChecks(value);
+    const failed = PASSWORD_RULES.filter((r) => !checks[r.id]).map((r) =>
+      t(`auth:pwRules.${r.id}`, { n: PASSWORD_MIN_LENGTH })
+    );
+    if (!failed.length) return '';
+    return t('auth:pwInvalid', { rules: failed.join(t('auth:pwInvalidSeparator')) });
+  };
 
   // --- صورة الملف الشخصي (معاينة قبل الرفع للـ API) ---
   const [photoPreview, setPhotoPreview] = useState(() => {
@@ -51,15 +68,15 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
 
     // تحقق من نوع الملف وحجمه قبل إرساله للخادم
     if (!file.type || !file.type.startsWith('image/')) {
-      setSaveMsg('err▶يرجى اختيار ملف صورة (PNG، JPG، WEBP، GIF …).');
+      setSaveMsg(`err▶${t('dashboard:err.imageType')}`);
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      setSaveMsg('err▶حجم الصورة كبير جداً. الرجاء اختيار صورة أصغر من 5 ميجابايت.');
+      setSaveMsg(`err▶${t('dashboard:err.imageSize')}`);
       return;
     }
     if (typeof onUploadPicture !== 'function') {
-      setSaveMsg('err▶تعذّر رفع الصورة: خدمة الرفع غير متاحة حالياً.');
+      setSaveMsg(`err▶${t('dashboard:err.uploadUnavailable')}`);
       return;
     }
 
@@ -76,7 +93,7 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
       if (seq !== uploadSeq.current) return; // نتيجة رفع أقدم: تُتجاهل
 
       if (!uploadedUrl) {
-        throw new Error('لم يُرجع الخادم رابط الصورة.');
+        throw new Error(t('dashboard:err.noImageUrl'));
       }
 
       // استبدال معاينة الـ Blob بالرابط الحقيقي وتحديث الكاش والمستخدم المخزن
@@ -87,12 +104,12 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
       } catch {
         /* التخزين غير متاح */
       }
-      setSaveMsg('ok▶تم تحديث صورة الملف الشخصي.');
+      setSaveMsg(`ok▶${t('dashboard:ok.photoUpdated')}`);
     } catch (error) {
       if (seq !== uploadSeq.current) return;
       console.warn('Picture upload failed:', error);
       setPhotoPreview(user?.photo || getCachedPictureUrl() || null);
-      setSaveMsg(`err▶${error?.message || 'تعذر رفع الصورة. حاول مجدداً.'}`);
+      setSaveMsg(`err▶${error?.message || t('dashboard:err.uploadFailed')}`);
     } finally {
       // تنظيف رابط الـ Blob المؤقت فوراً من ذاكرة المتصفح
       URL.revokeObjectURL(tempPreviewUrl);
@@ -122,18 +139,18 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
     setPwLoading(true);
 
     if (!currentPassword) {
-      setPwError('أدخل كلمة المرور الحالية.');
+      setPwError(t('dashboard:err.currentPasswordRequired'));
       setPwLoading(false);
       return;
     }
-    const newPasswordIssue = checkPassword(newPassword);
+    const newPasswordIssue = passwordMessage(newPassword);
     if (newPasswordIssue) {
       setPwError(newPasswordIssue);
       setPwLoading(false);
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPwError('كلمتا المرور غير متطابقتين.');
+      setPwError(t('dashboard:err.passwordMismatch'));
       setPwLoading(false);
       return;
     }
@@ -144,7 +161,7 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
         newPassword: newPassword,
         newPassword_confirmation: confirmPassword,
       });
-      setPwSuccess('تم تغيير كلمة المرور بنجاح.');
+      setPwSuccess(t('dashboard:ok.passwordChanged'));
       resetPwFields();
     } catch (err) {
       if (err instanceof ApiError && err.data?.errors) {
@@ -152,9 +169,9 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
         const msg = firstKey && Array.isArray(err.data.errors[firstKey])
           ? err.data.errors[firstKey][0]
           : err.message;
-        setPwError(translatePasswordError(msg));
+        setPwError(translatePasswordError(msg, t));
       } else {
-        setPwError(translatePasswordError(err && err.message));
+        setPwError(translatePasswordError(err && err.message, t));
       }
     } finally {
       setPwLoading(false);
@@ -168,10 +185,10 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
 
     // Field-level validation
     const errs = {};
-    if (!name.value.trim()) errs.name = 'الاسم مطلوب.';
-    if (!email.value.trim()) errs.email = 'البريد الإلكتروني مطلوب.';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) errs.email = 'البريد الإلكتروني غير صحيح.';
-    if (phone.value && !/^\+?[\d\s-]{7,}$/.test(phone.value)) errs.phone = 'رقم الهاتف غير صحيح.';
+    if (!name.value.trim()) errs.name = t('dashboard:err.nameRequired');
+    if (!email.value.trim()) errs.email = t('dashboard:err.emailRequired');
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) errs.email = t('dashboard:err.emailInvalid');
+    if (phone.value && !/^\+?[\d\s-]{7,}$/.test(phone.value)) errs.phone = t('dashboard:err.phoneInvalid');
 
     if (Object.keys(errs).length > 0) {
       setFieldErrors(errs);
@@ -184,7 +201,7 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
       phone.value !== (user?.phone || '') ||
       email.value !== (user?.email || '');
     if (!changed) {
-      setSaveMsg('ok▶لا توجد تغييرات لحفظها.');
+      setSaveMsg(`ok▶${t('dashboard:ok.noChanges')}`);
       return;
     }
 
@@ -204,7 +221,7 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
           phone: phone.value,
           email: email.value,
         });
-        setSaveMsg('ok▶تم حفظ التغييرات.');
+        setSaveMsg(`ok▶${t('dashboard:ok.saved')}`);
       }
     } catch (err) {
       if (err instanceof ApiError && err.data?.errors) {
@@ -220,9 +237,9 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
         const msg = firstKey && Array.isArray(err.data.errors[firstKey])
           ? err.data.errors[firstKey][0]
           : err.message;
-        setSaveMsg(`err▶${msg || 'تعذر حفظ التغييرات.'}`);
+        setSaveMsg(`err▶${msg || t('dashboard:err.saveFailed')}`);
       } else {
-        setSaveMsg(`err▶${err?.message || 'تعذر حفظ التغييرات.'}`);
+        setSaveMsg(`err▶${err?.message || t('dashboard:err.saveFailed')}`);
       }
     } finally {
       setSaving(false);
@@ -233,7 +250,7 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
     <div className="dash__settings">
       <section className="dash__section">
         <div className="dash__section-head">
-          <h2><User /> بياناتك الشخصية</h2>
+          <h2><User /> {t('dashboard:settings.personalTitle')}</h2>
         </div>
 
         <div className="dash__profile-card">
@@ -242,7 +259,7 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
               type="button"
               className="dash__photo-btn"
               onClick={() => fileRef.current && fileRef.current.click()}
-              aria-label="تغيير صورة الملف الشخصي"
+              aria-label={t('dashboard:settings.changePhotoAria')}
             >
               {photoPreview ? (
                 <img
@@ -255,7 +272,7 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
                   }}
                 />
               ) : (
-                <div className="dash__photo dash__photo--initials">{initialsOf(user?.name)}</div>
+                <div className="dash__photo dash__photo--initials">{initialsOf(user?.name, t('common:appName'))}</div>
               )}
               <span className="dash__photo-edit"><Camera /></span>
             </button>
@@ -266,26 +283,25 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
               hidden
               onChange={handleProfilePhoto}
             />
-            <h3 className="dash__photo-name">{user?.name || 'المستخدم'}</h3>
-            <p className="dash__photo-role">{user?.role === 'owner' ? 'صاحب مساحة' : 'طالب'}</p>
+            <h3 className="dash__photo-name">{user?.name || t('dashboard:settings.fallbackUser')}</h3>
+            <p className="dash__photo-role">{user?.role === 'owner' ? t('dashboard:settings.roleOwner') : t('dashboard:settings.roleStudent')}</p>
           </div>
 
           <form className="dash__form dash__form--inside" onSubmit={handleSave}>
             <div className={`field${fieldErrors.name ? ' has-error' : ''}`}>
-              <label htmlFor="set-name">الاسم الكامل</label>
+              <label htmlFor="set-name">{t('dashboard:settings.fullName')}</label>
               <input
                 id="set-name"
                 type="text"
                 value={name.value}
                 onChange={name.onChange}
-                placeholder="اسمك"
-                dir="rtl"
+                placeholder={t('dashboard:settings.namePlaceholder')}
               />
               <p className="error">{fieldErrors.name}</p>
             </div>
 
             <div className={`field${fieldErrors.email ? ' has-error' : ''}`}>
-              <label htmlFor="set-email">البريد الإلكتروني (للتحقق)</label>
+              <label htmlFor="set-email">{t('dashboard:settings.emailLabel')}</label>
               <input
                 id="set-email"
                 type="email"
@@ -298,7 +314,7 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
             </div>
 
             <div className={`field${fieldErrors.phone ? ' has-error' : ''}`}>
-              <label htmlFor="set-phone">رقم الهاتف</label>
+              <label htmlFor="set-phone">{t('dashboard:settings.phoneLabel')}</label>
               <input
                 id="set-phone"
                 type="tel"
@@ -311,7 +327,7 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
             </div>
 
             <button type="submit" className="btn-primary" disabled={saving}>
-              {saving ? 'جارٍ الحفظ…' : 'حفظ التغييرات'}
+              {saving ? t('dashboard:settings.saving') : t('dashboard:settings.saveChanges')}
             </button>
           </form>
 
@@ -339,7 +355,7 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
 
       <section className="dash__section">
         <div className="dash__section-head">
-          <h2><KeyRound /> تغيير كلمة المرور</h2>
+          <h2><KeyRound /> {t('dashboard:settings.changePasswordTitle')}</h2>
         </div>
 
         <form className="dash__form" onSubmit={handleChangePassword}>
@@ -357,7 +373,7 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
           )}
 
           <div className="field">
-            <label htmlFor="pw-current">كلمة المرور الحالية</label>
+            <label htmlFor="pw-current">{t('dashboard:settings.currentPassword')}</label>
             <input
               id="pw-current"
               type="password"
@@ -376,14 +392,14 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
                 type={showPw ? 'text' : 'password'}
                 value={newPassword}
                 onChange={(e) => { setNewPassword(e.target.value); if (pwError) setPwError(''); }}
-                placeholder="٨ أحرف على الأقل"
+                placeholder={t('dashboard:settings.newPasswordPlaceholder')}
                 autoComplete="new-password"
               />
               <button
                 type="button"
                 className="dash__pw-toggle"
                 onClick={() => setShowPw((s) => !s)}
-                aria-label={showPw ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+                aria-label={showPw ? t('dashboard:settings.hidePassword') : t('dashboard:settings.showPassword')}
               >
                 {showPw ? <EyeOff /> : <Eye />}
               </button>
@@ -391,31 +407,31 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
           </div>
 
           <div className="field">
-            <label htmlFor="pw-confirm">تأكيد كلمة المرور الجديدة</label>
+            <label htmlFor="pw-confirm">{t('dashboard:settings.confirmPassword')}</label>
             <input
               id="pw-confirm"
               type={showPw ? 'text' : 'password'}
               value={confirmPassword}
               onChange={(e) => { setConfirmPassword(e.target.value); if (pwError) setPwError(''); }}
-              placeholder="أعد إدخال كلمة المرور"
+              placeholder={t('dashboard:settings.confirmPasswordPlaceholder')}
               autoComplete="new-password"
             />
           </div>
 
           <button type="submit" className="btn-primary" disabled={pwLoading}>
             <KeyRound style={{ width: '1rem', height: '1rem' }} />
-            {pwLoading ? 'جارٍ الحفظ…' : 'تغيير كلمة المرور'}
+            {pwLoading ? t('dashboard:settings.saving') : t('dashboard:settings.changePasswordBtn')}
           </button>
         </form>
       </section>
 
       <section className="dash__section">
         <div className="dash__section-head">
-          <h2><HelpCircle /> الدعم</h2>
+          <h2><HelpCircle /> {t('dashboard:settings.supportTitle')}</h2>
         </div>
         <div className="dash__form">
           <p style={{ margin: '0 0 1rem', fontSize: '.9rem', color: 'var(--text-muted)', lineHeight: 1.7 }}>
-            لديك مشكلة أو سؤال؟ تواصل مع فريقنا عبر الواتساب على مدار الساعة ونحن جاهزون لمساعدتك.
+            {t('dashboard:settings.supportText')}
           </p>
           <a
             className="btn-primary"
@@ -424,36 +440,36 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
             rel="noopener noreferrer"
             style={{ textDecoration: 'none' }}
           >
-            تواصل عبر واتساب
+            {t('dashboard:settings.contactWhatsapp')}
           </a>
         </div>
       </section>
 
       <section className="dash__section">
         <div className="dash__section-head">
-          <h2><LogOut /> الجلسة</h2>
+          <h2><LogOut /> {t('dashboard:settings.sessionTitle')}</h2>
         </div>
         <div className="dash__form">
           <p style={{ margin: '0 0 1rem', fontSize: '.9rem', color: 'var(--text-muted)' }}>
-            سجّل خروجك بأمان عند انتهائك من استخدام الجهاز.
+            {t('dashboard:settings.sessionText')}
           </p>
           <button type="button" className="btn-ghost" onClick={onLogout}>
             <LogOut style={{ width: '1rem', height: '1rem' }} />
-            تسجيل الخروج
+            {t('dashboard:settings.logout')}
           </button>
         </div>
       </section>
       <section className="dash__section">
         <div className="dash__section-head risk-head">
-          <h2><Trash2 /> منطقة الخطر</h2>
+          <h2><Trash2 /> {t('dashboard:settings.dangerTitle')}</h2>
         </div>
         <div className="dash__form risk-box">
           <p style={{ margin: '0 0 1rem', fontSize: '.9rem', color: 'var(--text-muted)', lineHeight: 1.7 }}>
-            حذف حسابك نهائياً يزيل جميع بياناتك ومساحاتك وحجوزاتك من المنصة. لن تتمكن من التراجع عن هذا الإجراء، ولن تستطيع استعادة حسابك بعد الحذف.
+            {t('dashboard:settings.dangerText')}
           </p>
           <button type="button" className="btn-danger" onClick={onDeleteAccount}>
             <Trash2 style={{ width: '1rem', height: '1rem' }} />
-            حذف الحساب نهائياً
+            {t('dashboard:settings.deleteAccount')}
           </button>
         </div>
       </section>
@@ -465,15 +481,14 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
-            aria-label="تأكيد حفظ التغييرات"
+            aria-label={t('dashboard:settings.confirmSaveAria')}
           >
             <div className="delete-confirm__ico" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
               <Pencil style={{ width: '1.6rem', height: '1.6rem' }} />
             </div>
-            <h3>هل أنت متأكد من تحديث بياناتك؟</h3>
+            <h3>{t('dashboard:settings.confirmSaveTitle')}</h3>
             <p>
-              سيتم حفظ التعديلات التالية: الاسم، رقم الهاتف، والبريد الإلكتروني.
-              هل تريد المتابعة؟
+              {t('dashboard:settings.confirmSaveBody')}
             </p>
             <div className="delete-confirm__actions">
               <button
@@ -490,7 +505,7 @@ export default function Settings({ user, onLogout, onDeleteAccount, onSaveProfil
                 onClick={confirmSave}
                 disabled={saving}
               >
-                {saving ? 'جارٍ الحفظ…' : 'نعم، حفظ التغييرات'}
+                {saving ? t('dashboard:settings.saving') : t('dashboard:settings.confirmSaveYes')}
               </button>
             </div>
           </div>

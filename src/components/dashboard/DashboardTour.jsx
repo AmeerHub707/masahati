@@ -12,6 +12,7 @@ import { createPortal } from 'react-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Check, X } from 'lucide-react';
 import { useDialogA11y } from '@/lib/dialogA11y';
+import { useTranslation } from '@/hooks/useT';
 
 const SPOTLIGHT_PADDING = 10;
 const GAP = 14;
@@ -92,6 +93,7 @@ export default function DashboardTour({
   onDismiss,
   onNavigate,
 }) {
+  const { t } = useTranslation();
   const list = Array.isArray(steps) && steps.length ? steps : EMPTY_STEPS;
   const total = list.length;
   const current = list[step - 1] || list[0] || null;
@@ -294,14 +296,14 @@ export default function DashboardTour({
       >
         <div className="otour__head">
           <span className="otour__counter" aria-live="polite">
-            {`الخطوة ${step} من ${total}`}
+            {t('dashboard:tourStepOf', { step, total })}
           </span>
           <button
             type="button"
             className="otour__close"
             onClick={handleDismiss}
             data-tour={`${tourId}-skip`}
-            aria-label="تخطي الجولة"
+            aria-label={t('dashboard:tourSkipAria')}
           >
             <X />
           </button>
@@ -322,21 +324,21 @@ export default function DashboardTour({
 
         <div className="otour__actions">
           <button type="button" className="otour__skip" onClick={handleDismiss} data-tour={`${tourId}-skip-text`}>
-            تخطي
+            {t('dashboard:tourSkip')}
           </button>
           <div className="otour__nav">
             {step > 1 && (
               <button type="button" className="otour__btn otour__btn--ghost" onClick={handleBack} data-tour={`${tourId}-back`}>
-                <BackIcon /> السابق
+                <BackIcon /> {t('common:previous')}
               </button>
             )}
             {isLast ? (
               <button type="button" className="otour__btn otour__btn--primary" onClick={() => goTo(total + 1)} data-tour={`${tourId}-finish`}>
-                <Check /> تم
+                <Check /> {t('dashboard:tourDone')}
               </button>
             ) : (
               <button type="button" className="otour__btn otour__btn--primary" onClick={handleNext} data-tour={`${tourId}-next`}>
-                التالي <NextIcon />
+                {t('common:next')} <NextIcon />
               </button>
             )}
           </div>

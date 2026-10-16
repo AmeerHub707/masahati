@@ -9,6 +9,9 @@ const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
 globalThis.window = dom.window;
 globalThis.document = dom.window.document;
 globalThis.localStorage = dom.window.localStorage;
+// ثبّت العربية لهذا الاختبار: المكوّنات المهاجَرة تُصيَّر بالعربية فتبقى التأكيدات
+// النصّية القديمة صالحة، ويتحقّق الاختبار ضمناً من أنّ نصوص ar.json تطابق الأصل.
+dom.window.localStorage.setItem('masahati_lang', 'ar');
 Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true });
 if (!globalThis.HTMLElement) globalThis.HTMLElement = dom.window.HTMLElement;
 if (!globalThis.Element) globalThis.Element = dom.window.Element;
