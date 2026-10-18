@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, Hourglass, LogOut } from 'lucide-react';
 import BackButton from '@/components/ui/BackButton';
-import LanguageToggle from '@/components/ui/LanguageToggle';
 import { getUser } from '@/lib/authStore';
 import { useForceLight } from '@/hooks/useTheme';
 import { useTranslation } from '@/hooks/useT';
@@ -90,7 +89,6 @@ export default function PendingApprovalPage() {
       <main className="pa-card">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.4rem' }}>
           <BackButton fallback="/" ariaLabel={t('auth:pending.backAria')} />
-          <LanguageToggle />
         </div>
 
         <div className="pa-icon" aria-hidden="true">

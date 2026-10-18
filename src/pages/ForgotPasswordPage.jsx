@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import BackButton from '@/components/ui/BackButton';
-import LanguageToggle from '@/components/ui/LanguageToggle';
 import { request, ApiError } from '@/lib/authStore';
 import { useForceLight } from '@/hooks/useTheme';
 import { useTranslation } from '@/hooks/useT';
@@ -468,7 +467,6 @@ export default function ForgotPasswordPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <LanguageToggle />
               <BackButton className="back-home" fallback="/" ariaLabel={t('auth:common.backHome')} />
             </div>
           </div>

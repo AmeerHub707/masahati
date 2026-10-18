@@ -5,7 +5,6 @@ import { useTranslation } from '@/hooks/useT';
 import NavTab from './NavTab';
 import MagneticButton from '@/components/ui/MagneticButton';
 import ThemeToggle from '@/components/ui/ThemeToggle';
-import LanguageToggle from '@/components/ui/LanguageToggle';
 import { AppReadyContext } from '@/context/AppReadyContext';
 
 // مفاتيح الترجمة لا نصوصاً: النص يُحلّ عند التصيير عبر `t('nav:…')`، فلا
@@ -141,7 +140,6 @@ export default function Navbar() {
         {/* الأزرار — الطرف المقابل، ويفصلها عن الروابط خط شعري متعمّد */}
         <div className="nav__cta">
           <ThemeToggle />
-          <LanguageToggle />
           <Link className="cta-btn cta-btn--ghost" to="/login">{t('login')}</Link>
           <MagneticButton>
             <Link className="cta-btn cta-btn--primary" to="/signup">{t('signup')}</Link>
@@ -170,7 +168,6 @@ export default function Navbar() {
           transition={{ duration: .22, ease: EASE_OUT }}
         >
           <div className="nav__mobile-toggle">
-            <LanguageToggle />
             <ThemeToggle />
           </div>
           {LINKS.map((l) => (

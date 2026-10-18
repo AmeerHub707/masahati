@@ -2,14 +2,16 @@ import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Tag } from 'lucide-react';
 import SafeLink from '@/components/ui/SafeLink';
+import { useTranslation } from '@/hooks/useT';
 
-export default function AdBanner({ ads, dismissed }) {
+export default function AdBanner({ ads, dismissed = [] }) {
+  const { t } = useTranslation('customer');
   const visible = ads.filter((a) => !dismissed.includes(a.id));
 
   if (visible.length === 0) return null;
 
   return (
-    <div className="dash__news" role="region" aria-label="إعلانات المساحات">
+    <div className="dash__news" role="region" aria-label={t('adBanner.region')}>
       <Marquee ads={visible} />
     </div>
   );
@@ -69,9 +71,11 @@ function Marquee({ ads }) {
 // مقصود بدل إرسال كل إعلان إلى /spaces. الروابط الداخلية تمر عبر Link الخاص بـ
 // SPA، والخارجية عبر SafeLink حتى لا يُنفَّذ javascript:/data: القادم من الخادم.
 function AdPill({ ad }) {
+  const { t } = useTranslation('customer');
+  const tag = ad.target === 'space_customers' ? t('adBanner.tagSpecial') : t('adBanner.tagDefault');
   const body = (
     <>
-      <span className="dash__news-tag"><Tag /> {ad.tag}</span>
+      <span className="dash__news-tag"><Tag /> {tag}</span>
       <span className="dash__news-title">{ad.title}</span>
       <span className="dash__news-space">— {ad.spaceName}</span>
     </>

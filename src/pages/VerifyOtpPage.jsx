@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import BackButton from '@/components/ui/BackButton';
-import LanguageToggle from '@/components/ui/LanguageToggle';
 import { useTranslation } from '@/hooks/useT';
 import { login, getHomePath, ApiError, request, getUser, setUser } from '@/lib/authStore';
 import WhatsAppBubble from '@/components/ui/WhatsAppBubble';
@@ -391,7 +390,6 @@ export default function VerifyOtpPage() {
               <img src="/Logo.png" alt="Masahati" className="brand-logo" />
             </div>
             <div className="flex items-center gap-2">
-              <LanguageToggle />
               <BackButton className="back-home" fallback="/" ariaLabel={t('auth:common.backHome')} />
             </div>
           </div>

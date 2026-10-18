@@ -48,19 +48,12 @@ export function applyDocumentLang(lang) {
 }
 
 /**
- * الكشف الأولي: اختيار المحفوظ دائماً أولاً، ثم لغة المتصفح، ثم العربية.
- * العربية تبقى الافتراضية احتياطاً لكلّ لغة غير مدعومة.
+ * الكشف الأولي: عربية واتجاه RTL دائماً — زر التبديل وتفعيل LTR مؤجّلان
+ * حتى إعادة إضافتهما لاحقاً. i18n يبقى قيد التهيئة ليعمل كل ما رُبط من
+ * مفاتيح ترجمة، فلا يحتاج رجوع اللغة لاحقاً إلى أي هجرة إضافية.
  */
 function detectInitialLang() {
-  try {
-    const saved = localStorage.getItem(LANG_KEY);
-    if (saved && SUPPORTED.includes(saved)) return saved;
-  } catch {
-    /* التخزين قد يكون محجوباً — نتجاهل وننتقل للغة المتصفح */
-  }
-  if (typeof navigator === 'undefined') return DEFAULT_LANG;
-  const nav = String(navigator.language || '').slice(0, 2).toLowerCase();
-  return SUPPORTED.includes(nav) ? nav : DEFAULT_LANG;
+  return DEFAULT_LANG;
 }
 
 const initialLang = detectInitialLang();
@@ -76,11 +69,11 @@ i18n.use(initReactI18next).init({
   defaultNS: 'common',
   // الموارد كلها مضمّنة في الحزمة، فلا داعي لتأجيل التهيئة إلى الطور التالي:
   // التهيئة المتزامنة تمنع وميض مفتاح ترجمة، وتمنع إعادة تصيير متأخّرة بعد
-  // حدث `initialized` — وهي إعادة تصيير كانت تزاحم تأثيرات التنظيف في اللوحات.
+  // حدث `initialized` — وتلك كانت تزاحم تأثيرات التنظيف في اللوحات.
   initImmediate: false,
   interpolation: { escapeValue: false },
-  // قيمة فارغة في الترجمة الإنجليزية تعني «لم تُترجم بعد»، لا نصًّا فارغاً —
-  // فنسقط على العربية بدل إفراغ الواجهة أثناء ترحيل بقية الشاشات.
+  // قيمة فارغة في الترجمة الإنجليزية تعني «لم تُترجم بعد» لا نصًّا فارغاً،
+  // فنسقط على العربية (لغة التشغيل الوحيدة حالياً) بدل إفراغ أي واجهة.
   returnEmptyString: false,
 });
 

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import BackButton from '@/components/ui/BackButton';
-import LanguageToggle from '@/components/ui/LanguageToggle';
 import { adminLogin } from '@/lib/adminAuth';
 import { useForceLight } from '@/hooks/useTheme';
 import { useTranslation } from '@/hooks/useT';
@@ -54,7 +53,6 @@ export default function AdminLoginPage() {
         <div className="flex items-center justify-between mb-6">
           <img src="/Logo.png" alt={t('auth:admin.brandAlt')} className="h-9 w-auto object-contain" />
           <div className="flex items-center gap-2">
-            <LanguageToggle />
             <BackButton fallback="/" ariaLabel={t('auth:common.backHome')} />
           </div>
         </div>

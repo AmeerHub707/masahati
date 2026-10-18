@@ -17,7 +17,6 @@ import {
 import useGoogleAuth from '@/hooks/useGoogleAuth';
 import WhatsAppBubble from '@/components/ui/WhatsAppBubble';
 import { useForceLight } from '@/hooks/useTheme';
-import LanguageToggle from '@/components/ui/LanguageToggle';
 import { useTranslation } from '@/hooks/useT';
 import {
   getPasswordChecks,
@@ -607,7 +606,6 @@ export default function SignupPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <LanguageToggle />
               <BackButton className="back-home" fallback="/" ariaLabel={t('auth:common.backHome')} />
             </div>
           </div>

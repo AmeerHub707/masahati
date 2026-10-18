@@ -4,7 +4,6 @@ import BackButton from '@/components/ui/BackButton';
 import { login, googleLogin, getHomePath, ApiError, consumeSessionExpired } from '@/lib/authStore';
 import useGoogleAuth from '@/hooks/useGoogleAuth';
 import { useForceLight } from '@/hooks/useTheme';
-import LanguageToggle from '@/components/ui/LanguageToggle';
 import { useTranslation } from '@/hooks/useT';
 
 export default function LoginPage() {
@@ -674,7 +673,6 @@ export default function LoginPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <LanguageToggle />
               <BackButton className="back-home" fallback="/" ariaLabel={t('auth:common.backHome')} />
             </div>
           </div>

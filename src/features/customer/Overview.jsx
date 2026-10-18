@@ -2,21 +2,20 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import AnimatedOrbs from '@/components/ui/AnimatedOrbs';
 import DashCountUp from './DashCountUp';
+import { useTranslation } from '@/hooks/useT';
 import { CalendarCheck, Clock, Heart, Star, MapPin, BookOpen, LogIn, Timer, X } from 'lucide-react';
-
-const dashAds = [
-  { id: 1, title: 'مساحة عمل فاخرة', desc: 'بيئة احترافية مع جميع المرافق', badge: 'جديد', price: '25 ر.س/ساعة' },
-  { id: 2, title: 'قاعة اجتماعات', desc: 'مجهزة بالكامل لاجتماعات العمل', badge: 'متوفر', price: '50 ر.س/ساعة' },
-  { id: 5, title: 'استوديو تصوير', desc: 'مجهز للتصوير الفوتوغرافي والفيديو', badge: 'جديد', price: '60 ر.س/ساعة' },
-];
 
 function initialsOf(name) {
   return (name || 'م').trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('') || 'م';
 }
 
 export default function Overview({ data }) {
+  const { t } = useTranslation('customer');
   const user = data.user || {};
   const stats = data.stats || {};
+  // المساحات المُضافة خلال آخر ٣ أيام — تغذية بطاقة البطل بجوار الاسم.
+  // المصدر fetchDashboard (newSpaces) — لا بيانات مُختلقة بعد اليوم.
+  const newSpaces = Array.isArray(data.newSpaces) ? data.newSpaces : [];
   const [showAll, setShowAll] = useState(false);
   const [rateOpen, setRateOpen] = useState(false);
   const [rating, setRating] = useState(0);
@@ -24,14 +23,14 @@ export default function Overview({ data }) {
   const [activeAd, setActiveAd] = useState(0);
   const [photoFailed, setPhotoFailed] = useState('');
   const statCards = [
-    { icon: CalendarCheck, value: stats.upcomingBookings, label: 'حجوزات قادمة' },
-    { icon: Clock, value: stats.hoursThisMonth, label: 'ساعة محجوزة هذا الشهر' },
-    { icon: Heart, value: stats.savedFavorites, label: 'مساحات محفوظة' },
-    { icon: Timer, value: stats.hoursSpentThisMonth, label: "ساعة في المساحات هذا الشهر" },
+    { icon: CalendarCheck, value: stats.upcomingBookings, label: t('overview.stats.upcoming') },
+    { icon: Clock, value: stats.hoursThisMonth, label: t('overview.stats.hoursMonth') },
+    { icon: Heart, value: stats.savedFavorites, label: t('overview.stats.favorites') },
+    { icon: Timer, value: stats.hoursSpentThisMonth, label: t('overview.stats.hoursTotal') },
   ];
 
   const actions = [
-    { to: '/spaces', icon: BookOpen, title: 'تصفح المساحات', desc: 'قارن الأسعار والإنترنت والكهرباء' },
+    { to: '/spaces', icon: BookOpen, title: t('overview.actions.browseTitle'), desc: t('overview.actions.browseDesc') },
   ];
 
   const submitRating = () => {
@@ -50,10 +49,14 @@ export default function Overview({ data }) {
   const upcoming = showAll ? allUpcoming : allUpcoming.slice(0, 2);
 
   useEffect(() => {
+    if (newSpaces.length === 0) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const id = setInterval(() => setActiveAd((i) => (i + 1) % dashAds.length), 4000);
+    const id = setInterval(() => setActiveAd((i) => (i + 1) % newSpaces.length), 4000);
     return () => clearInterval(id);
-  }, []);
+  }, [newSpaces.length]);
+
+  // فهرس آمن حتى لو تغيّرت القائمة بين دورتين (عداد قد يسبق الطول).
+  const adIndex = newSpaces.length > 0 ? activeAd % newSpaces.length : 0;
 
   return (
     <>
@@ -70,45 +73,53 @@ export default function Overview({ data }) {
           ) : (
             user.name && <div className="dash__hero-avatar">{initialsOf(user.name)}</div>
           )}
-          <h2>أهلاً <span className="dash__hero-name">{user.name || 'بك'}</span> بعودتك</h2>
+          <h2>
+            {user.name
+              ? t('overview.welcome', { name: user.name })
+              : t('overview.welcomeGuest')}
+          </h2>
           <p>
             {user.role === 'owner'
-              ? 'تتبّع حجوزات مساحتك وأدر توفّرها من هنا.'
-              : 'من هنا تدير حجوزاتك ومفضّلاتك — احجز المقعد المناسب بسرعة وثقة.'}
+              ? t('overview.heroDescOwner')
+              : t('overview.heroDescCustomer')}
           </p>
           <span className="dash__role-chip">
             {user.role === 'owner' ? <MapPin /> : <Star />}
-            {user.role === 'owner' ? 'صاحب مساحة' : 'عضو موثّق'}
+            {user.role === 'owner' ? t('overview.roleOwner') : t('overview.roleCustomer')}
           </span>
         </div>
 
-        <div className="dash__hero-ads">
-          <div className="dash__hero-ads-track">
-            {dashAds.map((ad, i) => (
-              <Link
-                key={ad.id}
-                to={`/ads/${ad.id}`}
-                className={`dash__hero-ad-card${i === activeAd ? ' is-active' : ''}`}
-              >
-                <div className="dash__hero-ad-badge">{ad.badge}</div>
-                <h3>{ad.title}</h3>
-                <p>{ad.desc}</p>
-                <span className="dash__hero-ad-price">{ad.price}</span>
-              </Link>
-            ))}
+        {newSpaces.length > 0 && (
+          <div className="dash__hero-ads" aria-label={t('overview.hero.region')}>
+            <div className="dash__hero-ads-track">
+              {newSpaces.map((space, i) => (
+                <Link
+                  key={space.id}
+                  to={`/spaces/${space.id}`}
+                  className={`dash__hero-ad-card${i === adIndex ? ' is-active' : ''}`}
+                >
+                  <div className="dash__hero-ad-badge">{t('overview.hero.newBadge')}</div>
+                  <h3>{space.title || t('overview.hero.fallbackTitle')}</h3>
+                  <p>{space.area || space.location || t('overview.hero.fallbackPlace')}</p>
+                  <span className="dash__hero-ad-price">
+                    {t('overview.hero.perHour', { price: space.price_per_hour })}
+                  </span>
+                </Link>
+              ))}
+            </div>
+            <div className="dash__hero-ads-dots">
+              {newSpaces.map((space, i) => (
+                <button
+                  key={space.id}
+                  type="button"
+                  className={`dash__hero-ads-dot${i === adIndex ? ' is-active' : ''}`}
+                  onClick={() => setActiveAd(i)}
+                  aria-label={t('overview.hero.adLabel', { n: i + 1 })}
+                />
+              ))}
+            </div>
           </div>
-          <div className="dash__hero-ads-dots">
-            {dashAds.map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                className={`dash__hero-ads-dot${i === activeAd ? ' is-active' : ''}`}
-                onClick={() => setActiveAd(i)}
-                aria-label={`إعلان ${i + 1}`}
-              />
-            ))}
-          </div>
-        </div>
+        )}
       </section>
 
       <section className="dash__stats" data-tour="customer-metrics">
@@ -141,22 +152,22 @@ export default function Overview({ data }) {
         <button type="button" className="dash__action dash__action--rate" onClick={() => setRateOpen(true)}>
           <div className="a-ico"><Star /></div>
           <div>
-            <h3>قيّم تجربتك الأخيرة</h3>
-            <p>أخبرنا عن جودة المساحة والخدمات</p>
+            <h3>{t('overview.actions.rateTitle')}</h3>
+            <p>{t('overview.actions.rateDesc')}</p>
           </div>
         </button>
       </section>
 
       <section className="dash__section">
         <div className="dash__section-head">
-          <h2><CalendarCheck /> حجوزاتك القادمة</h2>
+          <h2><CalendarCheck /> {t('overview.bookings.title')}</h2>
           <button
             type="button"
             className="dash__show-all"
             onClick={() => setShowAll((s) => !s)}
             aria-expanded={showAll}
           >
-            {showAll ? 'عرض أقل' : 'عرض الكل'}
+            {showAll ? t('overview.bookings.showLess') : t('overview.bookings.showAll')}
           </button>
         </div>
 
@@ -172,32 +183,32 @@ export default function Overview({ data }) {
                     <span><Clock /> {b.time}</span>
                   </div>
                 </div>
-                <div className="bk-price">{b.price || 0} ش.ج</div>
+                <div className="bk-price">{b.price || 0} {t('overview.bookings.currency')}</div>
               </div>
             ))}
           </div>
         ) : (
           <div className="dash__state">
             <div className="st-svg"><LogIn /></div>
-            <h3>لا حجوزات قادمة</h3>
-            <p>احجز مقعدك الأول وابدأ العمل بتركيز.</p>
-            <Link to="/spaces">احجز الآن</Link>
+            <h3>{t('overview.bookings.emptyTitle')}</h3>
+            <p>{t('overview.bookings.emptyDesc')}</p>
+            <Link to="/spaces">{t('overview.bookings.bookNow')}</Link>
           </div>
         )}
       </section>
 
       {rateOpen && (
         <div className="modal-overlay dash-rate__overlay" onClick={closeRating}>
-          <div className="modal-box dash-rate" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="تقديم تقييم">
-            <button type="button" className="dash-rate__close" onClick={closeRating} aria-label="إغلاق">
+          <div className="modal-box dash-rate" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={t('overview.rate.aria')}>
+            <button type="button" className="dash-rate__close" onClick={closeRating} aria-label={t('overview.rate.close')}>
               <X />
             </button>
 
             {!rated ? (
               <>
                 <span className="dash-rate__ico"><Star /></span>
-                <h3>قيّم تجربتك الأخيرة</h3>
-                <p>ما رأيك في المساحة والخدمة التي حجزتها؟</p>
+                <h3>{t('overview.rate.title')}</h3>
+                <p>{t('overview.rate.desc')}</p>
 
                 <div className="dash-rate__stars">
                   {[1, 2, 3, 4, 5].map((n) => (
@@ -206,7 +217,7 @@ export default function Overview({ data }) {
                       type="button"
                       className={n <= rating ? 'on' : ''}
                       onClick={() => setRating(n)}
-                      aria-label={`${n} من 5`}
+                      aria-label={t('overview.rate.starN', { n })}
                     >
                       <Star />
                     </button>
@@ -219,16 +230,16 @@ export default function Overview({ data }) {
                   onClick={submitRating}
                   disabled={rating === 0}
                 >
-                  إرسال التقييم
+                  {t('overview.rate.submit')}
                 </button>
               </>
             ) : (
               <>
                 <span className="dash-rate__ico ok"><Star /></span>
-                <h3>شكراً لتقييمك!</h3>
-                <p>سجّلنا تقييمك بـ {rating} من 5 نجوم.</p>
+                <h3>{t('overview.rate.thanks')}</h3>
+                <p>{t('overview.rate.thanksDesc', { rating })}</p>
                 <button type="button" className="btn-primary" onClick={closeRating}>
-                  حسناً
+                  {t('overview.rate.ok')}
                 </button>
               </>
             )}

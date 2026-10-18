@@ -23,7 +23,7 @@ import {
   markDashboardTourCompleted,
   resolveTourUserId,
 } from '@/lib/dashboardTour';
-import NewSpacesBanner from '@/features/customer/NewSpacesBanner';
+import AdBanner from '@/features/customer/AdBanner';
 import { AlertCircle, Trash2, Repeat } from 'lucide-react';
 
 const CUSTOMER_TOUR_ID = 'customer-tour';
@@ -398,7 +398,7 @@ export default function CustomerDashboard() {
           </div>
         )}
         {data?.user?.role === 'customer' && (
-          <NewSpacesBanner spaces={data?.newSpaces || []} />
+          <AdBanner ads={data?.ads || []} />
         )}
         <AnimatePresence mode="wait" initial={false}>
           {tabContent ? (
