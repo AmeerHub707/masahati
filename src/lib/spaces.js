@@ -6,6 +6,7 @@
 
 import { request } from './api';
 import { mapSpace, toApiAmenities } from './owner';
+import { pickNewSpaces, NEW_SPACES_LIMIT } from './newSpaces';
 
 const SPACES_TIMEOUT_MS = 10000;
 const CATALOG_CACHE_KEY = 'masahati_spaces_catalog_v1';
@@ -71,6 +72,23 @@ export async function loadSpacesWithFallback(filters = {}, page = 1) {
       has_more: false,
       total: 0,
     };
+  }
+}
+
+// المساحات المُضافة حديثاً — تغذية بانر «جديد» في بطل لوحة العميل.
+// تقرأ الصفحة الأولى من الكتالوج العام (مرتبة بالأحدث أولاً كما ترجعها
+// /api/spaces) ثم تنقّي محلياً نافذة ٣ أيام عبر وحدة newSpaces النقية.
+// لا نقطة إطلاق جديدة ولا بيانات مُختلقة: مساحة بلا تاريخ صالح لا تُعرض.
+export async function fetchNewSpaces() {
+  const result = await fetchSpaces(1);
+  return pickNewSpaces(result.spaces, { limit: NEW_SPACES_LIMIT });
+}
+
+export async function loadNewSpacesWithFallback() {
+  try {
+    return { error: null, spaces: await fetchNewSpaces() };
+  } catch (err) {
+    return { error: messageOf(err), spaces: [] };
   }
 }
 

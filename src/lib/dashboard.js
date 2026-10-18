@@ -8,6 +8,7 @@
 //   - GET api/dashboard/favorites
 //   - POST api/dashboard/favorites/toggle
 //   - GET api/ads/open  (تغذية إعلانات العميل — عبر ads.js)
+//   - GET /api/spaces?page=1  (المساحات الجديدة خلال ٣ أيام لبانر البطل — عبر spaces.js)
 //
 // ملاحظة: كانت هنا دالة fetchSpaces تستدعي GET api/dashboard/spaces، وهي غير
 // مستوردة من أي مكان في المشروع فحُذفت. كتالوج المساحات يُجلب من spaces.js عبر
@@ -17,6 +18,7 @@ import { request, imageUrl } from './api';
 import { getUser } from './authStore';
 import { extractPicturePath, resolvePictureUrl, getCachedPictureUrl } from './profilePicture';
 import { loadCustomerAdsWithFallback } from './ads';
+import { loadNewSpacesWithFallback } from './spaces';
 
 // مؤقت لبيانات لوحة التحكم: كان 8s يقطع الطلبات أثناء cold start (قياس فعلي:
 // profile ~8.4s و stats ~11.1s بالتوازي بعد توقف Render). 15s يوازن بين
@@ -121,7 +123,7 @@ function listOf(res, key) {
 
 // جلب بيانات لوحة التحكم بالكامل (بالتوازي) ودمجها مع الملف الشخصي.
 export async function fetchDashboard() {
-  const [stats, upcomingApi, historyApi, favoritesApi, profileApi, adsRes] = await Promise.all([
+  const [stats, upcomingApi, historyApi, favoritesApi, profileApi, adsRes, newSpacesRes] = await Promise.all([
     request('/api/dashboard/stats', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
     request('/api/dashboard/upcoming-booking', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
     request('/api/dashboard/bookings', { method: 'GET', auth: true, timeoutMs: DASH_TIMEOUT_MS }).catch(() => null),
@@ -130,6 +132,8 @@ export async function fetchDashboard() {
     // كان هذا الحقل مثبّتاً علىads: [] فلم تكن تغذية إعلانات العميل موصولة
     // بأي نقطة إطلاقاً. الآن تُقرأ من /api/ads/open، وقائمة فارغة عند فشلها.
     loadCustomerAdsWithFallback(),
+    // مساحات آخر ٣ أيام لبانر البطل — فشلها الزخرفي ولا يعطّل اللوحة.
+    loadNewSpacesWithFallback(),
   ]);
 
   const s = stats || {};
@@ -171,6 +175,7 @@ export async function fetchDashboard() {
     bookings: mapBookings(listOf(historyApi, 'bookings')),
     favorites: mapFavorites(listOf(favoritesApi, 'favorites')),
     ads: (adsRes?.ads || []).filter((a) => a.title),
+    newSpaces: newSpacesRes?.spaces || [],
     error,
   };
 

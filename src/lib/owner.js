@@ -132,6 +132,7 @@ export function mapSpace(s) {
   const status = spaceStatus(s);
   return {
     id: s.space_id ?? s.id,
+    created_at: s.approved_at ?? s.published_at ?? s.created_at ?? s.created ?? '',
     title: s.title ?? '',
     description: s.description ?? '',
     location: s.location ?? '',

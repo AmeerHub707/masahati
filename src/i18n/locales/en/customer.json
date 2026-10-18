@@ -1,1 +1,28 @@
-{}
+{
+  "tour": {
+    "header": {
+      "title": "Welcome to your dashboard",
+      "desc": "From this bar you can access notifications and toggle dark mode. To find a new space, use 'Browse spaces' from the navigation menu."
+    },
+    "sidebar": {
+      "title": "Navigate between tabs",
+      "desc": "Here you can switch between: Overview, My bookings, Favorite spaces, Special requests, and Settings. Your profile info is at the top."
+    },
+    "metrics": {
+      "title": "Your activity indicators",
+      "desc": "These four cards summarize your usage: upcoming bookings, hours booked this month, saved spaces, and hours spent in spaces."
+    },
+    "quickAction": {
+      "title": "Quick actions",
+      "desc": "From here you can browse spaces, compare prices and internet, or rate your experience. If you need a custom arrangement, create a request from the 'Special requests' tab."
+    },
+    "assistant": {
+      "title": "Your smart assistant",
+      "desc": "Ask about your bookings, favorites, requests and get quick recommendations. You can control your data privacy from within the assistant itself."
+    }
+  },
+  "messages": {
+    "loadError": "Could not load dashboard data.",
+    "cancelFailed": "Could not cancel booking."
+  }
+}

@@ -5,6 +5,7 @@ import { logout, deleteUser, updateProfile, updateProfilePicture, uploadPicture,
 import { fetchDashboard, readDashboardCache, clearDashboardCache, writeDashboardCache, cancelBooking, toggleFavorite } from '@/lib/dashboard';
 import { extractPicturePath, resolveNewPictureUrl, getCachedPictureUrl } from '@/lib/profilePicture';
 import { acceptOfferWithFallback } from '@/lib/requests';
+import { useTranslation } from '@/hooks/useT';
 import DashboardLayout from '@/features/customer/DashboardLayout';
 import DashboardLoading from '@/components/dashboard/DashboardLoading';
 import Overview from '@/features/customer/Overview';
@@ -22,7 +23,7 @@ import {
   markDashboardTourCompleted,
   resolveTourUserId,
 } from '@/lib/dashboardTour';
-import AdBanner from '@/features/customer/AdBanner';
+import NewSpacesBanner from '@/features/customer/NewSpacesBanner';
 import { AlertCircle, Trash2, Repeat } from 'lucide-react';
 
 const CUSTOMER_TOUR_ID = 'customer-tour';
@@ -33,39 +34,15 @@ const MIN_LOGOUT_OVERLAY_MS = 700;
 // خطوات جولة لوحة العميل — كلها أهداف موجودة في تبويب «نظرة عامة»،
 // فلا تحتاج الجولة لتبديل التبويبات أثناء العرض.
 const CUSTOMER_TOUR_STEPS = [
-  {
-    id: 'header',
-    target: 'customer-header',
-    title: 'أهلاً بك في لوحة التحكم',
-    description: 'من هذا الشريط تصل إلى الإشعارات وتبديل الوضع الليلي. وللبحث عن مساحة جديدة استخدم «تصفح المساحات» من قائمة التنقل.',
-  },
-  {
-    id: 'sidebar',
-    target: 'customer-sidebar',
-    title: 'التنقل بين تبويباتك',
-    description: 'هنا تتنقل بين: نظرة عامة، حجوزاتي، المساحات المفضلة، الطلبات الخاصة، والإعدادات. وتجد بيانات ملفك الشخصي في الأعلى.',
-  },
-  {
-    id: 'metrics',
-    target: 'customer-metrics',
-    title: 'مؤشرات نشاطك',
-    description: 'هذه البطاقات الأربع تلخّص استخدامك: حجوزات قادمة، ساعة محجوزة هذا الشهر، مساحات محفوظة، والساعات التي قضيتها في المساحات.',
-  },
-  {
-    id: 'quick-action',
-    target: 'customer-quick-action',
-    title: 'إجراءات سريعة',
-    description: 'من هنا تتصفح المساحات وتقارن الأسعار والإنترنت، أو تقيّم تجربتك. وإذا احتجت ترتيباً خاصاً فأنشئ طلباً من تبويب «الطلبات الخاصة».',
-  },
-  {
-    id: 'assistant',
-    target: 'customer-assistant',
-    title: 'مساعدك الذكي',
-    description: 'اسأل عن حجوزاتك ومفضلاتك وطلباتك واحصل على توصيات سريعة. وتتحكم في خصوصية بياناتك من داخل المساعد نفسه.',
-  },
+  { id: 'header', target: 'customer-header', title: 'header', description: 'desc' },
+  { id: 'sidebar', target: 'customer-sidebar', title: 'sidebar', description: 'desc' },
+  { id: 'metrics', target: 'customer-metrics', title: 'metrics', description: 'desc' },
+  { id: 'quick-action', target: 'customer-quick-action', title: 'quickAction', description: 'desc' },
+  { id: 'assistant', target: 'customer-assistant', title: 'assistant', description: 'desc' },
 ];
 
 export default function CustomerDashboard() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [active, setActive] = useState('overview');
   const [data, setData] = useState(null);
@@ -74,7 +51,6 @@ export default function CustomerDashboard() {
   const [cancellingId, setCancellingId] = useState(null);
   const [cancelNotice, setCancelNotice] = useState('');
   const [togglingId, setTogglingId] = useState(null);
-  const [dismissedAds] = useState([]);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [offersBadge, setOffersBadge] = useState(0);
@@ -148,7 +124,7 @@ export default function CustomerDashboard() {
       } catch {
         // فشل الجلب: نبقي البيانات المخزنة إن وُجدت، وإلا نعرض الخطأ.
         if (isMounted) {
-          setLoadError('تعذّر تحميل بيانات لوحة التحكم.');
+          setLoadError(t('customer:messages.loadError'));
           setStatus((prev) => (prev === 'loading' ? 'error' : prev));
         }
       }
@@ -422,10 +398,7 @@ export default function CustomerDashboard() {
           </div>
         )}
         {data?.user?.role === 'customer' && (
-          <AdBanner
-            ads={data?.ads || []}
-            dismissed={dismissedAds}
-          />
+          <NewSpacesBanner spaces={data?.newSpaces || []} />
         )}
         <AnimatePresence mode="wait" initial={false}>
           {tabContent ? (
