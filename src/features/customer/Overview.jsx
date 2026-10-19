@@ -95,7 +95,7 @@ export default function Overview({ data }) {
               {newSpaces.map((space, i) => (
                 <Link
                   key={space.id}
-                  to={`/spaces/${space.id}`}
+                  to={`/ads/${space.id}`}
                   className={`dash__hero-ad-card${i === adIndex ? ' is-active' : ''}`}
                 >
                   <div className="dash__hero-ad-badge">{t('overview.hero.newBadge')}</div>
