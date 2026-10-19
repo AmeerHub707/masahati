@@ -142,7 +142,7 @@ function LocationPicker({ lat, lng, onChange }) {
 
       <div className="msp__map-fields">
         <div className="msp__map-field">
-          <label htmlFor="msp-lat">خط العرض <em>Latitude</em></label>
+          <label htmlFor="msp-lat">خط العرض</label>
           <input
             id="msp-lat"
             type="number"
@@ -157,7 +157,7 @@ function LocationPicker({ lat, lng, onChange }) {
           />
         </div>
         <div className="msp__map-field">
-          <label htmlFor="msp-lng">خط الطول <em>Longitude</em></label>
+          <label htmlFor="msp-lng">خط الطول</label>
           <input
             id="msp-lng"
             type="number"

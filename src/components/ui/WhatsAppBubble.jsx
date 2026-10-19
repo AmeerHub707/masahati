@@ -5,7 +5,7 @@ export default function WhatsAppBubble() {
       href="https://wa.me/972567653009"
       target="_blank"
       rel="noopener"
-      aria-label="Masahati"
+      aria-label="تواصل عبر واتساب"
       data-tip="+972 56 765 3009"
     >
       <svg viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg">
