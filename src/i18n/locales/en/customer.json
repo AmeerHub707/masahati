@@ -2,24 +2,77 @@
   "tour": {
     "header": {
       "title": "Welcome to your dashboard",
-      "desc": "From this bar you can access notifications and toggle dark mode. To find a new space, use 'Browse spaces' from the navigation menu."
+      "desc": "From this bar you can reach notifications and switch dark mode. To find a new space, use “Browse spaces” from the navigation menu."
     },
     "sidebar": {
-      "title": "Navigate between tabs",
-      "desc": "Here you can switch between: Overview, My bookings, Favorite spaces, Special requests, and Settings. Your profile info is at the top."
+      "title": "Navigate between your tabs",
+      "desc": "Here you move between: Overview, My bookings, Favourite spaces, Special requests, and Settings. Your profile details are at the top."
     },
     "metrics": {
-      "title": "Your activity indicators",
-      "desc": "These four cards summarize your usage: upcoming bookings, hours booked this month, saved spaces, and hours spent in spaces."
+      "title": "Your activity metrics",
+      "desc": "These four cards summarise your usage: upcoming bookings, hours booked this month, saved spaces, and hours you spent in spaces."
     },
     "quickAction": {
       "title": "Quick actions",
-      "desc": "From here you can browse spaces, compare prices and internet, or rate your experience. If you need a custom arrangement, create a request from the 'Special requests' tab."
+      "desc": "From here you browse spaces and compare prices and internet, or rate your experience. If you need a custom arrangement, create a request from the «Special requests» tab."
     },
     "assistant": {
       "title": "Your smart assistant",
-      "desc": "Ask about your bookings, favorites, requests and get quick recommendations. You can control your data privacy from within the assistant itself."
+      "desc": "Ask about your bookings, favourites and requests and get quick recommendations. You control your data privacy from inside the assistant itself."
     }
+  },
+  "overview": {
+    "welcome": "Welcome back, {{name}}",
+    "welcomeGuest": "Welcome back",
+    "heroDescOwner": "Track your space bookings and manage availability from here.",
+    "heroDescCustomer": "Manage your bookings and favourites here — book the right seat quickly and with confidence.",
+    "roleOwner": "Space owner",
+    "roleCustomer": "Verified member",
+    "stats": {
+      "upcoming": "Upcoming bookings",
+      "hoursMonth": "Hours booked this month",
+      "favorites": "Saved spaces",
+      "hoursTotal": "Hours in spaces this month"
+    },
+    "hero": {
+      "region": "New spaces",
+      "newBadge": "New",
+      "fallbackTitle": "New space",
+      "fallbackPlace": "Location not specified",
+      "perHour": "{{price}} ILS/hour",
+      "adLabel": "Card {{n}}"
+    },
+    "actions": {
+      "browseTitle": "Browse spaces",
+      "browseDesc": "Compare prices, internet and electricity",
+      "rateTitle": "Rate your last experience",
+      "rateDesc": "Tell us about the space quality and services"
+    },
+    "bookings": {
+      "title": "Your upcoming bookings",
+      "showAll": "Show all",
+      "showLess": "Show less",
+      "currency": "ILS",
+      "emptyTitle": "No upcoming bookings",
+      "emptyDesc": "Book your first seat and start working with focus.",
+      "bookNow": "Book now"
+    },
+    "rate": {
+      "aria": "Submit a rating",
+      "close": "Close",
+      "title": "Rate your last experience",
+      "desc": "What did you think of the space and the service you booked?",
+      "starN": "{{n}} out of 5",
+      "submit": "Submit rating",
+      "thanks": "Thanks for your rating!",
+      "thanksDesc": "We recorded your rating of {{rating}} out of 5 stars.",
+      "ok": "OK"
+    }
+  },
+  "adBanner": {
+    "region": "Space ads",
+    "tagDefault": "Offer",
+    "tagSpecial": "Special"
   },
   "messages": {
     "loadError": "Could not load dashboard data.",

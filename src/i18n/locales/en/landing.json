@@ -123,6 +123,7 @@
     "tipAsk": "Ask the Masahati assistant",
     "headerTitle": "Masahati assistant",
     "online": "Online now",
+    "unread": "{{count}} new messages",
     "welcome": "Hi 👋 I'm the Masahati assistant. Ask me about spaces, prices, booking, or anything about the platform.",
     "replyFallback": "I couldn't compose a reply right now. Try another question.",
     "errorFallback": "Couldn't reach the assistant right now. Please try again shortly.",

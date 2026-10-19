@@ -31,14 +31,12 @@ const CUSTOMER_TOUR_ID = 'customer-tour';
 // حدّ أدنى لظهور شاشة تسجيل الخروج — يمنع وميض الشاشة كاملة على طلب سريع.
 const MIN_LOGOUT_OVERLAY_MS = 700;
 
-// خطوات جولة لوحة العميل — كلها أهداف موجودة في تبويب «نظرة عامة»،
-// فلا تحتاج الجولة لتبديل التبويبات أثناء العرض.
 const CUSTOMER_TOUR_STEPS = [
-  { id: 'header', target: 'customer-header', title: 'header', description: 'desc' },
-  { id: 'sidebar', target: 'customer-sidebar', title: 'sidebar', description: 'desc' },
-  { id: 'metrics', target: 'customer-metrics', title: 'metrics', description: 'desc' },
-  { id: 'quick-action', target: 'customer-quick-action', title: 'quickAction', description: 'desc' },
-  { id: 'assistant', target: 'customer-assistant', title: 'assistant', description: 'desc' },
+  { id: 'header', target: 'customer-header', titleKey: 'customer:tour.header.title', descKey: 'customer:tour.header.desc' },
+  { id: 'sidebar', target: 'customer-sidebar', titleKey: 'customer:tour.sidebar.title', descKey: 'customer:tour.sidebar.desc' },
+  { id: 'metrics', target: 'customer-metrics', titleKey: 'customer:tour.metrics.title', descKey: 'customer:tour.metrics.desc' },
+  { id: 'quick-action', target: 'customer-quick-action', titleKey: 'customer:tour.quickAction.title', descKey: 'customer:tour.quickAction.desc' },
+  { id: 'assistant', target: 'customer-assistant', titleKey: 'customer:tour.assistant.title', descKey: 'customer:tour.assistant.desc' },
 ];
 
 export default function CustomerDashboard() {
@@ -422,7 +420,11 @@ export default function CustomerDashboard() {
       <DashboardTour
         open={tourOpen}
         step={tourStep}
-        steps={CUSTOMER_TOUR_STEPS}
+        steps={CUSTOMER_TOUR_STEPS.map((s) => ({
+          ...s,
+          title: t(s.titleKey),
+          description: t(s.descKey),
+        }))}
         tourId={CUSTOMER_TOUR_ID}
         onStepChange={setTourStep}
         onFinish={handleTourFinish}
