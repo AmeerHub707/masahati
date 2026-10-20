@@ -1,18 +1,40 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   MapPin, Star, Users, Clock, Wifi, Zap, Check, Phone,
   Loader2, BadgeCheck, CircleDollarSign, TrendingUp,
   Lock, Info, CalendarPlus, CalendarX2, Building2, Send,
+  Navigation, Share2, Compass, CheckCircle2, MessageCircle,
 } from 'lucide-react';
 import BackButton from '@/components/ui/BackButton';
+import SpaceLocationMap from '@/components/ui/SpaceLocationMap';
 import { loadSpaceDetailWithFallback, createBooking } from '@/lib/spaces';
 import { AMENITY_LABELS } from '@/lib/requests';
 import { fmtNumber, fmtRating, fmtMoney } from '@/lib/format';
+import { haversineKm, ar } from '@/lib/spaceFilters';
 import {
   getCurrentRole, ownsSpace,
   ROLE_VISITOR, ROLE_SPACE_OWNER,
 } from '@/lib/authStore';
+
+// مسافة معروضة بالعربية: أقل من كيلومتر تُقال بالأمتار («٨٠٠ م») لا «٠٫٨ كم»،
+// وما فوقها بمنزلة عشرية واحدة («٢٫٣ كم»).
+function formatDistanceKm(km) {
+  if (!Number.isFinite(km) || km < 0) return '';
+  if (km < 1) return `${ar(Math.max(50, Math.round((km * 1000) / 50) * 50))} م`;
+  return `${ar(km.toFixed(1))} كم`;
+}
+
+// رابط اتجاهات خارجي. نستخدم إحداثيات دقيقة إن توفّرت، وإلا نصّ الموقع،
+// وإلا لا نعرض الرابط أصلاً (بدل رابط يقود إلى الصفحة الرئيسية للخرائط).
+function directionsUrl(space) {
+  if (space?.lat && space?.lng) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${space.lat},${space.lng}`;
+  }
+  const q = [space?.location, space?.area].filter(Boolean).join(' ');
+  if (q) return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
+  return '';
+}
 
 export default function AdDetailsPage() {
   const { id } = useParams();
@@ -76,16 +98,41 @@ export default function AdDetailsPage() {
         />
 
         <div className="ad-details__hero">
-          <div className="ad-details__gallery">
-            {space.image ? (
-              <img src={space.image} alt={space.title} className="ad-details__img is-active" loading="eager" />
-            ) : (
-              <div className="ad-details__gallery-fallback">
-                <Building2 size={64} aria-hidden="true" />
-                <span>{space.title}</span>
-              </div>
+          <div className="ad-details__media">
+            <div className="ad-details__gallery">
+              {space.image ? (
+                <img src={space.image} alt={space.title} className="ad-details__img is-active" loading="eager" />
+              ) : (
+                <div className="ad-details__gallery-fallback">
+                  <Building2 size={64} aria-hidden="true" />
+                  <span>{space.title}</span>
+                </div>
+              )}
+              <div className="ad-details__scrim" />
+            </div>
+
+            {/* الخريطة تحت الصورة مباشرة. لا نعرض حاوية فارغة إن غابت
+                الإحداثيات: القسم يختفي كاملاً بدل خريطة بلا علامة. */}
+            {space.lat && space.lng && (
+              <section className="ad-details__map-block" aria-label="موقع المساحة على الخريطة">
+                <div className="ad-details__map-head">
+                  <h3><Compass size={17} /> موقع المساحة</h3>
+                  {directionsUrl(space) && (
+                    <a
+                      className="ad-details__map-dir"
+                      href={directionsUrl(space)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Navigation size={15} /> الاتجاهات
+                    </a>
+                  )}
+                </div>
+                <div className="ad-details__map">
+                  <SpaceLocationMap lat={space.lat} lng={space.lng} title={space.title} />
+                </div>
+              </section>
             )}
-            <div className="ad-details__scrim" />
           </div>
 
           <div className="ad-details__info">
@@ -106,6 +153,8 @@ export default function AdDetailsPage() {
                 {space.area && ` — ${space.area}`}
               </p>
             )}
+
+            <SpaceActions space={space} />
 
             {space.rating > 0 && (
               <div className="ad-details__rating">
@@ -194,6 +243,125 @@ export default function AdDetailsPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function SpaceActions({ space }) {
+  const [coords, setCoords] = useState(null);      // موقع المستخدم بعد الموافقة
+  const [geoState, setGeoState] = useState('idle'); // idle | locating | denied | error | unsupported
+  const [copied, setCopied] = useState(false);
+
+  // دعم المشاركة الأصلية: navigator.share على الجوال، والحافظة على سطح المكتب.
+  const canShareNative = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+  const canCopy = typeof navigator !== 'undefined' && !!navigator.clipboard;
+
+  // الموقع لا يُطلب إلا بنقرة: طلب الإذن تلقائياً عند كل فتح مساحة سلوك مزعج،
+  // والمتصفحات تُفضّل إيماءة مستخدم قبل منح الإذن.
+  const handleLocate = useCallback(() => {
+    if (!('geolocation' in navigator)) {
+      setGeoState('unsupported');
+      return;
+    }
+    setGeoState('locating');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setGeoState('idle');
+      },
+      (err) => {
+        setGeoState(err && err.code === 1 ? 'denied' : 'error');
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  }, []);
+
+  const handleShare = useCallback(async () => {
+    const url = typeof window !== 'undefined' ? window.location.href : '';
+    if (canShareNative) {
+      try {
+        await navigator.share({ title: space.title, text: space.title, url });
+      } catch {
+        // إلغاء المستخدم لنافذة المشاركة ليس فشلاً — نتوقف بلا رسالة.
+      }
+      return;
+    }
+    if (canCopy) {
+      try {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch {
+        /* الحافظة غير متاحة: لا نعرض شيئاً بدل رسالة نجاح كاذبة */
+      }
+    }
+  }, [space.title, canShareNative, canCopy]);
+
+  // الأرقام فقط لرابط واتساب؛ الأرقام غير الرقمية تُسقط الرابط لا تُشفَّه.
+  const waNumber = String(space.contact_phone || '').replace(/[^\d]/g, '');
+  const dirUrl = directionsUrl(space);
+
+  // المسافة تُحسب رياضياً فقط عند توفّر إحداثي المساحة وموقع المستخدم معاً.
+  // haversineKm تعيد null إن نقص أي إحداثي، فلا تُعرض مسافة مخترعة.
+  const distanceKm = coords
+    ? haversineKm({ lat: space.lat, lng: space.lng }, coords)
+    : null;
+
+  const canLocate = !!(space.lat && space.lng);
+
+  return (
+    <div className="ad-details__actions">
+      {canLocate && (
+        <button
+          type="button"
+          className="ad-details__action"
+          onClick={handleLocate}
+          disabled={geoState === 'locating'}
+        >
+          {geoState === 'locating' ? <Loader2 className="spin" size={16} /> : <Navigation size={16} />}
+          {geoState === 'locating' ? 'جارٍ تحديد موقعك...' : 'احسب المسافة من موقعك'}
+        </button>
+      )}
+
+      {dirUrl && (
+        <a className="ad-details__action" href={dirUrl} target="_blank" rel="noopener noreferrer">
+          <Compass size={16} /> الاتجاهات
+        </a>
+      )}
+
+      {(canShareNative || canCopy) && (
+        <button type="button" className="ad-details__action" onClick={handleShare}>
+          {copied ? <CheckCircle2 size={16} /> : <Share2 size={16} />}
+          {copied ? 'تم نسخ الرابط' : 'شارك المساحة'}
+        </button>
+      )}
+
+      {waNumber && (
+        <a
+          className="ad-details__action"
+          href={`https://wa.me/${waNumber}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <MessageCircle size={16} /> واتساب
+        </a>
+      )}
+
+      {distanceKm != null && (
+        <span className="ad-details__distance">
+          <Navigation size={15} /> {formatDistanceKm(distanceKm)} من موقعك
+        </span>
+      )}
+
+      {geoState === 'unsupported' && (
+        <span className="ad-details__geo-note">متصفحك لا يدعم تحديد الموقع.</span>
+      )}
+      {geoState === 'denied' && (
+        <span className="ad-details__geo-note">لم يُسمح بالوصول إلى موقعك.</span>
+      )}
+      {geoState === 'error' && (
+        <span className="ad-details__geo-note">تعذّر تحديد موقعك. حاول مجدداً.</span>
+      )}
     </div>
   );
 }

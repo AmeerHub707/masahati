@@ -95,12 +95,13 @@ export default function LandingPage() {
 
       <AssistantWidget />
 
-      {/* زر العودة لأعلى الصفحة */}
+      {/* زر العودة لأعلى الصفحة — يمين الشاشة صراحةً (right-5 لا end-5)،
+          لأن الصفحة RTL فيحلّ `end` على اليسار حيث فقاعة المساعد. */}
       <button
         type="button"
         onClick={scrollTop}
         aria-label={t('backToTop')}
-        className={`fixed bottom-5 end-5 z-50 w-12 h-12 rounded-full bg-orange-500 text-white flex items-center justify-center shadow-[0_14px_30px_-8px_rgba(249,115,22,0.6)] hover:-translate-y-1 hover:scale-105 transition-all duration-200 ${showTop ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed bottom-5 right-5 z-50 w-12 h-12 rounded-full bg-orange-500 text-white flex items-center justify-center shadow-[0_14px_30px_-8px_rgba(249,115,22,0.6)] hover:-translate-y-1 hover:scale-105 transition-all duration-200 ${showTop ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
       >
         <svg viewBox="0 0 24 24" className="w-6 h-6 fill-none stroke-current stroke-[2.2] stroke-linecap-round stroke-linejoin-round">
           <path d="M12 19V5M5 12l7-7 7 7" />
