@@ -454,6 +454,25 @@ export async function exportSpaces(params, filename = 'spaces.csv') {
   return download('/spaces/export', { params, fallbackName: filename });
 }
 
+/**
+ * مستندات المساحات للمراجعة — القرار (اعتماد/رفض) يُبنى عليها.
+ *
+ * العقد **تأكّد من الخادم الحيّ**:
+ *   · `GET /api/admin/documents?space_id={id}` → `200` مع
+ *     `{ documents:[...], data:[...], meta }` (المفتاحان يحملان نفس المصفوفة).
+ *   · بلا `space_id` → مصفوفة فارغة: النقطة **مقصورة على مساحة بعينها**،
+ *     فلا تُطلب يوماً بلا معرّف مساحة.
+ *   · `?user_id` و`?status` تُقبل بلا خطأ لكنها لا تُرشّح شيئاً اليوم.
+ *
+ * لذلك الشاشة تُمرّر `space_id` دائماً. والنموذج غير المتغيّر (`params`)
+ * متروك لأن النداء العام يبقى صالحاً إن وسّع الخادم الترشيح لاحقاً.
+ * التحويل إلى الشكل المعروض يقع في `adminAdapters.adaptAdminDocuments`.
+ */
+export async function listAdminDocuments(params = {}) {
+  const { data, meta } = await callAll('/documents', { params });
+  return { rows: data, meta };
+}
+
 /* ------------------------------------------------------------------ */
 /* 2.6 الحجوزات — العقد §7                                              */
 /* ------------------------------------------------------------------ */

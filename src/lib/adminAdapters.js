@@ -167,14 +167,79 @@ const DOC_LABELS = {
  * `license`/`commercial`/`register` فهو سجل تجاري. والسبب أن الخادم لم
  * يوثّق هذا الحقل،فتضييقه الآن يعني إسقاط مستندٍ قائم من على الأدمن.
  * وما لا يُعرف يعبر `other` ولا يُرمى: مستندٌ بلا تسمية أوضح من مستندٍ مخفيّ.
+ * `proof` مُضاف بعد أن تأكّد الردّ الحقيقي من `GET /api/admin/documents`:
+ * الخادم يسمّي مستند الإثبات `kind: "proof"`، وكان يقع في `other` فتفقد
+ * البطاقة تسميتها الخاصة («إثبات الملكية») رغم أنها في الردّ نفسه.
  */
 function docKind(value) {
   const key = str(value).toLowerCase().replace(/[\s-]+/g, '_');
   if (!key) return 'other';
-  if (/deed|property|ownership|تملك|ملك/.test(key)) return 'property_deed';
+  if (/proof|deed|property|ownership|تملك|ملك|إثبات/.test(key)) return 'property_deed';
   if (/licen[cs]e|commercial|register|تجاري/.test(key)) return 'business_license';
   if (/identity|id_card|هوية/.test(key)) return 'identity';
   return 'other';
+}
+
+/**
+ * مستندات المساحة المرسلة من نقطة `GET /api/admin/documents`.
+ *
+ * شكل الردّ **تأكّد من الخادم الحيّ** (سجّل أدمن، `GET /api/admin/documents?space_id=1`):
+ *   { documents: [...], data: [...], meta: {...} }   ← المفتاحان معاً
+ *   وكل مستند: { id, kind:"proof", label, name, url, path, uploaded_at,
+ *                space_id, space_title, owner_id, owner_name, status }
+ * فالمفتاح `documents` مقروء أولاً، والرابط كامل https يُمرَّر كما هو.
+ *
+ * ونُبقي قراءة الأشكال الأخرى مع ذلك: العقد قد يتوسّع (أنواع مستندات جديدة)،
+ * وتضييق القراءة يعني إسقاط مستند قائم من على الأدمن بلا سبب. فما لا يُعرف
+ * يعبر `other` ولا يُرمى: مستندٌ بلا تسمية أوضح من مستندٍ مخفيّ. وإن أرسل
+ * الخادم `label` عربياً ونحن لم نعرف نوعه، نُقدّم تسميته على تسميتنا العامة.
+ *
+ * نُبقي حقل `spaceId` إن أرسله الخادم، ليستطيع العرض ربط المستند بمساحته عند
+ * الحاجة — وهو غير مفترض: غيابه لا يُسقط المستند، ووجوده يُستفاد منه فقط.
+ *
+ * الرابط يبقى كما أرسله الخادم؛ التحويل إلى رابط كامل يقع عند العرض في المكوّن
+ * (كما في `adaptUserDocuments`).
+ */
+export function adaptAdminDocuments(raw) {
+  const source = Array.isArray(raw)
+    ? raw
+    : pick(raw, ['documents', 'files', 'data', 'items', 'results']);
+
+  const list = Array.isArray(source)
+    ? source
+    : isObject(source)
+      ? Object.entries(source).map(([k, v]) => (isObject(v) ? { kind: k, ...v } : { kind: k, url: v }))
+      : [];
+
+  const out = [];
+  for (const item of list) {
+    if (typeof item === 'string') {
+      const href = str(item);
+      if (href) out.push({ kind: 'other', label: DOC_LABELS.other, url: href, name: '', uploadedAt: '', spaceId: null });
+      continue;
+    }
+    if (!isObject(item)) continue;
+
+    const url = pick(item, ['url', 'path', 'file', 'src', 'link', 'document', 'document_url']);
+    const href = str(url);
+    if (!href) continue;
+
+    const kind = docKind(pick(item, ['kind', 'type', 'key', 'category', 'document_type']));
+    // تسمية الخادم تُقدَّم فقط حين لا نملك تسمية أدقّ: نوع معروف ← تسميتنا
+    // (الخادم إنجليزي والواجهة عربية)، نوع مجهول ← ما أرسه إن وُجد.
+    const serverLabel = str(pick(item, ['label', 'title']));
+    const label = kind === 'other' && serverLabel ? serverLabel : DOC_LABELS[kind] || DOC_LABELS.other;
+    const spaceId = pick(item, ['space_id', 'spaceId', 'space']);
+    out.push({
+      kind,
+      label,
+      url: href,
+      name: str(pick(item, ['name', 'file_name', 'filename', 'original_name', 'title'])),
+      uploadedAt: str(pick(item, ['uploaded_at', 'uploadedAt', 'created_at', 'createdAt'])),
+      spaceId: spaceId == null || spaceId === '' ? null : String(spaceId),
+    });
+  }
+  return out;
 }
 
 /**
@@ -187,8 +252,8 @@ function docKind(value) {
  * مثلاً)، وتجاهل الثاني يعني إخفاء وثيقة عن الأدمن.
  *
  * الرابط يبقى كما أرسله الخادم (نسبياً كان): تحويله إلى رابط كامل يحتاج
- * `BASE_URL` من `api.js`، وهذا الملف دواله خالصة بلا شبكة ولا حالة، فالتILY
- * التحويل يقع عند العرض في المكوّن.
+ * `BASE_URL` من `api.js`، وهذا الملف دواله خالصة بلا شبكة ولا حالة، فالتحويل
+ * يقع عند العرض في المكوّن.
  */
 function adaptUserDocuments(raw) {
   const out = [];

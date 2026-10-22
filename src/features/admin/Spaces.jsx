@@ -20,7 +20,8 @@ import {
   Trash2,
   Check,
   FileText,
-  ExternalLink,
+  CalendarDays,
+  MousePointerClick,
 } from 'lucide-react';
 import {
   SectionCard,
@@ -38,11 +39,12 @@ import {
 } from './ui';
 import { useToast } from './useToast';
 import useAdminData from './useAdminData';
-import { listSpaces, getSpace, updateSpace, setSpaceStatus, deleteSpace, isAdminTokenLive } from '@/lib/adminApi';
-import { adaptSpace, adaptAll } from '@/lib/adminAdapters';
-import { imageUrl } from '@/lib/api';
+import { listSpaces, getSpace, listAdminDocuments, updateSpace, setSpaceStatus, deleteSpace, isAdminTokenLive } from '@/lib/adminApi';
+import { adaptSpace, adaptAll, adaptAdminDocuments } from '@/lib/adminAdapters';
 import useSafeInput from '@/hooks/useSafeInput';
-import { arCount, AR_FORMS } from '@/utils/format';
+import { arCount, AR_FORMS, formatArDate } from '@/utils/format';
+import DocViewer, { DocThumbnail } from './DocViewer';
+import { detectDocType, docFileName } from '@/lib/docPreview';
 
 const statusMeta = {
   pending: { label: 'بانتظار التفعيل', tone: 'amber' },
@@ -125,6 +127,10 @@ export default function AdminSpaces() {
   const [sort, setSort] = useState('newest');
   const { toast, announce, dismiss } = useToast();
   const [preview, setPreview] = useState(null);
+  // فهرس المستند المعروض في العارض الكامل، أو null حين لا عارض.
+  // رقمٌ لا كائن: المستندات قد تُحدَّث من الخادم (نقطة المستندات) بعد فتح
+  // النافذة، فالفهرس يبقى صالحاً بينما كائنٌ محفوظ يصير قديماً.
+  const [docViewer, setDocViewer] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
 
@@ -139,6 +145,17 @@ export default function AdminSpaces() {
   // الشاشة. وهذا أيضاً يتفادى `setState` متزامناً داخل جسم التأثير، الذي
   // يُعيد React تصييره ثم يُعيد التصيير.
   const [detailEntry, setDetailEntry] = useState(null);
+
+  // مستندات المراجعة المطلوبة من النقطة المخصّصة (`GET /api/admin/documents`).
+  //
+  // لماذا نقطة مستقلّة بدل الاعتماد على `detail.documents`: عقد نصّ المساحة
+  // لا يضمن إعادة المستند داخله، فكان الأدمن يُطلب منه قرارٌ بلا أن يرى الدليل.
+  // النقطتان تُطلبان معاً، والدمج في العرض يفضّل الأخصّ (هذه) ويرجع إلى
+  // التفصيل إن غابت — فلا يضيع مستند ظهر من أحد الطريقين.
+  //
+  // نحمل الحالة الثلاثية صراحةً (انتظار/فشل/نجاح) لأن «لا مستندات» و«فشل
+  // الجلب» كانا يُعرضان بجملة واحدة، فلا يميّز الأدمن فراغاً حقيقياً من عطل.
+  const [docsEntry, setDocsEntry] = useState(null);
 
   const previewId = preview ? preview.id : null;
   useEffect(() => {
@@ -155,6 +172,13 @@ export default function AdminSpaces() {
           // التفصيل زينة، لا شرط: فشلُه لا يُعطّل معاينة المساحة ولا قرارَها.
           if (alive) setDetailEntry({ id, data: null });
         });
+      listAdminDocuments({ space_id: id })
+        .then(({ rows }) => {
+          if (alive) setDocsEntry({ id, docs: adaptAdminDocuments(rows), failed: false });
+        })
+        .catch(() => {
+          if (alive) setDocsEntry({ id, docs: [], failed: true });
+        });
     }
     return () => {
       alive = false;
@@ -165,6 +189,29 @@ export default function AdminSpaces() {
   const detail = detailEntry && detailEntry.id === previewId ? detailEntry.data : null;
   // الانتظار مُشتقٌّ لا مخزَّن: يدور مع تغيّر الجلسات بلا حالةٍ ثالثة تنسى ضبطَها.
   const detailBusy = Boolean(previewId) && isAdminTokenLive() && !detailEntry;
+
+  // مستندات نقطة المراجعة المخصّصة، مقفولةً على معرّفها مثل التفصيل.
+  const docsEntryFor = docsEntry && docsEntry.id === previewId ? docsEntry : null;
+  const docsBusy = Boolean(previewId) && isAdminTokenLive() && !docsEntryFor;
+  // فشل الجلب حالةٌ صريحة تُعرض كما هي، لا تُطوى مع «لا مستندات».
+  const docsFailed = Boolean(docsEntryFor?.failed);
+  // المصدر المفضّل: نقطة المستندات. وإن غابت (فشل أو فراغ) نرجع إلى ما في
+  // التفصيل، فلا يُخفي عطلٌ في نقطةٍ مستنداً وصل من الأخرى.
+  const previewDocuments = docsEntryFor?.docs?.length
+    ? docsEntryFor.docs
+    : detail?.documents?.length
+      ? detail.documents
+      : docsFailed
+        ? []
+        : preview?.documents || [];
+
+  // حالة واحدة تستهلكها لوحة المستندات والتذييل معاً، فلا تختلف جملة
+  // «القرار موقوف» بين مكانين أو تُحسب مرتين بقاعدتين.
+  const docsLoading = docsBusy || detailBusy;
+  const hasPreviewDocs = previewDocuments.length > 0;
+  // القرار للمعلّقة وحدها، ومقيَّدٌ بوصول الدليل: قرارٌ بلا مستند وصل هو
+  // بالضبط العطل المُبلَّغ عنه. يُعرض القيد صراحةً بدل تعطيل صامت.
+  const decisionBlocked = preview?.status === 'pending' && !hasPreviewDocs;
 
   // العقد §6.1: القائمة من الخادم. نُبقي الفرز والتصفية محليين (منطق العرض
   // واحد) ونطلب كل الصفحات مرة واحدة عبر listSpaces.
@@ -260,7 +307,19 @@ export default function AdminSpaces() {
     runApi(() => deleteSpace(id));
   };
 
+  // فتح/إغلاق معاينة المساحة — دالتان تُغلقان العارض مع النافذة، فلا يبقى
+  // عارضٌ معلّقاً فوق شاشةٍ أُغلقت من تحته.
+  const openPreview = (s) => {
+    setDocViewer(null);
+    setPreview(s);
+  };
+  const closePreview = () => {
+    setDocViewer(null);
+    setPreview(null);
+  };
+
   const openEdit = (s) => {
+    setDocViewer(null);
     setPreview(null);
     setEditTarget(s);
   };
@@ -285,7 +344,7 @@ export default function AdminSpaces() {
 
   // إجراءات بطاقة/صف واحد: المعاينة، التعديل، ثم الحذف.
   const menuItems = (s) => [
-    { id: 'preview', label: 'معاينة', icon: Eye, onSelect: () => setPreview(s) },
+    { id: 'preview', label: 'معاينة', icon: Eye, onSelect: () => openPreview(s) },
     { id: 'edit', label: 'تعديل', icon: Pencil, onSelect: () => openEdit(s) },
     { id: 'sep', label: 'فاصل', separator: true },
     {
@@ -296,11 +355,6 @@ export default function AdminSpaces() {
       onSelect: () => setDeleteTarget(s),
     },
   ];
-
-  // ما يعرضه قسم المستندات: من ردّ التفصيل إن وصل، وإلا من صفّ القائمة. فنافذة
-  // المعاينة تعرض ما تعلّمتْه فوراً ثم تُغني نفسها إن تأخّر الخادم — لا قسماً
-  // فارغاً ينتظر، ولا مؤشر تحميل على صفٍّ لا مستندات فيه أصلاً.
-  const previewDocuments = detail?.documents?.length ? detail.documents : preview?.documents || [];
 
   return (
     <div className="space-y-6">
@@ -482,7 +536,7 @@ export default function AdminSpaces() {
               <article
                 key={s.id}
                 data-space-card={s.id}
-                onClick={() => setPreview(s)}
+                onClick={() => openPreview(s)}
                 className="dash__card dash__card--cover group flex cursor-pointer flex-col transition-all duration-200 hover:-translate-y-1 hover:border-orange-200 hover:shadow-lg focus-within:border-orange-200 dark:hover:border-orange-500/40"
               >
                 {/* الغلاف: شريط علوي مخصص للصورة h-40 — صورة بعرض كامل وغلاف كائن
@@ -496,7 +550,7 @@ export default function AdminSpaces() {
                     aria-label={`معاينة ${s.name}`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setPreview(s);
+                      openPreview(s);
                     }}
                   >
                     <SpaceCover src={s.image} alt={`غلاف ${s.name}`} />
@@ -635,126 +689,169 @@ export default function AdminSpaces() {
         )}
       </div>
 
-      {/* معاينة المساحة */}
+      {/* معاينة المساحة — تخطيط أوسع لجلسة مراجعة حقيقية:
+          - ترويسة ثابتة تحمل الاسم وشارة الحالة (لا تختفي عند التمرير).
+          - عمودان: الغلاف والحقائق في واحد، والمستندات في الآخر.
+          - تذييل ثابت يحمل قرار التفعيل/الرفض، فيبقى في متناول اليد بعد
+            قراءة آخر مستند بدل أن يُدفن أسفل قائمةٍ طويلة.
+          المستندات صارت بطاقاتٍ قابلة للنقر تفتح عارضاً كامل الشاشة
+          (DocViewer) — «فتح في تبويب جديد» يبقى متاحاً كطريق احتياطي. */}
       <Modal
         open={Boolean(preview)}
-        onClose={() => setPreview(null)}
+        onClose={closePreview}
         title={preview ? `معاينة: ${preview.name}` : 'معاينة المساحة'}
-        wide
+        size="lg"
+        scrollBody
+        headerExtra={preview ? <SpaceBadge status={preview.status} /> : null}
+        footer={
+          preview ? (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {/* القرار — للمعلّقة وحدها، ومقيَّدٌ بوصول الدليل. */}
+              <div className="flex flex-wrap items-center gap-2">
+                {preview.status === 'pending' ? (
+                  decisionBlocked ? (
+                    <p
+                      className="m-0 max-w-md text-[.8rem] font-bold leading-relaxed text-amber-700 dark:text-amber-300"
+                      data-space-decision-blocked
+                    >
+                      {docsFailed
+                        ? 'القرار موقوف: تعذّر جلب المستندات، ولا يُعتمد على مساحةٍ بلا دليل وصل.'
+                        : docsLoading
+                          ? 'جارٍ جلب مستندات المساحة… لا قرار قبل وصول الدليل.'
+                          : 'القرار موقوف حتى يصل المستند المرفوع مع المساحة.'}
+                    </p>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:bg-emerald-700"
+                        onClick={() => {
+                          approve(preview.id);
+                          announce('تم تفعيل المساحة.');
+                        }}
+                        data-space-activate
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        تفعيل المساحة
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition-all duration-200 hover:bg-red-100"
+                        onClick={() => {
+                          reject(preview.id);
+                          announce('تم رفض المساحة.');
+                        }}
+                        data-space-suspend
+                      >
+                        <XCircle className="h-4 w-4" />
+                        رفض المساحة
+                      </button>
+                    </>
+                  )
+                ) : (
+                  <p className="m-0 text-[.8rem] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                    المساحة {spaceStatus(preview.status).label} — عرض المستندات متاح للمراجعة،
+                    وتغيير الحالة من أزرار البطاقة.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="button" className={btnGhost} onClick={closePreview}>
+                  إغلاق
+                </button>
+                <button type="button" className="btn-primary" onClick={() => openEdit(preview)}>
+                  <Pencil className="h-4 w-4" />
+                  تعديل البيانات
+                </button>
+              </div>
+            </div>
+          ) : null
+        }
       >
         {preview && (
-          <div className="space-y-4">
-            <div className="dash__cover rounded-2xl">
-              <SpaceCover src={preview.image} alt={`غلاف ${preview.name}`} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <MiniFact label="الحي" value={<span className="bidi-iso">{preview.neighborhood}</span>} />
-              <MiniFact label="المالك" value={<span className="bidi-iso">{preview.owner}</span>} />
-              <MiniFact label="السعر" value={`${preview.price} ش.ج/ساعة`} />
-              <MiniFact label="السعة" value={arCount(preview.capacity, AR_FORMS.seat)} />
-              <MiniFact
-                label="التقييم"
-                value={preview.rating ? `${preview.rating.toFixed(1)} من 5` : 'لا تقييمات'}
-              />
-              <MiniFact label="الحجوزات" value={arCount(preview.bookings, AR_FORMS.booking)} />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[.8rem] font-bold text-slate-500 dark:text-gray-400">الحالة:</span>
-              <SpaceBadge status={preview.status} />
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.05fr_.95fr]">
+            {/* عمود التفاصيل: الغلاف والحقائق */}
+            <div className="space-y-4">
+              <div className="dash__cover rounded-2xl">
+                <SpaceCover src={preview.image} alt={`غلاف ${preview.name}`} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <MiniFact label="الحي" value={<span className="bidi-iso">{preview.neighborhood}</span>} />
+                <MiniFact label="المالك" value={<span className="bidi-iso">{preview.owner}</span>} />
+                <MiniFact label="السعر" value={`${preview.price} ش.ج/ساعة`} />
+                <MiniFact label="السعة" value={arCount(preview.capacity, AR_FORMS.seat)} />
+                <MiniFact
+                  label="التقييم"
+                  value={preview.rating ? `${preview.rating.toFixed(1)} من 5` : 'لا تقييمات'}
+                />
+                <MiniFact label="الحجوزات" value={arCount(preview.bookings, AR_FORMS.booking)} />
+              </div>
             </div>
 
-            {/* قسم المستندات + قرار التفعيل — للمساحة «بانتظار التفعيل» وحدها.
-                يظهر لها وحده: المساحة النشطة أُسّرت، والموقوفة قرارها سابق،
-                فالقسم لهما زينة بلا معنى. والقرار تحته لا في التذييل، لأن
-                الأدمن يقرؤ المستند ثم يقرّر: زرٌ في آخر النافذة يفصل بينه
-                وبين ما للقرار أساس. */}
-            {preview.status === 'pending' && (
-              <div className="space-y-3 rounded-2xl border border-amber-500/40 bg-amber-500/[0.06] p-4 dark:border-amber-500/30">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                  <span className="text-[.9rem] font-extrabold">مستندات المساحة</span>
-                  {!detailBusy && (
-                    <span className="text-[.75rem]" style={{ color: 'var(--text-muted)' }}>
-                      {arCount(previewDocuments.length, AR_FORMS.document)}
-                    </span>
-                  )}
-                </div>
+            {/* عمود المستندات: بطاقات قابلة للمعاينة داخل المنصة.
+                يبقى ظاهراً لكل حالة (الدليل يُراجَع بعد القرار أيضاً)؛
+                وأزرار القرار وحدها هي المحصورة بالمعلّقة، وهي في التذييل. */}
+            <section className="space-docs" aria-labelledby="space-docs-title">
+              <div className="space-docs__head">
+                <span className="space-docs__ic">
+                  <FileText className="h-4 w-4" />
+                </span>
+                <h4 id="space-docs-title" className="space-docs__title">
+                  مستندات المساحة
+                </h4>
+                {!docsLoading && (
+                  <span className="space-docs__count">
+                    {arCount(previewDocuments.length, AR_FORMS.document)}
+                  </span>
+                )}
+              </div>
 
-                {previewDocuments.length === 0 ? (
-                  <p className="text-[.8rem] leading-relaxed" style={{ color: 'var(--text-muted)' }} data-space-docs-empty>
-                    {detailBusy
-                      ? 'جارٍ جلب المستندات من الخادم…'
-                      : 'لم يصل أي مستند من الخادم لهذه المساحة — لا رابطاً افتراضياً، لأن فتح رابطٍ مخترَع لا يفيد الأدمن بل يُوهمه بتوثيقٍ لا وجود له.'}
-                  </p>
-                ) : (
-                  <ul className="space-y-2" data-space-docs={String(previewDocuments.length)}>
-                    {previewDocuments.map((doc) => (
-                      <li key={`${doc.kind}:${doc.url}`} className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="min-w-0 text-[.85rem]">
-                          <span className="font-bold">{doc.label}</span>
-                          {doc.name && (
-                            <span className="ms-2 truncate" style={{ color: 'var(--text-muted)' }}>
-                              {doc.name}
-                            </span>
-                          )}
-                        </span>
-                        <a
-                          href={imageUrl(doc.url)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="btn-ghost"
-                          data-space-doc
-                          data-doc-kind={doc.kind}
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                          فتح المستند
-                        </a>
+              {hasPreviewDocs ? (
+                <>
+                  <ul className="space-docs__list" data-space-docs={String(previewDocuments.length)}>
+                    {previewDocuments.map((doc, i) => (
+                      <li key={`${doc.kind}:${doc.url}:${i}`}>
+                        <SpaceDocCard doc={doc} onOpen={() => setDocViewer(i)} />
                       </li>
                     ))}
                   </ul>
-                )}
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:bg-emerald-700"
-                    onClick={() => {
-                      approve(preview.id);
-                      announce('تم تفعيل المساحة.');
-                    }}
-                    data-space-activate
-                  >
-                    <CheckCircle2 className="h-4 w-4" />
-                    تفعيل المساحة
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition-all duration-200 hover:bg-red-100"
-                    onClick={() => {
-                      reject(preview.id);
-                      announce('تم رفض المساحة.');
-                    }}
-                    data-space-suspend
-                  >
-                    <XCircle className="h-4 w-4" />
-                    رفض المساحة
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="flex flex-wrap justify-end gap-2">
-              <button type="button" className={btnGhost} onClick={() => setPreview(null)}>
-                إغلاق
-              </button>
-              <button type="button" className="btn-primary" onClick={() => openEdit(preview)}>
-                <Pencil className="h-4 w-4" />
-                تعديل البيانات
-              </button>
-            </div>
+                  <p className="space-docs__hint">
+                    <MousePointerClick className="h-3.5 w-3.5" />
+                    اضغط على أي مستند لمعاينته بحجم كامل قبل القرار.
+                  </p>
+                </>
+              ) : docsLoading ? (
+                <p className="space-docs__note" data-space-docs-loading>
+                  جارٍ جلب المستندات من الخادم…
+                </p>
+              ) : docsFailed ? (
+                <p className="space-docs__note space-docs__note--danger" data-space-docs-failed>
+                  تعذّر جلب المستندات من الخادم — قد توجد مستندات ولا نعرف بها. لا تُبنَ قرارات على هذا العرض الآن.
+                </p>
+              ) : (
+                <p className="space-docs__note" data-space-docs-empty>
+                  لم يصل أي مستند من الخادم لهذه المساحة — لا رابطاً افتراضياً، لأن فتح رابطٍ مخترَع لا يفيد الأدمن بل يُوهمه بتوثيقٍ لا وجود له.
+                </p>
+              )}
+            </section>
           </div>
         )}
       </Modal>
+
+      {/* عارض المستند الكامل.
+          يرتفع فوق نافذة المعاينة بـ z-index صريح في CSS (150 مقابل 100)،
+          ويُغلق وحده فيبقى سياق المساحة والقرار تحته كما هو. */}
+      {preview && docViewer != null && previewDocuments[docViewer] && (
+        <DocViewer
+          key={`${docViewer}:${previewDocuments[docViewer].url}`}
+          docs={previewDocuments}
+          index={docViewer}
+          onIndexChange={setDocViewer}
+          onClose={() => setDocViewer(null)}
+        />
+      )}
 
       {/* تعديل بيانات المساحة */}
       {editTarget && (
@@ -812,6 +909,58 @@ function MiniFact({ label, value }) {
         {value}
       </span>
     </div>
+  );
+}
+
+/**
+ * بطاقة مستند داخل لوحة المراجعة.
+ *
+ * صارت زراً لا رابطاً: النقرة تفتح العارض داخل المنصة — حيث التكبير وتنقّل
+ * PDF — بدلاً من أن تُخرج الأدمن إلى تبويب جديد ثم تُعيده إلى حيث كان.
+ * «فتح في تبويب جديد» لم يُحذف، بل انتقل إلى شريط العارض كطريق احتياطي إن
+ * حجب المتصفّح العرض المدمج أو انتهت صلاحية الرابط.
+ *
+ * الصورة المصغّرة هي أسرع وسيلة تعرّف على الدليل: الأدمن يرى الوثيقة قبل
+ * أن يقرأ اسمها. وإن فشل تحميلها تظهر أيقونة النوع بدل مربّع مكسور.
+ */
+function SpaceDocCard({ doc, onOpen }) {
+  const type = detectDocType(doc.url, doc.name);
+  const filename = docFileName(doc);
+  const uploaded = doc.uploadedAt ? formatArDate(doc.uploadedAt) : '';
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="space-doc"
+      data-space-doc
+      data-doc-kind={doc.kind}
+      data-doc-type={type}
+      aria-label={`معاينة ${doc.label} — ${filename}`}
+    >
+      <span className="space-doc__thumb">
+        <DocThumbnail doc={doc} alt="" />
+        {type === 'pdf' && <span className="space-doc__tag">PDF</span>}
+      </span>
+
+      <span className="space-doc__body">
+        <span className="space-doc__label bidi-iso">{doc.label}</span>
+        <span className="space-doc__name" title={filename}>
+          {filename}
+        </span>
+        {uploaded && (
+          <span className="space-doc__date">
+            <CalendarDays className="h-3 w-3" />
+            {uploaded}
+          </span>
+        )}
+      </span>
+
+      <span className="space-doc__cta">
+        <Eye className="h-3.5 w-3.5" />
+        معاينة
+      </span>
+    </button>
   );
 }
 

@@ -198,6 +198,10 @@ export default function CustomerDashboard() {
     if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
     // replace: اللوحة بعد logout لا يجب أن تبقى في سجلّ الترجع.
     navigate('/', { replace: true });
+    // نُغلق الطبقة صراحةً بدل الاعتماد على زوال المكوّن: الكومبوننت قد لا
+    // يُفكّ (المسار الجديد قد يُصيَّر داخل الشجرة نفسها)، فتظل الطبقة مالكة
+    // لقفل التمرير إلى الأبد — وهو العطل الذي كان يقفل الصفحة بعد الخروج.
+    setLoggingOut(false);
   }, [navigate]);
 
   const handleDeleteAccount = useCallback(async () => {

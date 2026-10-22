@@ -6900,7 +6900,7 @@ html.dark .route-loading-bar{background:rgba(249,115,22,.2);}
 
   /* إخفاء هيكل التنقّل وعناصر التفاعل. */
   .dash__side,.dash__scrim,.dash__top,.dash__news,.dash__hero,.loading,
-  .scroll-progress,.dash__menu,.dash__tip,.modal-overlay,.dash__toast,
+  .scroll-progress,.dash__menu,.dash__tip,.modal-overlay,.docv,.dash__toast,
   .dash__tab-loading,.fin-print-hide,.dash__news-close,.route-loading{display:none !important;}
 
   /* فكّ قيود التمرير: .dash و .dash__layout و .dash__main تحوي overflow
@@ -6931,4 +6931,142 @@ html.dark .route-loading-bar{background:rgba(249,115,22,.2);}
   .dash__table th,.dash__table td{padding:.4rem .35rem !important;}
   .dash__table tr{break-inside:avoid;}
   .dash__table-wrap,.overflow-x-auto{overflow:visible !important;}
+}
+
+/* ==================================================================
+   معاينة المساحة + عارض المستندات (لوحة الأدمن)
+   ------------------------------------------------------------------
+   التخطيط القديم كان نافذةً واحدة بعمودٍ واحد وعرض 40rem: الغلاف ثم
+   شبكة حقائق ثم قائمة روابط «فتح المستند». رابطٌ يخرج إلى تبويب جديد
+   يقطع مراجعة الأدمن نصفين، ويُفقد سياق المساحة التي يقرّر عنها.
+   الجديد: نافذة أوسع بعمودين (تفاصيل | مستندات)، وتذييل قرار ثابت،
+   وكل مستند بطاقةٌ تفتح عارضاً كاملاً (DocViewer) للتكبير وقراءة PDF.
+
+   الألوان كلها من متغيّرات السمة (--accent, --border, --text-*) لا من
+   قيم مكتوبة، فتبقى الواجهة متسقة في الوضعين الفاتح والداكن.
+   ================================================================== */
+
+/* --- نافذة قابلة للتمرير: ترويسة وتذييل ثابتان، وجسم يمرّر --------- */
+.modal-box--scroll{display:flex;flex-direction:column;max-height:min(92vh,58rem);padding:0;overflow:hidden;}
+.modal-box--scroll .modal-box__head{flex:none;margin:0;padding:1.25rem 1.75rem .9rem;border-bottom:1px solid var(--border);}
+.modal-box__body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:1rem 1.75rem 1.35rem;}
+.modal-box__foot{flex:none;padding:.9rem 1.75rem;border-top:1px solid var(--border);background:#fff;border-radius:0 0 1.25rem 1.25rem;}
+html.dark .modal-box__foot{background:#1c1c22;}
+@media (max-width:640px){
+  .modal-box--scroll{max-height:94vh;}
+  .modal-box--scroll .modal-box__head{padding:1rem 1.1rem .8rem;}
+  .modal-box__body{padding:.85rem 1.1rem 1rem;}
+  .modal-box__foot{padding:.8rem 1.1rem;}
+}
+
+/* --- لوحة المستندات داخل معاينة المساحة ---------------------------- */
+.space-docs{border:1px solid rgba(245,158,11,.45);background:rgba(245,158,11,.055);border-radius:1.25rem;padding:1rem;align-self:start;}
+html.dark .space-docs{border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.07);}
+.space-docs__head{display:flex;align-items:center;gap:.55rem;margin-bottom:.75rem;}
+.space-docs__ic{display:inline-flex;align-items:center;justify-content:center;width:1.9rem;height:1.9rem;border-radius:.6rem;background:rgba(245,158,11,.16);color:#b45309;flex:none;}
+html.dark .space-docs__ic{color:#fbbf24;}
+.space-docs__title{margin:0;font-size:.92rem;font-weight:800;color:var(--text-strong);}
+.space-docs__count{margin-inline-start:auto;font-size:.75rem;font-weight:700;color:var(--text-muted);}
+.space-docs__list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.5rem;}
+.space-docs__hint{display:flex;align-items:center;gap:.35rem;margin:.75rem 0 0;font-size:.72rem;font-weight:600;line-height:1.6;color:var(--text-muted);}
+.space-docs__hint svg{flex:none;}
+.space-docs__note{margin:0;font-size:.8rem;line-height:1.7;color:var(--text-muted);}
+.space-docs__note--danger{color:#dc2626;}
+html.dark .space-docs__note--danger{color:#f87171;}
+
+/* --- بطاقة مستند ---------------------------------------------------- */
+.space-doc{display:flex;align-items:center;gap:.7rem;width:100%;padding:.6rem;border-radius:.85rem;border:1px solid rgba(0,0,0,.08);background:#fff;text-align:start;cursor:pointer;transition:border-color .2s var(--ease),box-shadow .2s var(--ease),transform .2s var(--ease);}
+html.dark .space-doc{border-color:rgba(255,255,255,.1);background:rgba(255,255,255,.04);}
+.space-doc:hover{border-color:#fdba74;box-shadow:0 10px 24px -16px rgba(249,115,22,.55);transform:translateY(-1px);}
+.space-doc:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.space-doc__thumb{position:relative;flex:none;width:3rem;height:3rem;border-radius:.6rem;overflow:hidden;background:var(--accent-soft);}
+html.dark .space-doc__thumb{background:rgba(255,255,255,.07);}
+.space-doc__tag{position:absolute;inset-inline-end:.2rem;bottom:.2rem;padding:.05rem .3rem;border-radius:.3rem;background:rgba(15,23,42,.82);color:#fff;font-size:.55rem;font-weight:800;letter-spacing:.03em;}
+.space-doc__body{display:flex;flex-direction:column;gap:.1rem;min-width:0;flex:1;}
+.space-doc__label{font-size:.85rem;font-weight:800;color:var(--text-strong);}
+.space-doc__name{font-size:.74rem;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.space-doc__date{display:inline-flex;align-items:center;gap:.25rem;font-size:.68rem;color:var(--text-muted);}
+.space-doc__cta{display:inline-flex;align-items:center;gap:.3rem;flex:none;padding:.3rem .55rem;border-radius:.55rem;font-size:.72rem;font-weight:800;color:var(--accent-text);background:var(--accent-soft);}
+html.dark .space-doc__cta{color:#fdba74;background:rgba(249,115,22,.15);}
+
+/* --- مصغّرات المستند (مشتركة بين البطاقة والعارض) ------------------- */
+.docthumb{display:block;width:100%;height:100%;}
+.docthumb--img{object-fit:cover;}
+.docthumb--icon{display:flex;align-items:center;justify-content:center;color:var(--text-muted);}
+.docthumb--icon svg{width:1.3rem;height:1.3rem;}
+
+/* --- عارض المستند الكامل ------------------------------------------- */
+.docv{position:fixed;inset:0;z-index:150;display:flex;align-items:center;justify-content:center;padding:1rem;font-family:'Cairo',sans-serif;}
+.docv__scrim{position:absolute;inset:0;background:rgba(6,6,9,.86);backdrop-filter:blur(5px);}
+.docv__panel{position:relative;z-index:1;display:flex;flex-direction:column;width:100%;max-width:74rem;max-height:93vh;background:#fff;border-radius:1.15rem;overflow:hidden;box-shadow:0 40px 90px -26px rgba(0,0,0,.7);outline:none;}
+html.dark .docv__panel{background:#1c1c22;}
+.docv__bar{flex:none;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.85rem 1rem;border-bottom:1px solid var(--border);background:#fff;}
+html.dark .docv__bar{background:#1c1c22;}
+.docv__ident{display:flex;align-items:center;gap:.65rem;min-width:0;}
+.docv__badge{flex:none;display:inline-flex;align-items:center;justify-content:center;min-width:2.6rem;height:2.1rem;padding:0 .5rem;border-radius:.55rem;background:var(--accent-soft);color:var(--accent-text);font-size:.68rem;font-weight:900;letter-spacing:.04em;}
+html.dark .docv__badge{background:rgba(249,115,22,.15);color:#fdba74;}
+.docv__titlewrap{display:flex;flex-direction:column;min-width:0;gap:.1rem;}
+.docv__name{font-size:.9rem;font-weight:800;color:var(--text-strong);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:42vw;}
+.docv__meta{font-size:.72rem;color:var(--text-muted);}
+.docv__tools{display:flex;align-items:center;gap:.25rem;flex:none;}
+.docv__tool{display:inline-flex;align-items:center;justify-content:center;width:2.25rem;height:2.25rem;border-radius:.6rem;border:1px solid transparent;background:transparent;color:var(--text-muted);cursor:pointer;transition:background .18s var(--ease),color .18s var(--ease),border-color .18s var(--ease);}
+.docv__tool svg{width:1.05rem;height:1.05rem;}
+.docv__tool:hover:not(:disabled){background:var(--accent-soft);color:var(--accent-text);border-color:rgba(249,115,22,.25);}
+html.dark .docv__tool:hover:not(:disabled){background:rgba(249,115,22,.15);color:#fdba74;}
+.docv__tool:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+.docv__tool:disabled{opacity:.35;cursor:not-allowed;}
+.docv__tool--close{margin-inline-start:.25rem;border-color:rgba(0,0,0,.1);color:#dc2626;}
+html.dark .docv__tool--close{border-color:rgba(255,255,255,.14);color:#f87171;}
+.docv__zoom{min-width:3rem;text-align:center;font-size:.75rem;font-weight:800;color:var(--text-muted);font-variant-numeric:tabular-nums;}
+
+/* المسرح: خلفية داكنة في الوضعين — كأي عارض مستندات، لا يُوضع على أبيض.
+   display:flex + margin:auto على اللوحة هو الشكل الذي يوسّط المحتوى حين
+   يصغر ويسمح بالتمرير من البداية حين يكبر (justify-content:center وحدها
+   تقصّ بداية المحتوى الفائض فيصير غير قابل للوصول). */
+.docv__stage{position:relative;flex:1;min-height:0;overflow:auto;background:#0d0f14;overscroll-behavior:contain;display:flex;}
+.docv__canvas{position:relative;display:flex;flex:none;margin:auto;padding:1rem;}
+.docv__img{display:block;margin:auto;border-radius:.35rem;transition:opacity .25s var(--ease);user-select:none;-webkit-user-drag:none;-webkit-user-select:none;}
+.docv__spin{position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;color:#fff;pointer-events:none;}
+.docv__spin svg{width:1.8rem;height:1.8rem;animation:docvSpin .9s linear infinite;}
+@keyframes docvSpin{to{transform:rotate(360deg);}}
+.docv__frame{flex:1;align-self:stretch;width:100%;height:100%;min-height:20rem;border:none;border-radius:.4rem;background:#fff;}
+.docv__fallback{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;margin:auto;max-width:30rem;padding:2rem 1rem;text-align:center;color:#e5e7eb;}
+.docv__fallbackico{display:inline-flex;align-items:center;justify-content:center;width:3.5rem;height:3.5rem;border-radius:1rem;background:rgba(255,255,255,.08);color:#fbbf24;}
+.docv__fallbacktitle{margin:0;font-size:1rem;font-weight:800;color:#fff;}
+.docv__fallbacktext{margin:0;font-size:.82rem;line-height:1.8;color:#9ca3af;}
+.docv__fallbackacts{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:center;margin-top:.5rem;}
+.docv__cta{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1rem;border-radius:.65rem;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;font-size:.8rem;font-weight:800;text-decoration:none;transition:background .18s var(--ease),border-color .18s var(--ease);}
+.docv__cta:hover{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.35);}
+.docv__cta--primary{background:var(--accent);border-color:var(--accent);}
+.docv__cta--primary:hover{background:var(--accent-hover);border-color:var(--accent-hover);}
+
+/* شريط التنقل بين المستندات */
+.docv__strip{flex:none;display:flex;align-items:center;gap:.75rem;padding:.6rem .9rem;border-top:1px solid var(--border);background:#fff;}
+html.dark .docv__strip{background:#1c1c22;}
+.docv__nav{flex:none;display:inline-flex;align-items:center;justify-content:center;width:2.1rem;height:2.1rem;border-radius:.6rem;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;transition:background .18s var(--ease),color .18s var(--ease);}
+.docv__nav svg{width:1.05rem;height:1.05rem;}
+.docv__nav:hover{background:var(--accent-soft);color:var(--accent-text);}
+.docv__nav:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+.docv__thumbs{display:flex;align-items:center;gap:.45rem;overflow-x:auto;padding:.15rem;flex:1;scrollbar-width:thin;}
+.docv__thumb{position:relative;flex:none;width:3.1rem;height:3.1rem;border-radius:.6rem;overflow:hidden;border:2px solid transparent;background:var(--accent-soft);cursor:pointer;padding:0;transition:border-color .18s var(--ease),transform .18s var(--ease);}
+html.dark .docv__thumb{background:rgba(255,255,255,.07);}
+.docv__thumb:hover{transform:translateY(-1px);}
+.docv__thumb.is-active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(249,115,22,.22);}
+.docv__thumb:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+.docv__thumb .docthumb--icon svg{width:1.15rem;height:1.15rem;}
+
+@media (max-width:640px){
+  .docv{padding:.5rem;}
+  .docv__panel{max-height:96vh;}
+  .docv__name{max-width:36vw;}
+  .docv__bar{padding:.65rem .7rem;gap:.5rem;}
+  .docv__zoom{min-width:2.6rem;font-size:.7rem;}
+  .docv__stage{padding:0;}
+  .docv__canvas{padding:.6rem;}
+  .docv__frame{min-height:16rem;}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .docv__img,.docv__thumb,.space-doc{transition:none;}
+  .docv__spin svg{animation-duration:2.4s;}
 }

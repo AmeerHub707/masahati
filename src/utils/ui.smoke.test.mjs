@@ -603,6 +603,10 @@ for (let i = 0; i < 40 && !overlayGone; i += 1) {
   await flush();
   overlayGone = !doc.querySelector('.loading--logout');
 }
+// تنظيف الآثار (useEffect cleanup) قد يُنفَّذ في مهمةٍ تالية لإزالة العقدة من
+// الـDOM، فدورةُ انتظارٍ أخيرة تكفي ليُرفع قفل التمرير قبل الحكم عليه — وإلا
+// صار الاختبار يقيس توقيت React لا سلوك القفل.
+await flush();
 report('OL10 Overlay is removed once logout finishes', overlayGone, 'overlay stayed after navigation');
 report('OL11 Scroll lock is released after logout', !dom.window.document.body.classList.contains('no-scroll'), 'no-scroll left behind');
 

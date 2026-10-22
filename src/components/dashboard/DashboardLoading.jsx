@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from '@/hooks/useT';
+import useScrollLock from '@/hooks/useScrollLock';
 
 const TOTAL_MS = 2000;
 const EXIT_MS = 420;
@@ -12,6 +13,11 @@ export default function DashboardLoading({ done, onHidden }) {
 
   const rafRef = useRef(null);
   const startRef = useRef(0);
+
+  // القفل بعدّاد مراجع، ويُفعَّل ما دام التحميل جارياً فقط: عند `done` نُطلقه
+  // فوراً ويبقى إلى أن يخرج آخر مالك (طبقة الخروج مثلاً). كان رفعه في التنظيف
+  // يُنازع طبقة الخروج على الصنف نفسه — وهو أصل العطل المتقطّع في OL11.
+  useScrollLock(!done, 'dashboard-loading');
 
   useEffect(() => {
     if (done) {
@@ -26,7 +32,6 @@ export default function DashboardLoading({ done, onHidden }) {
       };
     }
 
-    document.body.classList.add('no-scroll');
     startRef.current = performance.now();
     const tick = (now) => {
       const t = Math.min((now - startRef.current) / TOTAL_MS, 1);
@@ -36,7 +41,6 @@ export default function DashboardLoading({ done, onHidden }) {
     rafRef.current = requestAnimationFrame(tick);
     return () => {
       cancelAnimationFrame(rafRef.current);
-      document.body.classList.remove('no-scroll');
     };
   }, [done]);
 

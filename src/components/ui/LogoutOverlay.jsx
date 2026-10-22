@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { LogOut } from 'lucide-react';
+import useScrollLock from '@/hooks/useScrollLock';
 import { useDialogA11y } from '@/lib/dialogA11y';
 
 // بعد هذه المدة نُعلم المستخدم أن العملية قد تتأخر، بدل صمت مربك.
@@ -63,11 +64,9 @@ function LogoutScreen() {
  *  - تُعرض عبر portal إلى body كي تبقى خارج الشجرة التي نضع عليها inert
  */
 export default function LogoutOverlay({ open }) {
-  useEffect(() => {
-    if (!open) return undefined;
-    document.body.classList.add('no-scroll');
-    return () => document.body.classList.remove('no-scroll');
-  }, [open]);
+  // القفل بعدّاد مراجع: الطبقة لا تملك الصنف وحدها، فقد تشترك معها شاشة تحميل
+  // أثناء الانتقال (انظر `useScrollLock`).
+  useScrollLock(open, 'logout-overlay');
 
   if (!open) return null;
 

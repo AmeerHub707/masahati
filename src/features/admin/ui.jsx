@@ -224,6 +224,15 @@ export function DataGate({ live, loading, error, onRetry, rows = 4, loadingLabel
 }
 
 /**
+ * عرض النوافذ المتاحة (max-width).
+ *
+ * `sm` هو الافتراضي القديم (24rem) فلا تتغيّر أي نافذة قائمة، و`wide` تبقى
+ * مساويةً لـ`md` توافقاً مع كل الاستدعاءات القائمة. و`lg`/`xl` أُضيفتا
+ * لمعاينة المساحة والمستندات: 24rem لا تكفي لقراءة وثيقة ملكية.
+ */
+const MODAL_WIDTHS = { sm: '24rem', md: '40rem', lg: '66rem', xl: '92rem' };
+
+/**
  * نافذة مركزية مشتركة بين شاشات اللوحة.
  *
  * `zIndex` اختياري، ويكتب inline فوق قيمة `.modal-overlay` في CSS وهي 100.
@@ -232,8 +241,29 @@ export function DataGate({ live, loading, error, onRetry, rows = 4, loadingLabel
  * ما كانت تفعله شاشة المستخدمين: نافذة الملف مرفوعة إلى 141، ونافذة التعديل
  * تُفتح **من داخلها** على 100، فظهرت خلف حجابها ولم تُقبل عليها النقرة.
  * فالنافذة المتداخلة تمرّر رقمها هنا فتصعد صراحةً، لا اعتماداً على ترتيب DOM.
+ *
+ * `size` يحدّد العرض (`sm`/`md`/`lg`/`xl`)، و`wide` تبقى = `md`.
+ *
+ * `scrollBody` يجعل الجسم وحده قابلاً للتمرير بارتفاعٍ محدود، مع بقاء
+ * الترويسة والتذييل ثابتين. يحتاجه عرض المساحة: المستندات تطول فيجب
+ * التمرير، بينما أزرار القرار يجب أن تبقى في متناول اليد دائماً.
+ *
+ * `headerExtra` عقدة تُوضع بجانب العنوان (شارة الحالة مثلاً)، و`footer`
+ * عقدة تُعرض في تذييل ثابت. عقدة التذييل لا تُعرض إلا حين تُمرّر، فلا
+ * تتغيّر النوافذ القائمة.
  */
-export function Modal({ open, onClose, title, children, wide = false, zIndex }) {
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  wide = false,
+  size,
+  zIndex,
+  headerExtra,
+  footer,
+  scrollBody = false,
+}) {
   // Escape يغلق النافذة — مهم لنماذج التعديل الطويلة: زر الإلغاء قد يكون خارج مجال الرؤية.
   useEffect(() => {
     if (!open || !onClose) return undefined;
@@ -245,6 +275,30 @@ export function Modal({ open, onClose, title, children, wide = false, zIndex }) 
   }, [open, onClose]);
 
   if (!open) return null;
+
+  const resolvedSize = size || (wide ? 'md' : 'sm');
+  const maxWidth = MODAL_WIDTHS[resolvedSize] || MODAL_WIDTHS.sm;
+  const structured = scrollBody || Boolean(footer);
+
+  const head = (
+    <div
+      className={`flex items-center justify-between gap-3 ${structured ? 'modal-box__head' : 'mb-4'}`}
+    >
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <h3 className="m-0 min-w-0" style={{ fontSize: '1.15rem' }}>{title}</h3>
+        {headerExtra}
+      </div>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="إغلاق"
+        className="dash__iconbtn"
+      >
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  );
+
   return (
     <div
       className="modal-overlay"
@@ -256,22 +310,22 @@ export function Modal({ open, onClose, title, children, wide = false, zIndex }) 
       aria-label={title}
     >
       <div
-        className={`modal-box ${wide ? 'max-w-xl' : ''}`}
-        style={{ maxWidth: wide ? '40rem' : undefined, textAlign: 'initial' }}
+        className={`modal-box ${scrollBody ? 'modal-box--scroll' : ''} ${wide ? 'max-w-xl' : ''}`}
+        style={{ maxWidth, textAlign: 'initial' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h3 className="m-0" style={{ fontSize: '1.15rem' }}>{title}</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="إغلاق"
-            className="dash__iconbtn"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        {children}
+        {structured ? (
+          <>
+            {head}
+            <div className="modal-box__body">{children}</div>
+            {footer && <div className="modal-box__foot">{footer}</div>}
+          </>
+        ) : (
+          <>
+            {head}
+            {children}
+          </>
+        )}
       </div>
     </div>
   );

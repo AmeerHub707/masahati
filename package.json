@@ -12,7 +12,7 @@
     "start": "node taqat-static-server.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "node --experimental-vm-modules src/utils/sanitize.test.mjs && node --experimental-vm-modules src/utils/sanitize.full.test.mjs && node --experimental-vm-modules src/utils/integration.test.mjs && node --experimental-vm-modules src/utils/spaceFilters.test.mjs && node --experimental-vm-modules src/utils/newSpaces.test.mjs && node --experimental-vm-modules src/utils/compare.test.mjs && node --experimental-vm-modules src/utils/i18n.test.mjs && node --experimental-vm-modules src/utils/ui.smoke.test.mjs"
+    "test": "node --experimental-vm-modules src/utils/sanitize.test.mjs && node --experimental-vm-modules src/utils/sanitize.full.test.mjs && node --experimental-vm-modules src/utils/integration.test.mjs && node --experimental-vm-modules src/utils/spaceFilters.test.mjs && node --experimental-vm-modules src/utils/newSpaces.test.mjs && node --experimental-vm-modules src/utils/compare.test.mjs && node --experimental-vm-modules src/utils/ownerSpaceEdit.test.mjs && node --experimental-vm-modules src/utils/adminDocuments.test.mjs && node --experimental-vm-modules src/utils/docPreview.test.mjs && node --experimental-vm-modules src/utils/docViewer.test.mjs && node --experimental-vm-modules src/utils/adminSpacePreview.test.mjs && node --experimental-vm-modules src/utils/i18n.test.mjs && node --experimental-vm-modules src/utils/ui.smoke.test.mjs"
   },
   "dependencies": {
     "countup.js": "^2.10.1",

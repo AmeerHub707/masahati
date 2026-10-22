@@ -17,6 +17,7 @@ import {
   updateSpaceWithFallback,
   deleteSpaceWithFallback,
   uploadSpaceDocumentWithFallback,
+  droppedFields,
 } from '@/lib/owner';
 import { AMENITY_LABELS } from '@/lib/requests';
 import { useDialogA11y } from '@/lib/dialogA11y';
@@ -189,8 +190,13 @@ const PHONE_RE = /^[+]?[\d\s()-]{7,}$/;
 const MAX_PHOTOS = 6;
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
-// يقرأ صورة من الجهاز، يصغّرها ويضغطها حتى لا تُتخم التخزين المحلي،
-// ثم يعيدها كرابط بيانات (base64) جاهز للعرض والحفظ.
+// يقرأ صورة من الجهاز، يصغّرها ويحافظ على صيغتها الأصلية (PNG يبقى PNG،
+// WEBP يبقى WEBP) ثم يعيدها كرابط بيانات (base64) جاهز للعرض والحفظ.
+//
+// لماذا لا نُعيد الترميز دائماً إلى JPEG كما كان: كان ذلك يُسقط الامتداد
+// (png/webp) ويحوّل الشفافية إلى خلفية بيضاء قبل أن يصل الملف إلى الخادم،
+// فيرفض الخادم أو يحفظ صيغةً غير التي اختارها المالك. نُبقي `image/jpeg`
+// كتراجعٍ وحده حين لا يقدر المتصفح على ترميز الصيغة الأصلية.
 function readImageFile(file) {
   return new Promise((resolve, reject) => {
     const fr = new FileReader();
@@ -209,9 +215,25 @@ function readImageFile(file) {
           canvas.width = w;
           canvas.height = h;
           const ctx = canvas.getContext('2d');
-          ctx.fillStyle = '#fff';
-          ctx.fillRect(0, 0, w, h);
+          // PNG/WEBP يحملان شفافية: نملأ خلفيةً بيضاء فقط للصيغ التي لا
+          // تدعمها، وإلا صار الشفاف أسود في JPEG.
+          const src = String(file.type || '');
+          const keepAlpha = /png|webp/i.test(src);
+          if (!keepAlpha) {
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, w, h);
+          }
           ctx.drawImage(img, 0, 0, w, h);
+          // نحاول الصيغة الأصلية أولاً، ونتراجع إلى JPEG عند الحاجة.
+          if (src && !/^image\/(jpeg|jpg)$/i.test(src)) {
+            const kept = canvas.toDataURL(src, 0.85);
+            // المُتصفّح يُعيد data:image/png افتراضياً عند عدم دعم الصيغة،
+            // فنكشف ذلك بمقارنة البادئة قبل أن نحفظ صيغةً مخالفة.
+            if (kept.startsWith(`data:${src}`)) {
+              resolve(kept);
+              return;
+            }
+          }
           resolve(canvas.toDataURL('image/jpeg', 0.85));
         } catch {
           resolve(raw);
@@ -544,8 +566,8 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
       const payload = readPayload();
       const proofFile = payload.proofFile;
       if (modal?.mode === 'edit' && modal.space?.id) {
-        const result = await updateSpaceWithFallback(modal.space.id, payload);
-        const next = spaces.map((s) => (s.id === modal.space.id ? result.space : s));
+        const result = await updateSpaceWithFallback(modal.space.id, payload, modal.space);
+        const next = spaces.map((s) => (s.id === modal.space.id ? (result.space || s) : s));
         setSpaces(next);
         onSpacesChange?.(next);
         // استبدال مستند الإثبات نقطة منفصلة (multipart) في الباك إند.
@@ -556,7 +578,20 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
             setToast({ msg: 'تم الحفظ، لكن تعذّر رفع المستند للإدارة — أعد رفع المستند.', type: 'err' });
           }
         }
-        setToast({ msg: 'تم حفظ التعديلات بنجاح.', type: 'ok' });
+        if (result.unchanged) {
+          setToast({ msg: 'لا توجد تغييرات للحفظ.', type: 'ok' });
+        } else {
+          // صدق النتيجة: نقارن ما أرسلناه بما أعاده الخادم. إن أسقط الخادم حقولاً
+          // بصمت (كحقول الساعات والرقم في العقد الحالي) نسمّيها بدل نجاح كاذب.
+          const dropped = droppedFields(modal.space, payload, result.space);
+          if (result.imageDropped) {
+            setToast({ msg: 'حُفظت التعديلات، لكن تعذّر رفع الصورة الجديدة — الخادم لا يدعم رفع الملفات عند التعديل بعد.', type: 'err' });
+          } else if (dropped.length) {
+            setToast({ msg: `حُفظت بعض التعديلات، لكن الخادم تجاهل: ${dropped.join('، ')}.`, type: 'err' });
+          } else {
+            setToast({ msg: 'تم حفظ التعديلات بنجاح.', type: 'ok' });
+          }
+        }
       } else {
         // الإنشاء يُرسل الملف ضمن الطلب نفسه (multipart) — لا رفع منفصل بعده.
         const result = await createSpaceWithFallback(payload);
@@ -586,8 +621,8 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
     setSaving(true);
     try {
       if (modal?.mode === 'edit' && modal.space?.id) {
-        const result = await updateSpaceWithFallback(modal.space.id, readPayload());
-        const next = spaces.map((s) => (s.id === modal.space.id ? result.space : s));
+        const result = await updateSpaceWithFallback(modal.space.id, readPayload(), modal.space);
+        const next = spaces.map((s) => (s.id === modal.space.id ? (result.space || s) : s));
         setSpaces(next);
         onSpacesChange?.(next);
         setToast({ msg: 'تم حفظ الموقع بنجاح في الخادم', type: 'ok' });

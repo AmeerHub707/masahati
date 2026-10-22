@@ -1,7 +1,7 @@
 // وحدة لوحة صاحب المساحة — السوق المفتوح، العروض المقدمة، إدارة المساحات.
 // تتصل بالباك إند الحقيقي (Laravel) عبر عميل api.js؛ لا يوجد وضع تجريبي.
 
-import { request, imageUrl } from './api';
+import { request, imageUrl, ApiError } from './api';
 import { getUser } from './authStore';
 import { mapRequest, mapOffer, listOf, isRequestOpen } from './requests';
 
@@ -117,11 +117,16 @@ function normPhone(v) {
   return String(v ?? '').trim();
 }
 
-// الباك إند الحالي يحفظ نتيجة boolean من Cloudinary مكان مسار الصورة، فتعود
-// الصورة كـ "1" بدل رابط. نعتبرها "لا صورة" حتّى لا تُعرض صورة مكسورة.
+// الباك إند الحالي قد يحفظ نتيجة boolean من Cloudinary مكان مسار الصورة، فتعود
+// الصورة كـ "1" بدل رابط. نرفض هذه القيم حتّى لا تُعرض صورة مكسورة، لكننا
+// نمرّر أي رابط حقيقي فور أن يبدأ الخادم بإعادته — بلا أي تعديل لاحق هنا.
 function safeImageUrl(v) {
   if (v === true || v === false || v === 1 || v === 0 || v === '1' || v === '0') return '';
-  return imageUrl(v) || '';
+  const s = String(v ?? '').trim();
+  if (!s || s === '1' || s === '0' || s === 'true' || s === 'false') return '';
+  // روابط مطلقة، أو مسارات نسبية يعالجها imageUrl.
+  if (/^https?:\/\//i.test(s) || s.startsWith('/')) return imageUrl(s) || '';
+  return '';
 }
 
 export function mapSpace(s) {
@@ -297,7 +302,16 @@ export async function createOwnerSpace(payload) {
   fd.append('amenities', JSON.stringify(unionApiAmenities(payload)));
   fd.append('internet', payload.internet ? 'true' : 'false');
   fd.append('power', payload.power ? 'true' : 'false');
-  if (payload.image) fd.append('image', payload.image);
+  // الصورة تُرفع كملف حقيقي يحمل امتداده، لا كنصّ base64 بلا اسم: كان
+  // النصّ المجرّد يمنع الخادم من معرفة الامتداد (png/jpg/webp) فيحفظ نوعاً
+  // عامّاً أو يرفضه. الاسم مبنيٌّ على نوع الملصق نفسه، فما رسا في المعاينة
+  // هو ما يُرسل. وإن تعذّر بناء الملف نُرجع خطأً صريحاً بدل إرسال نصٍّ صامت.
+  if (payload.image) {
+    const fileName = `space.${extForType(imageTypeOf(payload.image))}`;
+    if (!appendImage(fd, payload.image, fileName)) {
+      throw new ApiError('تعذّر تجهيز صورة المساحة للرفع — جرّب صورة أخرى.', 0);
+    }
+  }
   if (proof) fd.append('docs', proof, proof.name || 'proof');
 
   const res = await request('/api/owner/spaces', {
@@ -326,32 +340,288 @@ export async function toggleOwnerSpaceActive(spaceId, isActive) {
   return { message: body.message || 'تم تحديث حالة المساحة.', space: mapSpace(body.space ?? body) };
 }
 
-// تعديل المساحة: JSON كافٍ (لا ملف). حسب عقد الباك إند، حقول
-// open_time/close_time/contact_phone/status/is_active لا تُقبل هنا (تُتجاهل)،
-// والمرافق مزامنة كاملة: القائمة المرسلة تستبدل المجموعة.
-export async function updateOwnerSpace(spaceId, payload) {
-  const res = await request(`/api/owner/spaces/${spaceId}`, {
-    method: 'PUT',
-    auth: true,
-    timeoutMs: REQ_TIMEOUT_MS,
-    body: {
-      title: payload.title,
-      description: payload.description,
-      location: payload.location,
-      lat: coordOf(payload.lat),
-      lng: coordOf(payload.lng),
-      price_per_hour: payload.price_per_hour,
-      capacity: payload.capacity,
-      amenities: unionApiAmenities(payload),
-      internet: payload.internet,
-      power: payload.power,
-      image: payload.image,
-    },
-  });
+// ----- تعديل المساحة -----
+// مبدآن يحكمان هذا القسم:
+//   1) لا نرسل إلا الحقول التي تغيّرت فعلاً (مقارنةً بالمساحة الأصلية)، فلا
+//      يضطر المالك لإعادة تعبئة كل الحقول لتعديل حقل واحد.
+//   2) لا نرسل `null` ولا `[]` لحقل كان له قيمة ولم يُقصد محوه — `PUT` دلالته
+//      استبدال المورد بالكامل، فإرسال قيمة فارغة يمحو البيانات بصمت.
+
+// معرّف ملف الصورة الجديد (data-URL أو File) إن اختاره المالك في هذه الجلسة.
+// عند وجوده ننتقل إلى مسار multipart لرفع ملف حقيقي بدل نص داخل JSON.
+function isNewImage(v) {
+  const s = String(v ?? '');
+  return s.startsWith('data:') || s.startsWith('blob:');
+}
+
+// مقارنة نصية متسامحة: تُعيد true إن اختلفت القيمتان بعد التطبيع.
+function changed(next, prev) {
+  return String(next ?? '').trim() !== String(prev ?? '').trim();
+}
+
+// الفرق بين النموذج والمساحة الأصلية — مفاتيح بأسماء الباك إند.
+// القيم المُعادة هنا **جاهزة للإرسال** (مطبّعة)، لا خام.
+function diffPayload(payload, original) {
+  const diff = {};
+  const o = original || {};
+
+  if (changed(payload.title, o.title)) diff.title = String(payload.title ?? '').trim();
+  if (changed(payload.description, o.description)) diff.description = String(payload.description ?? '').trim();
+  if (changed(payload.location, o.location)) diff.location = String(payload.location ?? '').trim();
+
+  const lat = coordOf(payload.lat);
+  const lng = coordOf(payload.lng);
+  if (lat !== null && lat !== coordOf(o.lat)) diff.lat = lat;
+  if (lng !== null && lng !== coordOf(o.lng)) diff.lng = lng;
+
+  const price = Number(payload.price_per_hour);
+  if (Number.isFinite(price) && price !== Number(o.price_per_hour)) diff.price_per_hour = price;
+
+  const cap = Number(payload.capacity);
+  if (Number.isFinite(cap) && cap !== Number(o.capacity)) diff.capacity = cap;
+
+  const open = normTime(payload.open_time);
+  if (open && open !== normTime(o.open_time)) diff.open_time = open;
+
+  const close = normTime(payload.close_time);
+  if (close && close !== normTime(o.close_time)) diff.close_time = close;
+
+  const phone = normPhone(payload.contact_phone);
+  if (phone && phone !== normPhone(o.contact_phone)) diff.contact_phone = phone;
+
+  // المرافق مزامنة كاملة: نقارن في فضاء مفاتيح الواجهة (فالمساحة الأصلية
+  // مرّت أصلاً بـ mapSpace)، ولا نرسلها إن لم تتغيّر حتى لا نستبدل المجموعة
+  // القائمة بلا داعٍ. `ne` مفاتيح واجهة، و`oe` كذلك.
+  const nextAmen = unionApiAmenities(payload);
+  const nextFacing = nextAmen.map((a) => AMENITY_FROM_API[a] || a).sort();
+  const prevFacing = [...(Array.isArray(o.amenities) ? o.amenities : [])].sort();
+  if (JSON.stringify(nextFacing) !== JSON.stringify(prevFacing)) {
+    diff.amenities = nextAmen;
+  }
+
+  if (Boolean(payload.internet) !== Boolean(o.internet)) diff.internet = Boolean(payload.internet);
+  if (Boolean(payload.power) !== Boolean(o.power)) diff.power = Boolean(payload.power);
+
+  // الصورة: تُرسل فقط عند اختيار صورة جديدة تختلف عن الحالية. الصورة الجديدة
+  // تُعرَف بكونها data-URL/blob (نتيجة قراءة ملف محلي)، أو باختلافها عن الأصل.
+  const img = payload.image || '';
+  const nextImg = isNewImage(img) ? '__new__' : img;
+  const prevImg = o.image || '';
+  if (img && nextImg !== prevImg) {
+    diff.image = img;
+  }
+
+  return diff;
+}
+
+// الكائن الكامل للتعديل: الأصل + التغييرات. يُستخدم في مسار `PUT` الاحتياطي
+// حيث يُطلب المورد كاملاً — وكل حقل فيه يحمل قيمة صالحة، لا فراغات.
+function fullPayloadFrom(payload, original) {
+  const o = original || {};
+  const lat = coordOf(payload.lat);
+  const lng = coordOf(payload.lng);
+  const price = Number(payload.price_per_hour);
+  const cap = Number(payload.capacity);
+  const image = payload.image || o.image || '';
+  return {
+    title: String(payload.title ?? o.title ?? '').trim(),
+    description: String(payload.description ?? o.description ?? '').trim(),
+    location: String(payload.location ?? o.location ?? '').trim(),
+    lat: lat !== null ? lat : coordOf(o.lat),
+    lng: lng !== null ? lng : coordOf(o.lng),
+    price_per_hour: Number.isFinite(price) ? price : Number(o.price_per_hour ?? 0),
+    capacity: Number.isFinite(cap) ? cap : Number(o.capacity ?? 0),
+    open_time: normTime(payload.open_time) || normTime(o.open_time),
+    close_time: normTime(payload.close_time) || normTime(o.close_time),
+    contact_phone: normPhone(payload.contact_phone) || normPhone(o.contact_phone),
+    amenities: unionApiAmenities(payload),
+    internet: Boolean(payload.internet),
+    power: Boolean(payload.power),
+    // صورة موجودة تبقى كما هي إن لم يُختر غيرها — لا تُرسل '' فتمحوها.
+    // والصورة الجديدة (data-URL) لا تُرسل في مسار JSON: مسارها multipart.
+    image: isNewImage(image) ? (o.image || '') : image,
+  };
+}
+
+// تحويل data-URL إلى كائن ملف حقيقي. الصور في النموذج تُقرأ كـ data-URL
+// (`readImageFile`)، وإرسال النص داخل FormData يرفع base64 كنصّ لا كملف —
+// وهذا أصل مشكلة حقل الصورة. هنا نعيد ثنائيات الملف الحقيقية.
+function dataUrlToFile(dataUrl, filename) {
+  const m = String(dataUrl).match(/^data:([^;,]+)?(;base64)?,([\s\S]*)$/);
+  if (!m) return null;
+  const type = m[1] || 'application/octet-stream';
+  const isB64 = Boolean(m[2]);
+  try {
+    const bin = isB64 ? atob(m[3]) : decodeURIComponent(m[3]);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+    if (typeof globalThis.File === 'function') return new globalThis.File([bytes], filename, { type });
+    if (typeof globalThis.Blob === 'function') return new globalThis.Blob([bytes], { type });
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// إرفاق الصورة كملف. `append` يرفض كائناً من فضاء عام مختلف، وفي هذه الحالة
+// نُرجع خطأً صريحاً بدل إرسال base64 كنصّ يُحفظ خطأً في الخادم.
+function appendImage(fd, dataUrl, filename) {
+  const file = dataUrlToFile(dataUrl, filename);
+  if (!file) return false;
+  try {
+    fd.append('image', file, filename);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// امتداد مناسب من نوع الملف، لاسم الملف المرفوع.
+function extForType(type) {
+  if (/png/i.test(type)) return 'png';
+  if (/webp/i.test(type)) return 'webp';
+  if (/jpe?g/i.test(type)) return 'jpg';
+  return 'jpg';
+}
+
+// نوع MIME المستخرج من ترويسة data-URL (مثل data:image/png;base64,...).
+function imageTypeOf(v) {
+  const m = String(v ?? '').match(/^data:([^;,]+)/);
+  return m ? m[1] : '';
+}
+
+// هل يدعم الخادم `PATCH` على هذه النقطة؟ 404/405/501 = لا.
+function isPatchUnsupported(err) {
+  const s = err?.status;
+  return s === 404 || s === 405 || s === 501;
+}
+
+function unwrapSpace(res) {
   const body = res && typeof res === 'object' && res.data && typeof res.data === 'object' && !Array.isArray(res.data)
     ? res.data
     : res || {};
-  return { message: body.message || 'تم تحديث المساحة.', space: mapSpace(body.space ?? body) };
+  return { message: body.message, space: mapSpace(body.space ?? body) };
+}
+
+// تعديل المساحة. مساران منفصلان:
+//   • بلا صورة جديدة → `PATCH` بجسم JSON يحتوي الحقول المتغيّرة فقط.
+//   • مع صورة جديدة  → `POST .../_method=PATCH` وmultipart/form-data مع ملف حقيقي.
+// وإن لم يُدعم `PATCH` (404/405/501) نرجع إلى `PUT` بكامل الكائن الحالي.
+//
+// `original` هو الكائن قبل التعديل (من `mapSpace`)، وبه وحده نستطيع بناء الفرق.
+export async function updateOwnerSpace(spaceId, payload, original = null) {
+  const diff = diffPayload(payload, original);
+  const pickNewImage = isNewImage(payload.image);
+
+  // لا تغيير = لا طلب. إرسال طلب فارغ قد يمحو حقولاً على خوادم تُفسّر `PUT`
+  // كاستبدال كامل.
+  if (!pickNewImage && Object.keys(diff).length === 0) {
+    return { message: 'لا توجد تغييرات للحفظ.', space: original ? mapSpace(original) : null, unchanged: true };
+  }
+
+  try {
+    if (pickNewImage) {
+      // مسار الملف: multipart. نفس عقد الإنشاء، لكن كل الحقول اختيارية.
+      const fileName = `space.${extForType(imageTypeOf(payload.image))}`;
+      const fd = new FormData();
+      fd.append('_method', 'PATCH');
+      const fields = { ...diff };
+      delete fields.image;
+      for (const [key, value] of Object.entries(fields)) {
+        fd.append(key, Array.isArray(value) ? JSON.stringify(value) : String(value));
+      }
+      // نرفق ملفاً حقيقياً لا نصاً. إن تعذّر بناء الملف نرمي خطأً صريحاً بدل
+      // إرسال base64 كنصّ يُخزَّن خطأً في الخادم (وهو أصل مشكلة الصورة).
+      if (!appendImage(fd, payload.image, fileName)) {
+        const e = new Error('تعذّر تجهيز ملف الصورة للرفع.');
+        e.status = 0;
+        throw e;
+      }
+      const res = await request(`/api/owner/spaces/${spaceId}`, {
+        method: 'POST',
+        auth: true,
+        isForm: true,
+        timeoutMs: UPLOAD_TIMEOUT_MS,
+        body: fd,
+      });
+      return unwrapSpace(res);
+    }
+
+    const res = await request(`/api/owner/spaces/${spaceId}`, {
+      method: 'PATCH',
+      auth: true,
+      timeoutMs: REQ_TIMEOUT_MS,
+      body: diff,
+    });
+    return unwrapSpace(res);
+  } catch (err) {
+    if (!isPatchUnsupported(err)) throw err;
+    // الخادم لا يدعم `PATCH` بعد — نرسل المورد كاملاً عبر `PUT`، مدمجاً مع
+    // التغييرات، وبلا أي قيمة فارغة مكان قيمة قائمة.
+    //
+    // تحذير صريح: `PUT` هنا JSON ولا يحمل ملفاً. إن كان المالك قد اختار صورة
+    // جديدة، فلا سبيل لإرسالها بهذا المسار — نُكمل الحقول الأخرى ونُبلّغ
+    // أن الصورة لم تُحفظ، بدل نجاح كاذب.
+    const full = fullPayloadFrom(payload, original);
+    const imageDropped = isNewImage(payload.image);
+    const res = await request(`/api/owner/spaces/${spaceId}`, {
+      method: 'PUT',
+      auth: true,
+      timeoutMs: REQ_TIMEOUT_MS,
+      body: {
+        title: full.title,
+        description: full.description,
+        location: full.location,
+        lat: full.lat,
+        lng: full.lng,
+        price_per_hour: full.price_per_hour,
+        capacity: full.capacity,
+        amenities: full.amenities,
+        internet: full.internet,
+        power: full.power,
+        image: full.image,
+        // حقول قد يتجاهلها الخادم اليوم، لكن إرسالها هنا شرط أن تعمل ميزة
+        // «عدّل الساعات/الرقم بلا إعادة تعبئة» إن كان الخادم يدعمها في PUT.
+        open_time: full.open_time,
+        close_time: full.close_time,
+        contact_phone: full.contact_phone,
+      },
+    });
+    const out = unwrapSpace(res);
+    return { ...out, imageDropped };
+  }
+}
+
+// مقارنة ما أرسلناه بما أعاده الخادم — لكشف الحقول التي أسقطها بصمت
+// (مثل ساعات العمل والرقم في العقد الحالي) وعرضها للمالك بدل رسالة نجاح كاذبة.
+export function droppedFields(original, payload, returned) {
+  if (!returned) return [];
+  const o = original || {};
+  const labels = {
+    open_time: 'ساعة الفتح',
+    close_time: 'ساعة الإغلاق',
+    contact_phone: 'رقم التواصل',
+    title: 'اسم المساحة',
+    description: 'الوصف',
+    location: 'الموقع',
+    price_per_hour: 'سعر الساعة',
+    capacity: 'السعة',
+  };
+  const sent = fullPayloadFrom(payload, o);
+  const out = [];
+  for (const [key, label] of Object.entries(labels)) {
+    if (key === 'title' || key === 'description' || key === 'location') {
+      // نصّية: نقارن فقط إن كان الحقل قد تغيّر فعلاً عن الأصل.
+      if (!changed(sent[key], o[key])) continue;
+      if (changed(sent[key], returned[key])) out.push(label);
+    } else if (key === 'contact_phone' || key === 'open_time' || key === 'close_time') {
+      if (!changed(sent[key], o[key])) continue;
+      if (changed(sent[key], returned[key])) out.push(label);
+    } else {
+      if (Number(sent[key]) !== Number(o[key]) && Number(sent[key]) !== Number(returned[key])) out.push(label);
+    }
+  }
+  return out;
 }
 
 export async function deleteOwnerSpace(spaceId) {
@@ -463,9 +733,14 @@ export async function toggleSpaceActiveWithFallback(spaceId, isActive) {
   return { message: result.message, space: result.space };
 }
 
-export async function updateSpaceWithFallback(spaceId, payload) {
-  const result = await updateOwnerSpace(spaceId, payload);
-  return { message: result.message, space: result.space };
+export async function updateSpaceWithFallback(spaceId, payload, original = null) {
+  const result = await updateOwnerSpace(spaceId, payload, original);
+  return {
+    message: result.message,
+    space: result.space,
+    unchanged: result.unchanged,
+    imageDropped: result.imageDropped,
+  };
 }
 
 export async function deleteSpaceWithFallback(spaceId) {

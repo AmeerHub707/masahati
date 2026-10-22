@@ -166,8 +166,12 @@ export default function SpaceOwnerDashboard() {
     await logout();
     const remaining = MIN_LOGOUT_OVERLAY_MS - (Date.now() - startedAt);
     if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
-    // replace: اللوحة logout-ged لا يجب أن تبقى في سجلّ الترجع.
+    // replace: اللوحة بعد logout لا يجب أن تبقى في سجلّ الترجع.
     navigate('/', { replace: true });
+    // نُغلق الطبقة صراحةً بدل الاعتماد على زوال المكوّن: الكومبوننت قد لا
+    // يُفكّ (المسار الجديد قد يُصيَّر داخل الشجرة نفسها)، فتظل الطبقة مالكة
+    // لقفل التمرير إلى الأبد — وهو العطل الذي كان يقفل الصفحة بعد الخروج.
+    setLoggingOut(false);
   }, [navigate]);
 
   // إعادة المحاولة من شاشة الخطأ: تحميل قسري (تجاوز الكاش) يحدّث الصفحة فعلياً.
