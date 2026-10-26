@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect, Fragment } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, Fragment } from 'react';
 import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
-import { Home, CalendarCheck, Heart, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Megaphone, ChevronLeft, ChevronRight, Lock, Sparkles, HelpCircle, Scale } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Home, CalendarCheck, Heart, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Megaphone, ChevronLeft, ChevronRight, Lock, Sparkles, HelpCircle, Scale, RefreshCw } from 'lucide-react';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import { getCachedPictureUrl } from '@/lib/profilePicture';
 import { loadNotificationsWithFallback, markAllNotificationsReadWithFallback } from '@/lib/notifications';
@@ -17,7 +17,49 @@ const NOTIF_ICONS = {
   file: FileText,
   map: MapPin,
   spark: Sparkles,
+  broadcast: Megaphone,
+  admin: Megaphone,
+  system: Megaphone,
 };
+
+// تزيين صفوف الخادم: أيقونة، ودمج حالة «مقروء» المحلية (لا يوجد في الباك إند
+// مسار لتعليم إشعار واحد كمقروء، فبدون هذا الدمج يعود الإشعار غير مقروء بعد
+// كل تحديث من الخادم).
+function decorateNotifications(list, readIds) {
+  return (Array.isArray(list) ? list : []).map((n, index) => ({
+    ...n,
+    renderKey: n.id ?? `notif-${index}`,
+    icon: NOTIF_ICONS[n.icon] || Bell,
+    read: Boolean(n.read) || (n.id !== null && n.id !== undefined && readIds.has(String(n.id))),
+  }));
+}
+
+const READ_STORE_PREFIX = 'masahati_notif_read_';
+const READ_STORE_LIMIT = 500;
+
+function readStoreKey(user) {
+  return `${READ_STORE_PREFIX}${user?.id ?? 'anon'}`;
+}
+
+function loadReadIds(user) {
+  try {
+    if (typeof localStorage === 'undefined') return new Set();
+    const raw = localStorage.getItem(readStoreKey(user));
+    const parsed = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(parsed) ? parsed.map(String) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveReadIds(user, ids) {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.setItem(readStoreKey(user), JSON.stringify(Array.from(ids).slice(-READ_STORE_LIMIT)));
+  } catch {
+    /* التخزين المحلي قد يكون معطّلاً — العلامة تبقى في الجلسة فقط */
+  }
+}
 
 const TABS = [
   { id: 'overview', label: 'نظرة عامة', icon: Home },
@@ -49,8 +91,10 @@ export default function DashboardLayout({
   const [tips, setTips] = useState({ show: false, top: 0, left: 0 });
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef(null);
+  const panelRef = useRef(null);
   const btnRef = useRef(null);
-  const [panelPos, setPanelPos] = useState({ top: 0, left: 0 });
+  const [panelPos, setPanelPos] = useState({ top: 0, left: 0, maxHeight: null });
+  const navigate = useNavigate();
   const [hiddenTop, setHiddenTop] = useState(false);
   const lastScrollY = useRef(0);
 
@@ -61,18 +105,22 @@ export default function DashboardLayout({
   // حتى لو كان المصدر السابق قد فشل في التحميل (بدل التعليق على الحروف الأولى).
   const photoSrc = user?.photo || getCachedPictureUrl() || '';
 
-  const [notifications, setNotifications] = useState([
-    { id: 0, text: 'جارٍ تحميل الإشعارات…', time: '', read: false, icon: Clock },
-  ]);
+  // لا صفّ «جارٍ التحميل» داخل القائمة: كان يُحتسب إشعاراً غير مقروء فيظهر
+  // شعار «1» على الجرس قبل وصول أي إشعار حقيقي.
+  const [notifications, setNotifications] = useState([]);
   const [notifLoading, setNotifLoading] = useState(true);
   const [notifError, setNotifError] = useState('');
+  // معرّفات عُلمت كمقروءة محلياً (لا يوجد مسار في الباك إند لإشعار واحد).
+  // محفوظة في localStorage لكل مستخدم حتى لا تعود «غير مقروءة» بعد إعادة تحميل.
+  const readIdsRef = useRef(null);
+  if (readIdsRef.current === null) readIdsRef.current = loadReadIds(user);
 
-  const loadNotifs = async () => {
+  const loadNotifs = useCallback(async () => {
     setNotifLoading(true);
     setNotifError('');
     try {
       const result = await loadNotificationsWithFallback();
-      setNotifications(result.notifications.map((n) => ({ ...n, icon: NOTIF_ICONS[n.icon] || Bell })));
+      setNotifications(decorateNotifications(result.notifications, readIdsRef.current));
       setNotifError(result.error ?? '');
     } catch {
       setNotifications([]);
@@ -80,7 +128,7 @@ export default function DashboardLayout({
     } finally {
       setNotifLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,7 +136,7 @@ export default function DashboardLayout({
       try {
         const result = await loadNotificationsWithFallback();
         if (cancelled) return;
-        setNotifications(result.notifications.map((n) => ({ ...n, icon: NOTIF_ICONS[n.icon] || Bell })));
+        setNotifications(decorateNotifications(result.notifications, readIdsRef.current));
         setNotifError(result.error ?? '');
       } catch {
         if (cancelled) return;
@@ -101,7 +149,42 @@ export default function DashboardLayout({
     return () => { cancelled = true; };
   }, []);
 
-  const applyLocalMarkRead = () => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  const applyLocalMarkRead = () => {
+    notifications.forEach((n) => {
+      if (n.id !== null && n.id !== undefined) readIdsRef.current.add(String(n.id));
+    });
+    saveReadIds(user, readIdsRef.current);
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  };
+
+  // عند فتح جرس الإشعارات نُحدّث من الخادم بهدوء: البث الإداري لا يصل كدفعة
+  // حيّة (لا WebSocket)، والقائمة كانت تُقرأ مرة واحدة عند تحميل اللوحة فقط،
+  // فيرى العميل قائمة قديمة ولا يظهر إشعار أُرسل بعد فتح الصفحة.
+  const refreshNotifs = useCallback(async () => {
+    const result = await loadNotificationsWithFallback();
+    setNotifications(decorateNotifications(result.notifications, readIdsRef.current));
+    setNotifError(result.error ?? '');
+  }, []);
+
+  // تحديث دوري هادئ كل دقيقة (وعند العودة إلى التبويب) حتى يظهر البث الجديد
+  // دون الحاجة إلى إغلاق اللوحة وفتحها من جديد.
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') refreshNotifs();
+    };
+    const timer = window.setInterval(refreshIfVisible, 60_000);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+    };
+  }, [refreshNotifs]);
+
+  const toggleNotifs = () => {
+    const next = !notifOpen;
+    setNotifOpen(next);
+    if (next) refreshNotifs();
+  };
 
   const handleMarkAllRead = async () => {
     applyLocalMarkRead();
@@ -113,18 +196,56 @@ export default function DashboardLayout({
   };
 
   const handleMarkOneRead = (id) => {
+    if (id !== null && id !== undefined) {
+      readIdsRef.current.add(String(id));
+      saveReadIds(user, readIdsRef.current);
+    }
     setNotifications((prev) =>
       prev.map((item) => (item.id === id ? { ...item, read: true } : item))
     );
   };
 
+  // إن حمل الإشعار رابطاً (البث الإداري يقبل `link`) نفتحه: الداخلي عبر
+  // الراوتر، والخارجي في تبويب جديد.
+  const activateNotif = (n) => {
+    handleMarkOneRead(n.id);
+    const link = String(n.link || '').trim();
+    if (!link) return;
+    if (/^https?:\/\//i.test(link)) {
+      window.open(link, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (link.startsWith('/')) {
+      setNotifOpen(false);
+      navigate(link);
+    }
+  };
+
+  // لوحة الإشعارات تُرسم في portal على `document.body`، أي خارج `notifRef`.
+  // فحص `notifRef` وحده كان يجعل أي نقرة داخل اللوحة (قراءة الكل، إعادة
+  // المحاولة، إشعار) تُغلقها فوراً.
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false);
+      const inButton = notifRef.current && notifRef.current.contains(e.target);
+      const inPanel = panelRef.current && panelRef.current.contains(e.target);
+      if (!inButton && !inPanel) setNotifOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // إغلاق اللوحة بمفتاح Escape وإعادة التركيز إلى الجرس.
+  useEffect(() => {
+    if (!notifOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        setNotifOpen(false);
+        btnRef.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [notifOpen]);
 
   // يخفي الشريط العلوي عند التمرير للأسفل ويُعيده عند التمرير للأعلى.
   useEffect(() => {
@@ -145,16 +266,38 @@ export default function DashboardLayout({
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  useEffect(() => {
-    if (!notifOpen || !btnRef.current) return;
+  // تثبيت اللوحة بجوار الجرس مع منع خروجها عن الشاشة: تُقلب فوق الزر عند
+  // ضيق المساحة أسفله، ويُقصّ ارتفاعها بحيث تبقى القائمة قابلة للتمرير.
+  useLayoutEffect(() => {
+    if (!notifOpen || !btnRef.current) return undefined;
+    const MARGIN = 8;
     const update = () => {
-      const r = btnRef.current.getBoundingClientRect();
-      setPanelPos({ top: r.bottom + 6, left: r.left });
+      const btn = btnRef.current;
+      if (!btn) return;
+      const r = btn.getBoundingClientRect();
+      const panel = panelRef.current;
+      const width = panel?.offsetWidth || Math.min(352, window.innerWidth - MARGIN * 2);
+      const height = panel?.offsetHeight || 0;
+      let left = Math.min(r.left, window.innerWidth - width - MARGIN);
+      left = Math.max(MARGIN, left);
+      let top = r.bottom + 6;
+      if (height && top + height > window.innerHeight - MARGIN) {
+        const above = r.top - height - 6;
+        top = above >= MARGIN ? above : Math.max(MARGIN, window.innerHeight - height - MARGIN);
+      }
+      const maxHeight = Math.max(160, window.innerHeight - top - MARGIN);
+      setPanelPos((prev) =>
+        prev.top === top && prev.left === left && prev.maxHeight === maxHeight
+          ? prev
+          : { top, left, maxHeight }
+      );
     };
     update();
+    const frame = requestAnimationFrame(update);
     window.addEventListener('scroll', update, { passive: true });
     window.addEventListener('resize', update);
     return () => {
+      cancelAnimationFrame(frame);
       window.removeEventListener('scroll', update);
       window.removeEventListener('resize', update);
     };
@@ -183,6 +326,8 @@ export default function DashboardLayout({
     });
     return () => cancelAnimationFrame(frame);
   }, [tourStep]);
+
+  const unreadCount = notifications.reduce((sum, n) => sum + (n.read ? 0 : 1), 0);
 
   const close = () => setOpen(false);
 
@@ -365,32 +510,58 @@ export default function DashboardLayout({
                 type="button"
                 ref={btnRef}
                 className={`dash__notif-btn${notifOpen ? ' is-open' : ''}`}
-                onClick={() => setNotifOpen((o) => !o)}
-                aria-label="الإشعارات"
+                onClick={toggleNotifs}
+                aria-label={unreadCount ? `الإشعارات (${unreadCount} غير مقروءة)` : 'الإشعارات'}
                 aria-expanded={notifOpen}
+                aria-haspopup="dialog"
               >
                 <Bell />
-                {notifications.some((n) => !n.read) && (
-                  <span className="dash__notif-badge">
-                    {notifications.filter((n) => !n.read).length}
-                  </span>
+                {unreadCount > 0 && (
+                  <span className="dash__notif-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
                 )}
               </button>
 
               {createPortal(
                 notifOpen && (
-                  <div className="dash__notif-panel" style={{ position: 'fixed', top: panelPos.top, left: panelPos.left }}>
+                  <div
+                    ref={panelRef}
+                    className="dash__notif-panel"
+                    id="dash-notif-panel"
+                    role="dialog"
+                    aria-label="الإشعارات"
+                    style={{
+                      position: 'fixed',
+                      top: panelPos.top,
+                      left: panelPos.left,
+                      ...(panelPos.maxHeight ? { maxHeight: panelPos.maxHeight } : {}),
+                    }}
+                  >
                     <div className="dash__notif-header">
-                      <h3>الإشعارات</h3>
-                      <button
-                        type="button"
-                        className="dash__notif-mark"
-                        onClick={handleMarkAllRead}
-                        disabled={notifLoading || notifications.length === 0}
-                      >
-                        قراءة الكل
-                      </button>
+                      <h3>الإشعارات{unreadCount > 0 ? ` (${unreadCount})` : ''}</h3>
+                      <div className="dash__notif-actions">
+                        <button
+                          type="button"
+                          className="dash__notif-mark dash__notif-refresh"
+                          onClick={refreshNotifs}
+                          disabled={notifLoading}
+                          aria-label="تحديث الإشعارات"
+                          title="تحديث"
+                        >
+                          <RefreshCw />
+                        </button>
+                        <button
+                          type="button"
+                          className="dash__notif-mark"
+                          onClick={handleMarkAllRead}
+                          disabled={notifLoading || unreadCount === 0}
+                        >
+                          قراءة الكل
+                        </button>
+                      </div>
                     </div>
+                    {notifError && notifications.length > 0 && (
+                      <p className="dash__notif-inline-error">{notifError}</p>
+                    )}
                     {notifLoading ? (
                       <p className="dash__notif-empty">جارٍ تحميل الإشعارات…</p>
                     ) : notifError && notifications.length === 0 ? (
@@ -406,18 +577,37 @@ export default function DashboardLayout({
                       <ul className="dash__notif-list">
                         {notifications.map((n) => {
                           const Icon = n.icon;
+                          const hasLink = Boolean(n.link);
                           return (
                             <li
-                              key={n.id}
-                              className={`dash__notif-item${n.read ? '' : ' is-unread'}`}
-                              onClick={() => handleMarkOneRead(n.id)}
+                              key={n.renderKey}
+                              className={`dash__notif-item${n.read ? '' : ' is-unread'}${hasLink ? ' is-link' : ''}`}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => activateNotif(n)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  activateNotif(n);
+                                }
+                              }}
                             >
                               <span className="dash__notif-icon">
                                 <Icon />
                               </span>
                               <div className="dash__notif-body">
-                                <p>{n.text}</p>
-                                <span className="dash__notif-time">{n.time}</span>
+                                <p>
+                                  {n.title && n.title !== n.text ? (
+                                    <>
+                                      <strong>{n.title}</strong>
+                                      <br />
+                                      {n.text}
+                                    </>
+                                  ) : (
+                                    n.text
+                                  )}
+                                </p>
+                                {n.time ? <span className="dash__notif-time">{n.time}</span> : null}
                               </div>
                               {!n.read && <span className="dash__notif-dot" />}
                             </li>

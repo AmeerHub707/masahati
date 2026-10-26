@@ -19,12 +19,14 @@ import {
 
 const audiences = [
   { id: 'all', label: 'جميع المستخدمين' },
+  { id: 'customers', label: 'جميع العملاء' },
   { id: 'owners', label: 'الملاك' },
   { id: 'freelancers', label: 'الفريلانسرز' },
 ];
 
 const audienceBadge = {
   all: 'جميع المستخدمين',
+  customers: 'جميع العملاء',
   owners: 'الملاك',
   freelancers: 'الفريلانسرز',
 };
@@ -69,13 +71,91 @@ const nowArabic = () =>
     minute: 'numeric',
   });
 
-function channelIcon(channel) {
-  return channel === 'email' ? Mail : Bell;
+// وقت الإرسال كما يصل من الخادم (ISO أو "YYYY-MM-DD HH:mm:ss") بنفس صيغة العرض
+// العربية. القيمة غير القابلة للتحليل تُعاد كما هي بدل اختلاق وقت.
+function arabicStamp(value) {
+  if (!value) return nowArabic();
+  const d = new Date(String(value).replace(' ', 'T'));
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleString('ar-EG', {
+    day: 'numeric',
+    month: 'long',
+    hour: 'numeric',
+    minute: 'numeric',
+  });
+}
+
+// قنوات الخادم قد تصل مصفوفة أو نصاً مفصولاً بفواصل أو كائناً { email: true }.
+// نوحّدها إلى مصفوفة لأن العرض والعدّ يعتمدان على `includes`.
+function normalizeChannels(value) {
+  if (Array.isArray(value)) return value.filter((c) => typeof c === 'string' && c.trim());
+  if (typeof value === 'string') return value.split(',').map((c) => c.trim()).filter(Boolean);
+  if (value && typeof value === 'object') return Object.keys(value).filter((k) => value[k]);
+  return [];
+}
+
+/**
+ * توحيد صفّ سجل البث: الخادم قد يرسل camelCase كما في العقد أو snake_case
+ * (sent_at, recipients_count) كما هو شائع في Laravel. بلا هذا التوحيد كان
+ * `n.title.toLowerCase()` يرمي عند صفّ بلا عنوان، وكان التاريخ يظهر فارغاً.
+ */
+function normalizeBroadcastRow(row) {
+  if (!row || typeof row !== 'object') return null;
+  const total = Number(row.total ?? row.recipients_count ?? row.recipients ?? 0);
+  const opened = Number(row.opened ?? row.opened_count ?? row.opens ?? 0);
+  const rawDate = row.sentAt ?? row.sent_at ?? row.created_at ?? row.date ?? '';
+  return {
+    id: row.id ?? nextLocalId(),
+    title: String(row.title ?? row.subject ?? ''),
+    body: String(row.body ?? row.message ?? row.content ?? ''),
+    target: row.target ?? row.audience ?? 'all',
+    link: row.link ?? row.url ?? '',
+    channels: normalizeChannels(row.channels),
+    sentAt: row.sentAt ?? arabicStamp(rawDate),
+    date: String(row.date ?? rawDate).slice(0, 10),
+    sentBy: row.sentBy ?? row.sent_by ?? 'admin',
+    opened: Number.isFinite(opened) ? opened : 0,
+    total: Number.isFinite(total) ? total : 0,
+  };
+}
+
+// عدّادات الجمهور قد تصل مباشرة (`{all, customers}`) أو داخل مغلّف
+// (`{counts: {...}}` / `{audiences: {...}}`) وبأسماء مفاتيح مختلفة بين
+// `customers`/`customer` و`owners`/`space_owners`. التوحيد هنا يمنع أن يظهر
+// «—» أمام جمهور الخادم يعرف عدده، ويمنع أيضاً تعطيل تنبيه «العدّاد صفر».
+function normalizeCounts(raw) {
+  const src =
+    raw && typeof raw === 'object'
+      ? raw.counts && typeof raw.counts === 'object'
+        ? raw.counts
+        : raw.audiences && typeof raw.audiences === 'object'
+          ? raw.audiences
+          : raw
+      : {};
+  const num = (...keys) => {
+    for (const key of keys) {
+      const value = src[key];
+      if (value === null || value === undefined || value === '') continue;
+      const n = Number(value);
+      if (Number.isFinite(n)) return n;
+    }
+    return null;
+  };
+  return {
+    all: num('all', 'total', 'all_users'),
+    customers: num('customers', 'customer', 'customers_count'),
+    owners: num('owners', 'space_owners', 'owner', 'space_owner', 'owners_count'),
+    freelancers: num('freelancers', 'freelancer', 'freelancers_count'),
+  };
 }
 
 // مكان فارغ للحالة الأولى: لا سجلّ ولا عدّادات حتى يردّ الخادم.
 const NO_LOG = [];
-const NO_COUNTS = { all: null, owners: null, freelancers: null };
+const NO_COUNTS = { all: null, customers: null, owners: null, freelancers: null };
+
+function channelIcon(channel) {
+  return channel === 'email' ? Mail : Bell;
+}
 
 export default function BroadcastNotifications() {
   const [target, setTarget] = useState('all');
@@ -86,10 +166,19 @@ export default function BroadcastNotifications() {
   const [template, setTemplate] = useState('');
   const [drafts, setDrafts] = useState([]);
   const [log, setLog] = useState(NO_LOG);
-  const [sent, setSent] = useState(false);
-  const [logMsg, setLogMsg] = useState('');
-  const [error, setError] = useState('');
+  // رسالة واحدة للحالة: نجاح (أخضر)، جارٍ العمل (أزرق)، خطأ (أحمر).
+  // الفصل بين «تم الإرسال» و«تعذّر الإرسال» مقصود: الواجهة السابقة كانت
+  // تعرض الفشل برسالة زرقاء ودّية بعد أن تمسح النموذج، فيظنّ المشرف أن البث
+  // وصل بينما لم يُرسل شيء.
+  const [feedback, setFeedback] = useState(null);
+  const [sending, setSending] = useState(false);
   const [confirm, setConfirm] = useState(false);
+  // آخر استجابة من الخادم (نجاحاً أو فشلاً) لعرضها في لوحة تشخيص قابلة للطي.
+  // الغرض: التمييز بين «قُبل الطلب» و«حُفظ فعلاً لمستلمين». لا توكن ولا كلمة
+  // مرور في الاستجابة، فآمنة للنسخ عند طلب الدعم.
+  const [lastResponse, setLastResponse] = useState(null);
+
+  const notify = (tone, text) => setFeedback(text ? { tone, text } : null);
 
   // العقد §12.1 + §12.2 + §12.5: سجلّ الإرسال، عدّادات الجمهور، والمسودات —
   // ثلاثة مصادر في طلب واحد حتى لا تُرسم الشاشة بنصف أرقام.
@@ -100,10 +189,15 @@ export default function BroadcastNotifications() {
       listBroadcastDrafts(),
     ]);
     // لا استبدال بجدول محلي: ردّ فارغ يعني «لا بثّ بعد» لا «أرسلنا أربعة».
+    const draftList = Array.isArray(draftsList)
+      ? draftsList
+      : Array.isArray(draftsList?.drafts)
+        ? draftsList.drafts
+        : [];
     return {
-      log: Array.isArray(sentLog?.rows) ? sentLog.rows : [],
-      counts: counts && typeof counts === 'object' ? counts : NO_COUNTS,
-      drafts: Array.isArray(draftsList) ? draftsList : [],
+      log: Array.isArray(sentLog?.rows) ? sentLog.rows.map(normalizeBroadcastRow).filter(Boolean) : [],
+      counts: normalizeCounts(counts),
+      drafts: draftList,
     };
   }, []);
 
@@ -187,23 +281,28 @@ export default function BroadcastNotifications() {
   };
 
   const validate = () => {
-    setError('');
-    setSent(false);
+    setFeedback(null);
     if (!title.value.trim()) {
-      setError('عنوان الإشعار مطلوب.');
+      notify('error', 'عنوان الإشعار مطلوب.');
       return false;
     }
     if (!body.value.trim()) {
-      setError('نص الإشعار مطلوب.');
+      notify('error', 'نص الإشعار مطلوب.');
       return false;
     }
     const rawLink = link.value.trim();
     if (rawLink && sanitizeUrl(rawLink) !== rawLink) {
-      setError('رابط الإشعار غير صالح — استخدم رابطاً آمناً يبدأ بـ https:// أو مساراً داخلياً.');
+      notify('error', 'رابط الإشعار غير صالح — استخدم رابطاً آمناً يبدأ بـ https:// أو مساراً داخلياً.');
       return false;
     }
     if (!channels.in_app && !channels.email) {
-      setError('اختر قناة إرسال واحدة على الأقل.');
+      notify('error', 'اختر قناة إرسال واحدة على الأقل.');
+      return false;
+    }
+    // عدّاد معروف وصفر ⇒ لا أحد ليستلم. نمنع الطلب بدل إظهار «نجاح» فارغ.
+    const selectedCount = Number.isFinite(audienceCounts[target]) ? audienceCounts[target] : null;
+    if (selectedCount === 0) {
+      notify('error', 'عدد مستلمي هذا الجمهور صفر حسب عدّاد الخادم — لن يصل الإشعار لأي حساب.');
       return false;
     }
     return true;
@@ -214,59 +313,115 @@ export default function BroadcastNotifications() {
     if (validate()) setConfirm(true);
   };
 
-  // العقد §12.3: الإرسال الفوري. السجلّ يُحدَّث محلياً فوراً (رحلة بريد
-  // جماعي take وقتاً)، ثم يذهب للخادم؛ الفشل يزيل السجلّ المُضاف ويرفعه.
-  const dispatchNow = () => {
-    const entry = {
-      id: nextLocalId(),
+  // العقد §12.3: الإرسال الفوري.
+  //
+  // كان السجلّ يُضاف والنموذج يُفرَّغ **قبل** ردّ الخادم، فإن فشل الإرسال
+  // (422/401/شبكة) ضاع ما كتبه المشرف وبقي سطر وهمي ثم اختفى. الآن:
+  //   - النموذج يبقى كما هو حتى يؤكّد الخادم استلام الطلب.
+  //   - لا سطر في السجلّ إلا بعد نجاح الطلب.
+  //   - الفشل يظهر بالأحمر بنصّ الخادم، فيعرف المشرف أن البريد لم يُرسل.
+  const dispatchNow = async () => {
+    if (sending) return;
+    const payload = {
       title: title.value.trim(),
       body: body.value.trim(),
       target,
       link: link.value.trim(),
       channels: Object.keys(channels).filter((c) => channels[c]),
-      sentAt: nowArabic(),
-      date: nowISO(),
-      sentBy: 'admin',
-      opened: 0,
-      total: recipients ?? 0,
     };
-    setLog((prev) => [entry, ...prev]);
     setConfirm(false);
-    title.setValue('');
-    body.setValue('');
-    link.setValue('');
-    setTemplate('');
-    setSent(true);
-    setLogMsg('');
 
     if (!isAdminTokenLive()) {
-      setLogMsg('تم الإرسال (وضع تجريبي — لم يُرسل شيء فعلياً).');
+      notify('error', 'لا توجد جلسة مشرف صالحة. سجّل الدخول من جديد قبل الإرسال.');
       return;
     }
-    sendBroadcast({
-      title: entry.title,
-      body: entry.body,
-      target: entry.target,
-      link: entry.link,
-      channels: entry.channels,
-    })
-      .then((saved) => {
-        // نعتمد الأرقام التي أعادها الخادم (المعرّف الفعلي وحجم الجمهور
-        // وقت الإرسال) بدل المُقدَّرة محلياً.
-        setLog((prev) =>
-          prev.map((n) =>
-            n.id === entry.id
-              ? { ...n, id: saved?.id ?? n.id, total: saved?.total ?? n.total, sentAt: saved?.sentAt ?? n.sentAt }
-              : n
-          )
-        );
-        setLogMsg(saved?.message || 'تم إرسال الإشعار بنجاح.');
-      })
-      .catch((err) => {
-        setLog((prev) => prev.filter((n) => n.id !== entry.id));
-        setSent(false);
-        setLogMsg(err?.message || 'تعذّر إرسال الإشعار.');
+
+    setSending(true);
+    notify('info', 'جارٍ إرسال الإشعار… قد يستغرق البريد الجماعي بعض الوقت.');
+    setLastResponse(null);
+    try {
+      const saved = await sendBroadcast(payload);
+      setLastResponse({ ok: true, request: payload, response: saved });
+      const serverRow = saved && typeof saved === 'object' ? saved : {};
+      const entry = normalizeBroadcastRow({
+        ...payload,
+        ...serverRow,
+        title: serverRow.title ?? payload.title,
+        body: serverRow.body ?? payload.body,
+        target: serverRow.target ?? serverRow.audience ?? payload.target,
+        link: serverRow.link ?? payload.link,
+        channels: serverRow.channels ?? payload.channels,
+        total: serverRow.total ?? serverRow.recipients_count ?? audienceCounts[target] ?? 0,
+        sentAt: serverRow.sentAt ?? serverRow.sent_at ?? undefined,
+      }) ?? {
+        ...payload,
+        id: nextLocalId(),
+        sentAt: nowArabic(),
+        date: nowISO(),
+        opened: 0,
+        total: audienceCounts[target] ?? 0,
+      };
+
+      setLog((prev) => [entry, ...prev]);
+      title.setValue('');
+      body.setValue('');
+      link.setValue('');
+      setTemplate('');
+      notify('ok', saved?.message || 'تم إرسال الإشعار وقبِله الخادم.');
+
+      // ردّ 2xx يعني «قُبل الطلب» فقط، لا «وصل لشخص». نقرأ السجلّ من الخادم
+      // ونتأكد من الصفّ المسجّل: كم مستلماً حُسب، وأي قنوات حُفظت فعلاً.
+      // بهذا يظهر على الشاشة سبب عدم الوصول بدل رسالة خضراء مطمئنة كاذبة.
+      try {
+        const sentLog = await listBroadcasts({});
+        const rawRows = Array.isArray(sentLog?.rows) ? sentLog.rows : [];
+        const raw = rawRows.find((r) => String(r?.id) === String(entry.id)) ?? null;
+        if (raw) {
+          const recorded = normalizeBroadcastRow(raw);
+          if (recorded) setLog((prev) => prev.map((r) => (r.id === entry.id ? recorded : r)));
+
+          const rawTotal = raw.total ?? raw.recipients_count ?? raw.recipients;
+          const totalKnown =
+            rawTotal !== undefined && rawTotal !== null && rawTotal !== '' && Number.isFinite(Number(rawTotal));
+          const recordedTotal = totalKnown ? Number(rawTotal) : null;
+          const missEmail =
+            payload.channels.includes('email') &&
+            recorded.channels.length > 0 &&
+            !recorded.channels.includes('email');
+
+          if (totalKnown && recordedTotal === 0) {
+            notify(
+              'error',
+              'قبل الخادم الطلب (2xx) لكن عدد المستلمين المسجّل 0 — لم يصل الإشعار لأي حساب. راجع قيمة الجمهور المستهدف في الباك إند.'
+            );
+          } else if (missEmail) {
+            notify(
+              'error',
+              `حُفظ الإشعار لكن دون قناة البريد (القنوات المسجّلة: ${recorded.channels
+                .map((c) => channelLabels[c] || c)
+                .join(' · ')}) — الباك إند لم يعتمد email.`
+            );
+          } else if (recordedTotal !== null) {
+            const ch = recorded.channels.length
+              ? ` · القنوات: ${recorded.channels.map((c) => channelLabels[c] || c).join(' · ')}`
+              : '';
+            notify('ok', `${saved?.message || 'تم الإرسال.'} المستلمون: ${recordedTotal.toLocaleString('en-US')}${ch}`);
+          }
+        }
+      } catch {
+        /* التحقق اختياري: تعثّره لا يحوّل نجاح الخادم إلى خطأ */
+      }
+    } catch (err) {
+      setLastResponse({
+        ok: false,
+        status: err?.status ?? null,
+        message: err?.message ?? '',
+        data: err?.data ?? null,
       });
+      notify('error', err?.message || 'تعذّر إرسال الإشعار — لم يُرسل شيء.');
+    } finally {
+      setSending(false);
+    }
   };
 
   // العقد §12.6: المسودة تبقى على الخادم، لا في الذاكرة فقط — فكانت تضيع
@@ -281,10 +436,9 @@ export default function BroadcastNotifications() {
       channels: Object.keys(channels).filter((c) => channels[c]),
     };
     setDrafts((prev) => [{ id: prev.length ? Math.max(...prev.map((d) => d.id)) + 1 : 1, ...draft }, ...prev]);
-    setSent(false);
-    setLogMsg('تم حفظ الإشعار كمسودة.');
+    notify('info', 'تم حفظ الإشعار كمسودة.');
     if (isAdminTokenLive()) {
-      saveBroadcastDraft(draft).catch((err) => setLogMsg(err?.message || 'تعذّر حفظ المسودة على الخادم.'));
+      saveBroadcastDraft(draft).catch((err) => notify('error', err?.message || 'تعذّر حفظ المسودة على الخادم.'));
     }
   };
 
@@ -293,20 +447,21 @@ export default function BroadcastNotifications() {
     body.setValue(d.body);
     link.setValue(d.link);
     setTarget(d.target);
-    setChannels({ in_app: d.channels.includes('in_app'), email: d.channels.includes('email') });
+    const draftChannels = normalizeChannels(d.channels);
+    setChannels({ in_app: draftChannels.includes('in_app'), email: draftChannels.includes('email') });
     setTemplate('');
     setDrafts((prev) => prev.filter((x) => x.id !== d.id));
-    setLogMsg('تم تحميل المسودة في النموذج.');
+    notify('info', 'تم تحميل المسودة في النموذج.');
     // العقد §12.7: المسودة المحمَّلة لم تعد في القائمة، فنخبر الخادم.
     if (isAdminTokenLive()) {
-      discardBroadcastDraft(d.id).catch((err) => setLogMsg(err?.message || 'تعذّر تحديث المسودة على الخادم.'));
+      discardBroadcastDraft(d.id).catch((err) => notify('error', err?.message || 'تعذّر تحديث المسودة على الخادم.'));
     }
   };
 
   const discardDraft = (id) => {
     setDrafts((prev) => prev.filter((x) => x.id !== id));
     if (isAdminTokenLive()) {
-      discardBroadcastDraft(id).catch((err) => setLogMsg(err?.message || 'تعذّر حذف المسودة على الخادم.'));
+      discardBroadcastDraft(id).catch((err) => notify('error', err?.message || 'تعذّر حذف المسودة على الخادم.'));
     }
   };
 
@@ -335,52 +490,40 @@ export default function BroadcastNotifications() {
   };
 
   // العقد §12.4: إعادة الإرسال طلب حقيقي إلى الخادم (إعادة بثٍ سابق إلى جمهوره
-  // الأصلي). نُدرج السطر محلياً أولاً ليكون الفحص فورياً، ثم نصحّح المعرّف
-  // وحجم الجمهور من رد الخادم، ونُرجع الحالة السابقة إن رفض الخادم.
-  const resend = () => {
-    if (!menu) return;
+  // الأصلي). لا نضيف سطراً للسجل قبل موافقة الخادم: السطر الوهمي الذي يُحذف
+  // بعد ثانية كان يجعل المشرف يظن أن البريد خرج.
+  const resend = async () => {
+    if (!menu || sending) return;
     const n = log.find((x) => x.id === menu.id);
-    if (!n) {
-      setMenu(null);
+    setMenu(null);
+    if (!n) return;
+    if (!isAdminTokenLive()) {
+      notify('error', 'لا توجد جلسة مشرف صالحة. سجّل الدخول من جديد قبل إعادة الإرسال.');
       return;
     }
-    const localId = nextLocalId();
-    setLog((prev) => [
-      {
-        id: localId,
-        title: n.title,
-        body: n.body,
-        target: n.target,
-        link: n.link,
-        channels: n.channels,
-        sentAt: nowArabic(),
-        date: nowISO(),
-        sentBy: 'admin',
-        opened: 0,
-        total: audienceCounts[n.target] ?? n.total ?? 0,
-      },
-      ...prev,
-    ]);
-    setMenu(null);
-    setLogMsg('تمت إعادة إرسال الإشعار بنجاح.');
-
-    if (!isAdminTokenLive()) return;
-    resendBroadcast(n.id, n.channels)
-      .then((saved) => {
-        setLog((prev) =>
-          prev.map((row) =>
-            row.id === localId
-              ? { ...row, id: saved?.id ?? row.id, total: saved?.total ?? row.total }
-              : row
-          )
-        );
-        if (saved?.message) setLogMsg(saved.message);
-      })
-      .catch((err) => {
-        // الخادم رفض ⇒ نُرجع الحالة السابقة بدل ترك سطر وهمي في السجل.
-        setLog((prev) => prev.filter((row) => row.id !== localId));
-        setLogMsg(err?.message || 'تعذّرت إعادة إرسال الإشعار.');
+    setSending(true);
+    notify('info', 'جارٍ إعادة إرسال الإشعار…');
+    try {
+      const saved = await resendBroadcast(n.id, n.channels);
+      const serverRow = saved && typeof saved === 'object' ? saved : {};
+      const row = normalizeBroadcastRow({
+        ...n,
+        ...serverRow,
+        id: serverRow.id ?? n.id,
+        title: serverRow.title ?? n.title,
+        body: serverRow.body ?? n.body,
+        target: serverRow.target ?? serverRow.audience ?? n.target,
+        link: serverRow.link ?? n.link,
+        channels: serverRow.channels ?? n.channels,
+        total: serverRow.total ?? serverRow.recipients_count ?? audienceCounts[n.target] ?? n.total ?? 0,
       });
+      if (row) setLog((prev) => [row, ...prev]);
+      notify('ok', serverRow.message || 'تمت إعادة إرسال الإشعار.');
+    } catch (err) {
+      notify('error', err?.message || 'تعذّرت إعادة إرسال الإشعار.');
+    } finally {
+      setSending(false);
+    }
   };
 
   const copyText = async () => {
@@ -404,14 +547,14 @@ export default function BroadcastNotifications() {
       ta.remove();
     }
     setMenu(null);
-    setLogMsg('تم نسخ نص الإشعار.');
+    notify('info', 'تم نسخ نص الإشعار.');
   };
 
   const deleteFromLog = () => {
     if (!deleteTarget) return;
     setLog((prev) => prev.filter((x) => x.id !== deleteTarget));
     setDeleteTarget(null);
-    setLogMsg('تم حذف الإشعار من السجل.');
+    notify('info', 'تم حذف الإشعار من السجل.');
   };
 
   const clearFilters = () => {
@@ -427,20 +570,35 @@ export default function BroadcastNotifications() {
       <SectionCard>
         <SectionHeading icon={Megaphone} title="إرسال إشعار جماعي" subtitle="بث رسالة لجمهور محدد عبر المنصة" />
 
-        {sent && (
-          <div className="mb-4 rounded-xl px-4 py-3 text-sm font-bold" role="status" style={{ background: 'rgba(34,197,94,.12)', color: '#15803d' }}>
-            تم إرسال الإشعار بنجاح.
+        {feedback && (
+          <div
+            className="mb-4 rounded-xl px-4 py-3 text-sm font-bold"
+            role={feedback.tone === 'error' ? 'alert' : 'status'}
+            style={
+              feedback.tone === 'error'
+                ? { background: 'rgba(239,68,68,.12)', color: '#b91c1c' }
+                : feedback.tone === 'ok'
+                  ? { background: 'rgba(34,197,94,.12)', color: '#15803d' }
+                  : { background: 'rgba(14,165,233,.12)', color: '#0369a1' }
+            }
+          >
+            {feedback.text}
           </div>
         )}
-        {logMsg && (
-          <div className="mb-4 rounded-xl px-4 py-3 text-sm font-bold" role="status" style={{ background: 'rgba(14,165,233,.12)', color: '#0369a1' }}>
-            {logMsg}
-          </div>
-        )}
-        {error && (
-          <div className="mb-4 rounded-xl px-4 py-3 text-sm font-bold" role="alert" style={{ background: 'rgba(239,68,68,.12)', color: '#b91c1c' }}>
-            {error}
-          </div>
+
+        {lastResponse && (
+          <details className="mb-4 rounded-xl px-4 py-3 text-xs" style={{ background: 'rgba(15,23,42,.05)' }}>
+            <summary className="cursor-pointer font-extrabold" style={{ color: 'var(--text-strong)' }}>
+              تفاصيل استجابة الخادم (للتشخيص)
+            </summary>
+            <pre
+              dir="ltr"
+              className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-all text-[11px] leading-relaxed"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              {JSON.stringify(lastResponse, null, 2)}
+            </pre>
+          </details>
         )}
 
         <form onSubmit={openConfirm} noValidate>
@@ -450,9 +608,7 @@ export default function BroadcastNotifications() {
               value={target}
               onChange={(e) => {
                 setTarget(e.target.value);
-                setError('');
-                setSent(false);
-                setLogMsg('');
+                setFeedback(null);
               }}
               className={inputCls}
             >
@@ -490,9 +646,7 @@ export default function BroadcastNotifications() {
               value={title.value}
               onChange={(e) => {
                 title.onChange(e);
-                setError('');
-                setSent(false);
-                setLogMsg('');
+                setFeedback(null);
               }}
               placeholder="مثال: صيانة مجدولة للنظام"
               className={inputCls}
@@ -506,9 +660,7 @@ export default function BroadcastNotifications() {
               value={body.value}
               onChange={(e) => {
                 body.onChange(e);
-                setError('');
-                setSent(false);
-                setLogMsg('');
+                setFeedback(null);
               }}
               placeholder="اكتب محتوى الرسالة هنا…"
               className={`${inputCls} resize-none`}
@@ -525,8 +677,7 @@ export default function BroadcastNotifications() {
                 value={link.value}
                 onChange={(e) => {
                   link.onChange(e);
-                  setError('');
-                  setSent(false);
+                  setFeedback(null);
                 }}
                 placeholder="https://example.com/page"
                 className={`${inputCls} dash__input--icon`}
@@ -545,8 +696,7 @@ export default function BroadcastNotifications() {
                     type="button"
                     onClick={() => {
                       setChannels((prev) => ({ ...prev, [c]: !prev[c] }));
-                      setError('');
-                      setSent(false);
+                      setFeedback(null);
                     }}
                     aria-pressed={activeCh}
                     className={`dash__toolbtn${activeCh ? ' is-active' : ''}`}
@@ -557,16 +707,27 @@ export default function BroadcastNotifications() {
                 );
               })}
             </div>
+            {channels.email && (
+              <p className="mt-2 text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                البريد يُرسل إلى العنوان المسجّل في كل حساب مستلم. الحساب بلا بريد إلكتروني
+                لا يصله شيء — راجع عمود البريد في تبويب «المستخدمون» قبل البث.
+              </p>
+            )}
+            {channels.email && recipients === 0 && (
+              <p className="mt-1.5 text-xs font-bold" style={{ color: '#b45309' }} role="alert">
+                عدّاد هذا الجمهور صفر: لن يصل بريد إلى أي حساب.
+              </p>
+            )}
           </Field>
 
           <div className="mt-2 flex flex-wrap items-center justify-end gap-2 border-t border-[var(--border)] pt-4">
-            <button type="button" className={btnGhost} onClick={saveDraft}>
+            <button type="button" className={btnGhost} onClick={saveDraft} disabled={sending}>
               <Save className="h-4 w-4" />
               حفظ كمسودة
             </button>
-            <button type="submit" className={btnPrimary}>
+            <button type="submit" className={btnPrimary} disabled={sending}>
               <Send className="h-4 w-4" />
-              إرسال الإشعار
+              {sending ? 'جارٍ الإرسال…' : 'إرسال الإشعار'}
             </button>
           </div>
         </form>
@@ -632,6 +793,7 @@ export default function BroadcastNotifications() {
             onChange={(e) => setFTarget(e.target.value)}
           >
             <option value="all">جميع الجماهير المستهدفة</option>
+            <option value="customers">جميع العملاء</option>
             <option value="owners">الملاك</option>
             <option value="freelancers">الفريلانسرز</option>
           </select>
@@ -809,9 +971,9 @@ export default function BroadcastNotifications() {
             <button type="button" className={btnGhost} onClick={() => setConfirm(false)}>
               إلغاء
             </button>
-            <button type="button" className={btnPrimary} onClick={dispatchNow}>
+            <button type="button" className={btnPrimary} onClick={dispatchNow} disabled={sending}>
               <Send className="h-4 w-4" />
-              تأكيد وإرسال ({recipientsText})
+              {sending ? 'جارٍ الإرسال…' : `تأكيد وإرسال (${recipientsText})`}
             </button>
           </div>
         </div>

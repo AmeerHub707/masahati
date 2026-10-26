@@ -551,6 +551,34 @@ const notifRes = await notifications.loadNotificationsWithFallback();
 report('4.15 notifications load from the server', notifRes.error === null && Array.isArray(notifRes.notifications) && notifRes.notifications.length === 1);
 report('4.16 notification mapped with text + read', notifRes.notifications[0].text === 'وصل عرض جديد على طلبك' && notifRes.notifications[0].read === false);
 
+// البث الإداري: `title` + `body` داخل مغلّف صفحة، و`is_read` بصيغة 0/"false".
+globalThis.fetch = makeFetch({
+  'GET /api/notifications': {
+    status: 200,
+    body: {
+      data: {
+        data: [
+          { id: 9, title: 'عرض جديد', body: 'خصم 20% على القاعات', is_read: 0, created_at: '2026-10-10 09:00:00', link: '/spaces' },
+          { id: 10, title: 'تنبيه', body: 'نص', is_read: 'false', type: 'broadcast' },
+        ],
+      },
+    },
+  },
+});
+const notifBroadcast = await notifications.loadNotificationsWithFallback();
+report(
+  '4.16a broadcast title/body/link mapped from nested payload',
+  notifBroadcast.notifications.length === 2 &&
+    notifBroadcast.notifications[0].title === 'عرض جديد' &&
+    notifBroadcast.notifications[0].text === 'خصم 20% على القاعات' &&
+    notifBroadcast.notifications[0].link === '/spaces' &&
+    notifBroadcast.notifications[1].icon === 'broadcast'
+);
+report(
+  '4.16b is_read 0/"false" kept unread',
+  notifBroadcast.notifications[0].read === false && notifBroadcast.notifications[1].read === false
+);
+
 globalThis.fetch = makeFetch({ 'GET /api/notifications': { status: 500, body: { message: 'boom' } } });
 const notifFail = await notifications.loadNotificationsWithFallback();
 report('4.17 notifications failure returns error + empty list', typeof notifFail.error === 'string' && notifFail.error.length > 0 && notifFail.notifications.length === 0);
