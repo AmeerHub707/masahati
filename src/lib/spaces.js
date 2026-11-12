@@ -162,12 +162,33 @@ export function clearSpacesCatalogCache() {
 // الشاشات (AdDetailsPage) لتقرر عرض الرسالة المناسبة.
 const BOOKING_TIMEOUT_MS = 8000;
 
+// إضافة ساعات إلى وقت بصيغة HH:MM — الباك إند يتحقق من end_time صريحاً،
+// وقد كان يُرسل undefined فيرفض الطلب بـ422. تُرجع null إن تعذّر التحليل.
+function addHoursToTime(time, hours) {
+  const m = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(String(time || '').trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  const add = Math.max(1, Math.round(Number(hours) || 1));
+  if (!Number.isFinite(h) || !Number.isFinite(min) || h > 23 || min > 59) return null;
+  // لا نعبر منتصف الليل: النهاية القصوى 23:59.
+  const total = Math.min(h * 60 + min + add * 60, 24 * 60 - 1);
+  const hh = String(Math.floor(total / 60)).padStart(2, '0');
+  const mm = String(total % 60).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
 /**
  * محاولة إنشاء حجز. لا ترمي استثناءً إطلاقاً — ترجع دائماً
- * { ok: boolean, reason?: string, booking?: object }.
+ * { ok: boolean, reason?: string, status?: number, message?: string, errors?: object, booking?: object }.
  * @param {{spaceId:number|string, date?:string, startTime?:string, endTime?:string, hours?:number}} payload
  */
 export async function createBooking(payload) {
+  const startTime = payload.startTime || '';
+  const hours = Math.max(1, Number(payload.hours) || 1);
+  // end_time مشتق من start_time + hours إن لم يُمرَّر صراحةً.
+  const endTime = payload.endTime || addHoursToTime(startTime, hours);
+
   try {
     const res = await request('/api/bookings', {
       method: 'POST',
@@ -175,24 +196,31 @@ export async function createBooking(payload) {
       body: {
         space_id: payload.spaceId,
         booking_date: payload.date || undefined,
-        start_time: payload.startTime || undefined,
-        end_time: payload.endTime || undefined,
-        hours: payload.hours || undefined,
+        start_time: startTime || undefined,
+        end_time: endTime || undefined,
+        hours,
       },
       timeoutMs: BOOKING_TIMEOUT_MS,
     });
-    const b = (res && typeof res === 'object' && (res.booking || res.data)) || res || null;
-    if (b && b.id != null) return { ok: true, booking: b };
-    // 200 بلا حجز: نحتاجه idempotent، نعتبرها نجاحاً مع رسالة.
+    const body = res && typeof res === 'object' ? res : {};
+    const b = body.booking || body.data?.booking || body.data || body || null;
     return { ok: true, booking: b };
   } catch (err) {
     const status = err && (err.status ?? err.statusCode);
+    const data = (err && err.data) || {};
     let reason = 'unavailable';
     if (status === 401) reason = 'unauthenticated';
     else if (status === 403) reason = 'forbidden';
     else if (status === 409) reason = 'conflict';
     else if (status === 422) reason = 'invalid';
-    return { ok: false, reason, status: status ?? null };
+    // نُبقي تفاصيل الرفض ظاهرة: بلا هذا تتحوّل كل الأخطاء إلى «غير متاحة».
+    return {
+      ok: false,
+      reason,
+      status: status ?? null,
+      message: err?.message || data.message || '',
+      errors: data.errors || null,
+    };
   }
 }
 

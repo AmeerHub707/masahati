@@ -366,6 +366,35 @@ function SpaceActions({ space }) {
   );
 }
 
+// رسالة فشل الحجز — تُظهر سبب الخادم الحقيقي بدل طمس كل الأخطاء في «غير متاحة».
+function BookingError({ error }) {
+  const status = error?.status ?? null;
+  const reason = error?.reason;
+  const fields = error?.errors && typeof error.errors === 'object'
+    ? Object.keys(error.errors)
+    : [];
+
+  let title = 'تعذّر إرسال طلب الحجز.';
+  if (reason === 'conflict') title = 'هذا الوقت محجوز بالفعل.';
+  else if (reason === 'invalid') title = 'بيانات الحجز غير مقبولة من الخادم.';
+  else if (reason === 'forbidden') title = 'لا تملك صلاحية الحجز في هذه المساحة.';
+  else if (reason === 'unauthenticated') title = 'انتهت الجلسة. سجّل الدخول من جديد.';
+  else if (reason === 'unavailable' && (status === 404 || status === 405)) {
+    title = 'خدمة الحجز الفوري غير متاحة بعد.';
+  }
+
+  return (
+    <p className="ad-details__booking-note is-error">
+      <strong>{title}</strong>
+      <span>
+        {error?.message || 'تحقّق من الاتصال وحاول مجدداً.'}
+        {status ? ` — HTTP ${status}` : ''}
+      </span>
+      {fields.length ? <span>حقول مرفوضة: {fields.join(' · ')}</span> : null}
+    </p>
+  );
+}
+
 function BookingPanel({ space, role, isOwner }) {
   const navigate = useNavigate();
   const isAvailable = space.is_active !== false && space.status === 'active';
@@ -375,6 +404,7 @@ function BookingPanel({ space, role, isOwner }) {
   const [hours, setHours] = useState(1);
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState('');
+  const [error, setError] = useState(null);
 
   const pricePerHour = Number(space.price_per_hour) || 0;
   const total = pricePerHour * Math.max(1, Number(hours) || 1);
@@ -430,6 +460,7 @@ function BookingPanel({ space, role, isOwner }) {
     e.preventDefault();
     setSending(true);
     setMessage('');
+    setError(null);
     const res = await createBooking({
       spaceId: space.id,
       date,
@@ -439,11 +470,14 @@ function BookingPanel({ space, role, isOwner }) {
     setSending(false);
     if (res && res.ok) {
       setMessage('ok');
-    } else if (res && res.reason === 'unauthenticated') {
-      navigate(`/login?redirect=${encodeURIComponent(`/ads/${space.id}`)}`, { replace: true });
-    } else {
-      setMessage('unavailable');
+      return;
     }
+    if (res && res.reason === 'unauthenticated') {
+      navigate(`/login?redirect=${encodeURIComponent(`/ads/${space.id}`)}`, { replace: true });
+      return;
+    }
+    // الفشل لا يُخفي النموذج: نُظهر السبب الحقيقي ويبقى الحجز قابلاً لإعادة المحاولة.
+    setError(res || { reason: 'unavailable' });
   };
 
   return (
@@ -455,58 +489,56 @@ function BookingPanel({ space, role, isOwner }) {
 
       {message === 'ok' ? (
         <p className="ad-details__booking-note is-ok">تمّ إرسال طلب الحجز إلى صاحب المساحة. ستجد الحجز في لوحة التحكم.</p>
-      ) : message === 'unavailable' ? (
-        <p className="ad-details__booking-note">
-          <strong>خدمة الحجز الفوري غير متاحة بعد.</strong>
-          <span>هذه الواجهة مرتبطة بنقطة حجز ستُفعَّل قريباً — تابع بحثك أو أنشئ طلباً خاصاً من لوحة التحكم.</span>
-        </p>
       ) : (
-        <form className="ad-details__booking-form" onSubmit={handleSubmit}>
-          <label className="ad-details__booking-field">
-            <span>التاريخ</span>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              required
-            />
-          </label>
-          <label className="ad-details__booking-field">
-            <span>من الساعة</span>
-            <input
-              type="time"
-              value={start}
-              onChange={(e) => setStart(e.target.value)}
-              required
-            />
-          </label>
-          <label className="ad-details__booking-field">
-            <span>عدد الساعات</span>
-            <input
-              type="number"
-              min="1"
-              max="12"
-              step="1"
-              value={hours}
-              onChange={(e) => setHours(Number(e.target.value))}
-              required
-            />
-          </label>
+        <>
+          {error ? <BookingError error={error} /> : null}
+          <form className="ad-details__booking-form" onSubmit={handleSubmit}>
+            <label className="ad-details__booking-field">
+              <span>التاريخ</span>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                required
+              />
+            </label>
+            <label className="ad-details__booking-field">
+              <span>من الساعة</span>
+              <input
+                type="time"
+                value={start}
+                onChange={(e) => setStart(e.target.value)}
+                required
+              />
+            </label>
+            <label className="ad-details__booking-field">
+              <span>عدد الساعات</span>
+              <input
+                type="number"
+                min="1"
+                max="12"
+                step="1"
+                value={hours}
+                onChange={(e) => setHours(Number(e.target.value))}
+                required
+              />
+            </label>
 
-          <div className="ad-details__booking-total">
-            <span>الإجمالي (كل الساعات)</span>
-            <b>{fmtMoney(total)} <small>ش.ج</small></b>
-          </div>
+            <div className="ad-details__booking-total">
+              <span>الإجمالي (كل الساعات)</span>
+              <b>{fmtMoney(total)} <small>ش.ج</small></b>
+            </div>
 
-          <button
-            type="submit"
-            className="btn-primary ad-details__book-btn"
-            disabled={sending}
-          >
-            {sending ? <Loader2 className="spin" size={18} /> : <Send size={18} />}
-            {sending ? 'جارٍ إرسال الطلب...' : 'تأكيد الحجز'}
-          </button>
-        </form>
+            <button
+              type="submit"
+              className="btn-primary ad-details__book-btn"
+              disabled={sending}
+            >
+              {sending ? <Loader2 className="spin" size={18} /> : <Send size={18} />}
+              {sending ? 'جارٍ إرسال الطلب...' : 'تأكيد الحجز'}
+            </button>
+          </form>
+        </>
       )}
     </div>
   );

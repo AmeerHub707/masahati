@@ -5634,6 +5634,8 @@ html.dark .spaces__popup-price{color:var(--accent-2);}
 .ad-details__booking-note strong{font-weight:800;}
 .ad-details__booking-note span{color:var(--text-muted);font-size:.85rem;}
 .ad-details__booking-note.is-ok{background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.3);color:#16a34a;}
+.ad-details__booking-note.is-error{background:rgba(220,38,38,.07);border-color:rgba(220,38,38,.3);}
+.ad-details__booking-note.is-error strong{color:#b91c1c;}
 
 @media (max-width:768px){
   .ad-details__stats{grid-template-columns:repeat(3,1fr);}
