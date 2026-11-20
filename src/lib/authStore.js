@@ -3,7 +3,7 @@
 // التوكن هو المرجع الوحيد لكون الجلسة نشطة؛ لا نعتمد على أي علم إضافي.
 
 import { request, getToken, setToken, setUser, clearUser, getUser, ApiError, resetLocalUserData, consumeSessionExpired } from './api';
-import { extractPicturePath } from './profilePicture';
+import { extractPicturePath, resolvePictureUrl } from './profilePicture';
 
 // إعادة التصدير لتسهيل الاستيراد من صفحات المصادقة
 export { request, ApiError, consumeSessionExpired };
@@ -38,6 +38,61 @@ export function normalizeRole(role) {
   return s;
 }
 
+// مصدر واحد لترطيب الجلسة بعد الحصول على التوكن. كلا مساري الدخول
+// (كلمة المرور وGoogle) يمرّان من هنا حتى لا يختلف مصدر بيانات المستخدم
+// أو الصورة بينهما. /api/profile يُقرأ دائماً — لا فقط عند غياب الدور —
+// لأنه المصدر الموثوق الوحيد لصورة الملف في تسجيل الدخول العادي.
+async function hydrateSession(data, googlePayload = null) {
+  const backendUser = extractUser(data);
+  const user = { ...backendUser };
+
+  let profile = {};
+  try {
+    profile = extractUser(await request('/api/profile', { method: 'GET', auth: true, timeoutMs: 12000 }));
+  } catch {
+    /* تعذّر الملف الشخصي: نكمل بالبيانات المتاحة دون إفشال الدخول */
+  }
+
+  // نملأ الفراغات فقط؛ قيم استجابة الدخول تبقى ذات أولوية.
+  const isEmpty = (v) => v === undefined || v === null || v === '';
+  for (const k of ['name', 'full_name', 'email', 'phone', 'picture', 'photo', 'avatar', 'image']) {
+    if (isEmpty(user[k]) && !isEmpty(profile[k])) user[k] = profile[k];
+  }
+
+  // الصورة: استجابة الدخول، ثم /api/profile، ثم صورة Google كملاذ أخير.
+  const rawPicture = extractPicturePath(backendUser, profile)
+    || (googlePayload && typeof googlePayload.picture === 'string' ? googlePayload.picture : null);
+  const pictureUrl = resolvePictureUrl(rawPicture);
+  if (pictureUrl) {
+    user.photo = pictureUrl;
+    user.picture = pictureUrl;
+  }
+
+  if (isEmpty(user.name) && googlePayload && typeof googlePayload.name === 'string' && googlePayload.name) {
+    user.name = googlePayload.name;
+    if (isEmpty(user.full_name)) user.full_name = googlePayload.name;
+  }
+  if (isEmpty(user.email) && googlePayload && typeof googlePayload.email === 'string' && googlePayload.email) {
+    user.email = googlePayload.email;
+  }
+
+  const role = normalizeRole(user.role || profile.role);
+  if (role) user.role = role;
+
+  // اختياري: import.meta.env غير معرّف تحت Node في اختبارات التكامل.
+  if (import.meta.env?.DEV) {
+    console.info('[auth hydrate]', {
+      loginPicture: extractPicturePath(backendUser),
+      profilePicture: extractPicturePath(profile),
+      googlePicture: googlePayload?.picture || null,
+      finalPicture: pictureUrl,
+    });
+  }
+
+  setUser(Object.keys(user).length ? user : null);
+  return { ...data, user };
+}
+
 export async function login(email, password) {
   const data = await request('/api/login', {
     method: 'POST',
@@ -45,33 +100,9 @@ export async function login(email, password) {
   });
   if (data && data.token) {
     setToken(data.token);
-    // إصلاح: استجابة /api/login قد تخلو من user مباشرة (مغلّفة في data أو data.user)،
-    // وكذلك الدور قد يأتي بصيغة غير قياسية أو لا يأتي في استجابة الدخول إطلاقاً.
-    // نستخرج المستخدم الحقيقي ونطبّع الدور، وإن غاب نستعلم /api/profile (مصدر الدور
-    // في dashboard.js) حتى يُوجَّه المستخدم إلى لوحة تحكمه لا إلى الرئيسية.
-    const user = extractUser(data);
-    let role = normalizeRole(user.role);
-    if (!role) {
-      try {
-        const profile = extractUser(await request('/api/profile', { method: 'GET', auth: true }));
-        role = normalizeRole(profile.role);
-        if (role) {
-          user.role = role;
-          for (const k of ['name', 'email', 'phone', 'picture', 'photo']) {
-            if (typeof user[k] === 'undefined' && typeof profile[k] !== 'undefined') user[k] = profile[k];
-          }
-        }
-      } catch {
-        /* تجاهل فشل الملف: الدور أصلاً قد لا يقرره الباك إند */
-      }
-    }
-    if (role && !user.role) user.role = role;
-    setUser(Object.keys(user).length ? user : null);
-    // نعيد المستخدم المستخرج ضمن data حتى تعمل navigate(getHomePath(data.user?.role)).
-    return { ...data, user };
+    return hydrateSession(data);
   }
-  // إصلاح: كان الكود السابق يتجاهل غياب التوكن ويعود بنجاح صامت.
-  // الآن: نرمي خطأ واضح إذا لم يُرجع السيرفر توكناً.
+  // نرمي خطأ واضحاً إذا لم يُرجع السيرفر توكناً بدل النجاح الصامت.
   throw new ApiError('استجابة الخادم غير متوقعة (لا يوجد توكن).', 500, data);
 }
 
@@ -124,35 +155,9 @@ export async function googleLogin(idToken, role) {
   });
   if (data && data.token) {
     setToken(data.token);
-    // إصلاح: الباك إند قد لا يُرجع بيانات كاملة لمستخدمي Google في /api/auth/google
-    // أو /api/profile (اسم/بريد/صورة فارغة). الـ id_token نفسه يحمل هذه البيانات في
-    // claims موثوقة (name, email, picture) — نملأ الفراغ فقط ونترك قيم الباك إند
-    // لها الأولوية حين تكون موجودة.
-    const googlePayload = decodeGoogleIdToken(idToken) || {};
-    const backendUser = extractUser(data);
-
-    const hasBackendPicture = Boolean(extractPicturePath(backendUser));
-    const merged = { ...backendUser };
-    if (!hasBackendPicture && typeof googlePayload.picture === 'string' && googlePayload.picture) {
-      merged.picture = googlePayload.picture;
-    }
-    if (!merged.name && (typeof googlePayload.name === 'string' && googlePayload.name)) {
-      merged.name = googlePayload.name;
-    }
-    if (!merged.full_name && merged.name) {
-      merged.full_name = merged.name;
-    }
-    if (!merged.email && typeof googlePayload.email === 'string' && googlePayload.email) {
-      merged.email = googlePayload.email;
-    }
-    // نسخّن دور الباك إند بنفس طريقة تسجيل الدخول العادي.
-    const role = normalizeRole(merged.role);
-    if (role) merged.role = role;
-
-    // نخزّن النسخة المدمجة فقط إذا أضفنا فعلاً قيمة لم تكن موجودة.
-    const fallbackAdded = Object.keys(merged).some((k) => merged[k] && merged[k] !== backendUser[k]);
-    setUser(fallbackAdded ? merged : backendUser);
-    return { ...data, user: merged };
+    // صورة Google تبقى ملاذاً أخيراً فقط حين لا يردّ الباك إند صورة في
+    // استجابة الدخول ولا في /api/profile. بقية التوحيد في hydrateSession.
+    return hydrateSession(data, decodeGoogleIdToken(idToken) || {});
   }
   throw new ApiError('استجابة الخادم غير متوقعة (لا يوجد توكن).', 500, data);
 }

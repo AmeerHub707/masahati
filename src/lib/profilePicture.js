@@ -96,11 +96,21 @@ function withVersion(url, ts) {
   return `${cleaned}${cleaned.includes('?') ? '&' : '?'}t=${ts}`;
 }
 
+// مضيف Cloudinary قد يصل بلا بروتوكول (res.cloudinary.com/...)؛ imageUrl
+// سيلصق به BASE_URL فينتج رابطاً مكسوراً. نضيف https قبل تمريره إليه.
+function normalizePicturePath(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  if (/^https?:\/\//i.test(s) || s.startsWith('data:')) return s;
+  if (/^[a-z0-9-]+(\.[a-z0-9-]+)+(?:\/|$)/i.test(s)) return `https://${s}`;
+  return s;
+}
+
 // يعيد الرابط الكامل مع إعادة ضمّ نسخة التحديث (t=) المخزّنة إن وُجدت، ويحدّث
 // الكاش. الأصل للعرض العادي (تحميل الصفحة): يبقى على نفس نسخة آخر رفع.
 export function resolvePictureUrl(rawPath, scope) {
   if (!rawPath) return null;
-  const base = imageUrl(rawPath);
+  const base = imageUrl(normalizePicturePath(rawPath));
   if (!base) return null;
   let url = base;
   try {
@@ -121,7 +131,7 @@ export function resolvePictureUrl(rawPath, scope) {
 // جديدة كي تظهر فوراً حتى لو تكرر المسار نفسه من الباك إند.
 export function resolveNewPictureUrl(rawPath, scope) {
   if (!rawPath) return null;
-  const base = imageUrl(rawPath);
+  const base = imageUrl(normalizePicturePath(rawPath));
   if (!base) return null;
   const ts = Date.now();
   const url = withVersion(base, ts);

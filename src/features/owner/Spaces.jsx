@@ -631,23 +631,25 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
         onSpacesChange?.(next);
 
         // القراءة المرجعية: GET هو مصدر رابط Cloudinary لا استجابة POST.
+        // إن لم تظهر المساحة الجديدة بعد (اتساق مؤقت أو قائمة مفلترة) نُبقي
+        // البطاقة المتفائلة بدل مسحها بقائمة قديمة.
         const fresh = await loadSpacesWithFallback();
+        const hit = fresh.error ? null : (fresh.spaces || []).find((s) => (
+          created.id != null ? String(s.id) === String(created.id) : s.title === payload.title
+        ));
         let serverImage = created.image || '';
-        if (!fresh.error) {
+        if (hit) {
           next = fresh.spaces;
           setSpaces(next);
           onSpacesChange?.(next);
-          const hit = fresh.spaces.find((s) => (
-            created.id != null ? String(s.id) === String(created.id) : s.title === payload.title
-          ));
-          if (hit) serverImage = hit.image || '';
+          serverImage = hit.image || '';
         }
 
         if (import.meta.env.DEV) {
           console.info('[space create] POST image:', created.image, '| GET image:', serverImage);
         }
 
-        if (!fresh.error && !serverImage) {
+        if (hit && !serverImage) {
           setToast({
             msg: 'حُفظت المساحة، لكن الصورة لم تُحفظ على الخادم — أعد رفعها من «تعديل».',
             type: 'err',
