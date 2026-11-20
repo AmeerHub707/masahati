@@ -121,16 +121,20 @@ function normPhone(v) {
 // الصورة كـ "1" بدل رابط. نرفض هذه القيم حتّى لا تُعرض صورة مكسورة، لكننا
 // نمرّر أي رابط حقيقي فور أن يبدأ الخادم بإعادته — بلا أي تعديل لاحق هنا.
 function safeImageUrl(v) {
+  // بعض استجابات Cloudinary تصل ككائن { secure_url } بدل نص.
+  if (v && typeof v === 'object') v = v.secure_url ?? v.url ?? v.path ?? v.src ?? '';
   if (v === true || v === false || v === 1 || v === 0 || v === '1' || v === '0') return '';
   const s = String(v ?? '').trim();
   if (!s || s === '1' || s === '0' || s === 'true' || s === 'false') return '';
-  // روابط مطلقة، أو مسارات نسبية يعالجها imageUrl.
-  if (/^https?:\/\//i.test(s) || s.startsWith('/')) return imageUrl(s) || '';
-  return '';
+  if (s === '[object Object]') return '';
+  // مضيف بلا بروتوكول (res.cloudinary.com/...): نضيف https بدل إسقاط الرابط.
+  if (/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/|$)/i.test(s)) return `https://${s}`;
+  // روابط مطلقة أو مسارات نسبية (بما فيها spaces/24.jpg) يعالجها imageUrl.
+  return imageUrl(s) || '';
 }
 
 export function mapSpace(s) {
-  const img = safeImageUrl(s.image);
+  const img = safeImageUrl(s.image || s.image_url || s.cover_image || s.cover);
   const gallery = Array.isArray(s.gallery)
     ? s.gallery.map((g) => safeImageUrl(g)).filter(Boolean)
     : (img ? [img] : []);

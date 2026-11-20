@@ -187,7 +187,9 @@ function fmtNumber(n) {
 // (src/pages/SignupPage.jsx) حتى يتطابق السلوك بين الملف الشخصي والمساحة.
 const PHONE_RE = /^[+]?[\d\s()-]{7,}$/;
 
-const MAX_PHOTOS = 6;
+// عقد الباك إند الحالي يستقبل صورة غلاف واحدة (`image`) ولا يدعم `gallery[]`،
+// فإظهار ستّ صور كان يوهم المالك بحفظها ثم يُسقط خمساً منها بلا إشعار.
+const MAX_PHOTOS = 1;
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
 // يقرأ صورة من الجهاز، يصغّرها ويحافظ على صيغتها الأصلية (PNG يبقى PNG،
@@ -203,8 +205,12 @@ function readImageFile(file) {
     fr.onerror = () => reject(new Error('read'));
     fr.onload = () => {
       const raw = String(fr.result);
-      const img = new Image();
-      img.onerror = () => resolve(raw);
+      // `Image` في هذا الملف هو أيقونة lucide مستوردة (سطر 7)، لا مُنشئ DOM.
+      // استخدام window.Image صريحاً يتجنّب TypeError ويُبقي الوعد يُحلّ دائماً.
+      const img = new window.Image();
+      // المتصفح لا يقدر على فك هذه الصيغة (HEIC/AVIF…): نرفضها صراحةً بدل
+      // تمرير بايتات لا تُعرض في الصفحة ولا يقبلها الخادم باسم .jpg.
+      img.onerror = () => reject(new Error(`unsupported:${file.type || file.name}`));
       img.onload = () => {
         const maxSide = 1280;
         const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
@@ -236,7 +242,7 @@ function readImageFile(file) {
           }
           resolve(canvas.toDataURL('image/jpeg', 0.85));
         } catch {
-          resolve(raw);
+          reject(new Error(`unsupported:${file.type || file.name}`));
         }
       };
       img.src = raw;
@@ -533,16 +539,37 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
     }
     const remaining = MAX_PHOTOS - (form.photos || []).length;
     if (remaining <= 0) {
-      setToast({ msg: `يكفي! أقصى عدد صور هو ${MAX_PHOTOS}.`, type: 'err' });
+      setToast({
+        msg: MAX_PHOTOS === 1
+          ? 'صورة الغلاف مرفوعة بالفعل — احذفها لاختيار غيرها.'
+          : `يكفي! أقصى عدد صور هو ${MAX_PHOTOS}.`,
+        type: 'err',
+      });
       return;
     }
     setPhotoBusy(true);
     try {
       const out = [];
-      for (const f of images.slice(0, remaining)) out.push(await readImageFile(f));
-      setForm((prev) => ({ ...prev, photos: [...(prev.photos || []), ...out] }));
-    } catch {
-      setToast({ msg: 'تعذّرت معالجة بعض الصور، جرّب من جديد.', type: 'err' });
+      const failed = [];
+      for (const f of images.slice(0, remaining)) {
+        try {
+          out.push(await readImageFile(f));
+        } catch {
+          failed.push(f);
+        }
+      }
+      if (out.length) {
+        setForm((prev) => ({ ...prev, photos: [...(prev.photos || []), ...out] }));
+      }
+      if (failed.length) {
+        const kinds = [...new Set(failed.map((f) => (
+          f.type || f.name.split('.').pop() || 'صيغة غير معروفة'
+        ).replace('image/', '').toUpperCase()))];
+        setToast({
+          msg: `تعذّر عرض ${failed.length} صورة (${kinds.join('، ')}) — حوّلها إلى JPG أو PNG ثم أعد الرفع.`,
+          type: 'err',
+        });
+      }
     } finally {
       setPhotoBusy(false);
     }
@@ -595,10 +622,39 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
       } else {
         // الإنشاء يُرسل الملف ضمن الطلب نفسه (multipart) — لا رفع منفصل بعده.
         const result = await createSpaceWithFallback(payload);
-        const next = [result.space, ...spaces];
+        const created = result.space || {};
+        const preview = payload.image || '';
+
+        // نعرض المعاينة المحلية فوراً، فلا تظهر بطاقة فارغة أثناء انتظار الخادم.
+        let next = [{ ...created, image: created.image || preview }, ...spaces];
         setSpaces(next);
         onSpacesChange?.(next);
-        setToast({ msg: 'تمت إضافة المساحة — أُرسلت للإدارة للمراجعة.', type: 'ok' });
+
+        // القراءة المرجعية: GET هو مصدر رابط Cloudinary لا استجابة POST.
+        const fresh = await loadSpacesWithFallback();
+        let serverImage = created.image || '';
+        if (!fresh.error) {
+          next = fresh.spaces;
+          setSpaces(next);
+          onSpacesChange?.(next);
+          const hit = fresh.spaces.find((s) => (
+            created.id != null ? String(s.id) === String(created.id) : s.title === payload.title
+          ));
+          if (hit) serverImage = hit.image || '';
+        }
+
+        if (import.meta.env.DEV) {
+          console.info('[space create] POST image:', created.image, '| GET image:', serverImage);
+        }
+
+        if (!fresh.error && !serverImage) {
+          setToast({
+            msg: 'حُفظت المساحة، لكن الصورة لم تُحفظ على الخادم — أعد رفعها من «تعديل».',
+            type: 'err',
+          });
+        } else {
+          setToast({ msg: 'تمت إضافة المساحة — أُرسلت للإدارة للمراجعة.', type: 'ok' });
+        }
       }
       resetModal();
     } catch (err) {
@@ -1005,11 +1061,11 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 multiple
                 hidden
                 onChange={handleFilesUpload}
-                aria-label="رفع صور المساحة"
+                aria-label="رفع صورة غلاف المساحة"
               />
               <button
                 type="button"
@@ -1018,8 +1074,8 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
                 disabled={photoBusy || (form.photos || []).length >= MAX_PHOTOS}
               >
                 {photoBusy ? <Loader2 className="spin" /> : <ImagePlus />}
-                <b>{photoBusy ? 'جارٍ معالجة الصور…' : 'رفع صور من جهازك'}</b>
-                <small>يمكنك اختيار أكثر من صورة — الأولى تصبح الصورة الرئيسية للمساحة</small>
+                <b>{photoBusy ? 'جارٍ معالجة الصورة…' : 'رفع صورة الغلاف من جهازك'}</b>
+                <small>JPG أو PNG أو WEBP — حتى 5 ميجابايت</small>
               </button>
 
               {(form.photos || []).length > 0 ? (
@@ -1052,7 +1108,7 @@ export default function Spaces({ data, autoOpen = false, onSpacesChange }) {
                   )}
                 </div>
               ) : (
-                <div className="msp__upload-hint"><Image /> لا توجد صور مرفوعة بعد.</div>
+                <div className="msp__upload-hint"><Image /> لم تُرفع صورة الغلاف بعد.</div>
               )}
             </section>
 
