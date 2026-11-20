@@ -32,6 +32,23 @@ function firstText(...values) {
   return '';
 }
 
+// معرّفات الحجز/المساحة قد تكون رقمية أو نصية، وقد تصل داخل data أو مسطّحة.
+function firstId(...values) {
+  for (const value of values) {
+    if (value === null || value === undefined || value === '') continue;
+    const id = String(value).trim();
+    if (id) return id;
+  }
+  return null;
+}
+
+function firstObject(...values) {
+  for (const value of values) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  }
+  return null;
+}
+
 // حالة القراءة تصل boolean أو 0/1 أو "0"/"1"/"true"/"false". استخدام
 // Boolean("false") يعطي true، وهو ما كان يجعل كل الإشعارات تبدو مقروءة.
 function isReadFlag(value) {
@@ -49,6 +66,7 @@ function mapNotif(n) {
   // للعميل رغم وصوله، ويحوّل كل الصفوف إلى «غير مقروءة» إن كان الخادم يرسل
   // `is_read` بدل `read`.
   const item = n && typeof n === 'object' ? n : {};
+  const data = firstObject(item.data, item.payload, item.meta);
   const title = firstText(item.title, item.subject, item.heading);
   const body = firstText(item.text, item.message, item.body, item.content, item.description);
   const created = item.created_at ?? item.sent_at ?? item.time ?? item.date ?? '';
@@ -59,7 +77,12 @@ function mapNotif(n) {
     time: asText(item.time) || fmtTime(created),
     read: isReadFlag(item.read ?? item.is_read ?? item.seen ?? item.read_at),
     icon: firstText(item.icon, item.type) || 'bell',
-    link: firstText(item.link, item.url, item.action_url),
+    // نحتفظ بنوع الحدث ومعرّفاته: واجهتا العميل والمالك تحتاجها للتوجيه
+    // حين لا يرسل الباك إند حقل link جاهزاً.
+    type: firstText(item.type, item.event, item.key),
+    spaceId: firstId(data?.space_id, data?.spaceId, item.space_id, item.spaceId),
+    bookingId: firstId(data?.booking_id, data?.bookingId, item.booking_id, item.bookingId),
+    link: firstText(item.link, item.url, item.action_url, data?.link, data?.url),
     created_at: asText(created),
   };
 }
@@ -118,4 +141,22 @@ export async function markAllNotificationsReadWithFallback() {
   } catch (err) {
     throw err instanceof Error ? err : new Error(err?.message || 'تعذّر تحديث الإشعارات.');
   }
+}
+
+// يفسّر إشعار الحجز بغض النظر عن شكل الحمولة التي يرسلها الباك إند، حتى
+// تتمكن كل واجهة من اختيار وجهتها (صفحة المساحة للعميل / الحجوزات للمالك).
+export function notificationIntent(n) {
+  const type = String(n?.type || '').toLowerCase();
+  const text = `${String(n?.title || '')} ${String(n?.text || '')}`.toLowerCase();
+  const source = type || text;
+  const isBooking = /booking|booked|reservation|accept|reject|confirm|حجز|قبول|رفض/.test(source);
+  const isSpace = /space|مساحة|غرفة|استوديو/.test(source) && !isBooking;
+  return {
+    link: String(n?.link || '').trim(),
+    type,
+    isBooking,
+    isSpace,
+    spaceId: n?.spaceId || null,
+    bookingId: n?.bookingId || null,
+  };
 }

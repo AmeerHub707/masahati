@@ -579,6 +579,25 @@ report(
   notifBroadcast.notifications[0].read === false && notifBroadcast.notifications[1].read === false
 );
 
+// إشعار الحجز: نحتفظ بالنوع ومعرّف المساحة/Hجز حتى يمكن توجيه العميل
+// إلى صفحة المساحة والمالك إلى تبويب الحجوزات.
+globalThis.fetch = makeFetch({
+  'GET /api/notifications': {
+    status: 200,
+    body: { data: [{ id: 11, type: 'booking_confirmed', message: 'تم قبول حجزك', data: { booking_id: 42, space_id: 9 } }] },
+  },
+});
+const bookingNotif = (await notifications.loadNotificationsWithFallback()).notifications[0];
+const bookingIntent = notifications.notificationIntent(bookingNotif);
+report(
+  '4.16c booking notification keeps type/space/booking ids',
+  bookingNotif.type === 'booking_confirmed' && bookingNotif.spaceId === '9' && bookingNotif.bookingId === '42'
+);
+report(
+  '4.16d booking intent is routable without a backend link',
+  bookingIntent.isBooking && bookingIntent.spaceId === '9' && bookingIntent.link === ''
+);
+
 globalThis.fetch = makeFetch({ 'GET /api/notifications': { status: 500, body: { message: 'boom' } } });
 const notifFail = await notifications.loadNotificationsWithFallback();
 report('4.17 notifications failure returns error + empty list', typeof notifFail.error === 'string' && notifFail.error.length > 0 && notifFail.notifications.length === 0);

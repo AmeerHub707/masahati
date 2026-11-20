@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Store, Building2, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Megaphone, ChevronLeft, ChevronRight, Lock, Sparkles, Home, CalendarCheck, Receipt, Star, HelpCircle } from 'lucide-react';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import { getCachedPictureUrl } from '@/lib/profilePicture';
-import { loadNotificationsWithFallback, markAllNotificationsReadWithFallback } from '@/lib/notifications';
+import { loadNotificationsWithFallback, markAllNotificationsReadWithFallback, notificationIntent } from '@/lib/notifications';
 
 const NOTIF_ICONS = {
   bell: Bell,
@@ -44,6 +44,7 @@ export default function OwnerLayout({
   const [failedSrc, setFailedSrc] = useState('');
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef(null);
+  const panelRef = useRef(null);
   const btnRef = useRef(null);
   const [panelPos, setPanelPos] = useState({ top: 0, left: 0 });
   const [hiddenTop, setHiddenTop] = useState(false);
@@ -56,6 +57,8 @@ export default function OwnerLayout({
   ]);
   const [notifLoading, setNotifLoading] = useState(true);
   const [notifError, setNotifError] = useState('');
+  const [notifBusy, setNotifBusy] = useState(false);
+  const [notifAction, setNotifAction] = useState('');
 
   const loadNotifs = async () => {
     setNotifLoading(true);
@@ -94,11 +97,23 @@ export default function OwnerLayout({
   const applyLocalMarkRead = () => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
 
   const handleMarkAllRead = async () => {
+    if (notifBusy || notifLoading) return;
+    setNotifBusy(true);
+    setNotifAction('');
+    const before = notifications;
     applyLocalMarkRead();
     try {
-      await markAllNotificationsReadWithFallback();
-    } catch {
-      /* الفشل لا يمنع العلامة المحلية الموضعية */
+      const res = await markAllNotificationsReadWithFallback();
+      setNotifAction(res?.message || 'تم تعليم الإشعارات كمقروءة.');
+      const fresh = await loadNotificationsWithFallback();
+      if (!fresh.error) {
+        setNotifications(fresh.notifications.map((n) => ({ ...n, icon: NOTIF_ICONS[n.icon] || Bell })));
+      }
+    } catch (err) {
+      setNotifications(before);
+      setNotifAction(err?.message || 'تعذّر تحديث الإشعارات.');
+    } finally {
+      setNotifBusy(false);
     }
   };
 
@@ -106,6 +121,29 @@ export default function OwnerLayout({
     setNotifications((prev) =>
       prev.map((item) => (item.id === id ? { ...item, read: true } : item))
     );
+  };
+
+  // صاحب المساحة: إشعار الحجز يفتح تبويب الحجوزات (وإشعار المساحة يفتح
+  // «مساحاتي») بدل الاكتفاء بتعليمه كمقروء. رابط الباك إند إن وُجد مقدم.
+  const activateNotif = (n) => {
+    handleMarkOneRead(n.id);
+    const intent = notificationIntent(n);
+    const target = intent.link;
+    if (/^https?:\/\//i.test(target)) {
+      window.open(target, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    let tab = '';
+    if (target.startsWith('/dashboard/space-owner')) {
+      const query = target.includes('?') ? target.slice(target.indexOf('?') + 1) : '';
+      tab = new URLSearchParams(query).get('tab') || '';
+    }
+    if (!tab && intent.isBooking) tab = 'bookings';
+    if (!tab && intent.isSpace) tab = 'my-spaces';
+    if (!tab) return;
+    setNotifOpen(false);
+    setNotifAction('');
+    onNavigate?.(tab);
   };
 
   // يغلق لوحة الإشعارات بزر Escape ويعيد التركيز لزر الجرس.
@@ -125,7 +163,11 @@ export default function OwnerLayout({
   // إغلاق لوحة الإشعارات بالنقر خارجها.
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false);
+      // اللوحة تُرسم في portal خارج notifRef؛ فحص الزر وحده كان يُغلقها
+      // عند أي نقرة داخلها قبل تنفيذ «قراءة الكل» أو فتح الإشعار.
+      const inButton = notifRef.current && notifRef.current.contains(e.target);
+      const inPanel = panelRef.current && panelRef.current.contains(e.target);
+      if (!inButton && !inPanel) setNotifOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -339,18 +381,21 @@ export default function OwnerLayout({
 
               {createPortal(
                 notifOpen && (
-                  <div className="odash__notif-panel" id="odash-notif-panel" role="dialog" aria-label="الإشعارات" style={{ position: 'fixed', top: panelPos.top, left: panelPos.left }}>
+                  <div ref={panelRef} className="odash__notif-panel" id="odash-notif-panel" role="dialog" aria-label="الإشعارات" style={{ position: 'fixed', top: panelPos.top, left: panelPos.left }}>
                     <div className="odash__notif-header">
                       <h3>الإشعارات</h3>
                       <button
                         type="button"
                         className="odash__notif-mark"
                         onClick={handleMarkAllRead}
-                        disabled={notifLoading || notifications.length === 0}
+                        disabled={notifBusy || notifLoading || notifications.length === 0}
                       >
-                        قراءة الكل
+                        {notifBusy ? 'جارٍ…' : 'قراءة الكل'}
                       </button>
                     </div>
+                    {notifAction && (
+                      <p className="odash__notif-status" role="status">{notifAction}</p>
+                    )}
                     {notifLoading ? (
                       <p className="odash__notif-empty">جارٍ تحميل الإشعارات…</p>
                     ) : notifError && notifications.length === 0 ? (
@@ -372,11 +417,11 @@ export default function OwnerLayout({
                               role="button"
                               tabIndex={0}
                               className={`odash__notif-item${n.read ? '' : ' is-unread'}`}
-                              onClick={() => handleMarkOneRead(n.id)}
+                              onClick={() => activateNotif(n)}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter' || e.key === ' ') {
                                   e.preventDefault();
-                                  handleMarkOneRead(n.id);
+                                  activateNotif(n);
                                 }
                               }}
                             >

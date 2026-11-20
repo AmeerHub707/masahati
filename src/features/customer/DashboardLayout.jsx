@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Home, CalendarCheck, Heart, Settings, LogOut, MapPin, Menu, X, Bell, Check, Clock, FileText, Megaphone, ChevronLeft, ChevronRight, Lock, Sparkles, HelpCircle, Scale, RefreshCw } from 'lucide-react';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import { getCachedPictureUrl } from '@/lib/profilePicture';
-import { loadNotificationsWithFallback, markAllNotificationsReadWithFallback } from '@/lib/notifications';
+import { loadNotificationsWithFallback, markAllNotificationsReadWithFallback, notificationIntent } from '@/lib/notifications';
 
 const NOTIF_ICONS = {
   bell: Bell,
@@ -110,6 +110,8 @@ export default function DashboardLayout({
   const [notifications, setNotifications] = useState([]);
   const [notifLoading, setNotifLoading] = useState(true);
   const [notifError, setNotifError] = useState('');
+  const [notifBusy, setNotifBusy] = useState(false);
+  const [notifAction, setNotifAction] = useState('');
   // معرّفات عُلمت كمقروءة محلياً (لا يوجد مسار في الباك إند لإشعار واحد).
   // محفوظة في localStorage لكل مستخدم حتى لا تعود «غير مقروءة» بعد إعادة تحميل.
   const readIdsRef = useRef(null);
@@ -187,11 +189,27 @@ export default function DashboardLayout({
   };
 
   const handleMarkAllRead = async () => {
+    if (notifBusy || notifLoading) return;
+    setNotifBusy(true);
+    setNotifAction('');
+    const before = notifications;
+    const beforeIds = new Set(readIdsRef.current);
     applyLocalMarkRead();
     try {
-      await markAllNotificationsReadWithFallback();
-    } catch {
-      /* الفشل لا يمنع العلامة المحلية الموضعية */
+      const res = await markAllNotificationsReadWithFallback();
+      setNotifAction(res?.message || 'تم تعليم الإشعارات كمقروءة.');
+      // مزامنة صامتة مع الخادم حتى لا تعود الإشعارات غير مقروءة بعد تحديث.
+      const fresh = await loadNotificationsWithFallback();
+      if (!fresh.error) {
+        setNotifications(decorateNotifications(fresh.notifications, readIdsRef.current));
+      }
+    } catch (err) {
+      readIdsRef.current = beforeIds;
+      saveReadIds(user, readIdsRef.current);
+      setNotifications(before);
+      setNotifAction(err?.message || 'تعذّر تحديث الإشعارات.');
+    } finally {
+      setNotifBusy(false);
     }
   };
 
@@ -205,19 +223,25 @@ export default function DashboardLayout({
     );
   };
 
-  // إن حمل الإشعار رابطاً (البث الإداري يقبل `link`) نفتحه: الداخلي عبر
-  // الراوتر، والخارجي في تبويب جديد.
+  // التوجيه حسب نوع الإشعار: إشعار قبول/رفض الحجز يفتح صفحة المساحة
+  // للعميل. رابط الباك إند (`link`) يبقى ذا أولوية حين يُرسَل.
   const activateNotif = (n) => {
     handleMarkOneRead(n.id);
-    const link = String(n.link || '').trim();
-    if (!link) return;
-    if (/^https?:\/\//i.test(link)) {
-      window.open(link, '_blank', 'noopener,noreferrer');
+    const intent = notificationIntent(n);
+    let target = intent.link;
+    if (!target && intent.isBooking && intent.spaceId) {
+      target = `/ads/${encodeURIComponent(intent.spaceId)}`;
+    }
+    if (!target) return;
+    if (/^https?:\/\//i.test(target)) {
+      window.open(target, '_blank', 'noopener,noreferrer');
       return;
     }
-    if (link.startsWith('/')) {
+    // لا نمرّر روابط protocol-relative (//host) إلى الراوتر.
+    if (target.startsWith('/') && !target.startsWith('//')) {
       setNotifOpen(false);
-      navigate(link);
+      setNotifAction('');
+      navigate(target);
     }
   };
 
@@ -553,12 +577,15 @@ export default function DashboardLayout({
                           type="button"
                           className="dash__notif-mark"
                           onClick={handleMarkAllRead}
-                          disabled={notifLoading || unreadCount === 0}
+                          disabled={notifBusy || notifLoading || unreadCount === 0}
                         >
-                          قراءة الكل
+                          {notifBusy ? 'جارٍ…' : 'قراءة الكل'}
                         </button>
                       </div>
                     </div>
+                    {notifAction && (
+                      <p className="dash__notif-status" role="status">{notifAction}</p>
+                    )}
                     {notifError && notifications.length > 0 && (
                       <p className="dash__notif-inline-error">{notifError}</p>
                     )}
