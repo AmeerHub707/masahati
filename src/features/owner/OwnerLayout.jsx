@@ -160,6 +160,13 @@ export default function OwnerLayout({
     return () => document.removeEventListener('keydown', onKey, true);
   }, [notifOpen]);
 
+  // النافذة الجانبية للإشعارات الفورية تطلب فتح تبويب الحجوزات من أي صفحة.
+  useEffect(() => {
+    const onTab = (e) => onNavigate?.(e.detail);
+    window.addEventListener('masahati:owner-tab', onTab);
+    return () => window.removeEventListener('masahati:owner-tab', onTab);
+  }, [onNavigate]);
+
   // إغلاق لوحة الإشعارات بالنقر خارجها.
   useEffect(() => {
     const handleClickOutside = (e) => {

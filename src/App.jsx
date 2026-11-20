@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from '@/pages/LandingPage';
 import { AppReadyContext } from '@/context/AppReadyContext';
+import RealtimeNotifications from '@/components/notifications/RealtimeNotifications';
 import SpacesPage from '@/pages/SpacesPage';
 import LoginPage from '@/pages/LoginPage';
 import SignupPage from '@/pages/SignupPage';
@@ -58,6 +59,7 @@ function RequireRole({ role, children }) {
 export default function App() {
   return (
     <AppReadyContext.Provider value={true}>
+      <RealtimeNotifications />
       <Suspense fallback={<RouteFallback />}>
       <Routes>
       {/* الصفحة الرئيسية - صفحة الهبوط (الترحيب) */}

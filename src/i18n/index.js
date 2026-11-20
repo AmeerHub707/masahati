@@ -12,6 +12,7 @@ import arCustomer from './locales/ar/customer.json';
 import arOwner from './locales/ar/owner.json';
 import arAdmin from './locales/ar/admin.json';
 import arSpaces from './locales/ar/spaces.json';
+import arNotifications from './locales/ar/notifications.json';
 
 import enCommon from './locales/en/common.json';
 import enNav from './locales/en/nav.json';
@@ -24,6 +25,7 @@ import enCustomer from './locales/en/customer.json';
 import enOwner from './locales/en/owner.json';
 import enAdmin from './locales/en/admin.json';
 import enSpaces from './locales/en/spaces.json';
+import enNotifications from './locales/en/notifications.json';
 
 // مفتاح التخزين متوافق مع نمط masahati_* المستعمل في الثيم (useTheme.js).
 export const LANG_KEY = 'masahati_lang';
@@ -60,12 +62,12 @@ const initialLang = detectInitialLang();
 
 i18n.use(initReactI18next).init({
   resources: {
-    ar: { common: arCommon, nav: arNav, landing: arLanding, footer: arFooter, api: arApi, auth: arAuth, dashboard: arDashboard, customer: arCustomer, owner: arOwner, admin: arAdmin, spaces: arSpaces },
-    en: { common: enCommon, nav: enNav, landing: enLanding, footer: enFooter, api: enApi, auth: enAuth, dashboard: enDashboard, customer: enCustomer, owner: enOwner, admin: enAdmin, spaces: enSpaces },
+    ar: { common: arCommon, nav: arNav, landing: arLanding, footer: arFooter, api: arApi, auth: arAuth, dashboard: arDashboard, customer: arCustomer, owner: arOwner, admin: arAdmin, spaces: arSpaces, notifications: arNotifications },
+    en: { common: enCommon, nav: enNav, landing: enLanding, footer: enFooter, api: enApi, auth: enAuth, dashboard: enDashboard, customer: enCustomer, owner: enOwner, admin: enAdmin, spaces: enSpaces, notifications: enNotifications },
   },
   lng: initialLang,
   fallbackLng: DEFAULT_LANG,
-  ns: ['common', 'nav', 'landing', 'footer', 'api', 'auth', 'dashboard', 'customer', 'owner', 'admin', 'spaces'],
+  ns: ['common', 'nav', 'landing', 'footer', 'api', 'auth', 'dashboard', 'customer', 'owner', 'admin', 'spaces', 'notifications'],
   defaultNS: 'common',
   // الموارد كلها مضمّنة في الحزمة، فلا داعي لتأجيل التهيئة إلى الطور التالي:
   // التهيئة المتزامنة تمنع وميض مفتاح ترجمة، وتمنع إعادة تصيير متأخّرة بعد

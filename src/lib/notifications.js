@@ -60,7 +60,7 @@ function isReadFlag(value) {
   return false;
 }
 
-function mapNotif(n) {
+export function mapNotification(n) {
   // البث الإداري يصل عادةً بحقلي `title` و`body`، بينما إشعارات الحجز تصل
   // بـ`message` أو `text`. الاقتصار على الأخيرين كان يعرض إشعاراً فارغاً
   // للعميل رغم وصوله، ويحوّل كل الصفوف إلى «غير مقروءة» إن كان الخادم يرسل
@@ -112,7 +112,7 @@ export async function fetchNotifications() {
     auth: true,
     timeoutMs: REQ_TIMEOUT_MS,
   });
-  return listOf(res).map(mapNotif);
+  return listOf(res).map(mapNotification);
 }
 
 export async function markNotificationsRead() {

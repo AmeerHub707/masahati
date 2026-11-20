@@ -41,6 +41,7 @@ const authStore = await server.ssrLoadModule('/src/lib/authStore.js');
 const dashboard = await server.ssrLoadModule('/src/lib/dashboard.js');
 const requests = await server.ssrLoadModule('/src/lib/requests.js');
 const notifications = await server.ssrLoadModule('/src/lib/notifications.js');
+const realtime = await server.ssrLoadModule('/src/lib/realtime.js');
 const passwordRules = await server.ssrLoadModule('/src/lib/passwordRules.js');
 
 const TOKEN = 'tok-test-123';
@@ -596,6 +597,25 @@ report(
 report(
   '4.16d booking intent is routable without a backend link',
   bookingIntent.isBooking && bookingIntent.spaceId === '9' && bookingIntent.link === ''
+);
+report(
+  '4.16e private channel names match Laravel convention',
+  realtime.channelNameFor('space_owner', 9) === 'private-owner.9' &&
+    realtime.channelNameFor('customer', 17) === 'private-user.17'
+);
+const broadcastEvent = notifications.mapNotification({
+  id: 88,
+  type: 'booking_request',
+  title: 'طلب حجز جديد',
+  message: 'طلب حجز على «Media Live Space»',
+  space_id: 9,
+  booking_id: 42,
+  link: '/dashboard/space-owner?tab=bookings&booking=42',
+});
+report(
+  '4.16f broadcast payload maps to toast fields',
+  broadcastEvent.spaceId === '9' && broadcastEvent.bookingId === '42' &&
+    notifications.notificationIntent(broadcastEvent).isBooking
 );
 
 globalThis.fetch = makeFetch({ 'GET /api/notifications': { status: 500, body: { message: 'boom' } } });
